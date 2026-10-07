@@ -3,6 +3,11 @@
 Decisions agreed for the first prototype. Values marked *provisional* are
 placeholders until measured or tested.
 
+The numbers below are the agreed starting point. The working values, and the
+checks that tie them together, live in `ratling/params.py`
+(`python3 -m ratling.params` prints them); when the two disagree, the code
+is current and this page needs updating.
+
 ## Function
 
 - 1 common input → exactly one of 25 outputs at a time.
@@ -18,33 +23,70 @@ placeholders until measured or tested.
 
 - Stator is stationary and stands vertically, face to the front.
 - All 25 outputs and the common input leave the unit **towards the front**.
-  The input enters on the rotor axis at the stator centre.
+  The input enters on the rotor axis at the stator centre. An inlet from the
+  stator rim through an internal channel was considered and rejected: the
+  channel would pass ~4 mm from the ports through printed walls, the leak
+  path this design most needs to avoid.
+- Port track: single track, fittings straight in the stator face (no remote
+  panel). Pitch is set by the G1/8 fitting hex: R 64 mm, pitch 16.04 mm,
+  stator Ø198 (Stage 2).
 - Rotor sits behind the stator. It carries one internal passage from the
   centre to the port radius; no rotary union, no moving hoses.
 - Rotor shaft runs backwards from the rotor.
 - The crank is **on the side**: crank axis is horizontal, left–right,
   perpendicular to the rotor axis, coupled through a 1:1 bevel pair.
   The ratio may change later (reduction) without changing the layout.
+- Drive: Ø8 steel shafts, two 608ZZ bearings per shaft. Both bearing pairs
+  sit in one printed rear frame, so the bevel mesh depends on one part. The
+  frame is joined to the stator by four columns (M5 through); the column
+  bolts are tightened with the rotor in place so the spigot centres the
+  frame.
+- Bevel pair: printed straight bevel gears, module 2, 20 teeth, 0.15 mm
+  backlash, mesh checked for interference in the model. A bought pair can
+  replace it by changing the gear numbers in `params.py`.
 - The 25-position detent and the valve cam sit on the **rotor shaft**, not on
   the crank shaft, so gear backlash affects neither port alignment nor pulse
   timing.
 
-## Sealing concept ("shoe")
+## Sealing concept
 
-- Two seals on the rotor face: one around the centre inlet (rotates in place),
-  one around the outlet ("shoe") that travels over the stator ports.
+- Centre inlet: a spigot on the rotor runs in a bore in the stator centre,
+  sealed by a radial O-ring on the spigot. It also centres the rotor.
+- Outlet: a **floating shoe**, a small piston in a bore in the rotor with a
+  radial O-ring, pressed on the stator face by a pen-type spring and by line
+  pressure (balance ratio > 1). Its flat face is the only sliding seal and
+  the only part that wears; it is printed for the first tests and can be
+  turned from POM.
+- One O-ring size for both: 8 × 1.5.
+- Shoe face and port: the port stays fully under the shoe face within
+  ±2.4° of alignment; alignment within ±1.1° keeps a 1.5 mm land around it.
 - Stator face carries no seals. It is a flat plate; a non-printed face plate
   (acrylic / POM / aluminium) is the preferred candidate and is compared
-  against a printed face in Stage 1.
+  against a printed face in Stage 1 (variants A and B of the test strips).
 - Leakage past the shoe goes to atmosphere, not into neighbouring channels.
+- The rotor turns with no pressure in it (the valve has vented the line), so
+  only the spring presses the shoe while moving: friction torque is small.
 
-## Pulse valve
+## Pulse valve, cam and detent
 
-- Off-the-shelf 3/2 valve with roller/plunger actuator, stationary, on the
-  input line.
-- Actuated by a 25-lobe cam on the rotor shaft, phased with the detent so the
-  valve opens only in the aligned position.
-- Lobe width is a tuning parameter (pulse duration vs. crank speed).
+- Valve: Airtac M3R110-06G (3/2, roller lever, G1/8), stationary on the rear
+  frame, on the input line: P from the supply, A to the stator centre, R
+  vents the selector after each pulse.
+- Cam: the rotor hub flange, 25 smooth lobes, phased to the rotor by a steel
+  dowel. Being on the rotor side of the gears, it is not affected by gear
+  backlash.
+- The valve roller (Ø15, needs ~5–7 mm of travel) cannot follow 25 lobes on
+  a cam of any size that fits, so a printed lever with a 623 bearing follows
+  the cam and presses the roller through an M3 screw at 2:1. The screw sets
+  the preload and with it the pulse width; it is set on the bench so the
+  pulse stays inside the ±2.4° window above.
+- Detent: an identical lever on the same cam, half a step from the valve
+  lever, loaded by a spring. The valve spring alone would pull the rotor
+  between ports, so the detent spring must be stronger (~1.5 × the valve
+  force through the lever).
+- Inlet hose A → centre: ~220 mm of 6/4, ~3 cm³; with the passages in stator
+  and rotor ~5 cm³ is filled and vented per pulse. If the downstream volume
+  per pulse turns out small, a 4 mm hose on this run cuts it to ~1 cm³.
 
 ## Pressure
 
@@ -79,7 +121,12 @@ The tube is installed once (permanent).
 
 - Measure tube ID; adjust groove/plug diameters.
 - Final working pressure.
-- Port radius and pitch: depends on whether outputs are on the stator face
-  directly or routed to a front panel (concept C).
-- Cam lobe width / pulse duration.
+- Measure the fitting hex: the port pitch has only 0.03 mm margin for a
+  13 mm hex; a 14 mm hex needs R ≈ 69.
+- Valve: actuating force (8 N assumed; sets the detent spring), which port
+  is A, roller-to-body offset (read off the drawing).
+- Test-print a 608 bearing seat (Ø22.1) and a shaft bore (Ø8.15).
+- Pulse width: set with the lever screw, then decide whether the cam needs
+  sharper lobes.
+- Stand / feet for the unit.
 - Optional reduction in the crank drive.

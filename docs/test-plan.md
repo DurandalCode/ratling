@@ -47,6 +47,11 @@ Initial tests should vent to atmosphere and begin at the lowest practical regula
 
 ## Stage 1 — Static rotor/stator interface
 
+*Test article: `selector/stage1_interface.py`* — two bolted strips cut from
+the real geometry, centre to port track, with the aligned port and both
+neighbours. Stator variant A has a printed face, variant B a printed body
+with a 3 mm face plate; rotor and shoe are shared.
+
 Introduce the future sealing interface without rotation.
 
 Use two printed mating parts representing rotor and stator with one aligned flow channel.
@@ -64,6 +69,12 @@ Validate:
 ---
 
 ## Stage 2 — Single-channel rotating interface
+
+*Test article: `selector/stage2_rotary.py`* — full-size unit: 25-port
+stator, rotor arm with the shoe, rear frame with bearings, bevel pair and
+crank. It already carries the valve cam, the pulse valve and the detent, so
+indexing and pulse timing can be checked here; Stage 3 then needs no new
+mechanism, only more ports fitted.
 
 Add:
 

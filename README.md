@@ -37,11 +37,35 @@ The simplest candidate is a single-track rotary selector:
 
 - 25 stator ports arranged around one circular track;
 - one rotor passage aligned with one stator port at a time;
-- a central shaft driven directly by a crank;
+- a rotor shaft driven by a side crank through a 1:1 bevel pair;
 - a detent/indexer providing 25 discrete angular positions;
+- a pulse valve opened by a cam on the rotor only while a port is aligned;
 - all hoses and output fittings remain stationary.
 
 This design is intentionally geometry-inefficient but mechanically simple.
+
+Agreed decisions and numbers: [docs/requirements.md](docs/requirements.md).
+
+## Repository layout
+
+- `ratling/params.py` — all dimensions and the design checks; plain Python:
+  `python3 -m ratling.params`.
+- `ratling/geom.py`, `ratling/gears.py`, `ratling/fcview.py` — shared FreeCAD
+  geometry, bevel gears, and the way parts are shown.
+- `selector/stage1_interface.py`, `selector/stage2_rotary.py` — one generator
+  per test article; `connectors/` — hose and tube connectors.
+- `exports/` — generated STEP / STL / FCStd and reports; not in git.
+
+Generators run inside FreeCAD:
+
+```python
+REPO = '/path/to/ratling'
+exec(open(REPO + '/selector/stage2_rotary.py').read())
+```
+
+Each prints its report with the checks, opens the model (parts, bought
+parts, references, section, labels as groups) and writes `exports/<name>/`.
+Printed parts are exported in their print orientation.
 
 ## Alternatives
 
