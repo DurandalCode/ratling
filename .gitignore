@@ -1,0 +1,19 @@
+# Generated geometry / exports. The scripts under connectors/ and docs/ are
+# the source; everything they write is output and can be regenerated.
+exports/
+*.stl
+*.3mf
+*.step
+*.FCStd1
+*.FCBak
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Local agent/tool state
+.claude/settings.local.json
