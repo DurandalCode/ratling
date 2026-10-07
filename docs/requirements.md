@@ -97,29 +97,41 @@ is current and this page needs updating.
   pressurized volumes. Thin-epoxy impregnation is an option; lacquer is not
   relied upon.
 
-## Output connector: 6 mm hose → 25 × 1 mm metal tube
+## Output connector: 6 mm hose → ~25 mm metal tube
 
 The tube is installed once (permanent).
 
-- Tube: 25 mm OD, 1 mm wall, metal. ID **23 mm (*provisional*, to be
-  measured)**.
+- Tube: metal, ID **23.8 mm**, wall **0.59 mm** (OD ~25.0), measured.
 - Printed plug inserted into the tube; the tube is supported from inside.
 - Seal: O-ring on the plug.
-  - O-ring cross-section 2.5 mm, ~20 % squeeze → groove depth 2.0 mm,
-    groove root Ø19.0 mm, groove width ~3.3 mm.
-  - O-ring 18 × 2.5 (preferred, ~5 % stretch) or 19 × 2.5.
-  - Plug body Ø22.6 mm (0.2 mm radial clearance).
+  - O-ring in hand: 11/16″ × 1/8″, i.e. 17.46 × 3.18 mm (fits, third PLA
+    print). Beware an AS568-212 with the same label: it is 15.5 × 3.5 and
+    would be stretched ~14 % — wrong ring for this tube.
+  - 12 % squeeze → groove depth 2.8 mm, groove root Ø18.2 mm, ring
+    stretch ~4 %. 20 % would not go into the tube by hand; a static seal
+    at 0.5–2 bar needs no more than 10–15 %.
+  - Groove is a trapezoid: square wall on the flange side (pressure pushes
+    the ring there), 45° wall on the tip side so it prints without an
+    overhang; a square groove sagged in the first test print. Flat bottom
+    1.1 × the ring section (3.5 mm), ring fills ~58 % of it.
+  - Plug body Ø23.4 mm (0.2 mm radial clearance), flange Ø29.0. PLA prints
+    came out at the drawn diameter, so no shrink allowance; Ø23.3 went in
+    loose.
 - Retention: 2–3 radial self-tapping screws through the tube wall into the
   plug, placed **between the O-ring and the tube end** (on the unpressurized
   side), optionally plus epoxy.
-  - Axial blow-off force: ~83 N at 2 bar (415 mm² × 0.2 MPa), ~415 N at
+  - Axial blow-off force: ~89 N at 2 bar (445 mm² × 0.2 MPa), ~445 N at
     10 bar.
 - Hose side: 6 mm straight push-in fitting, G1/8 thread tapped into the plug
   end, or a bulkhead push-in fitting through the plug end wall.
 
 ## Open items
 
-- Measure tube ID; adjust groove/plug diameters.
+- Plug: fit confirmed in PLA (body Ø23.4, 11/16″ × 1/8″ ring in the
+  trapezoid groove); next a PETG print with a tapped G1/8 hole and a
+  pressure test.
+- Fitting PS06-01: thread type (G or R 1/8) and a matching tap; the plug
+  hole is Ø8.8 for a G1/8 tap.
 - Final working pressure.
 - Measure the fitting hex: the port pitch has only 0.03 mm margin for a
   13 mm hex; a 14 mm hex needs R ≈ 69.

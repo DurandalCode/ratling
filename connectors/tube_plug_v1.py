@@ -37,18 +37,26 @@ except NameError:
         REPO = os.path.expanduser("~/ratling")
 
 # ---------------------------------------------------------------- parameters
-TUBE_ID = 23.0          # provisional, to be measured
-TUBE_OD = 25.0
+TUBE_ID = 23.8          # measured
+TUBE_WALL = 0.59        # measured
+TUBE_OD = TUBE_ID + 2 * TUBE_WALL
 TUBE_SHOW_LEN = 60.0    # reference tube length shown in the model
 
-RADIAL_CLEAR = 0.2      # plug body vs tube bore, per side
+RADIAL_CLEAR = 0.20     # plug body vs tube bore, per side (PLA: prints to size; 0.25 went in loose)
 INSERT_LEN = 30.0       # depth of the plug inside the tube
 LEAD_CHAMFER = 1.0
 
-ORING_CS = 2.5          # O-ring cross-section
-ORING_SQUEEZE = 0.20
-GROOVE_W = 3.3
-GROOVE_FROM_TIP = 6.0   # groove centre, measured from the pressurized tip
+# The ring in hand: 11/16" x 1/8" at face value (fit confirmed in PLA). An
+# AS568-212 with the same label is really 15.5 x 3.5 and does not suit this tube.
+ORING_ID = 11 / 16 * 25.4   # 17.46
+ORING_CS = 1 / 8 * 25.4     # 3.18
+ORING_SQUEEZE = 0.12    # static seal at 0.5-2 bar; 0.20 would not go in by hand
+# Trapezoid groove: square wall on the flange side, where pressure from the
+# tip pushes the ring; 45 deg wall on the tip side, so nothing overhangs when
+# printed tip up (a square ceiling there sagged into the groove).
+GROOVE_ROOT_W = 1.1 * ORING_CS   # flat bottom
+GROOVE_WALL_FROM_TIP = 9.0   # square wall, measured from the pressurized tip
+GROOVE_MAX_FILL = 0.85  # O-ring section / groove section
 
 SCREW_N = 3
 SCREW_PILOT_D = 2.5     # for ST2.9 / M3 self-tapping into plastic
@@ -81,9 +89,14 @@ cone_h = flange_r - boss_r              # 45 deg
 z_boss = BOSS_LEN
 z_flange = z_boss + cone_h + FLANGE_FLAT   # stop face = tube end
 z_tip = z_flange + INSERT_LEN
-g_mid = z_tip - GROOVE_FROM_TIP
-g0, g1 = g_mid - GROOVE_W / 2, g_mid + GROOVE_W / 2
+g0 = z_tip - GROOVE_WALL_FROM_TIP         # square wall
+g1 = g0 + GROOVE_ROOT_W                   # end of the flat bottom
+g2 = g1 + (body_r - root_r)               # top of the 45 deg wall
+groove_area = GROOVE_ROOT_W * (body_r - root_r) + (body_r - root_r) ** 2 / 2 \
+    + (g2 - g0) * (TUBE_ID / 2 - body_r)  # plus the clearance band above it
+groove_fill = math.pi * (ORING_CS / 2) ** 2 / groove_area
 z_screw = z_flange + SCREW_FROM_TUBE_END
+oring_stretch = 2 * root_r / ORING_ID - 1
 
 
 def V(r, z):
@@ -94,7 +107,7 @@ profile = [
     V(0, 0), V(boss_r, 0), V(boss_r, z_boss),
     V(flange_r, z_boss + cone_h), V(flange_r, z_flange),
     V(body_r, z_flange),
-    V(body_r, g0), V(root_r, g0), V(root_r, g1), V(body_r, g1),
+    V(body_r, g0), V(root_r, g0), V(root_r, g1), V(body_r, g2),
     V(body_r, z_tip - LEAD_CHAMFER), V(body_r - LEAD_CHAMFER, z_tip),
     V(0, z_tip), V(0, 0),
 ]
@@ -103,7 +116,9 @@ plug = face.revolve(App.Vector(0, 0, 0), App.Vector(0, 0, 1), 360)
 plug = Part.Solid(plug) if plug.ShapeType != "Solid" else plug
 
 bore = Part.makeCylinder(BORE_D / 2, z_tip + 2, App.Vector(0, 0, -1))
-tap = Part.makeCylinder(TAP_DRILL_D / 2, TAP_DEPTH + 1, App.Vector(0, 0, -1))
+tap = Part.makeCylinder(TAP_DRILL_D / 2, TAP_DEPTH + 1, App.Vector(0, 0, -1)).fuse(
+    Part.makeCone(TAP_DRILL_D / 2, BORE_D / 2, (TAP_DRILL_D - BORE_D) / 2,
+                  App.Vector(0, 0, TAP_DEPTH)))      # 45 deg roof instead of a flat ceiling
 plug = plug.cut(bore).cut(tap)
 
 for i in range(SCREW_N):
@@ -133,13 +148,19 @@ checks = {
     "wall screw hole -> bore >= 2.5 mm": body_r - SCREW_DEPTH - BORE_D / 2 >= 2.5,
     "wall groove root -> bore >= 3 mm": root_r - BORE_D / 2 >= 3.0,
     "wall tap hole -> boss >= 3 mm": boss_r - TAP_DRILL_D / 2 >= 3.0,
+    "O-ring stretch on the groove root 0..6 %": 0 <= oring_stretch <= 0.06,
+    "groove fill <= %.0f %%" % (GROOVE_MAX_FILL * 100): groove_fill <= GROOVE_MAX_FILL,
+    "O-ring squeeze 8..25 %": 0.08 <= ORING_SQUEEZE <= 0.25,
+    "45 deg groove wall ends below the tip chamfer": g2 <= z_tip - LEAD_CHAMFER - 1.0,
 }
 report = [
     "%s" % NAME,
     "  tube ID / OD           : %.2f / %.2f" % (TUBE_ID, TUBE_OD),
     "  plug body Ø            : %.2f" % (2 * body_r),
-    "  O-ring groove root Ø   : %.2f  depth %.2f  width %.2f" % (2 * root_r, groove_depth, GROOVE_W),
-    "  O-ring suggested       : 18 x %.1f (or 19 x %.1f)" % (ORING_CS, ORING_CS),
+    "  O-ring groove root Ø   : %.2f  depth %.2f  bottom %.2f + 45 deg wall, fill %.0f %%"
+    % (2 * root_r, groove_depth, GROOVE_ROOT_W, groove_fill * 100),
+    "  O-ring                 : %.2f x %.2f, stretch %.1f %%, squeeze %.0f %%"
+    % (ORING_ID, ORING_CS, oring_stretch * 100, ORING_SQUEEZE * 100),
     "  screw pilots           : %d x Ø%.1f, %.1f mm from tube end; tube holes Ø%.1f"
     % (SCREW_N, SCREW_PILOT_D, SCREW_FROM_TUBE_END, TUBE_SCREW_HOLE_D),
     "  overall length         : %.1f" % z_tip,
