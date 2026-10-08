@@ -45,23 +45,41 @@ Initial tests should vent to atmosphere and begin at the lowest practical regula
 
 ---
 
-## Stage 1 — Static rotor/stator interface
+## Stage 1 — Rotor/stator interface on a pivot
 
-*Test article: `selector/stage1_interface.py`* — two bolted strips cut from
-the real geometry, centre to port track, with the aligned port and both
-neighbours. Stator variant A has a printed face, variant B a printed body
-with a 3 mm face plate; rotor and shoe are shared.
+*Test article: `selector/stage1_interface.py`* — a stator strip cut from the
+real geometry (centre to port track, the aligned port and both neighbours)
+and the real rotor arm, carried as in Stage 2: hub, Ø8 shaft, two 608 bearings
+in a rear bridge on four columns. Stator variant A has a printed face,
+variant B a printed body with a 3 mm face plate; rotor and shoe are shared.
 
-Introduce the future sealing interface without rotation.
+The strips were first bolted together; that held the rotor flat at both ends,
+stiffer than the arm on its bearings, and could not move the shoe. Bolts never
+loaded the shoe itself (spring and line pressure do, as in Stage 2), so the
+change is about stiffness and travel, not shoe force.
 
-Use two printed mating parts representing rotor and stator with one aligned flow channel.
+The rotor turns by hand ±16°, across both neighbours. A Ø3 pin through the arm
+into the stator's index sector holds it at whole degrees and at ±14.4°
+(the neighbours); degree k sits in row k mod 3. Shims (8×14) between hub and
+front bearing set the gap: 0.5 → 2.0, 1.0 → 1.5 (nominal), 1.5 → 1.0,
+2.0 → 0.5 mm.
+
+Measure:
+
+- leakage at the aligned port and at the neighbours against angle (0 … ±3°,
+  the port leaves the shoe face at ±2.4°) and against gap — the misalignment
+  the detent must hold to in Stage 2;
+- torque to start and keep the rotor moving (spring scale on the arm end),
+  with and without pressure;
+- the shoe crossing a neighbouring port: catching on the chamfer, wear.
 
 Compare candidate sealing approaches such as replaceable elastomeric seals while keeping all pressure supply hardware off-the-shelf and rated.
 
 Validate:
 
 - face sealing;
-- required clamping/preload;
+- leakage against misalignment and against gap;
+- seal drag;
 - leakage across the interface;
 - surface wear;
 - sensitivity to print finish and flatness.

@@ -100,10 +100,6 @@ def make_stator():
     return body.cut(tools).cut(G.port_chamfers(ALL_PORTS)).removeSplitter()
 
 
-def hub_screws(d, z0, z1):
-    return fuse_all([cyl(d, z0, z1, *port_xy(a, P.HUB_SCREW_R)) for a in (60, 180, 300)])
-
-
 def make_rotor():
     zf, zb = P.rotor_face_z, P.rotor_back_z
     w = P.ROTOR_ARM_W
@@ -111,7 +107,7 @@ def make_rotor():
                     Part.makeBox(P.PORT_R, w, zf - zb, App.Vector(0, -w / 2, zb)),
                     cyl(w, zb, zf, P.PORT_R), G.spigot()])
     holes = fuse_all([G.rotor_passages(),
-                      hub_screws(P.HUB_SCREW_PILOT, zb - 1, zb + P.HUB_SCREW_DEPTH),
+                      G.hub_screws(P.HUB_SCREW_PILOT, zb - 1, zb + P.HUB_SCREW_DEPTH),
                       cyl(P.HUB_PIN_HOLE, zb - 1, zb + P.HUB_PIN_DEPTH, *PIN_XY)])
     return arm.cut(holes).removeSplitter()
 
@@ -139,7 +135,7 @@ def make_hub():
     hub = cam_face(z_fl, zb).fuse(cyl(P.HUB_BOSS_D, P.hub_back_z, z_fl + 0.01))
     z_set = (P.hub_back_z + z_fl) / 2
     holes = fuse_all([cyl(P.SHAFT_BORE_D, P.hub_back_z - 1, zb + 1),
-                      hub_screws(3.4, z_fl - 1, zb + 1),
+                      G.hub_screws(3.4, z_fl - 1, zb + 1),
                       cyl(P.HUB_PIN_HOLE, z_fl - 1, zb + 1, *PIN_XY),
                       ycyl(P.SET_SCREW_PILOT, 0, P.HUB_BOSS_D, 0, z_set)])
     return hub.cut(holes).removeSplitter()

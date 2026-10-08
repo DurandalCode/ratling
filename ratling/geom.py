@@ -119,6 +119,11 @@ def rotor_passages():
     ])
 
 
+def hub_screws(d, z0, z1):
+    """The three M3 screws that hold the hub to the rotor back."""
+    return fuse_all([cyl(d, z0, z1, *port_xy(a, P.HUB_SCREW_R)) for a in (60, 180, 300)])
+
+
 # ---------------------------------------------------------------- shoe
 def shoe():
     """Shoe in its installed position: face at z = 0, on the aligned port."""
