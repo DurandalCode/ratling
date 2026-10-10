@@ -61,6 +61,10 @@ except NameError:
         REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     except NameError:
         REPO = os.path.expanduser("~/ratling")
+try:
+    STAGE3_LIBRARY
+except NameError:
+    STAGE3_LIBRARY = False
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 import ratling.geom as G
@@ -434,7 +438,8 @@ report = [
 ]
 for k, v in checks.items():
     report.append("  [%s] %s" % ("OK " if v else "FAIL", k))
-print("\n".join(report))
+if not STAGE3_LIBRARY:
+    print("\n".join(report))
 
 # ---------------------------------------------------------------- references
 # Bought parts, for the FreeCAD document only; not exported. Thread overlap
@@ -487,53 +492,55 @@ pilot_hose = flipped(G.hose(0, 0, 0, 80), -CAP_T)
 ball = Part.makeSphere(BALL_D / 2, V(0, 0, BODY_H + BARREL_SPIGOT_LEN + BALL_D / 2))
 
 # ---------------------------------------------------------------- output
-os.makedirs(OUT_DIR, exist_ok=True)
-sc = FV.Scene(NAME)
-doc = sc.doc
-for n, s, style in (("Body", body, "rotor"), ("Cap", cap_a, "stator"), ("Diaphragm", dia_a, "shoe"),
-                    ("Chamber_plug", plug, "rotor")):
-    sc.add("Printed", n, s, style)
-bought = [("Barrel_tube", tubes[0], "ghost"), ("Chamber_tube", tubes[1], "ghost"),
-          ("Tie_rods", tie_rods(), "steel"), ("Tube_screws", tube_screws(), "steel"),
-          ("ORings", orings, "oring"), ("Pilot_fitting", pilot_fitting, "steel"),
-          ("Pilot_hose", pilot_hose, "hose"), ("Ball", ball, "flow")]
-for n, s, style in bought:
-    sc.add("Bought", n, s, style)
+# Skipped when another stage loads this file for its shapes (STAGE3_LIBRARY).
+if not STAGE3_LIBRARY:
+    os.makedirs(OUT_DIR, exist_ok=True)
+    sc = FV.Scene(NAME)
+    doc = sc.doc
+    for n, s, style in (("Body", body, "rotor"), ("Cap", cap_a, "stator"), ("Diaphragm", dia_a, "shoe"),
+                        ("Chamber_plug", plug, "rotor")):
+        sc.add("Printed", n, s, style)
+    bought = [("Barrel_tube", tubes[0], "ghost"), ("Chamber_tube", tubes[1], "ghost"),
+              ("Tie_rods", tie_rods(), "steel"), ("Tube_screws", tube_screws(), "steel"),
+              ("ORings", orings, "oring"), ("Pilot_fitting", pilot_fitting, "steel"),
+              ("Pilot_hose", pilot_hose, "hose"), ("Ball", ball, "flow")]
+    for n, s, style in bought:
+        sc.add("Bought", n, s, style)
 
-half = Part.makeBox(400, 200, 800, V(-200, -200, -100))     # y < 0
-for n in ("Body", "Cap", "Diaphragm", "Chamber_plug", "Barrel_tube", "Chamber_tube", "ORings", "Ball", "Pilot_fitting"):
-    style = dict(Body="rotor", Chamber_plug="rotor", Cap="stator", Diaphragm="shoe", ORings="oring", Ball="flow",
-                 Pilot_fitting="steel").get(n, "ghost")
-    sc.add("Section", "Sec_" + n, sc.src[n].cut(half), style)
+    half = Part.makeBox(400, 200, 800, V(-200, -200, -100))     # y < 0
+    for n in ("Body", "Cap", "Diaphragm", "Chamber_plug", "Barrel_tube", "Chamber_tube", "ORings", "Ball", "Pilot_fitting"):
+        style = dict(Body="rotor", Chamber_plug="rotor", Cap="stator", Diaphragm="shoe", ORings="oring", Ball="flow",
+                     Pilot_fitting="steel").get(n, "ghost")
+        sc.add("Section", "Sec_" + n, sc.src[n].cut(half), style)
 
-for text, pos in [
-    ("СТВОЛ: труба %.0f мм (подрезать)" % BARREL_LEN, (-25, 0, BODY_H + BARREL_LEN)),
-    ("КАМЕРА %.0f см3: труба %.0f мм" % (CHAMBER_V, chamber_tube_len), (C.x + 25, 0, tube_end - 40)),
-    ("ЗАГЛУШКА камеры (глухая, PETG)", (C.x + 25, 0, tube_end + 10)),
-    ("ШАРИК Rival", (-25, 0, BODY_H + BARREL_SPIGOT_LEN + BALL_D)),
-    ("КОРПУС QEV (PETG 100 %)", (BODY_R + 10, 0, BODY_H / 2)),
-    ("МЕМБРАНА 1,5 мм, Ø%.0f" % DIA_D, (-BODY_R - 10, 0, 0)),
-    ("КРЫШКА: пилот G1/8 -> M3R110 A", (-BODY_R - 10, 0, -CAP_T / 2)),
-    ("ШПИЛЬКИ M4 x %d x4 + гайки" % rod_len, (rod_pts[1].x, rod_pts[1].y, BODY_H + 10)),
-    ("САМОРЕЗЫ ST2.9 x %.1f x6" % SCREW_L, (-TUBE_OD, 0, BODY_H + SCREW_FROM_TUBE_END)),
-]:
-    sc.label("Labels", text, pos)
-JIG_AT = V(-BODY_R - jig_side, 0, -CAP_T)           # beside the module, stacked as used
-blank = Part.makeBox(JIG_BLANK, JIG_BLANK, DIA_T, V(-JIG_BLANK / 2, -JIG_BLANK / 2, JIG_FLOOR))
-for n, s, z, style in (("Jig_base", jig_base, 0, "frame"), ("Jig_blank", blank, 0, "shoe"),
-                       ("Jig_ring", jig_ring, JIG_FLOOR + DIA_T, "printed"),
-                       ("Jig_puck", jig_puck, JIG_FLOOR + DIA_T, "stator")):
-    sc.add("Jig", n, s, style, offset=V(JIG_AT.x, JIG_AT.y, JIG_AT.z + z))
-sc.label("Labels", "КОНДУКТОР мембраны: основание, резина, рамка, прижим", (JIG_AT.x, 0, JIG_AT.z + 40))
-sc.finish(hidden_groups=("Section",), opaque_groups=("Section",))
-doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
+    for text, pos in [
+        ("СТВОЛ: труба %.0f мм (подрезать)" % BARREL_LEN, (-25, 0, BODY_H + BARREL_LEN)),
+        ("КАМЕРА %.0f см3: труба %.0f мм" % (CHAMBER_V, chamber_tube_len), (C.x + 25, 0, tube_end - 40)),
+        ("ЗАГЛУШКА камеры (глухая, PETG)", (C.x + 25, 0, tube_end + 10)),
+        ("ШАРИК Rival", (-25, 0, BODY_H + BARREL_SPIGOT_LEN + BALL_D)),
+        ("КОРПУС QEV (PETG 100 %)", (BODY_R + 10, 0, BODY_H / 2)),
+        ("МЕМБРАНА 1,5 мм, Ø%.0f" % DIA_D, (-BODY_R - 10, 0, 0)),
+        ("КРЫШКА: пилот G1/8 -> M3R110 A", (-BODY_R - 10, 0, -CAP_T / 2)),
+        ("ШПИЛЬКИ M4 x %d x4 + гайки" % rod_len, (rod_pts[1].x, rod_pts[1].y, BODY_H + 10)),
+        ("САМОРЕЗЫ ST2.9 x %.1f x6" % SCREW_L, (-TUBE_OD, 0, BODY_H + SCREW_FROM_TUBE_END)),
+    ]:
+        sc.label("Labels", text, pos)
+    JIG_AT = V(-BODY_R - jig_side, 0, -CAP_T)           # beside the module, stacked as used
+    blank = Part.makeBox(JIG_BLANK, JIG_BLANK, DIA_T, V(-JIG_BLANK / 2, -JIG_BLANK / 2, JIG_FLOOR))
+    for n, s, z, style in (("Jig_base", jig_base, 0, "frame"), ("Jig_blank", blank, 0, "shoe"),
+                           ("Jig_ring", jig_ring, JIG_FLOOR + DIA_T, "printed"),
+                           ("Jig_puck", jig_puck, JIG_FLOOR + DIA_T, "stator")):
+        sc.add("Jig", n, s, style, offset=V(JIG_AT.x, JIG_AT.y, JIG_AT.z + z))
+    sc.label("Labels", "КОНДУКТОР мембраны: основание, резина, рамка, прижим", (JIG_AT.x, 0, JIG_AT.z + 40))
+    sc.finish(hidden_groups=("Section",), opaque_groups=("Section",))
+    doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
-import MeshPart
-for n, s in (("body", body), ("cap", cap), ("chamber_plug", plug_print), ("diaphragm", diaphragm),
-             ("jig_base", jig_base), ("jig_ring", jig_ring), ("jig_puck", jig_puck)):
-    s.exportStep(os.path.join(OUT_DIR, n + ".step"))
-    MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(
-        os.path.join(OUT_DIR, n + ".stl"))
-with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
-    f.write("\n".join(report) + "\n")
-print("written to", OUT_DIR)
+    import MeshPart
+    for n, s in (("body", body), ("cap", cap), ("chamber_plug", plug_print), ("diaphragm", diaphragm),
+                 ("jig_base", jig_base), ("jig_ring", jig_ring), ("jig_puck", jig_puck)):
+        s.exportStep(os.path.join(OUT_DIR, n + ".step"))
+        MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(
+            os.path.join(OUT_DIR, n + ".stl"))
+    with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
+        f.write("\n".join(report) + "\n")
+    print("written to", OUT_DIR)

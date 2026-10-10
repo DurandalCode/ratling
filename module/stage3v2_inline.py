@@ -53,6 +53,10 @@ except NameError:
         REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     except NameError:
         REPO = os.path.expanduser("~/ratling")
+try:
+    STAGE3V2_LIBRARY
+except NameError:
+    STAGE3V2_LIBRARY = False
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 import ratling.geom as G
@@ -374,14 +378,10 @@ report = [
     "  cartridge / piston / plug: %.1f / %.1f / %.1f cm3" % (cart.Volume / 1000, piston.Volume / 1000, plug_p.Volume / 1000),
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
-print("\n".join(report))
+if not STAGE3V2_LIBRARY:
+    print("\n".join(report))
 
-# ---------------------------------------------------------------- document
-os.makedirs(OUT_DIR, exist_ok=True)
-sc = FV.Scene(NAME)
-doc = sc.doc
-
-
+# ---------------------------------------------------------------- references
 def torus(d_root, cs, z, r_center=None):
     rc = r_center if r_center is not None else d_root / 2 + cs / 2
     return Part.makeTorus(rc, cs / 2, V(0, 0, z), Z)
@@ -407,48 +407,54 @@ for z, angles in ((z_c0 - SCREW_FROM_TUBE_END, (0, 120, 240)), (z_c1 + SCREW_FRO
         screws += [Part.makeCylinder(1.45, SCREW_L, o, -d), Part.makeCylinder(2.8, 2.0, o, d)]
 ball = Part.makeSphere(TUBE_ID / 2, V(0, 0, z_tip + TUBE_ID / 2))
 
-for n, s, style in (("Cartridge", cart, "rotor"), ("Piston", piston, "stator"), ("Pad", pad, "shoe"),
-                    ("Rear_plug", plug, "rotor")):
-    sc.add("Printed", n, s, style)
-for n, s, style in (("Barrel_tube", barrel, "ghost"), ("Chamber_tube", chamber, "ghost"),
-                    ("Pilot_tube", pilot_tube, "hose"), ("ORings", orings, "oring"),
-                    ("Tube_screws", G.fuse_all(screws), "steel"), ("Pilot_fitting", fitting, "steel"),
-                    ("Ball", ball, "flow")):
-    sc.add("Bought", n, s, style)
-sc.add("Open", "Piston_open", piston_open, "stator")
-half = Part.makeBox(100, 50, 1200, V(-50, -50, -800))
-for n in ("Cartridge", "Piston", "Pad", "Rear_plug", "Barrel_tube", "Chamber_tube", "Pilot_tube", "ORings", "Ball"):
-    style = dict(Cartridge="rotor", Piston="stator", Pad="shoe", Rear_plug="rotor", ORings="oring",
-                 Pilot_tube="hose", Ball="flow").get(n, "ghost")
-    sc.add("Section", "Sec_" + n, sc.src[n].cut(half), style)
-for text, pos in [
-    ("СТВОЛ %.0f мм" % BARREL_LEN, (-25, 0, z_c1 + BARREL_LEN * 0.7)),
-    ("ШАРИК на упоре картриджа", (-25, 0, z_tip + 15)),
-    ("КАРТРИДЖ: седло Ø%.0f, поршень Ø%.0f" % (SEAT_D, PISTON_D), (30, 0, 10)),
-    ("КАМЕРА %.0f см3: труба %.0f мм" % (chamber_v, chamber_len), (30, 0, (z_end + z_c0) / 2)),
-    ("ПИЛОТНАЯ ТРУБКА PA 6/4", (-30, 0, (z_end + z_c0) / 2 - 30)),
-    ("ЗАДНЯЯ ПРОБКА: пилот G1/8 -> M3R110 A", (30, 0, z_end - 10)),
-]:
-    sc.label("Labels", text, pos)
-sc.finish(hidden_groups=("Section", "Open"), opaque_groups=("Section",))
-doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
+# ---------------------------------------------------------------- document
+# Skipped when another script loads this file for its shapes (STAGE3V2_LIBRARY).
+if not STAGE3V2_LIBRARY:
+    os.makedirs(OUT_DIR, exist_ok=True)
+    sc = FV.Scene(NAME)
+    doc = sc.doc
+    for n, s, style in (("Cartridge", cart, "rotor"), ("Piston", piston, "stator"), ("Pad", pad, "shoe"),
+                        ("Rear_plug", plug, "rotor")):
+        sc.add("Printed", n, s, style)
+    for n, s, style in (("Barrel_tube", barrel, "ghost"), ("Chamber_tube", chamber, "ghost"),
+                        ("Pilot_tube", pilot_tube, "hose"), ("ORings", orings, "oring"),
+                        ("Tube_screws", G.fuse_all(screws), "steel"), ("Pilot_fitting", fitting, "steel"),
+                        ("Ball", ball, "flow")):
+        sc.add("Bought", n, s, style)
+    sc.add("Open", "Piston_open", piston_open, "stator")
+    half = Part.makeBox(100, 50, 1200, V(-50, -50, -800))
+    for n in ("Cartridge", "Piston", "Pad", "Rear_plug", "Barrel_tube", "Chamber_tube", "Pilot_tube", "ORings", "Ball"):
+        style = dict(Cartridge="rotor", Piston="stator", Pad="shoe", Rear_plug="rotor", ORings="oring",
+                     Pilot_tube="hose", Ball="flow").get(n, "ghost")
+        sc.add("Section", "Sec_" + n, sc.src[n].cut(half), style)
+    for text, pos in [
+        ("СТВОЛ %.0f мм" % BARREL_LEN, (-25, 0, z_c1 + BARREL_LEN * 0.7)),
+        ("ШАРИК на упоре картриджа", (-25, 0, z_tip + 15)),
+        ("КАРТРИДЖ: седло Ø%.0f, поршень Ø%.0f" % (SEAT_D, PISTON_D), (30, 0, 10)),
+        ("КАМЕРА %.0f см3: труба %.0f мм" % (chamber_v, chamber_len), (30, 0, (z_end + z_c0) / 2)),
+        ("ПИЛОТНАЯ ТРУБКА PA 6/4", (-30, 0, (z_end + z_c0) / 2 - 30)),
+        ("ЗАДНЯЯ ПРОБКА: пилот G1/8 -> M3R110 A", (30, 0, z_end - 10)),
+    ]:
+        sc.label("Labels", text, pos)
+    sc.finish(hidden_groups=("Section", "Open"), opaque_groups=("Section",))
+    doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
-# ---------------------------------------------------------------- exports
-import MeshPart
-
-
-def write(shape, name, flip):
-    s = shape.copy()
-    if flip:
-        s.rotate(V(0, 0, 0), X, 180)
-    s.translate(V(0, 0, -s.BoundBox.ZMin))
-    s.exportStep(os.path.join(OUT_DIR, name + ".step"))
-    MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(os.path.join(OUT_DIR, name + ".stl"))
+    # ---------------------------------------------------------------- exports
+    import MeshPart
 
 
-for n, s, flip in (("cartridge", cart, True), ("piston", piston, True), ("rear_plug", plug_p, False),
-                   ("pad", cyl(PAD[0], 0, PAD[1]), False)):
-    write(s, n, flip)
-with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
-    f.write("\n".join(report) + "\n")
-print("written to", OUT_DIR)
+    def write(shape, name, flip):
+        s = shape.copy()
+        if flip:
+            s.rotate(V(0, 0, 0), X, 180)
+        s.translate(V(0, 0, -s.BoundBox.ZMin))
+        s.exportStep(os.path.join(OUT_DIR, name + ".step"))
+        MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(os.path.join(OUT_DIR, name + ".stl"))
+
+
+    for n, s, flip in (("cartridge", cart, True), ("piston", piston, True), ("rear_plug", plug_p, False),
+                       ("pad", cyl(PAD[0], 0, PAD[1]), False)):
+        write(s, n, flip)
+    with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
+        f.write("\n".join(report) + "\n")
+    print("written to", OUT_DIR)
