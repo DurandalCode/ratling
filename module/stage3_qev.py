@@ -101,7 +101,8 @@ GALLERY_R = 18.0        # gallery and pocket radius at the clamp plane
 MOUTH_CHAMFER = 1.0     # 45 deg, both mouths; free diaphragm Ø = 2 * (GALLERY_R + MOUTH_CHAMFER)
 GALLERY_H = 14.0        # straight part; 45 deg cone above it
 WINDOW_Z0 = 3.0         # chamber bore floor
-RIB_N = 6
+RIB_N = 8               # at half steps of the 90 deg rod pattern: the bleed hole,
+                        # on the cap mark, clears them however the cap is turned
 RIB_W = 1.5
 RIB_H = 3.0
 
@@ -120,6 +121,29 @@ GROOVE_DEPTH = 1.0
 GROOVE_LEN = 15.0
 BLEED_D = 0.8
 BLEED_R = 13.0
+BLEED_ANGLE = 0.0       # cap mark; any multiple of 90 deg works
+MARK_W = 4.0            # V notch on the cap's clamp face, outside the diaphragm
+MARK_DEPTH = 0.6
+
+# Cutting jig: rubber square in the base pocket, ring on top guides the knife
+# round Ø DIA_D into a groove in the base; the puck holds the disc down and
+# guides the needle for the bleed hole into a relief ring in the base.
+JIG_BLANK = 48.0        # rough-cut rubber square
+JIG_POCKET_CLEAR = 0.3  # per side
+JIG_WALL = 4.0
+JIG_FLOOR = 4.0
+JIG_POCKET_DEPTH = 3.0
+JIG_RING_T = 6.0
+JIG_BLADE_GROOVE_W = 1.2
+JIG_BLADE_GROOVE_DEPTH = 1.5
+JIG_RELIEF_W = 3.5      # covers the puck's play
+JIG_RELIEF_DEPTH = 2.0
+JIG_PUCK_CLEAR = 1.0    # radial, puck in the ring's hole
+JIG_PUCK_T = 6.0
+JIG_KNOB_D = 16.0
+JIG_KNOB_H = 15.0
+JIG_GUIDE_D = 1.0       # for a 0.8 drill or a needle
+JIG_NOTCH_W = 12.0      # finger notches to lift the ring out
 CAP_T = 16.0
 TAP_DRILL_D = 8.8       # G1/8, pilot port from the bed side
 TAP_DEPTH = 8.0
@@ -242,7 +266,7 @@ for c in cuts:
 
 ribs = []
 for i in range(RIB_N):
-    a = math.radians(360.0 / RIB_N * (i + 0.5))          # none in front of the window
+    a = math.radians(360.0 / RIB_N * (i + 0.5))          # none at the bleed / cap mark angles
     rib = Part.makeBox(GALLERY_R - seat_out_r + 1.0, RIB_W, RIB_H, V(seat_out_r - 0.5, -RIB_W / 2, 0))
     rib.rotate(V(0, 0), Z, math.degrees(a))
     ribs.append(rib)
@@ -267,6 +291,10 @@ for p in rod_pts:
     cuts.append(cyl(ROD_HOLE_D / 2, -1, CAP_T + 1, p))
     cuts.append(prism([(p.x + hex_r * math.cos(math.radians(60 * k)), p.y + hex_r * math.sin(math.radians(60 * k)))
                        for k in range(6)], -1, NUT_POCKET_DEPTH))
+mark = prism([(recess_r + 0.8, 0), (BODY_R + 1, MARK_W / 2), (BODY_R + 1, -MARK_W / 2)],
+             CAP_T - MARK_DEPTH, CAP_T + 1)
+mark.rotate(V(0, 0), Z, BLEED_ANGLE)
+cuts.append(mark)
 for c in cuts:
     cap = cap.cut(c)
 cap = cap.removeSplitter()
@@ -281,7 +309,30 @@ for c in screw_pilots(V(0, 0), PLUG_FLANGE_T + SCREW_FROM_TUBE_END, chamber_scre
 plug_print = plug_print.removeSplitter()
 
 # ---------------------------------------------------------------- diaphragm
-diaphragm = cyl(DIA_D / 2, 0, DIA_T).cut(cyl(BLEED_D / 2, -1, DIA_T + 1, V(BLEED_R, 0)))
+bleed_at = V(BLEED_R * math.cos(math.radians(BLEED_ANGLE)), BLEED_R * math.sin(math.radians(BLEED_ANGLE)))
+diaphragm = cyl(DIA_D / 2, 0, DIA_T).cut(cyl(BLEED_D / 2, -1, DIA_T + 1, bleed_at))
+
+# ---------------------------------------------------------------- diaphragm cutting jig (print frame)
+jig_pocket = JIG_BLANK + 2 * JIG_POCKET_CLEAR
+jig_side = jig_pocket + 2 * JIG_WALL
+jig_h = JIG_FLOOR + JIG_POCKET_DEPTH
+sq = lambda a: [(-a / 2, -a / 2), (a / 2, -a / 2), (a / 2, a / 2), (-a / 2, a / 2)]
+ring_side = jig_pocket - 2 * 0.2
+jig_base = prism(sq(jig_side), 0, jig_h).cut(prism(sq(jig_pocket), JIG_FLOOR, jig_h + 1))
+for r, w, depth in ((DIA_D / 2, JIG_BLADE_GROOVE_W, JIG_BLADE_GROOVE_DEPTH),
+                    (BLEED_R, JIG_RELIEF_W, JIG_RELIEF_DEPTH)):
+    jig_base = jig_base.cut(cyl(r + w / 2, JIG_FLOOR - depth, JIG_FLOOR + 1).cut(
+        cyl(r - w / 2, JIG_FLOOR - depth - 1, JIG_FLOOR + 2)))
+for a in (0, 180):
+    n = Part.makeBox(JIG_WALL + 2, JIG_NOTCH_W, JIG_POCKET_DEPTH + 1,
+                     V(jig_pocket / 2 - 1, -JIG_NOTCH_W / 2, JIG_FLOOR))
+    n.rotate(V(0, 0), Z, a)
+    jig_base = jig_base.cut(n)
+jig_base = jig_base.removeSplitter()
+jig_ring = prism(sq(ring_side), 0, JIG_RING_T).cut(cyl(DIA_D / 2, -1, JIG_RING_T + 1)).removeSplitter()
+puck_r = DIA_D / 2 - JIG_PUCK_CLEAR
+jig_puck = cyl(puck_r, 0, JIG_PUCK_T).fuse(cyl(JIG_KNOB_D / 2, JIG_PUCK_T - 0.5, JIG_PUCK_T + JIG_KNOB_H))
+jig_puck = jig_puck.cut(cyl(JIG_GUIDE_D / 2, -1, JIG_PUCK_T + 1, V(BLEED_R, 0))).removeSplitter()
 
 # ---------------------------------------------------------------- assembly (body frame)
 area = lambda d: math.pi * d * d / 4
@@ -337,6 +388,17 @@ checks = {
     "diaphragm clamped >= 3 mm wide": DIA_D / 2 - mouth_r >= 3.0,
     "rods outside the diaphragm": ROD_R - ROD_HOLE_D / 2 > recess_r + 1.0,
     "bleed hole over the gallery, clear of seat and mouth": seat_out_r + 2 < BLEED_R < GALLERY_R - 2,
+    "bleed hole clear of the ribs, cap turned any 90 deg":
+        min(abs(BLEED_R * math.radians(((BLEED_ANGLE + 90 * k) - 360.0 / RIB_N * (i + 0.5) + 180) % 360 - 180))
+            for k in range(4) for i in range(RIB_N)) >= RIB_W / 2 + BLEED_D / 2 + 1.0,
+    "cap mark clear of the rod holes":
+        min(abs(-p.x * math.sin(math.radians(BLEED_ANGLE)) + p.y * math.cos(math.radians(BLEED_ANGLE)))
+            for p in rod_pts) >= ROD_HOLE_D / 2 + MARK_W / 2 + 1.0,
+    "jig: puck guide lands on the relief ring, puck turned any way":
+        JIG_RELIEF_W / 2 >= JIG_PUCK_CLEAR + JIG_GUIDE_D / 2,
+    "jig: blade groove and relief inside the pocket floor":
+        DIA_D / 2 + JIG_BLADE_GROOVE_W / 2 < JIG_BLANK / 2 and JIG_RELIEF_DEPTH < JIG_FLOOR - 1,
+    "jig: ring clamps >= 1 mm of the blank outside the cut": (JIG_BLANK - DIA_D) / 2 >= 1.0,
     "tap roof below the pocket floor grooves": tap_roof <= z_floor,
     "wall gallery -> rod hole >= 3 mm": ROD_R - ROD_HOLE_D / 2 - mouth_r >= 3.0,
     "wall chamber bore -> rod hole >= 3 mm":
@@ -456,11 +518,19 @@ for text, pos in [
     ("САМОРЕЗЫ ST2.9 x %.1f x6" % SCREW_L, (-TUBE_OD, 0, BODY_H + SCREW_FROM_TUBE_END)),
 ]:
     sc.label("Labels", text, pos)
+JIG_AT = V(-BODY_R - jig_side, 0, -CAP_T)           # beside the module, stacked as used
+blank = Part.makeBox(JIG_BLANK, JIG_BLANK, DIA_T, V(-JIG_BLANK / 2, -JIG_BLANK / 2, JIG_FLOOR))
+for n, s, z, style in (("Jig_base", jig_base, 0, "frame"), ("Jig_blank", blank, 0, "shoe"),
+                       ("Jig_ring", jig_ring, JIG_FLOOR + DIA_T, "printed"),
+                       ("Jig_puck", jig_puck, JIG_FLOOR + DIA_T, "stator")):
+    sc.add("Jig", n, s, style, offset=V(JIG_AT.x, JIG_AT.y, JIG_AT.z + z))
+sc.label("Labels", "КОНДУКТОР мембраны: основание, резина, рамка, прижим", (JIG_AT.x, 0, JIG_AT.z + 40))
 sc.finish(hidden_groups=("Section",), opaque_groups=("Section",))
 doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
 import MeshPart
-for n, s in (("body", body), ("cap", cap), ("chamber_plug", plug_print), ("diaphragm", diaphragm)):
+for n, s in (("body", body), ("cap", cap), ("chamber_plug", plug_print), ("diaphragm", diaphragm),
+             ("jig_base", jig_base), ("jig_ring", jig_ring), ("jig_puck", jig_puck)):
     s.exportStep(os.path.join(OUT_DIR, n + ".step"))
     MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(
         os.path.join(OUT_DIR, n + ".stl"))
