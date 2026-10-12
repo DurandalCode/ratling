@@ -61,8 +61,8 @@ def plug(n, root):
 
 
 plugs = [plug(i + 1, d) for i, d in enumerate(ROOTS)]
-report = [NAME, "  bore Ø%.1f, O-ring %g x %g, plug Ø%.1f; piston and cap now: root Ø%.2f"
-          % (bore, M["PISTON_ORING"][0], cs, 2 * r, M["pist_oring_root"])]
+report = [NAME, "  bore Ø%.1f, O-ring %g x %g, plug Ø%.1f; piston now: root Ø%.2f, cap Ø%.2f"
+          % (bore, M["PISTON_ORING"][0], cs, 2 * r, M["pist_oring_root"], M["cap_oring_root"])]
 for i, d in enumerate(ROOTS):
     report.append("  plug %d (%d notch%s): root Ø%.2f, squeeze %4.1f %% in Ø%.1f, ring stretch %.1f %%"
                   % (i + 1, i + 1, "" if i == 0 else "es", d, (1 - (bore - d) / 2 / cs) * 100, bore,

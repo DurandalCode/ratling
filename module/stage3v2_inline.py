@@ -110,7 +110,10 @@ PISTON_D = 16.0             # housing bore
 PISTON_CLEAR = 0.2          # radial
 PISTON_L = 12.0
 PISTON_ORING = (12.0, 2.0)  # ID x CS
-PISTON_ORING_SQUEEZE = 0.10
+# Groove roots picked on stage3v2_oring_gauge in the printed housing bore: the
+# nominal 10 % squeeze (root 12.4) barely moved; the 12.00 plug is right.
+PISTON_ORING_ROOT = 12.00
+CAP_ORING_ROOT = 12.15      # static: one gauge step tighter
 PISTON_ORING_FROM_BACK = 3.5
 PISTON_POCKET = (9.0, 6.0)  # lightening pocket in the back: Ø, depth
 PAD = (14.0, 1.5)           # rubber pad Ø x t (diaphragm sheet)
@@ -160,7 +163,8 @@ z_hback = z_split - CAP_FLANGE_T
 sock_r = SOCKET_D / 2 + (SOCKET_ORING[1] * (1 - SOCKET_ORING_SQUEEZE)) + SOCKET_WALL
 z_sock_mouth = z_hback - SOCKET_DEPTH - 1.5
 z_sock_floor = z_sock_mouth + SOCKET_DEPTH
-pist_oring_root = PISTON_D - 2 * PISTON_ORING[1] * (1 - PISTON_ORING_SQUEEZE)
+pist_oring_root = PISTON_ORING_ROOT
+cap_oring_root = CAP_ORING_ROOT
 pist_groove_w = 1.35 * PISTON_ORING[1]
 sock_groove_r = SOCKET_D / 2 + SOCKET_ORING[1] * (1 - SOCKET_ORING_SQUEEZE)   # tube Ø6 + ring
 sock_groove_w = 1.35 * SOCKET_ORING[1]
@@ -275,9 +279,9 @@ pr = PISTON_D / 2 - PISTON_CLEAR
 # square wall takes the pilot pressure), the socket floor, the socket groove.
 cg0 = z_split + 1.2                              # O-ring groove: square wall
 cg1 = cg0 + pist_groove_w
-cg2 = cg1 + (pr - pist_oring_root / 2)           # 45 deg wall ends
+cg2 = cg1 + (pr - cap_oring_root / 2)           # 45 deg wall ends
 cz = (cg0 + cg1) / 2                             # O-ring centre
-cap = revolve([(0, z_split), (pr, z_split), (pr, cg0), (pist_oring_root / 2, cg0), (pist_oring_root / 2, cg1),
+cap = revolve([(0, z_split), (pr, z_split), (pr, cg0), (cap_oring_root / 2, cg0), (cap_oring_root / 2, cg1),
                (pr, cg2), (pr, z_bore_end - 0.5), (pr - 0.5, z_bore_end), (0, z_bore_end)])
 cap = cap.fuse(cyl(2 * housing_r, z_hback, z_split)).fuse(cyl(2 * sock_r, z_sock_mouth, z_hback + 0.01))
 cap = cap.fuse(cone(2 * sock_r, z_hback - (housing_r - sock_r), 2 * housing_r, z_hback + 0.01))
@@ -355,6 +359,7 @@ dead_v = (area(SEAT_D) * (z_rs0 + 0.5) + area(BORE_D) * (z_tip - z_rs0)) / 1000
 F_cart = P_MAX_BAR * 0.1 * (A_tube - A_seat)       # chamber side pushes the cartridge forward
 F_plug = P_MAX_BAR * 0.1 * A_tube
 pin_oring_stretch = pist_oring_root / PISTON_ORING[0] - 1
+cap_oring_stretch = cap_oring_root / PISTON_ORING[0] - 1
 
 
 def wall_between(a, b):
@@ -392,7 +397,7 @@ checks = [
     ("plug screws outboard of its O-ring", PLUG_FLANGE_T + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < plug_groove[0] - 1.0),
     ("socket wall at the groove >= 1.5 mm", sock_r - sock_groove_r >= 1.5),
     ("tube O-ring stretch 0..6 %", 0 <= oring_stretch <= 0.06),
-    ("piston O-ring stretch 0..6 %", 0 <= pin_oring_stretch <= 0.06),
+    ("piston and cap O-ring stretch 0..6 %", all(0 <= x <= 0.06 for x in (pin_oring_stretch, cap_oring_stretch))),
     ("chamber volume %.0f cm3 within 3 %% of target" % chamber_v, abs(chamber_v - CHAMBER_V) <= 0.03 * CHAMBER_V),
 ]
 
@@ -428,7 +433,7 @@ orings = G.fuse_all([
     torus(2 * root_r, ORING_CS, z_tip - GROOVE_WALL_FROM_TIP - GROOVE_ROOT_W / 2),
     torus(2 * root_r, ORING_CS, plug_dz + PLUG_FLANGE_T + PLUG_INSERT_LEN - GROOVE_WALL_FROM_TIP + GROOVE_ROOT_W / 2),
     torus(pist_oring_root, PISTON_ORING[1], gz - (PAD[1] - PAD_RECESS)),
-    torus(pist_oring_root, PISTON_ORING[1], cz),
+    torus(cap_oring_root, PISTON_ORING[1], cz),
     torus(0, SOCKET_ORING[1], sum(sock_groove) / 2, PILOT_TUBE[0] / 2 + SOCKET_ORING[1] / 2),
     torus(0, SOCKET_ORING[1], sum(plug_sock_groove) / 2 + plug_dz, PILOT_TUBE[0] / 2 + SOCKET_ORING[1] / 2),
 ])
