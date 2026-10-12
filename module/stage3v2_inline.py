@@ -35,7 +35,7 @@ nothing but screw heads is wider than the tube:
 
 All frames: z along the axis, +z towards the muzzle, z = 0 at the seat (the
 pad's face when shut). Print the cartridge front tip down, the piston face
-down, the housing cap spigot down, the plug flange down; PETG 100 %.
+down, the housing cap socket mouth down, the plug flange down; PETG 100 %.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
@@ -119,7 +119,7 @@ LIFT = 3.0
 CAVITY = 3.0                # pilot space behind the piston when open
 HOUSING_WALL = 1.5
 BLEED_D = 0.8
-CAP_SPIGOT = 6.0            # housing cap: spigot into the bore (piston's O-ring)
+CAP_SPIGOT = 7.5            # housing cap: spigot into the bore (piston's O-ring)
 CAP_FLANGE_T = 2.5
 
 # Pilot tube sockets (PA 6/4, O-ring 6 x 1.5 in an internal groove)
@@ -269,12 +269,20 @@ bleed_z = z_bore_end + CAVITY / 2
 
 # ---------------------------------------------------------------- housing cap
 pr = PISTON_D / 2 - PISTON_CLEAR
-cz = z_bore_end - CAP_SPIGOT / 2                 # O-ring groove centre
-cap = revolve([(0, z_split), (pr, z_split), (pr, cz - pist_groove_w / 2), (pist_oring_root / 2, cz - pist_groove_w / 2),
-               (pist_oring_root / 2, cz + pist_groove_w / 2), (pr, cz + pist_groove_w / 2), (pr, z_bore_end - 0.5),
-               (pr - 0.5, z_bore_end), (0, z_bore_end)])
+# Printed socket mouth down: the flange stands on the socket boss on a 45 deg
+# cone (its back face mates with nothing), the spigot stands on the flange,
+# and every ceiling inside is 45 deg: the O-ring groove's tip-side wall (the
+# square wall takes the pilot pressure), the socket floor, the socket groove.
+cg0 = z_split + 1.2                              # O-ring groove: square wall
+cg1 = cg0 + pist_groove_w
+cg2 = cg1 + (pr - pist_oring_root / 2)           # 45 deg wall ends
+cz = (cg0 + cg1) / 2                             # O-ring centre
+cap = revolve([(0, z_split), (pr, z_split), (pr, cg0), (pist_oring_root / 2, cg0), (pist_oring_root / 2, cg1),
+               (pr, cg2), (pr, z_bore_end - 0.5), (pr - 0.5, z_bore_end), (0, z_bore_end)])
 cap = cap.fuse(cyl(2 * housing_r, z_hback, z_split)).fuse(cyl(2 * sock_r, z_sock_mouth, z_hback + 0.01))
-sock_cuts, sock_groove = socket_cut(z_sock_mouth, z_sock_floor, groove_at_mouth_side_45=True)
+cap = cap.fuse(cone(2 * sock_r, z_hback - (housing_r - sock_r), 2 * housing_r, z_hback + 0.01))
+sock_cuts, sock_groove = socket_cut(z_sock_mouth, z_sock_floor, groove_at_mouth_side_45=False)
+sock_cuts.append(cone(SOCKET_D, z_sock_floor - 0.01, PILOT_CH_D, z_sock_floor + (SOCKET_D - PILOT_CH_D) / 2))
 for c in sock_cuts + [cyl(PILOT_CH_D, z_sock_floor - 0.01, z_bore_end + 1)]:
     cap = cap.cut(c)
 cap = cap.removeSplitter()
@@ -359,7 +367,8 @@ checks = [
     ("piston (shut and open) clear of the cartridge and the cap",
      all(G.no_overlap(a, b) for a in (piston, piston_open, pad) for b in (cart, cap))),
     ("housing cap clear of the cartridge", G.no_overlap(cap, cart)),
-    ("cap O-ring behind the bleed hole", cz + pist_groove_w / 2 < bleed_z - BLEED_D / 2 - 1.0),
+    ("cap O-ring groove behind the bleed hole", cg2 < bleed_z - BLEED_D / 2 - 1.0),
+    ("cap spigot land ahead of the groove >= 1.5 mm", z_bore_end - cg2 >= 1.5),
     ("pad face on the seat when shut", abs(pad.BoundBox.ZMax) < 1e-6),
     ("piston O-ring inside the housing bore when shut", gz + pist_groove_w / 2 - (PAD[1] - PAD_RECESS) <= z_h0 - 1.0),
     ("bleed hole never covered by the piston",
@@ -481,7 +490,7 @@ if not STAGE3V2_LIBRARY:
         MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(os.path.join(OUT_DIR, name + ".stl"))
 
 
-    for n, s, flip in (("cartridge", cart, True), ("housing_cap", cap, True), ("piston", piston, True), ("rear_plug", plug_p, False),
+    for n, s, flip in (("cartridge", cart, True), ("housing_cap", cap, False), ("piston", piston, True), ("rear_plug", plug_p, False),
                        ("pad", cyl(PAD[0], 0, PAD[1]), False)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
