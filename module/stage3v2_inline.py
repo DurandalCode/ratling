@@ -99,6 +99,7 @@ WINDOW_H = 6.0              # housing front edge behind the seat plane
 STRUT_N = 4
 STRUT_W = 3.0
 STRUT_R = (8.3, 11.3)
+ARCH_R = 5.5                # windows between the struts: arch radius (half width)
 
 # Piston and housing
 PISTON_D = 16.0             # housing bore
@@ -235,6 +236,16 @@ cart = rear_sp.fuse(cyl(COLLAR_D, z_c0, z_c1)).fuse(front_sp)
 cart = cart.fuse(revolve([(SEAT_D / 2, 0), (SEAT_D / 2 + SEAT_LAND, 0), (SEAT_D / 2 + SEAT_LAND, z_rs0 + 0.01),
                           (SEAT_D / 2, z_rs0 + 0.01)]))                                           # seat lip
 housing = cyl(2 * housing_r, z_hback, z_h0).fuse(cyl(2 * sock_r, z_sock_mouth, z_hback + 0.01))
+# The housing wall runs on down to the spigot face, and the windows between
+# the struts end in round arches at z_h0: printed tip down, the housing front
+# edge is a ceiling, and a flat one would span the struts in mid-air.
+arcade = cyl(2 * housing_r, z_h0 - 0.01, z_rs0).cut(cyl(PISTON_D, z_h0 - 1, z_rs0 + 1))
+for i in range(STRUT_N):
+    win = Part.makeBox(2 * ARCH_R, housing_r + 2, z_rs0 + 1 - (z_h0 + ARCH_R), V(-ARCH_R, 0, z_h0 + ARCH_R))
+    win = win.fuse(Part.makeCylinder(ARCH_R, housing_r + 2, V(0, 0, z_h0 + ARCH_R), Y))
+    win.rotate(V(0, 0, 0), Z, 360.0 / STRUT_N * i)
+    arcade = arcade.cut(win)
+housing = housing.fuse(arcade)
 for i in range(STRUT_N):
     st = Part.makeBox(STRUT_R[1] - STRUT_R[0], STRUT_W, z_rs0 - z_h0 + 1.0, V(STRUT_R[0], -STRUT_W / 2, z_h0 - 0.5))
     st.rotate(V(0, 0, 0), Z, 45 + 360.0 / STRUT_N * i)
@@ -316,7 +327,7 @@ A_seat_eff = area(SEAT_D + SEAT_LAND)
 A_piston = area(PISTON_D)
 A_curtain = math.pi * SEAT_D * LIFT
 A_annulus = A_tube - area(2 * housing_r)
-A_window = (2 * math.pi * STRUT_R[0] - STRUT_N * STRUT_W) * (z_rs0 - z_h0)
+A_window = STRUT_N * (2 * ARCH_R * (z_rs0 - z_h0 - ARCH_R) + math.pi * ARCH_R ** 2 / 2)   # arched windows
 open_ratio = 1 - A_seat_eff / A_piston
 pilot_v = (A_piston * CAVITY + (PISTON_D ** 2 + PISTON_D * PILOT_CH_D + PILOT_CH_D ** 2) * math.pi / 12 * roof_h
            + area(PILOT_TUBE[1]) * pilot_tube_len + area(4.0) * (p_floor - G18_TAP_DEPTH)) / 1000
