@@ -34,8 +34,8 @@ nothing but screw heads is wider than the tube:
                    firing head).
 
 All frames: z along the axis, +z towards the muzzle, z = 0 at the seat (the
-pad's face when shut). Print the cartridge front tip down, the piston face
-down, the housing cap socket mouth down, the plug flange down; PETG 100 %.
+pad's face when shut). Print the cartridge front tip down, the piston back
+face down, the housing cap socket mouth down, the plug flange down; PETG 100 %.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
@@ -115,7 +115,7 @@ PISTON_ORING = (12.0, 2.0)  # ID x CS
 PISTON_ORING_ROOT = 12.00
 CAP_ORING_ROOT = 12.15      # static: one gauge step tighter
 PISTON_ORING_FROM_BACK = 3.5
-PISTON_POCKET = (9.0, 6.0)  # lightening pocket in the back: Ø, depth
+PISTON_POCKET = 9.0         # lightening pocket in the back: Ø, 45 deg cone
 PAD = (14.0, 1.5)           # rubber pad Ø x t (diaphragm sheet)
 PAD_RECESS = 1.2
 LIFT = 3.0
@@ -296,8 +296,12 @@ pz0, pz1 = -PISTON_L, 0.0
 gz = pz0 + PISTON_ORING_FROM_BACK
 piston = revolve([(0, pz0), (pr - 0.5, pz0), (pr, pz0 + 0.5), (pr, gz - pist_groove_w / 2),
                   (pist_oring_root / 2, gz - pist_groove_w / 2), (pist_oring_root / 2, gz + pist_groove_w / 2),
-                  (pr, gz + pist_groove_w / 2), (pr, pz1 - 0.5), (pr - 0.5, pz1), (0, pz1)])
-piston = piston.cut(cyl(PAD[0] + 0.2, pz1 - PAD_RECESS, pz1 + 1)).cut(cyl(PISTON_POCKET[0], pz0 - 1, pz0 + PISTON_POCKET[1]))
+                  (pr, gz + pist_groove_w / 2 + (pr - pist_oring_root / 2)), (pr, pz1 - 0.5), (pr - 0.5, pz1), (0, pz1)])
+# Printed back face down: the groove's face-side wall and the pocket are
+# 45 deg ceilings; the pad recess opens upwards. (Face down, the recess
+# floor was a Ø14 bridge and came out as spaghetti.)
+piston = piston.cut(cyl(PAD[0] + 0.2, pz1 - PAD_RECESS, pz1 + 1))
+piston = piston.cut(Part.makeCone(PISTON_POCKET / 2 + 0.01, 0, PISTON_POCKET / 2 + 0.01, V(0, 0, pz0 - 0.01)))
 piston = piston.removeSplitter()
 pad = cyl(PAD[0], pz1 - PAD_RECESS, pz1 - PAD_RECESS + PAD[1])
 pad.translate(V(0, 0, -(PAD[1] - PAD_RECESS)))          # pad face at z = 0 when shut
@@ -495,7 +499,7 @@ if not STAGE3V2_LIBRARY:
         MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(os.path.join(OUT_DIR, name + ".stl"))
 
 
-    for n, s, flip in (("cartridge", cart, True), ("housing_cap", cap, False), ("piston", piston, True), ("rear_plug", plug_p, False),
+    for n, s, flip in (("cartridge", cart, True), ("housing_cap", cap, False), ("piston", piston, False), ("rear_plug", plug_p, False),
                        ("pad", cyl(PAD[0], 0, PAD[1]), False)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
