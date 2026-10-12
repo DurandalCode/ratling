@@ -296,10 +296,11 @@ pz0, pz1 = -PISTON_L, 0.0
 gz = pz0 + PISTON_ORING_FROM_BACK
 piston = revolve([(0, pz0), (pr - 0.5, pz0), (pr, pz0 + 0.5), (pr, gz - pist_groove_w / 2),
                   (pist_oring_root / 2, gz - pist_groove_w / 2), (pist_oring_root / 2, gz + pist_groove_w / 2),
-                  (pr, gz + pist_groove_w / 2 + (pr - pist_oring_root / 2)), (pr, pz1 - 0.5), (pr - 0.5, pz1), (0, pz1)])
-# Printed back face down: the groove's face-side wall and the pocket are
-# 45 deg ceilings; the pad recess opens upwards. (Face down, the recess
-# floor was a Ø14 bridge and came out as spaghetti.)
+                  (pr, gz + pist_groove_w / 2), (pr, pz1 - 0.5), (pr - 0.5, pz1), (0, pz1)])
+# Printed back face down: the pocket is a 45 deg ceiling and the pad recess
+# opens upwards. (Face down, the recess floor was a Ø14 bridge and came out
+# as spaghetti.) The O-ring groove keeps both walls square, as on the gauge
+# plugs: on a sloped wall the ring climbs and wedges when the piston opens.
 piston = piston.cut(cyl(PAD[0] + 0.2, pz1 - PAD_RECESS, pz1 + 1))
 piston = piston.cut(Part.makeCone(PISTON_POCKET / 2 + 0.01, 0, PISTON_POCKET / 2 + 0.01, V(0, 0, pz0 - 0.01)))
 piston = piston.removeSplitter()
