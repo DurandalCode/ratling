@@ -16,6 +16,10 @@ nothing but screw heads is wider than the tube:
                    barrel ends in the ball stop. Behind the seat four struts
                    hold the piston housing in the chamber; chamber air runs
                    round the housing and in between the struts to the seat.
+                   The housing is open at the back: the piston goes in there.
+    housing cap .. printed, closes the housing behind the piston: a spigot
+                   with the piston's O-ring into the housing bore, the pilot
+                   tube socket behind. Glued in once the valve works.
     piston ....... Ø PISTON_D on an O-ring in the housing, rubber pad on its
                    face against the seat. Pilot pressure behind it holds it
                    shut; vented, the chamber pressure on the annulus outside
@@ -31,7 +35,7 @@ nothing but screw heads is wider than the tube:
 
 All frames: z along the axis, +z towards the muzzle, z = 0 at the seat (the
 pad's face when shut). Print the cartridge front tip down, the piston face
-down, the plug flange down; PETG 100 %.
+down, the housing cap spigot down, the plug flange down; PETG 100 %.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
@@ -115,6 +119,8 @@ LIFT = 3.0
 CAVITY = 3.0                # pilot space behind the piston when open
 HOUSING_WALL = 1.5
 BLEED_D = 0.8
+CAP_SPIGOT = 6.0            # housing cap: spigot into the bore (piston's O-ring)
+CAP_FLANGE_T = 2.5
 
 # Pilot tube sockets (PA 6/4, O-ring 6 x 1.5 in an internal groove)
 PILOT_TUBE = (6.0, 4.0)
@@ -149,9 +155,8 @@ z_tip = z_c1 + FRONT_SPIGOT_LEN                # ball stop
 housing_r = PISTON_D / 2 + HOUSING_WALL
 z_h0 = -WINDOW_H                               # housing front edge
 z_bore_end = -(PISTON_L + LIFT + CAVITY)
-roof_h = PISTON_D / 2 - PILOT_CH_D / 2         # 45 deg
-z_roof = z_bore_end - roof_h
-z_hback = z_roof - 2.0
+z_split = z_bore_end - CAP_SPIGOT              # housing back end / cap flange face
+z_hback = z_split - CAP_FLANGE_T
 sock_r = SOCKET_D / 2 + (SOCKET_ORING[1] * (1 - SOCKET_ORING_SQUEEZE)) + SOCKET_WALL
 z_sock_mouth = z_hback - SOCKET_DEPTH - 1.5
 z_sock_floor = z_sock_mouth + SOCKET_DEPTH
@@ -235,7 +240,7 @@ front_sp, front_groove = gland_flipped(z_tip, z_c1 - 0.5)
 cart = rear_sp.fuse(cyl(COLLAR_D, z_c0, z_c1)).fuse(front_sp)
 cart = cart.fuse(revolve([(SEAT_D / 2, 0), (SEAT_D / 2 + SEAT_LAND, 0), (SEAT_D / 2 + SEAT_LAND, z_rs0 + 0.01),
                           (SEAT_D / 2, z_rs0 + 0.01)]))                                           # seat lip
-housing = cyl(2 * housing_r, z_hback, z_h0).fuse(cyl(2 * sock_r, z_sock_mouth, z_hback + 0.01))
+housing = cyl(2 * housing_r, z_split, z_h0)
 # The housing wall runs on down to the spigot face, and the windows between
 # the struts end in round arches at z_h0: printed tip down, the housing front
 # edge is a ceiling, and a flat one would span the struts in mid-air.
@@ -253,12 +258,8 @@ for i in range(STRUT_N):
 cart = cart.fuse(housing)
 cuts = [revolve([(0, -0.01), (SEAT_D / 2, -0.01), (SEAT_D / 2, z_rs0 + 0.5), (BORE_D / 2, z_rs0 + 0.5 + (BORE_D - SEAT_D) / 2),
                  (BORE_D / 2, z_tip + 1), (0, z_tip + 1)]),                                        # seat + bore
-        cyl(PISTON_D, z_bore_end, z_h0 + 0.01),
-        cone(PILOT_CH_D, z_roof, PISTON_D, z_bore_end + 0.01),
-        cyl(PILOT_CH_D, z_sock_floor - 0.01, z_roof + 0.01),
+        cyl(PISTON_D, z_split - 1, z_h0 + 0.01),                                           # open back
         Part.makeCylinder(BLEED_D / 2, HOUSING_WALL + 2, V(PISTON_D / 2 - 1, 0, (z_bore_end + z_bore_end + CAVITY) / 2 - 0.0), X)]
-sock_cuts, sock_groove = socket_cut(z_sock_mouth, z_sock_floor, groove_at_mouth_side_45=True)
-cuts += sock_cuts
 cuts += screw_pilots(z_c0 - SCREW_FROM_TUBE_END, (0.0, 120.0, 240.0))
 cuts += screw_pilots(z_c1 + SCREW_FROM_TUBE_END, (60.0, 180.0, 300.0))
 for c in cuts:
@@ -266,8 +267,19 @@ for c in cuts:
 cart = cart.removeSplitter()
 bleed_z = z_bore_end + CAVITY / 2
 
-# ---------------------------------------------------------------- piston (shut position)
+# ---------------------------------------------------------------- housing cap
 pr = PISTON_D / 2 - PISTON_CLEAR
+cz = z_bore_end - CAP_SPIGOT / 2                 # O-ring groove centre
+cap = revolve([(0, z_split), (pr, z_split), (pr, cz - pist_groove_w / 2), (pist_oring_root / 2, cz - pist_groove_w / 2),
+               (pist_oring_root / 2, cz + pist_groove_w / 2), (pr, cz + pist_groove_w / 2), (pr, z_bore_end - 0.5),
+               (pr - 0.5, z_bore_end), (0, z_bore_end)])
+cap = cap.fuse(cyl(2 * housing_r, z_hback, z_split)).fuse(cyl(2 * sock_r, z_sock_mouth, z_hback + 0.01))
+sock_cuts, sock_groove = socket_cut(z_sock_mouth, z_sock_floor, groove_at_mouth_side_45=True)
+for c in sock_cuts + [cyl(PILOT_CH_D, z_sock_floor - 0.01, z_bore_end + 1)]:
+    cap = cap.cut(c)
+cap = cap.removeSplitter()
+
+# ---------------------------------------------------------------- piston (shut position)
 pz0, pz1 = -PISTON_L, 0.0
 gz = pz0 + PISTON_ORING_FROM_BACK
 piston = revolve([(0, pz0), (pr - 0.5, pz0), (pr, pz0 + 0.5), (pr, gz - pist_groove_w / 2),
@@ -303,7 +315,7 @@ tube_wall = lambda z0, z1: cyl(TUBE_OD, z0, z1).cut(cyl(TUBE_ID, z0 - 1, z1 + 1)
 # Chamber air: tube bore from the plug tip to the rear spigot tip, less the
 # housing, struts, socket, piston and the pilot tube (its bore is pilot).
 probe = cyl(TUBE_ID, z_rs0 - 400.0, z_rs0)
-v_fixed = probe.common(cart).Volume + probe.common(piston).Volume + probe.common(pad).Volume
+v_fixed = probe.common(cart).Volume + probe.common(cap).Volume + probe.common(piston).Volume + probe.common(pad).Volume
 L_air = (CHAMBER_V * 1000 + v_fixed) / A_tube
 for _ in range(4):                       # the pilot tube grows with the chamber
     L_air = (CHAMBER_V * 1000 + v_fixed + area(PILOT_TUBE[0]) * L_air) / A_tube
@@ -318,7 +330,7 @@ pilot_tube = cyl(PILOT_TUBE[0], *pilot_tube_z).cut(cyl(PILOT_TUBE[1], pilot_tube
 barrel = tube_wall(z_c1, z_c1 + BARREL_LEN)
 chamber = tube_wall(z_end, z_c0)
 chamber_air = (cyl(TUBE_ID, z_end + PLUG_INSERT_LEN, z_rs0)
-               .cut(cart).cut(piston).cut(pad).cut(cyl(PILOT_TUBE[0], *pilot_tube_z)))
+               .cut(cart).cut(cap).cut(piston).cut(pad).cut(cyl(PILOT_TUBE[0], *pilot_tube_z)))
 chamber_v = chamber_air.Volume / 1000
 
 # ---------------------------------------------------------------- numbers
@@ -329,7 +341,7 @@ A_curtain = math.pi * SEAT_D * LIFT
 A_annulus = A_tube - area(2 * housing_r)
 A_window = STRUT_N * (2 * ARCH_R * (z_rs0 - z_h0 - ARCH_R) + math.pi * ARCH_R ** 2 / 2)   # arched windows
 open_ratio = 1 - A_seat_eff / A_piston
-pilot_v = (A_piston * CAVITY + (PISTON_D ** 2 + PISTON_D * PILOT_CH_D + PILOT_CH_D ** 2) * math.pi / 12 * roof_h
+pilot_v = (A_piston * CAVITY + area(PILOT_CH_D) * (z_bore_end - z_sock_floor)
            + area(PILOT_TUBE[1]) * pilot_tube_len + area(4.0) * (p_floor - G18_TAP_DEPTH)) / 1000
 dead_v = (area(SEAT_D) * (z_rs0 + 0.5) + area(BORE_D) * (z_tip - z_rs0)) / 1000
 F_cart = P_MAX_BAR * 0.1 * (A_tube - A_seat)       # chamber side pushes the cartridge forward
@@ -342,9 +354,12 @@ def wall_between(a, b):
 
 
 checks = [
-    ("cartridge, piston, plug valid single solids", all(G.single_solid(s) for s in (cart, piston, plug_p))),
-    ("piston (shut and open) clear of the cartridge",
-     G.no_overlap(piston, cart) and G.no_overlap(piston_open, cart) and G.no_overlap(pad, cart)),
+    ("cartridge, housing cap, piston, plug valid single solids",
+     all(G.single_solid(s) for s in (cart, cap, piston, plug_p))),
+    ("piston (shut and open) clear of the cartridge and the cap",
+     all(G.no_overlap(a, b) for a in (piston, piston_open, pad) for b in (cart, cap))),
+    ("housing cap clear of the cartridge", G.no_overlap(cap, cart)),
+    ("cap O-ring behind the bleed hole", cz + pist_groove_w / 2 < bleed_z - BLEED_D / 2 - 1.0),
     ("pad face on the seat when shut", abs(pad.BoundBox.ZMax) < 1e-6),
     ("piston O-ring inside the housing bore when shut", gz + pist_groove_w / 2 - (PAD[1] - PAD_RECESS) <= z_h0 - 1.0),
     ("bleed hole never covered by the piston",
@@ -356,10 +371,10 @@ checks = [
     ("struts clear of the piston", STRUT_R[0] >= pr + 0.3),
     ("opens once the pilot is down to >= 35 %% of the chamber (%.0f %%)" % (open_ratio * 100), open_ratio >= 0.35),
     ("nothing wider than the collar but screw heads",
-     max(cart.BoundBox.XMax, plug_p.BoundBox.XMax) <= COLLAR_D / 2 + 1e-6),
+     max(cart.BoundBox.XMax, cap.BoundBox.XMax, plug_p.BoundBox.XMax) <= COLLAR_D / 2 + 1e-6),
     ("cartridge and plug clear of the tubes",
-     all(G.no_overlap(a, b) for a in (cart, plug) for b in (barrel, chamber))),
-    ("pilot tube clear of cartridge and plug", G.no_overlap(pilot_tube, cart) and G.no_overlap(pilot_tube, plug)),
+     all(G.no_overlap(a, b) for a in (cart, cap, plug) for b in (barrel, chamber))),
+    ("pilot tube clear of cartridge, cap and plug", all(G.no_overlap(pilot_tube, s) for s in (cart, cap, plug))),
     ("wall groove root -> bore >= 2 mm", root_r - BORE_D / 2 >= 2.0),
     ("wall screw pilot -> bore >= 1.4 mm", spigot_r - SCREW_DEPTH - BORE_D / 2 >= 1.4 - 1e-9),
     ("screw tip inside its pilot", TUBE_OD / 2 - SCREW_L >= spigot_r - SCREW_DEPTH),
@@ -386,7 +401,8 @@ report = [
     % (COLLAR_D, z_c1 + BARREL_LEN - z_end, BARREL_LEN, PACK_PITCH),
     "  @ %.0f bar               : cartridge pushed %.0f N forward, plug %.0f N back (3 screws each)"
     % (P_MAX_BAR, F_cart, F_plug),
-    "  cartridge / piston / plug: %.1f / %.1f / %.1f cm3" % (cart.Volume / 1000, piston.Volume / 1000, plug_p.Volume / 1000),
+    "  cartridge / cap / piston / plug: %.1f / %.1f / %.1f / %.1f cm3"
+    % (cart.Volume / 1000, cap.Volume / 1000, piston.Volume / 1000, plug_p.Volume / 1000),
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 if not STAGE3V2_LIBRARY:
@@ -403,6 +419,7 @@ orings = G.fuse_all([
     torus(2 * root_r, ORING_CS, z_tip - GROOVE_WALL_FROM_TIP - GROOVE_ROOT_W / 2),
     torus(2 * root_r, ORING_CS, plug_dz + PLUG_FLANGE_T + PLUG_INSERT_LEN - GROOVE_WALL_FROM_TIP + GROOVE_ROOT_W / 2),
     torus(pist_oring_root, PISTON_ORING[1], gz - (PAD[1] - PAD_RECESS)),
+    torus(pist_oring_root, PISTON_ORING[1], cz),
     torus(0, SOCKET_ORING[1], sum(sock_groove) / 2, PILOT_TUBE[0] / 2 + SOCKET_ORING[1] / 2),
     torus(0, SOCKET_ORING[1], sum(plug_sock_groove) / 2 + plug_dz, PILOT_TUBE[0] / 2 + SOCKET_ORING[1] / 2),
 ])
@@ -424,7 +441,8 @@ if not STAGE3V2_LIBRARY:
     os.makedirs(OUT_DIR, exist_ok=True)
     sc = FV.Scene(NAME)
     doc = sc.doc
-    for n, s, style in (("Cartridge", cart, "rotor"), ("Piston", piston, "stator"), ("Pad", pad, "shoe"),
+    for n, s, style in (("Cartridge", cart, "rotor"), ("Housing_cap", cap, "rotor"), ("Piston", piston, "stator"),
+                        ("Pad", pad, "shoe"),
                         ("Rear_plug", plug, "rotor")):
         sc.add("Printed", n, s, style)
     for n, s, style in (("Barrel_tube", barrel, "ghost"), ("Chamber_tube", chamber, "ghost"),
@@ -434,8 +452,8 @@ if not STAGE3V2_LIBRARY:
         sc.add("Bought", n, s, style)
     sc.add("Open", "Piston_open", piston_open, "stator")
     half = Part.makeBox(100, 50, 1200, V(-50, -50, -800))
-    for n in ("Cartridge", "Piston", "Pad", "Rear_plug", "Barrel_tube", "Chamber_tube", "Pilot_tube", "ORings", "Ball"):
-        style = dict(Cartridge="rotor", Piston="stator", Pad="shoe", Rear_plug="rotor", ORings="oring",
+    for n in ("Cartridge", "Housing_cap", "Piston", "Pad", "Rear_plug", "Barrel_tube", "Chamber_tube", "Pilot_tube", "ORings", "Ball"):
+        style = dict(Cartridge="rotor", Housing_cap="rotor", Piston="stator", Pad="shoe", Rear_plug="rotor", ORings="oring",
                      Pilot_tube="hose", Ball="flow").get(n, "ghost")
         sc.add("Section", "Sec_" + n, sc.src[n].cut(half), style)
     for text, pos in [
@@ -463,7 +481,7 @@ if not STAGE3V2_LIBRARY:
         MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(os.path.join(OUT_DIR, name + ".stl"))
 
 
-    for n, s, flip in (("cartridge", cart, True), ("piston", piston, True), ("rear_plug", plug_p, False),
+    for n, s, flip in (("cartridge", cart, True), ("housing_cap", cap, True), ("piston", piston, True), ("rear_plug", plug_p, False),
                        ("pad", cyl(PAD[0], 0, PAD[1]), False)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:

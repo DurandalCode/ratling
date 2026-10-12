@@ -293,7 +293,7 @@ crank_sweep = Part.makeCylinder(CRANK_ARM + 8, 40, V(0, CRANK_Y_OUT, apex), Y)
 
 # ---------------------------------------------------------------- pack
 dz = -M["z_end"]
-mod_names = ("cart", "piston", "pad", "barrel", "chamber", "pilot_tube", "orings")
+mod_names = ("cart", "cap", "piston", "pad", "barrel", "chamber", "pilot_tube", "orings")
 fitted = fire_order[:N_FITTED]
 mods = {n: [] for n in mod_names}
 for x, y in fitted:
@@ -398,7 +398,7 @@ for n, s, st in (("Breech_block", block, "frame"), ("Retainer", retainer, "print
 for n, s, st in (("Valve_cores", valve_cores, "steel"), ("Roller", roller, "steel"), ("Shaft", shaft, "steel"), ("Crank_shaft", crank_shaft, "steel"),
                  ("Bearings", bearings, "steel"), ("Detent_ball", detent_ball, "steel"), ("Supply_hose", supply, "hose")):
     sc.add("Bought", n, s, st)
-style = dict(cart="rotor", piston="stator", pad="shoe", barrel="ghost", chamber="ghost", pilot_tube="hose", orings="oring")
+style = dict(cart="rotor", cap="rotor", piston="stator", pad="shoe", barrel="ghost", chamber="ghost", pilot_tube="hose", orings="oring")
 for n, lst in mods.items():
     sc.add("Modules", "Mod_" + n, G.fuse_all(lst), style[n])
 sc.add("Slots", "Other_22_tubes", ghosts, "ghost")
