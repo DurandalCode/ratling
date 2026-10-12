@@ -19,7 +19,9 @@ nothing but screw heads is wider than the tube:
                    The housing is open at the back: the piston goes in there.
     housing cap .. printed, closes the housing behind the piston: a spigot
                    with the piston's O-ring into the housing bore, the pilot
-                   tube socket behind. Glued in once the valve works.
+                   tube socket behind. Three ST2.9 screws through the
+                   housing wall, behind the O-ring, hold it against the
+                   pilot pressure.
     piston ....... Ø PISTON_D on an O-ring in the housing, rubber pad on its
                    face against the seat. Pilot pressure behind it holds it
                    shut; vented, the chamber pressure on the annulus outside
@@ -122,8 +124,11 @@ LIFT = 3.0
 CAVITY = 3.0                # pilot space behind the piston when open
 HOUSING_WALL = 1.5
 BLEED_D = 0.8
-CAP_SPIGOT = 7.5            # housing cap: spigot into the bore (piston's O-ring)
+CAP_SPIGOT = 10.5           # housing cap: spigot into the bore (piston's O-ring)
 CAP_FLANGE_T = 2.5
+CAP_SCREW_FROM_END = 3.0    # ST2.9 x 4.5 (as on the tubes) through the housing wall
+CAP_SCREW_HOLE = 3.2        # clearance in the housing wall
+CAP_SCREW_ANGLES = (60.0, 180.0, 300.0)
 
 # Pilot tube sockets (PA 6/4, O-ring 6 x 1.5 in an internal groove)
 PILOT_TUBE = (6.0, 4.0)
@@ -275,21 +280,33 @@ bleed_z = z_bore_end + CAVITY / 2
 pr = PISTON_D / 2 - PISTON_CLEAR
 # Printed socket mouth down: the flange stands on the socket boss on a 45 deg
 # cone (its back face mates with nothing), the spigot stands on the flange,
-# and every ceiling inside is 45 deg: the O-ring groove's tip-side wall (the
-# square wall takes the pilot pressure), the socket floor, the socket groove.
-cg0 = z_split + 1.2                              # O-ring groove: square wall
+# the socket floor and the socket groove are 45 deg ceilings. The O-ring
+# groove is square, as on the piston. Unheld, the pilot pressure blew the cap
+# out: screws through the housing wall behind the O-ring (no pilot leak).
+z_cs = z_split + CAP_SCREW_FROM_END              # cap screw axis
+cg0 = z_cs + CAP_SCREW_HOLE / 2 + 1.4           # O-ring groove
 cg1 = cg0 + pist_groove_w
-cg2 = cg1 + (pr - cap_oring_root / 2)           # 45 deg wall ends
+cg2 = cg1
 cz = (cg0 + cg1) / 2                             # O-ring centre
 cap = revolve([(0, z_split), (pr, z_split), (pr, cg0), (cap_oring_root / 2, cg0), (cap_oring_root / 2, cg1),
-               (pr, cg2), (pr, z_bore_end - 0.5), (pr - 0.5, z_bore_end), (0, z_bore_end)])
+               (pr, cg1), (pr, z_bore_end - 0.5), (pr - 0.5, z_bore_end), (0, z_bore_end)])
 cap = cap.fuse(cyl(2 * housing_r, z_hback, z_split)).fuse(cyl(2 * sock_r, z_sock_mouth, z_hback + 0.01))
 cap = cap.fuse(cone(2 * sock_r, z_hback - (housing_r - sock_r), 2 * housing_r, z_hback + 0.01))
 sock_cuts, sock_groove = socket_cut(z_sock_mouth, z_sock_floor, groove_at_mouth_side_45=False)
 sock_cuts.append(cone(SOCKET_D, z_sock_floor - 0.01, PILOT_CH_D, z_sock_floor + (SOCKET_D - PILOT_CH_D) / 2))
-for c in sock_cuts + [cyl(PILOT_CH_D, z_sock_floor - 0.01, z_bore_end + 1)]:
+cap_screws, cap_holes, cap_pilots = [], [], []
+for a in CAP_SCREW_ANGLES:
+    d = V(math.cos(math.radians(a)), math.sin(math.radians(a)), 0)
+    o = V(d.x * housing_r, d.y * housing_r, z_cs)
+    cap_holes.append(Part.makeCylinder(CAP_SCREW_HOLE / 2, HOUSING_WALL + 2, o + d * 1.0, -d))
+    cap_pilots.append(Part.makeCylinder(SCREW_PILOT_D / 2, SCREW_L + 0.5, o, -d))
+    cap_screws += [Part.makeCylinder(1.45, SCREW_L, o, -d), Part.makeCylinder(2.8, 2.0, o, d)]
+for c in sock_cuts + [cyl(PILOT_CH_D, z_sock_floor - 0.01, z_bore_end + 1)] + cap_pilots:
     cap = cap.cut(c)
 cap = cap.removeSplitter()
+for c in cap_holes:
+    cart = cart.cut(c)
+cart = cart.removeSplitter()
 
 # ---------------------------------------------------------------- piston (shut position)
 pz0, pz1 = -PISTON_L, 0.0
@@ -379,6 +396,10 @@ checks = [
     ("housing cap clear of the cartridge", G.no_overlap(cap, cart)),
     ("cap O-ring groove behind the bleed hole", cg2 < bleed_z - BLEED_D / 2 - 1.0),
     ("cap spigot land ahead of the groove >= 1.5 mm", z_bore_end - cg2 >= 1.5),
+    ("cap screws behind the cap O-ring", z_cs + CAP_SCREW_HOLE / 2 + 1.0 <= cg0),
+    ("cap screw hole >= 1.2 mm from the housing end", z_cs - CAP_SCREW_HOLE / 2 - z_split >= 1.2),
+    ("cap screw heads clear of the chamber tube", housing_r + 2.0 <= TUBE_ID / 2 - 0.2),
+    ("cap screw tips clear of the pilot channel", housing_r - SCREW_L - 0.5 - SCREW_PILOT_D / 2 >= PILOT_CH_D / 2 + 1.0),
     ("pad face on the seat when shut", abs(pad.BoundBox.ZMax) < 1e-6),
     ("piston O-ring inside the housing bore when shut", gz + pist_groove_w / 2 - (PAD[1] - PAD_RECESS) <= z_h0 - 1.0),
     ("bleed hole never covered by the piston",
@@ -466,7 +487,7 @@ if not STAGE3V2_LIBRARY:
         sc.add("Printed", n, s, style)
     for n, s, style in (("Barrel_tube", barrel, "ghost"), ("Chamber_tube", chamber, "ghost"),
                         ("Pilot_tube", pilot_tube, "hose"), ("ORings", orings, "oring"),
-                        ("Tube_screws", G.fuse_all(screws), "steel"), ("Pilot_fitting", fitting, "steel"),
+                        ("Tube_screws", G.fuse_all(screws), "steel"), ("Cap_screws", G.fuse_all(cap_screws), "steel"), ("Pilot_fitting", fitting, "steel"),
                         ("Ball", ball, "flow")):
         sc.add("Bought", n, s, style)
     sc.add("Open", "Piston_open", piston_open, "stator")
