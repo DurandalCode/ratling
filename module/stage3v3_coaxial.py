@@ -26,7 +26,7 @@ Parts, each exported in its print orientation (lowest point at z = 0):
                   with floor grooves, sealing beads and stop pins on the face,
                   slanted passage channels from the spigot bore out to the
                   ring, G1/8 pilot port in the side (spot face at 45 deg),
-                  45 deg underside with counterbores for the rod heads.
+                  45 deg underside with countersunk seats for the rod heads.
     diaphragm ... one disc of rubber sheet (DIA_T, NBR/EPDM ~60 A): valve
                   membrane in the middle, gasket for the passage ring round
                   it. Holes: passages, tie rods (tight, they seal), stop pins,
@@ -112,7 +112,8 @@ ROD_HOLE_D = 3.4            # M3
 ROD_DIA_HOLE_D = 3.0        # in the diaphragm: tight on the rod, it seals there
 PILLAR_D = 7.0              # round the rods through the body gallery
 NUT_AF, NUT_CLEAR, NUT_T, NUT_POCKET = 5.5, 0.2, 2.4, 2.6
-HEAD_D, HEAD_H, HEAD_CB_D = 5.5, 3.0, 6.2
+# Countersunk M3 (DIN 7991): its 90 deg seat prints with no bridge from below
+HEAD_D, HEAD_H, HEAD_CB_D = 6.0, 1.7, 6.4
 
 # Diaphragm
 DIA_T = 1.5
@@ -138,7 +139,8 @@ CHAN_AXIAL = 4.0            # straight down from the face before turning in
 CHAN_END_R = 5.0
 SPIGOT_BORE_D = 13.0
 CAP_SIDE_H = 14.0           # cylindrical side; 45 deg underside below it
-CAP_LAND_R = 13.5           # flat land round the spigot root: the tube end
+# The 45 deg underside starts at the spigot root; the chamber tube's end stops
+# on it (a flat land there was an overhang Bambu Studio flagged).
 PILOT_Z = -7.2
 PILOT_ANGLE = 45.0
 G18_TAP_D, G18_TAP_DEPTH = 8.8, 8.0
@@ -176,9 +178,9 @@ z_a = -CHAN_AXIAL
 z_ce = z_a - (RING_R - CHAN_END_R)          # channel end in the spigot bore
 z_bc = z_ce - (SPIGOT_BORE_D / 2 - CHAN_END_R)   # bore cone base (r = bore)
 z_oc = -CAP_SIDE_H
-z_cb = z_oc - (BODY_R - CAP_LAND_R)         # cap rear land = chamber tube stop
+z_cb = z_oc - (BODY_R - spigot_r)           # spigot root; the tube end stops on the cone just behind it
 z_ctip = z_cb - SPIGOT_LEN
-z_head = -16.0                              # rod head seat (counterbore ceiling)
+z_head = -16.0                              # top of the countersunk rod heads
 
 
 def P2(r, z):
@@ -265,7 +267,7 @@ cuts += screw_pilots(z_bt + SCREW_FROM_TUBE_END, (60.0, 180.0, 300.0))
 body = body.cut(G.fuse_all(cuts))           # removeSplitter() leaves it invalid here
 
 # ---------------------------------------------------------------- cap
-cap = revolve([(0, z_cb), (CAP_LAND_R, z_cb), (BODY_R, z_oc), (BODY_R, 0), (0, 0)])
+cap = revolve([(0, z_cb), (spigot_r, z_cb), (BODY_R, z_oc), (BODY_R, 0), (0, 0)])
 chamber_sp, rear_groove = spigot_down(z_cb + 0.5, z_ctip)
 cap = cap.fuse(chamber_sp)
 for r in (bead_in_r, bead_out_r):
@@ -298,7 +300,9 @@ pilot_cuts.append(spot)
 rod_cuts = []
 for a in ROD_ANGLES:
     c = at(RING_R, a)
-    rod_cuts += [cyl(ROD_HOLE_D, z_head - 1, 1, c.x, c.y), cyl(HEAD_CB_D, z_cb - 1, z_head, c.x, c.y)]
+    rod_cuts += [cyl(ROD_HOLE_D, z_head - 1, 1, c.x, c.y),
+                 cyl(HEAD_CB_D, z_cb - 1, z_head, c.x, c.y).fuse(
+                     Part.makeCone(HEAD_CB_D / 2, ROD_HOLE_D / 2, (HEAD_CB_D - ROD_HOLE_D) / 2, V(c.x, c.y, z_head)))]
 rod_cuts += screw_pilots(z_cb - SCREW_FROM_TUBE_END, (0.0, 120.0, 240.0))
 cap_solid = cap
 cap = cap.cut(G.fuse_all(chamber_cuts + pilot_cuts + rod_cuts)).removeSplitter()
@@ -399,7 +403,7 @@ checks = [
     ("nut pockets inside the body (wall >= 0.8) and clear of the barrel tube",
      BODY_R - (RING_R + hex_flat) >= 0.8 and RING_R - hex_r - TUBE_OD / 2 >= 1.0),
     ("rod heads clear of the chamber tube", RING_R - HEAD_CB_D / 2 - TUBE_OD / 2 >= 1.0),
-    ("chamber tube stop land >= 1.5 mm", CAP_LAND_R - TUBE_OD / 2 >= 0.0 and CAP_LAND_R - spigot_r >= 1.5),
+    ("chamber tube end stops on the underside <= 1 mm behind the spigot root", TUBE_OD / 2 - spigot_r <= 1.0),
     ("wall groove root -> bore >= 2 mm", root_r - max(SEAT_D, SPIGOT_BORE_D) / 2 >= 2.0),
     ("wall screw pilot -> bore >= 1.4 mm", spigot_r - SCREW_DEPTH - SPIGOT_BORE_D / 2 >= 1.4 - 1e-9),
     ("screw tip inside its pilot", TUBE_OD / 2 - SCREW_L >= spigot_r - SCREW_DEPTH),
@@ -430,7 +434,7 @@ report = [
     % (2 * BODY_R, z_bt - z_cb),
     "  module                 : %.0f mm long with a %.0f mm barrel" % (z_bt + BARREL_LEN - z_end, BARREL_LEN),
     "  @ %.0f bar               : cap %.0f N (%.0f N per M3)" % (P_MAX_BAR, F_clamp, F_clamp / len(ROD_ANGLES)),
-    "  tie rods               : %d x M3 x %d socket head (heads in the cap) + nut in the body"
+    "  tie rods               : %d x M3 x %d countersunk (DIN 7991, heads in the cap) + nut in the body"
     % (len(ROD_ANGLES), rod_len),
     "  body / cap / plug      : %.1f / %.1f / %.1f cm3" % (body.Volume / 1000, cap.Volume / 1000,
                                                           plug_print.Volume / 1000),
@@ -454,7 +458,7 @@ for z, angles in ((z_cb - SCREW_FROM_TUBE_END, (0, 120, 240)), (z_bt + SCREW_FRO
         screws += [Part.makeCylinder(1.45, SCREW_L, o, -d), Part.makeCylinder(2.8, 2.0, o, d)]
 rods = []
 for c in rod_pts:
-    rods += [cyl(HEAD_D, z_head - HEAD_H, z_head, c.x, c.y), cyl(3.0, z_head, z_head + rod_len, c.x, c.y),
+    rods += [Part.makeCone(HEAD_D / 2, 1.5, HEAD_H, V(c.x, c.y, z_head)), cyl(3.0, z_head, z_head + rod_len, c.x, c.y),
              G.hex_prism(NUT_AF, z_bt - NUT_POCKET, z_bt - NUT_POCKET + NUT_T, c.x, c.y)]
 fitting = G.push_in_fitting(0, 0, 0)
 fitting.rotate(V(0, 0, 0), Y, 90)
