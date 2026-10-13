@@ -73,6 +73,30 @@ def apply(values, changes):
     return out
 
 
+def mark_changes(project, process_keys, filament_keys):
+    """List the changed keys in the project's different_settings_to_system
+    ([process, filament..., printer], ";"-joined). The command line leaves it
+    empty, and then the GUI reopens the project on the plain system presets
+    (15 % grid infill, 2 walls) and re-slices with those."""
+    name = "Metadata/project_settings.config"
+    with zipfile.ZipFile(project) as z:
+        items = [(i, z.read(i.filename)) for i in z.infolist()]
+    for idx, (info, data) in enumerate(items):
+        if info.filename == name:
+            cfg = json.loads(data)
+            diff = list(cfg.get("different_settings_to_system") or ["", "", ""])
+            diff[0] = ";".join(sorted(set(filter(None, diff[0].split(";"))) | set(process_keys)))
+            for i in range(1, len(diff) - 1):
+                diff[i] = ";".join(sorted(set(filter(None, diff[i].split(";"))) | set(filament_keys)))
+            cfg["different_settings_to_system"] = diff
+            items[idx] = (info, json.dumps(cfg, indent=4).encode())
+    tmp = project + ".tmp"
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
+        for info, data in items:
+            z.writestr(info, data)
+    os.replace(tmp, project)
+
+
 def slice_info(project):
     """(plates, [(plate, minutes, grams)]) from the sliced project."""
     with zipfile.ZipFile(project) as z:
@@ -149,6 +173,7 @@ def main(argv=None):
         tail = "\n".join(run.stdout.splitlines()[-15:] + run.stderr.splitlines()[-15:])
         raise SystemExit("Bambu Studio failed: %s\n%s" % (result.get("error_string", run.returncode), tail))
 
+    mark_changes(project, [k for k in overrides if k != "curr_bed_type"], AIRTIGHT_FILAMENT.keys() if args.airtight else ())
     plates, sliced = slice_info(project)
     report = {"project": os.path.relpath(project, REPO), "printer": args.printer,
               "process": args.process, "filament": args.filament, "overrides": overrides,
