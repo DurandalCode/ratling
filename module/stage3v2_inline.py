@@ -95,7 +95,11 @@ SCREW_FROM_TUBE_END = 6.0
 # Cartridge
 BORE_D = 13.0               # through both spigots
 SEAT_D = 11.0
-SEAT_LAND = 0.8
+SEAT_LAND = 0.8             # lip wall at its root
+# Knife edge: the flat 0.8 land sank only ~0.2 mm into the pad, less than the
+# piston's tilt in its 0.2 mm clearance (~0.4 across the seat), and the shut
+# valve leaked into the barrel. The 45 deg chamfer outside narrows the tip.
+SEAT_TIP = 0.3
 LIP_H = 1.0
 REAR_SPIGOT_LEN = 24.0
 COLLAR_W = 6.0
@@ -247,7 +251,8 @@ def socket_cut(z_mouth, z_floor, groove_at_mouth_side_45):
 rear_sp, rear_groove = gland(z_rs0, z_c0 + 0.5, -1)          # tip towards -z, printed tip up
 front_sp, front_groove = gland_flipped(z_tip, z_c1 - 0.5)
 cart = rear_sp.fuse(cyl(COLLAR_D, z_c0, z_c1)).fuse(front_sp)
-cart = cart.fuse(revolve([(SEAT_D / 2, 0), (SEAT_D / 2 + SEAT_LAND, 0), (SEAT_D / 2 + SEAT_LAND, z_rs0 + 0.01),
+cart = cart.fuse(revolve([(SEAT_D / 2, 0), (SEAT_D / 2 + SEAT_TIP, 0), (SEAT_D / 2 + SEAT_LAND, SEAT_LAND - SEAT_TIP),
+                          (SEAT_D / 2 + SEAT_LAND, z_rs0 + 0.01),
                           (SEAT_D / 2, z_rs0 + 0.01)]))                                           # seat lip
 housing = cyl(2 * housing_r, z_split, z_h0)
 # The housing wall runs on down to the spigot face, and the windows between
@@ -369,7 +374,7 @@ chamber_v = chamber_air.Volume / 1000
 
 # ---------------------------------------------------------------- numbers
 A_seat = area(SEAT_D)
-A_seat_eff = area(SEAT_D + SEAT_LAND)
+A_seat_eff = area(SEAT_D + SEAT_TIP)
 A_piston = area(PISTON_D)
 A_curtain = math.pi * SEAT_D * LIFT
 A_annulus = A_tube - area(2 * housing_r)
