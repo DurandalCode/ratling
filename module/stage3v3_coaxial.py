@@ -121,6 +121,10 @@ DIA_SQUEEZE = 0.20          # stop pins
 DIA_R = BODY_R - 0.75
 BEAD_W = (1.2, 0.4)         # base, top
 BEAD_H = 0.4
+# A bead ring round each tie rod too: on the v1 bench the air found its way
+# out along the rods. Here they stand in chamber air, so the rubber must close
+# round each one.
+ROD_BEAD_R = 2.85
 BLEED_D = 0.8
 BLEED_R = 9.5
 BLEED_ANGLE = 0.0           # ribs at half steps clear it
@@ -273,6 +277,12 @@ cap = cap.fuse(chamber_sp)
 for r in (bead_in_r, bead_out_r):
     cap = cap.fuse(revolve([(r - BEAD_W[0] / 2, -0.01), (r + BEAD_W[0] / 2, -0.01),
                             (r + BEAD_W[1] / 2, BEAD_H), (r - BEAD_W[1] / 2, BEAD_H)]))
+for a in ROD_ANGLES:
+    c = at(RING_R, a)
+    b = revolve([(ROD_BEAD_R - BEAD_W[0] / 2, -0.01), (ROD_BEAD_R + BEAD_W[0] / 2, -0.01),
+                 (ROD_BEAD_R + BEAD_W[1] / 2, BEAD_H), (ROD_BEAD_R - BEAD_W[1] / 2, BEAD_H)])
+    b.translate(c)
+    cap = cap.fuse(b)
 for a in PIN_ANGLES:
     cap = cap.fuse(cyl(PIN_D, -0.01, t_c, *at(RING_R, a)[:2]))
 # chamber side: spigot bore, its 45 deg roof, the slanted channels
@@ -381,6 +391,10 @@ checks = [
     ("beads inside their rings, >= 0.3 mm from the edges",
      bead_in_r - BEAD_W[0] / 2 >= mouth_r + 0.3 and bead_in_r + BEAD_W[0] / 2 <= pass_in_r - 0.3
      and bead_out_r - BEAD_W[0] / 2 >= pass_out_r + 0.3 and bead_out_r + BEAD_W[0] / 2 <= DIA_R - 0.3),
+    ("rod beads clear of the rod hole and the next holes by >= 0.5 mm",
+     ROD_BEAD_R - BEAD_W[0] / 2 >= ROD_HOLE_D / 2 + 0.5
+     and min(chord(r, p) for r in ROD_ANGLES for p in PASS_ANGLES) - PASS_D / 2 >= ROD_BEAD_R + BEAD_W[0] / 2 + 0.5
+     and min(chord(r, p) for r in ROD_ANGLES for p in PIN_ANGLES) - PIN_HOLE_D / 2 >= ROD_BEAD_R + BEAD_W[0] / 2 + 0.5),
     ("squeeze under the beads 30..50 %", 0.30 <= (DIA_T - t_c + BEAD_H) / DIA_T <= 0.50),
     ("holes on the ring >= 1.5 mm apart (%.1f)" % ring_gap, ring_gap >= 1.5),
     ("bleed hole over the gallery, clear of seat and mouth", seat_out_r + 2 <= BLEED_R <= mouth_r - 2),
