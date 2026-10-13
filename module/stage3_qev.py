@@ -22,9 +22,12 @@ Parts, each exported in its print orientation (lowest point at z = 0):
                   the clamp face are the bed face (flat). Gallery ceiling is
                   a 45 deg cone; short radial ribs at the clamp plane carry
                   the diaphragm while the pilot is up and the chamber empty.
+                  M4 nut pockets in the top face, between the tubes: the rods
+                  are turned from the cap side, which is clear.
     cap ......... clamp face up: recess that locates the diaphragm and sets
                   its squeeze, pocket (= lift), radial grooves in the pocket
-                  floor, G1/8 pilot port from the bed side, M4 nut pockets.
+                  floor, G1/8 pilot port from the bed side, M4 rod heads
+                  on its back face.
     diaphragm ... Ø DIA_D disc cut from rubber sheet (NBR/EPDM, ~60 A); the
                   STL is for a TPU try or as a cutting template. Bleed hole
                   Ø BLEED_D at BLEED_R, pierced/drilled after cutting.
@@ -267,7 +270,10 @@ gable = Part.Face(Part.makePolygon([V(GALLERY_R - 4, -seat_r, GALLERY_H), V(GALL
 cuts = [gallery, window, gable,
         cyl(seat_r, -1, BODY_H + BARREL_SPIGOT_LEN + 1),
         cyl(seat_r, WINDOW_Z0, BODY_H + CHAMBER_SPIGOT_LEN + 1, C)]
-cuts += [cyl(ROD_HOLE_D / 2, -1, BODY_H + 1, p) for p in rod_pts]
+hex_r = (NUT_AF + 2 * NUT_POCKET_CLEAR) / math.sqrt(3)
+nut_pockets = [prism([(p.x + hex_r * math.cos(math.radians(60 * k)), p.y + hex_r * math.sin(math.radians(60 * k)))
+                      for k in range(6)], BODY_H - NUT_POCKET_DEPTH, BODY_H + 1) for p in rod_pts]
+cuts += [cyl(ROD_HOLE_D / 2, -1, BODY_H + 1, p) for p in rod_pts] + nut_pockets
 cuts += screw_pilots(V(0, 0), BODY_H + SCREW_FROM_TUBE_END, barrel_screw_angles)
 cuts += screw_pilots(C, BODY_H + SCREW_FROM_TUBE_END, chamber_screw_angles)
 for c in cuts:
@@ -287,7 +293,6 @@ body = body.removeSplitter()
 cap = cyl(BODY_R, 0, CAP_T)
 pocket = revolve([(0, z_floor), (GALLERY_R, z_floor), (GALLERY_R, z_recess - MOUTH_CHAMFER),
                   (mouth_r, z_recess), (mouth_r, z_recess + 0.5), (0, z_recess + 0.5)])
-hex_r = (NUT_AF + 2 * NUT_POCKET_CLEAR) / math.sqrt(3)
 cuts = [cyl(recess_r, z_recess, CAP_T + 1), pocket,
         cyl(PILOT_D / 2, -1, z_floor + 0.5),
         cyl(TAP_DRILL_D / 2, -1, TAP_DEPTH),
@@ -298,8 +303,6 @@ for i in range(GROOVE_N):
     cuts.append(g)
 for p in rod_pts:
     cuts.append(cyl(ROD_HOLE_D / 2, -1, CAP_T + 1, p))
-    cuts.append(prism([(p.x + hex_r * math.cos(math.radians(60 * k)), p.y + hex_r * math.sin(math.radians(60 * k)))
-                       for k in range(6)], -1, NUT_POCKET_DEPTH))
 mark = prism([(recess_r + 0.8, 0), (BODY_R + 1, MARK_W / 2), (BODY_R + 1, -MARK_W / 2)],
              CAP_T - MARK_DEPTH, CAP_T + 1)
 mark.rotate(V(0, 0), Z, BLEED_ANGLE)
@@ -352,7 +355,7 @@ A_seat = area(SEAT_D)
 chamber_extra_v = (A_seat * (BODY_H + CHAMBER_SPIGOT_LEN - WINDOW_Z0)) / 1000 \
     + (area(2 * GALLERY_R) - A_seat) * GALLERY_H / 1000
 chamber_tube_len = (CHAMBER_V - chamber_extra_v) * 1000 / area(TUBE_ID) + CHAMBER_SPIGOT_LEN + PLUG_INSERT_LEN
-rod_len = 5 * math.ceil((BODY_H + CAP_T) / 5)   # reaches through the nut in its pocket
+rod_len = 5 * math.ceil((BODY_H + CAP_T) / 5)   # from the cap's back face through the nut in its pocket
 
 cap_a = cap.copy()
 cap_a.translate(V(0, 0, -CAP_T))           # cap top face meets the body bed face
@@ -419,9 +422,12 @@ checks = {
     "wall gallery -> rod hole >= 3 mm": ROD_R - ROD_HOLE_D / 2 - mouth_r >= 3.0,
     "wall chamber bore -> rod hole >= 3 mm":
         min(dist(C, p) for p in rod_pts) - seat_r - ROD_HOLE_D / 2 >= 3.0,
-    "rod heads clear of both tubes":
-        min(dist(C, p) for p in rod_pts) - TUBE_OD / 2 - ROD_HEAD_D / 2 >= 1.0
-        and ROD_R - TUBE_OD / 2 - ROD_HEAD_D / 2 >= 1.0,
+    "nut pockets and rod tips clear of both tubes":
+        all(G.no_overlap(n, t) for n in nut_pockets for t in tubes)
+        and min(dist(C, p) for p in rod_pts) - TUBE_OD / 2 - hex_r >= 1.0
+        and ROD_R - TUBE_OD / 2 - hex_r >= 1.0,
+    "wall nut pocket -> gallery mouth / chamber bore >= 2 mm":
+        ROD_R - hex_r - mouth_r >= 2.0 and min(dist(C, p) for p in rod_pts) - hex_r - seat_r >= 2.0,
     "wall groove root -> bore >= 2 mm": root_r - seat_r >= 2.0,
     "screw tip inside its pilot": TUBE_OD / 2 - SCREW_L >= spigot_r - SCREW_DEPTH,
     "wall screw pilot -> bore >= 1.4 mm": spigot_r - SCREW_DEPTH - seat_r >= 1.4 - 1e-9,
@@ -474,9 +480,9 @@ def flipped(shape, z):
 def tie_rods():
     rods = []
     for p in rod_pts:
-        rods += [cyl(ROD_HEAD_D / 2, BODY_H, BODY_H + ROD_HEAD_H, p),
-                 cyl(2.0, BODY_H - rod_len, BODY_H, p),
-                 G.hex_prism(NUT_AF, -CAP_T, -CAP_T + NUT_T, p.x, p.y)]
+        rods += [cyl(ROD_HEAD_D / 2, -CAP_T - ROD_HEAD_H, -CAP_T, p),
+                 cyl(2.0, -CAP_T, -CAP_T + rod_len, p),
+                 G.hex_prism(NUT_AF, BODY_H - NUT_POCKET_DEPTH, BODY_H - NUT_POCKET_DEPTH + NUT_T, p.x, p.y)]
     return G.fuse_all(rods)
 
 
