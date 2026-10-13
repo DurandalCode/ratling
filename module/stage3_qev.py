@@ -118,6 +118,11 @@ DIA_D = 46.0
 DIA_T = 1.5
 DIA_SQUEEZE = 0.20
 RECESS_CLEAR = 0.25     # radial, diaphragm in the cap recess
+# Sealing bead on the recess floor: flat on flat, the 0.3 mm squeeze was lost to
+# the printed top face and the sheet's tolerance, and the clamp seam leaked.
+BEAD_R = 21.0           # mid clamped strip (free edge Ø38 .. disc Ø46)
+BEAD_W = (1.2, 0.4)     # base, top
+BEAD_H = 0.4            # two layers; adds to DIA_SQUEEZE under the bead
 LIFT = 4.0              # pocket depth below the diaphragm
 GROOVE_N = 4            # pocket floor grooves, so the diaphragm cannot seal the port
 GROOVE_W = 2.0
@@ -301,7 +306,10 @@ mark.rotate(V(0, 0), Z, BLEED_ANGLE)
 cuts.append(mark)
 for c in cuts:
     cap = cap.cut(c)
-cap = cap.removeSplitter()
+bead = revolve([(BEAD_R - BEAD_W[0] / 2, z_recess - 0.01), (BEAD_R + BEAD_W[0] / 2, z_recess - 0.01),
+                (BEAD_R + BEAD_W[1] / 2, z_recess + BEAD_H), (BEAD_R - BEAD_W[1] / 2, z_recess + BEAD_H)])
+cap_flat = cap.removeSplitter()          # for the stack check: the bead is meant to sink into the rubber
+cap = cap.fuse(bead).removeSplitter()
 
 # ---------------------------------------------------------------- chamber plug (print frame)
 plug_print = revolve([(0, 0), (PLUG_FLANGE_D / 2 - 0.5, 0), (PLUG_FLANGE_D / 2, 0.5),
@@ -383,8 +391,12 @@ checks = {
     "chamber plug screws outboard of its O-ring":
         PLUG_FLANGE_T + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < pg0 - 1.0,
     "body/tubes no interference": all(body.common(t).Volume < 1e-3 for t in tubes),
-    "body/cap/diaphragm stack no interference":
-        body.common(cap_a).Volume < 1e-3 and body.common(dia_a).Volume < 1e-3 and cap_a.common(dia_a).Volume < 1e-3,
+    "body/cap/diaphragm stack no interference (bead aside)":
+        body.common(cap_a).Volume < 1e-3 and body.common(dia_a).Volume < 1e-3
+        and cap_flat.translated(V(0, 0, -CAP_T)).common(dia_a).Volume < 1e-3,
+    "bead inside the clamped strip, >= 1 mm from both edges":
+        BEAD_R - BEAD_W[0] / 2 >= mouth_r + 1.0 and BEAD_R + BEAD_W[0] / 2 <= DIA_D / 2 - 1.0,
+    "squeeze under the bead 30..50 %": 0.30 <= (DIA_T - dia_t_clamped + BEAD_H) / DIA_T <= 0.50,
     "seat curtain >= seat area (lift >= SEAT_D/4)": A_curtain >= A_seat,
     "window >= seat area": A_window >= A_seat,
     "gallery (both ways round) >= seat area": A_gallery >= A_seat,
@@ -424,6 +436,8 @@ report = [
     % (SEAT_D, A_seat, A_curtain, LIFT, A_window, A_gallery),
     "  diaphragm              : Ø%.0f x %.1f, free Ø%.0f, squeeze %.0f %%, bleed Ø%.1f at R%.0f"
     % (DIA_D, DIA_T, 2 * mouth_r, DIA_SQUEEZE * 100, BLEED_D, BLEED_R),
+    "  sealing bead           : R%.1f, %.1f high, squeeze under it %.0f %%"
+    % (BEAD_R, BEAD_H, (DIA_T - dia_t_clamped + BEAD_H) / DIA_T * 100),
     "  opens when pilot < %.0f %% of chamber pressure (gauge)" % (open_ratio * 100),
     "  pilot volume (pocket)  : %.1f cm3" % pocket_v,
     "  dead volume behind ball: %.1f cm3" % dead_v,
