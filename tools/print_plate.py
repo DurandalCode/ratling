@@ -33,6 +33,14 @@ BAMBU = os.environ.get("BAMBU_STUDIO", "/Applications/BambuStudio.app/Contents/M
 PROFILES = os.environ.get(
     "BAMBU_PROFILES", os.path.expanduser("~/Library/Application Support/BambuStudio/system/BBL"))
 
+# --airtight: for parts that hold air. The stock profile (flow 0.98, walls at
+# 200-300 mm/s, full fan) left the Stage 3 v1 cap breathing through its layers
+# at 2 bar. Slower, hotter, a little over-extruded, less fan: fused layers.
+AIRTIGHT_PROCESS = {"wall_loops": "6", "infill_wall_overlap": "30%"}
+AIRTIGHT_FILAMENT = {"filament_flow_ratio": "1.05", "nozzle_temperature": "+10",
+                     "nozzle_temperature_initial_layer": "+10", "filament_max_volumetric_speed": "6",
+                     "fan_max_speed": "50", "fan_min_speed": "30"}
+
 PRINTER = "Bambu Lab P2S 0.4 nozzle"
 PROCESS = "0.20mm Standard @BBL P2S"
 FILAMENT = "Bambu PETG Basic @BBL P2S 0.4 nozzle"   # pressurized parts: PETG
@@ -51,6 +59,18 @@ def preset(kind, name):
         folded.update(values)
         values = folded
     return values
+
+
+def apply(values, changes):
+    """Set preset values keeping their shape (Bambu keeps many as per-variant
+    lists); "+N" adds to the current number."""
+    out = dict(values)
+    for k, v in changes.items():
+        cur = out.get(k)
+        def one(c):
+            return str(int(float(c)) + int(v[1:])) if v.startswith("+") else v
+        out[k] = [one(c) for c in cur] if isinstance(cur, list) else one(cur if cur is not None else "0")
+    return out
 
 
 def slice_info(project):
@@ -76,6 +96,8 @@ def main(argv=None):
     ap.add_argument("--walls", default="4")
     ap.add_argument("--plate", default="Textured PEI Plate", help="build plate type (PETG: not Cool Plate)")
     ap.add_argument("--support", action="store_true", help="enable supports (parts are drawn not to need them)")
+    ap.add_argument("--airtight", action="store_true",
+                    help="slow, hot, over-extruded, 6+ walls: for parts that hold air")
     ap.add_argument("--no-slice", action="store_true")
     args = ap.parse_args(argv)
 
@@ -92,11 +114,16 @@ def main(argv=None):
                  "enable_support": "1" if args.support else "0", "curr_bed_type": args.plate}
     if float(args.infill.rstrip("%")) >= 100:
         overrides["sparse_infill_pattern"] = "zig-zag"      # grid is refused at 100 %
+    filament = preset("filament", args.filament)
+    if args.airtight:
+        overrides.update(AIRTIGHT_PROCESS)
+        overrides["wall_loops"] = str(max(int(args.walls), int(AIRTIGHT_PROCESS["wall_loops"])))
+        filament = apply(filament, AIRTIGHT_FILAMENT)
     work = tempfile.mkdtemp(prefix="print_plate_")
     settings = {}
     for kind, values in (("machine", preset("machine", args.printer)),
-                         ("process", dict(preset("process", args.process), **overrides)),
-                         ("filament", preset("filament", args.filament))):
+                         ("process", apply(preset("process", args.process), overrides)),
+                         ("filament", filament)):
         settings[kind] = os.path.join(work, kind + ".json")
         with open(settings[kind], "w") as f:
             json.dump(values, f, indent=1)
@@ -125,6 +152,7 @@ def main(argv=None):
     plates, sliced = slice_info(project)
     report = {"project": os.path.relpath(project, REPO), "printer": args.printer,
               "process": args.process, "filament": args.filament, "overrides": overrides,
+              "airtight": AIRTIGHT_FILAMENT if args.airtight else None,
               "parts": [{"stl": os.path.relpath(s, REPO), "count": c} for s, c in zip(stls, counts)],
               "plates": plates,
               "sliced": [{"plate": i, "minutes": round(m), "grams": round(g, 1)} for i, m, g in sliced]}
