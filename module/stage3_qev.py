@@ -9,7 +9,12 @@ body; the valve sits behind the barrel axis:
     chamber tube ──> chamber spigot ──> window ──> gallery (around the seat)
                                                      │  diaphragm lifts into
                                                      ▼  the cap pocket
-    barrel tube  <── barrel spigot  <── seat (Ø SEAT_D, on the barrel axis)
+    barrel tube  <── barrel breech ║ flat face <── seat (Ø SEAT_D, on the barrel axis)
+
+v1.1: the barrel meets the valve at a flat face, as it would in a six-barrel
+pistol with one valve and a turning barrel block. The breech piece carries
+an O-ring on its face and is held by three M3 screws; washers on them set a
+gap to see what a turning block would cost.
 
     pilot (cap pocket) pressurized: the diaphragm sits on the seat and the
     chamber charges from the pilot through a bleed hole in the diaphragm.
@@ -18,16 +23,25 @@ body; the valve sits behind the barrel axis:
 
 Parts, each exported in its print orientation (lowest point at z = 0):
 
-    body ........ clamp face on the bed, both spigots up. The seat land and
+    body ........ clamp face on the bed, chamber spigot up. The seat land and
                   the clamp face are the bed face (flat). Gallery ceiling is
                   a 45 deg cone; short radial ribs at the clamp plane carry
                   the diaphragm while the pilot is up and the chamber empty.
                   M4 nut pockets in the top face, between the tubes: the rods
-                  are turned from the cap side, which is clear.
+                  are turned from the cap side, which is clear; a rubber
+                  washer under each nut seals its rod hole. Flat valve face
+                  round the seat bore on top, with three M3 pilots for the
+                  barrel breech. 45 deg fillet at the chamber spigot root
+                  (the first, 15 %-infill body broke there).
     cap ......... clamp face up: recess that locates the diaphragm and sets
                   its squeeze, pocket (= lift), radial grooves in the pocket
                   floor, G1/8 pilot port from the bed side, M4 rod heads
-                  on its back face.
+                  on rubber washers on its back face.
+    barrel breech face (O-ring groove) on the bed, spigot up into the barrel;
+                  flange cut flat on the chamber tube's side.
+    tube clip ... ties the chamber tube to the barrel near the chamber plug,
+                  with an ear to clamp to the bench: the chamber tube must not
+                  hang on its spigot.
     diaphragm ... Ø DIA_D disc cut from rubber sheet (NBR/EPDM, ~60 A); the
                   STL is for a TPU try or as a cutting template. Bleed hole
                   Ø BLEED_D at BLEED_R, pierced/drilled after cutting.
@@ -131,7 +145,7 @@ GROOVE_N = 4            # pocket floor grooves, so the diaphragm cannot seal the
 GROOVE_W = 2.0
 GROOVE_DEPTH = 1.0
 GROOVE_LEN = 15.0
-BLEED_D = 0.8
+BLEED_D = 1.0           # was 0.8: faster recharge between shots; the pilot still dumps far faster
 BLEED_R = 13.0
 BLEED_ANGLE = 0.0       # cap mark; any multiple of 90 deg works
 MARK_W = 4.0            # V notch on the cap's clamp face, outside the diaphragm
@@ -167,10 +181,30 @@ ROD_ANGLE0 = 45.0
 ROD_HOLE_D = 4.4        # M4
 NUT_AF = 7.0
 NUT_POCKET_CLEAR = 0.2
-NUT_POCKET_DEPTH = 3.5
+NUT_POCKET_DEPTH = 3.5 + 1.1    # nut on a 1.5 mm rubber washer (Ø7, fits the hex) that seals the rod hole
 ROD_HEAD_D = 7.0        # M4 socket head
 ROD_HEAD_H = 4.0
 NUT_T = 3.2
+WASHERS_UNDER_HEAD = 2.3        # rubber 1.5 + steel 0.8 under each rod head on the cap
+
+# Barrel breech (v1.1): flat valve face on the body top, O-ring on the breech face
+BREECH_FLANGE_D = 46.0
+BREECH_FLANGE_T = 5.0
+BREECH_FLAT_X = 14.0            # flange cut flat here, clear of the chamber tube (its edge at 14.5)
+BREECH_BOLT_R = 20.0
+BREECH_BOLT_ANGLES = (90.0, 180.0, 270.0)
+BREECH_BOLT_HOLE = 3.4
+BREECH_PILOT_D, BREECH_PILOT_DEPTH = 2.6, 10.0  # M3 x 14 self-tapping into the body
+FACE_SQUEEZE = 0.20             # O-ring on the breech face, flanges touching
+FACE_GROOVE_W = 1.2             # x CS
+SPIGOT_ROOT_FILLET = 0.8        # 45 deg at the chamber spigot root; deburr the tube's inner edge to match
+
+# Tube clip: rings round both tubes near the chamber plug, ear for a bench clamp
+CLIP_H = 10.0
+CLIP_WALL = 2.5
+CLIP_CLEAR = 0.3
+CLIP_EAR = (14.0, 4.4)          # ear length beyond the rings, M4 hole
+CLIP_FROM_PLUG = 20.0           # clip's centre ahead of the chamber plug flange
 
 CHAMBER_V = 100.0       # cm3, target
 PLUG_INSERT_LEN = 30.0  # chamber plug, inside the tube
@@ -256,9 +290,10 @@ hull = prism([(BODY_R * math.cos(phi), BODY_R * math.sin(phi)),
               (BODY_R * math.cos(phi), -BODY_R * math.sin(phi))], 0, BODY_H)
 body = cyl(BODY_R, 0, BODY_H).fuse(cyl(r2, 0, BODY_H, C)).fuse(hull)
 
-barrel_spigot, bg0, bg2 = spigot(BODY_H, BARREL_SPIGOT_LEN, V(0, 0))
 chamber_spigot, cg0, cg2 = spigot(BODY_H, CHAMBER_SPIGOT_LEN, C)
-body = body.fuse(barrel_spigot).fuse(chamber_spigot)
+root_fillet = revolve([(spigot_r - 0.01, BODY_H - 0.01), (spigot_r + SPIGOT_ROOT_FILLET, BODY_H - 0.01),
+                       (spigot_r - 0.01, BODY_H + SPIGOT_ROOT_FILLET)], C)
+body = body.fuse(chamber_spigot).fuse(root_fillet)
 
 gallery = revolve([(seat_out_r, -1), (mouth_r + 1, -1), (GALLERY_R, MOUTH_CHAMFER),
                    (GALLERY_R, GALLERY_H), (seat_out_r, cone_top)])
@@ -268,14 +303,16 @@ gable = Part.Face(Part.makePolygon([V(GALLERY_R - 4, -seat_r, GALLERY_H), V(GALL
                                     V(GALLERY_R - 4, 0, window_top), V(GALLERY_R - 4, -seat_r, GALLERY_H)])
                   ).extrude(V(chamber_x - GALLERY_R + 2, 0, 0))
 cuts = [gallery, window, gable,
-        cyl(seat_r, -1, BODY_H + BARREL_SPIGOT_LEN + 1),
+        cyl(seat_r, -1, BODY_H + 1),
         cyl(seat_r, WINDOW_Z0, BODY_H + CHAMBER_SPIGOT_LEN + 1, C)]
 hex_r = (NUT_AF + 2 * NUT_POCKET_CLEAR) / math.sqrt(3)
 nut_pockets = [prism([(p.x + hex_r * math.cos(math.radians(60 * k)), p.y + hex_r * math.sin(math.radians(60 * k)))
                       for k in range(6)], BODY_H - NUT_POCKET_DEPTH, BODY_H + 1) for p in rod_pts]
 cuts += [cyl(ROD_HOLE_D / 2, -1, BODY_H + 1, p) for p in rod_pts] + nut_pockets
-cuts += screw_pilots(V(0, 0), BODY_H + SCREW_FROM_TUBE_END, barrel_screw_angles)
 cuts += screw_pilots(C, BODY_H + SCREW_FROM_TUBE_END, chamber_screw_angles)
+breech_bolts = [V(BREECH_BOLT_R * math.cos(math.radians(a)), BREECH_BOLT_R * math.sin(math.radians(a)))
+                for a in BREECH_BOLT_ANGLES]
+cuts += [cyl(BREECH_PILOT_D / 2, BODY_H - BREECH_PILOT_DEPTH, BODY_H + 1, p) for p in breech_bolts]
 for c in cuts:
     body = body.cut(c)
 
@@ -323,6 +360,32 @@ for c in screw_pilots(V(0, 0), PLUG_FLANGE_T + SCREW_FROM_TUBE_END, chamber_scre
     plug_print = plug_print.cut(c)
 plug_print = plug_print.removeSplitter()
 
+# ---------------------------------------------------------------- barrel breech (print frame: face at z = 0)
+face_groove_depth = ORING_CS * (1 - FACE_SQUEEZE)
+face_groove_out = ORING_ID / 2 + ORING_CS        # pressure inside: the ring bears on the outer wall
+face_groove_in = face_groove_out - FACE_GROOVE_W * ORING_CS
+breech = cyl(BREECH_FLANGE_D / 2, 0, BREECH_FLANGE_T).common(
+    Part.makeBox(BREECH_FLAT_X + BREECH_FLANGE_D / 2, BREECH_FLANGE_D, BREECH_FLANGE_T + 1,
+                 V(-BREECH_FLANGE_D / 2, -BREECH_FLANGE_D / 2, -0.5)))
+breech_spigot, bg0, bg2 = spigot(BREECH_FLANGE_T, BARREL_SPIGOT_LEN, V(0, 0))
+breech = breech.fuse(breech_spigot)
+cuts = [cyl(seat_r, -1, BREECH_FLANGE_T + BARREL_SPIGOT_LEN + 1),
+        cyl(face_groove_out, -1, face_groove_depth).cut(cyl(face_groove_in, -2, face_groove_depth + 1))]
+cuts += [cyl(BREECH_BOLT_HOLE / 2, -1, BREECH_FLANGE_T + 1, p) for p in breech_bolts]
+cuts += screw_pilots(V(0, 0), BREECH_FLANGE_T + SCREW_FROM_TUBE_END, barrel_screw_angles)
+for c in cuts:
+    breech = breech.cut(c)
+breech = breech.removeSplitter()
+
+# ---------------------------------------------------------------- tube clip (print frame)
+clip_r = TUBE_OD / 2 + CLIP_CLEAR
+clip = cyl(clip_r + CLIP_WALL, 0, CLIP_H).fuse(cyl(clip_r + CLIP_WALL, 0, CLIP_H, C)).fuse(
+    Part.makeBox(chamber_x, 2 * (clip_r + CLIP_WALL) - 4, CLIP_H, V(0, -(clip_r + CLIP_WALL) + 2, 0)))
+ear_y = clip_r + CLIP_WALL + CLIP_EAR[0] / 2
+clip = clip.fuse(Part.makeBox(CLIP_EAR[0], CLIP_EAR[0] + 2, CLIP_H, V(chamber_x / 2 - CLIP_EAR[0] / 2, -ear_y - CLIP_EAR[0] / 2, 0)))
+clip = clip.cut(cyl(clip_r, -1, CLIP_H + 1)).cut(cyl(clip_r, -1, CLIP_H + 1, C))
+clip = clip.cut(cyl(CLIP_EAR[1] / 2, -1, CLIP_H + 1, V(chamber_x / 2, -ear_y))).removeSplitter()
+
 # ---------------------------------------------------------------- diaphragm
 bleed_at = V(BLEED_R * math.cos(math.radians(BLEED_ANGLE)), BLEED_R * math.sin(math.radians(BLEED_ANGLE)))
 diaphragm = cyl(DIA_D / 2, 0, DIA_T).cut(cyl(BLEED_D / 2, -1, DIA_T + 1, bleed_at))
@@ -355,17 +418,20 @@ A_seat = area(SEAT_D)
 chamber_extra_v = (A_seat * (BODY_H + CHAMBER_SPIGOT_LEN - WINDOW_Z0)) / 1000 \
     + (area(2 * GALLERY_R) - A_seat) * GALLERY_H / 1000
 chamber_tube_len = (CHAMBER_V - chamber_extra_v) * 1000 / area(TUBE_ID) + CHAMBER_SPIGOT_LEN + PLUG_INSERT_LEN
-rod_len = 5 * math.ceil((BODY_H + CAP_T) / 5)   # from the cap's back face through the nut in its pocket
+rod_len = 5 * math.ceil((WASHERS_UNDER_HEAD + CAP_T + BODY_H - NUT_POCKET_DEPTH + 1.1 + NUT_T + 1.0) / 5)
 
 cap_a = cap.copy()
 cap_a.translate(V(0, 0, -CAP_T))           # cap top face meets the body bed face
 dia_a = cyl(DIA_D / 2, -dia_t_clamped, 0)  # clamped
-tubes = [cyl(TUBE_OD / 2, BODY_H, BODY_H + L, at).cut(cyl(TUBE_ID / 2, BODY_H - 1, BODY_H + L + 1, at))
-         for at, L in ((V(0, 0), BARREL_LEN), (C, chamber_tube_len))]
+z_barrel = BODY_H + BREECH_FLANGE_T                  # barrel tube's rear end, on the breech flange
+tubes = [cyl(TUBE_OD / 2, z0, z0 + L, at).cut(cyl(TUBE_ID / 2, z0 - 1, z0 + L + 1, at))
+         for at, z0, L in ((V(0, 0), z_barrel, BARREL_LEN), (C, BODY_H, chamber_tube_len))]
+breech_a = breech.translated(V(0, 0, BODY_H))
 tube_end = BODY_H + chamber_tube_len
 plug = plug_print.copy()                  # turned tip-down, stop face on the tube end
 plug.rotate(V(0, 0), X, 180)
 plug.translate(V(C.x, C.y, tube_end + PLUG_FLANGE_T))
+clip_a = clip.translated(V(0, 0, tube_end - CLIP_FROM_PLUG - CLIP_H / 2))
 
 # ---------------------------------------------------------------- numbers
 A_seat_eff = area(SEAT_D + SEAT_LAND)          # to the middle of the land
@@ -377,7 +443,7 @@ open_ratio = 1 - A_seat_eff / A_dia                # pilot/chamber (gauge) below
 F_cap = P_MAX_BAR * 0.1 * area(2 * mouth_r)
 F_spigot = P_MAX_BAR * 0.1 * area(TUBE_ID)
 pocket_v = (area(2 * GALLERY_R) * LIFT + area(2 * mouth_r) * dia_t_clamped) / 1000
-dead_v = A_seat * (BODY_H + BARREL_SPIGOT_LEN) / 1000
+dead_v = A_seat * (BODY_H + BREECH_FLANGE_T + BARREL_SPIGOT_LEN) / 1000
 oring_stretch = 2 * root_r / ORING_ID - 1
 
 
@@ -393,7 +459,24 @@ checks = {
     "chamber plug flange clears the barrel tube": chamber_x - PLUG_FLANGE_D / 2 - TUBE_OD / 2 >= 0.5,
     "chamber plug screws outboard of its O-ring":
         PLUG_FLANGE_T + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < pg0 - 1.0,
-    "body/tubes no interference": all(body.common(t).Volume < 1e-3 for t in tubes),
+    "body/tubes no interference (the root fillet meets the tube's deburred edge)":
+        all(body.common(t).Volume < root_fillet.common(t).Volume + 1e-3 for t in tubes),
+    "breech valid single solid; clear of the body, the chamber tube and the rod tips":
+        G.single_solid(breech) and G.no_overlap(breech_a, body) and G.no_overlap(breech_a, tubes[1])
+        and ROD_R - 2.0 - BREECH_FLANGE_D / 2 >= 0.5,
+    "breech face groove clear of the bore and the bolts":
+        face_groove_in - seat_r >= 1.5 and BREECH_BOLT_R - BREECH_BOLT_HOLE / 2 - face_groove_out >= 1.5,
+    "breech face O-ring stands >= 0.5 mm proud (gap tests up to 0.3)": ORING_CS - face_groove_depth >= 0.5,
+    "breech face groove fill <= 85 %":
+        (math.pi * ORING_CS ** 2 / 4) / ((face_groove_out - face_groove_in) * face_groove_depth) <= 0.85,
+    "breech bolt pilots clear of the gallery roof (>= 2 mm)":
+        BREECH_BOLT_R - BREECH_PILOT_D / 2 - (GALLERY_R - max(0.0, BODY_H - BREECH_PILOT_DEPTH - GALLERY_H)) >= 2.0,
+    "breech bolts inside the flange, clear of the flat":
+        BREECH_BOLT_R + BREECH_BOLT_HOLE / 2 + 1.0 <= BREECH_FLANGE_D / 2
+        and all(p.x + BREECH_BOLT_HOLE / 2 + 1.0 <= BREECH_FLAT_X for p in breech_bolts),
+    "tube clip valid single solid, clear of both tubes":
+        G.single_solid(clip) and all(G.no_overlap(clip_a, t) for t in tubes),
+    "rod reaches through the nut": -CAP_T - WASHERS_UNDER_HEAD + rod_len >= BODY_H - NUT_POCKET_DEPTH + 1.1 + NUT_T,
     "body/cap/diaphragm stack no interference (bead aside)":
         body.common(cap_a).Volume < 1e-3 and body.common(dia_a).Volume < 1e-3
         and cap_flat.translated(V(0, 0, -CAP_T)).common(dia_a).Volume < 1e-3,
@@ -431,7 +514,8 @@ checks = {
     "wall groove root -> bore >= 2 mm": root_r - seat_r >= 2.0,
     "screw tip inside its pilot": TUBE_OD / 2 - SCREW_L >= spigot_r - SCREW_DEPTH,
     "wall screw pilot -> bore >= 1.4 mm": spigot_r - SCREW_DEPTH - seat_r >= 1.4 - 1e-9,
-    "screws outboard of the O-rings": BODY_H + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < min(bg0, cg0) - 1.0,
+    "screws outboard of the O-rings": BODY_H + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < cg0 - 1.0
+        and BREECH_FLANGE_T + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < bg0 - 1.0,
     "O-ring stretch 0..6 %": 0 <= oring_stretch <= 0.06,
     "cone roof >= 2 mm under the body top": BODY_H - cone_top >= 2.0,
     "gable stays under the body top": window_top <= BODY_H - 2.0,
@@ -452,8 +536,10 @@ report = [
     "  chamber/barrel axes    : %.1f mm apart" % chamber_x,
     "  @ %.0f bar               : cap %.0f N (%.0f N per M4), chamber tube blow-off %.0f N"
     % (P_MAX_BAR, F_cap, F_cap / ROD_N, F_spigot),
-    "  tie rods               : %d x M4 x %d socket head + nut (body + cap %.0f mm)"
-    % (ROD_N, rod_len, BODY_H + CAP_T),
+    "  tie rods               : %d x M4 x %d socket head + nut, rubber washer under each head and nut"
+    % (ROD_N, rod_len),
+    "  barrel breech          : flange Ø%.0f, face O-ring %g x %g (%.2f proud), %d x M3 x 14 into the body"
+    % (BREECH_FLANGE_D, ORING_ID, ORING_CS, ORING_CS - face_groove_depth, len(BREECH_BOLT_ANGLES)),
     "  body / cap volume      : %.1f / %.1f cm3" % (body.Volume / 1000, cap.Volume / 1000),
 ]
 for k, v in checks.items():
@@ -488,7 +574,7 @@ def tie_rods():
 
 def tube_screws():
     out = []
-    for at, angles, z in ((V(0, 0), barrel_screw_angles, BODY_H + SCREW_FROM_TUBE_END),
+    for at, angles, z in ((V(0, 0), barrel_screw_angles, z_barrel + SCREW_FROM_TUBE_END),
                           (C, chamber_screw_angles, BODY_H + SCREW_FROM_TUBE_END),
                           (C, chamber_screw_angles, tube_end - SCREW_FROM_TUBE_END)):
         for a in angles:
@@ -502,14 +588,16 @@ def tube_screws():
 plug_ring_z = tube_end - (30.0 - GROOVE_WALL_FROM_TIP + GROOVE_ROOT_W / 2)
 
 ring_z = lambda length: BODY_H + length - GROOVE_WALL_FROM_TIP + GROOVE_ROOT_W / 2
-orings = G.fuse_all([G.oring(2 * root_r, ORING_CS, ring_z(BARREL_SPIGOT_LEN)),
+orings = G.fuse_all([G.oring(2 * root_r, ORING_CS, ring_z(BREECH_FLANGE_T + BARREL_SPIGOT_LEN)),
+                     Part.makeTorus(face_groove_out - ORING_CS / 2, face_groove_depth / 2,
+                                    V(0, 0, BODY_H + face_groove_depth / 2), Z),          # squeezed
                      G.oring(2 * root_r, ORING_CS, ring_z(CHAMBER_SPIGOT_LEN), C.x, C.y),
                      G.oring(2 * root_r, ORING_CS, plug_ring_z, C.x, C.y)])
 
 
 pilot_fitting = flipped(G.push_in_fitting(0, 0, 0), -CAP_T)
 pilot_hose = flipped(G.hose(0, 0, 0, 80), -CAP_T)
-ball = Part.makeSphere(BALL_D / 2, V(0, 0, BODY_H + BARREL_SPIGOT_LEN + BALL_D / 2))
+ball = Part.makeSphere(BALL_D / 2, V(0, 0, z_barrel + BARREL_SPIGOT_LEN + BALL_D / 2))
 
 # ---------------------------------------------------------------- output
 # Skipped when another stage loads this file for its shapes (STAGE3_LIBRARY).
@@ -518,7 +606,8 @@ if not STAGE3_LIBRARY:
     sc = FV.Scene(NAME)
     doc = sc.doc
     for n, s, style in (("Body", body, "rotor"), ("Cap", cap_a, "stator"), ("Diaphragm", dia_a, "shoe"),
-                        ("Chamber_plug", plug, "rotor")):
+                        ("Chamber_plug", plug, "rotor"), ("Barrel_breech", breech_a, "stator"),
+                        ("Tube_clip", clip_a, "rotor")):
         sc.add("Printed", n, s, style)
     bought = [("Barrel_tube", tubes[0], "ghost"), ("Chamber_tube", tubes[1], "ghost"),
               ("Tie_rods", tie_rods(), "steel"), ("Tube_screws", tube_screws(), "steel"),
@@ -528,21 +617,24 @@ if not STAGE3_LIBRARY:
         sc.add("Bought", n, s, style)
 
     half = Part.makeBox(400, 200, 800, V(-200, -200, -100))     # y < 0
-    for n in ("Body", "Cap", "Diaphragm", "Chamber_plug", "Barrel_tube", "Chamber_tube", "ORings", "Ball", "Pilot_fitting"):
+    for n in ("Body", "Cap", "Diaphragm", "Chamber_plug", "Barrel_breech", "Barrel_tube", "Chamber_tube", "ORings",
+              "Ball", "Pilot_fitting"):
         style = dict(Body="rotor", Chamber_plug="rotor", Cap="stator", Diaphragm="shoe", ORings="oring", Ball="flow",
-                     Pilot_fitting="steel").get(n, "ghost")
+                     Pilot_fitting="steel", Barrel_breech="stator").get(n, "ghost")
         sc.add("Section", "Sec_" + n, sc.src[n].cut(half), style)
 
     for text, pos in [
         ("СТВОЛ: труба %.0f мм (подрезать)" % BARREL_LEN, (-25, 0, BODY_H + BARREL_LEN)),
         ("КАМЕРА %.0f см3: труба %.0f мм" % (CHAMBER_V, chamber_tube_len), (C.x + 25, 0, tube_end - 40)),
         ("ЗАГЛУШКА камеры (глухая, PETG)", (C.x + 25, 0, tube_end + 10)),
-        ("ШАРИК Rival", (-25, 0, BODY_H + BARREL_SPIGOT_LEN + BALL_D)),
+        ("ШАРИК Rival", (-25, 0, z_barrel + BARREL_SPIGOT_LEN + BALL_D)),
+        ("КАЗЁННИК: кольцо на торце, 3 x M3x14", (-BREECH_FLANGE_D / 2 - 10, 0, BODY_H + 3)),
+        ("ХОМУТ труб: к стенду", (C.x + 25, 0, tube_end - CLIP_FROM_PLUG)),
         ("КОРПУС QEV (PETG 100 %)", (BODY_R + 10, 0, BODY_H / 2)),
         ("МЕМБРАНА 1,5 мм, Ø%.0f" % DIA_D, (-BODY_R - 10, 0, 0)),
         ("КРЫШКА: пилот G1/8 -> M3R110 A", (-BODY_R - 10, 0, -CAP_T / 2)),
         ("ШПИЛЬКИ M4 x %d x4 + гайки" % rod_len, (rod_pts[1].x, rod_pts[1].y, BODY_H + 10)),
-        ("САМОРЕЗЫ ST2.9 x %.1f x6" % SCREW_L, (-TUBE_OD, 0, BODY_H + SCREW_FROM_TUBE_END)),
+        ("САМОРЕЗЫ ST2.9 x %.1f x9" % SCREW_L, (-TUBE_OD, 0, z_barrel + SCREW_FROM_TUBE_END)),
     ]:
         sc.label("Labels", text, pos)
     JIG_AT = V(-BODY_R - jig_side, 0, -CAP_T)           # beside the module, stacked as used
@@ -557,6 +649,7 @@ if not STAGE3_LIBRARY:
 
     import MeshPart
     for n, s in (("body", body), ("cap", cap), ("chamber_plug", plug_print), ("diaphragm", diaphragm),
+                 ("barrel_breech", breech), ("tube_clip", clip),
                  ("jig_base", jig_base), ("jig_ring", jig_ring), ("jig_puck", jig_puck)):
         s.exportStep(os.path.join(OUT_DIR, n + ".step"))
         MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(
