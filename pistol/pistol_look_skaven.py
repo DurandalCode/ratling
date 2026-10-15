@@ -4,10 +4,9 @@ Ratling six-barrel pistol: the Skaven look, over concept A ("Nagant").
 
 Same layout as pistol_look.py (v1.1 valve behind the bottom barrel inside
 the lock, chamber tube as the block's axle, trigger valve in the grip, hose
-out of the butt), dressed as Clan Skryre work: rusty iron, barrels of odd
-lengths, riveted straps with spikes, plates bolted on crooked, a jagged
-crest and a claw hammer, a serrated blade under the barrels, rag-wrapped
-grip, glowing warpstone in the pommel and in a caged vial on the lock, and
+out of the butt), dressed as Clan Skryre work: rusty iron, barrels in iron
+and rust, riveted straps with spikes, plates bolted on crooked, a jagged
+crest and a claw hammer, a rag-wrapped grip, glowing warpstone in the pommel and in a caged vial on the lock, and
 the pilot line run outside as a copper pipe past a pressure gauge (a real
 gauge would earn its place there).
 
@@ -33,8 +32,8 @@ random.seed(7)                  # the same crooked pistol every run
 
 R_RING = 27.0
 BARREL_D = 25.0
-BARREL_LENS = (184.0, 166.0, 176.0, 190.0, 160.0, 172.0)    # odd lengths, bottom first, anticlockwise
-FLARED = (1, 4)                 # barrels with a bell mouth
+BARREL_LENS = (180.0,) * 6
+FLARED = ()                     # barrels with a bell mouth
 CHAMBER_LEN = 200.0
 SPACER = 12.0
 VALVE_D, BODY_H, CAP_T = 62.0, 27.0, 16.0
@@ -122,15 +121,6 @@ for x0, w, tilt in ((0, 14, 0), (70, 8, 4), (150, 10, -3)):
 # Rear face of the block, round the breeches (the strap at x 0..14 holds them)
 axle = cyl_x(BARREL_D, -SPACER, -SPACER + CHAMBER_LEN).fuse(cyl_x(27, -SPACER + CHAMBER_LEN, -SPACER + CHAMBER_LEN + 5))
 axle_cap = Part.makeCone(9, 3, 10, V(-SPACER + CHAMBER_LEN + 5, 0, 0), X)
-
-# serrated blade under the block, hung from the middle strap
-teeth = [(70, -R_RING - 14)]
-x = 70
-while x < 230:
-    teeth += [(x + 6, -R_RING - 30 - random.uniform(0, 5)), (x + 12, -R_RING - 24)]
-    x += 12
-teeth += [(250, -R_RING - 20), (150, -R_RING - 12)]
-blade = Part.Face(Part.makePolygon([V(px, -1.5, pz) for px, pz in teeth] + [V(teeth[0][0], -1.5, teeth[0][1])])).extrude(V(0, 3, 0))
 
 # ---------------------------------------------------------------- lock round the v1.1 valve
 z_valve = -R_RING
@@ -222,7 +212,7 @@ if NAME in App.listDocuments():
 doc = App.newDocument(NAME)
 parts = [(f"Barrel_{i}", b, BARREL_TONES[i]) for i, b in enumerate(barrel_list)] + [("Straps", Part.makeCompound(straps), IRON),
          ("Strap_rivets", rivets(strap_rivets), DIRTY_STEEL), ("Spikes", Part.makeCompound(spikes), DIRTY_STEEL),
-         ("Chamber_axle", axle, RUST), ("Axle_cap", axle_cap, IRON), ("Blade", blade, DIRTY_STEEL),
+         ("Chamber_axle", axle, RUST), ("Axle_cap", axle_cap, IRON),
          ("Lock_housing", housing, IRON), ("Plates", Part.makeCompound(plates), RUST),
          ("Plate_rivets", rivets(plate_rivets), DIRTY_STEEL), ("Crest", crest, DIRTY_STEEL),
          ("Hammer", hammer, IRON), ("Vial_glass", vial, GLASS), ("Vial_caps", vial_caps, BRASS),
