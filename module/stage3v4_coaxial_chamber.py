@@ -134,6 +134,11 @@ BARREL_SCREW_HOLE = 3.2
 
 PACK_PITCH = 40.0
 
+# Drilling template: a disc of the diaphragm's own Ø with a guide for each
+# hole. Rubber on a scrap board, template on top, drill, cut round it.
+JIG_GUIDE_CLEAR = 0.15
+JIG_GUIDE_T = 3.0
+
 # ---------------------------------------------------------------- derived
 X, Y, Z = App.Vector(1, 0, 0), App.Vector(0, 1, 0), App.Vector(0, 0, 1)
 V = App.Vector
@@ -246,6 +251,9 @@ dcuts = [cyl(PIN_HOLE_D, -t_c - 1, 1, *at(PIN_R, a)[:2]) for a in PIN_ANGLES]
 dcuts.append(cyl(BLEED_D, -t_c - 1, 1, *at(BLEED_R, BLEED_ANGLE)[:2]))
 diaphragm = cyl(2 * DIA_R, -t_c, 0).cut(G.fuse_all(dcuts))
 diaphragm_free = cyl(2 * DIA_R, 0, DIA_T).cut(G.fuse_all(dcuts))
+jig_holes = [(PIN_R, a, PIN_HOLE_D) for a in PIN_ANGLES] + [(BLEED_R, BLEED_ANGLE, BLEED_D)]
+jig_guide = cyl(2 * DIA_R, 0, JIG_GUIDE_T).cut(
+    G.fuse_all([cyl(d + JIG_GUIDE_CLEAR, -1, JIG_GUIDE_T + 1, *at(r, a)[:2]) for r, a, d in jig_holes])).removeSplitter()
 
 # ---------------------------------------------------------------- chamber length, front plug
 area = lambda d: math.pi * d * d / 4
@@ -329,6 +337,7 @@ checks = [
     ("chamber %.0f cm3 within 3 %% of target" % chamber_v, abs(chamber_v - CHAMBER_V) <= 0.03 * CHAMBER_V),
     ("barrel longer than the chamber", z_sh + BARREL_LEN >= z_fp_end + 20),
     ("nothing wider than the chamber tube", max(rp.BoundBox.XMax, fp.BoundBox.XMax) <= CH_OD / 2 + 1e-6),
+    ("drilling template valid single solid", G.single_solid(jig_guide)),
 ]
 
 report = [
@@ -395,6 +404,8 @@ if not STAGE3V4_LIBRARY:
         ("ЗАДНЯЯ ПРОБКА: пилот G1/8 -> M3R110 A", (40, 0, z_rp)),
     ]:
         sc.label("Labels", text, pos)
+    sc.add("Jig", "Jig_guide", jig_guide, "stator", offset=V(-3 * CH_OD, 0, z_rp))
+    sc.label("Labels", "ШАБЛОН для сверления мембраны", (-3 * CH_OD, 0, z_rp + 15))
     sc.finish(hidden_groups=("Section",), opaque_groups=("Section",))
     doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
@@ -410,7 +421,7 @@ if not STAGE3V4_LIBRARY:
             os.path.join(OUT_DIR, name + ".stl"))
 
     for n, s, flip in (("rear_plug", rp, False), ("seat_ring", sr, False), ("front_plug", fp, True),
-                       ("diaphragm", diaphragm_free, False)):
+                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
         f.write("\n".join(report) + "\n")
