@@ -7,12 +7,16 @@ before one is drawn properly. Drawn with z along the barrels (+z towards the
 muzzle), y up, x to the side; the firing barrel is the top one. fcview shows
 the model's +x as up, so everything is turned into that frame when added.
 
-A. "Nagant": one Stage 3 v1-type valve, a turning block of six bare barrels.
-   The trigger first turns the block 60 deg (pawl and ratchet) while it
-   stands clear of the valve, then a cam pushes the block back onto the
-   valve face, where a rubber gasket on each barrel's breech seals it, and
-   at the end of the pull the pilot is vented. One chamber (38 x 1.2 tube)
-   in the grip, recharged through the bleed between shots.
+A. "Nagant": the Stage 3 v1.1 valve as it is, firing the bottom barrel of a
+   turning block of six bare barrels. v1's chamber tube sits 27 mm from its
+   seat, the same radius as the barrel ring, so it runs through the middle
+   of the block (free Ø29 there) and is the block's axle: the block turns and
+   slides on it. A spacer on v1.1's three M3 pilots brings the valve face
+   forward past the chamber tube's screws. The trigger first frees the block
+   and turns it 60 deg (pawl and ratchet), then a cam pushes it back onto
+   the valve face, where the O-ring on that barrel's breech seals, and at
+   the end of the pull the pilot is vented. The chamber recharges through
+   the bleed between shots; the grip only holds the trigger valve.
 
 B. "Six valves": six modules of the v4 kind (barrel inside its own 38 x 1.2
    chamber tube) in the turning block. Their pilots are fed through an
@@ -90,22 +94,33 @@ def trigger_set(y_top, z_front):
 
 
 # ---------------------------------------------------------------- A: Nagant
-R_A = 27.0
+R_A = 27.0                          # = v1's chamber-to-seat distance
+A_BARREL = 180.0
+A_CHAMBER = 200.0                   # chamber tube, from the body's top face
+A_SPACER = 12.0                     # valve face ahead of the body: clears the chamber tube's screws
 block_d_A = 2 * R_A + BARREL[0] + 6
-a_barrels = G.fuse_all([tube(BARREL[0], BARREL[1], 0, BARREL[2], x, y) for x, y in ring_pts(R_A)])
-a_plates = cyl(block_d_A, 0, 10).fuse(cyl(block_d_A, BARREL[2] - 10, BARREL[2] - 4))
-for x, y in ring_pts(R_A):
-    a_plates = a_plates.cut(cyl(BARREL[1] * 2 + 23.8, -1, BARREL[2] + 1, x, y))
-a_gaskets = G.fuse_all([cyl(30, -1.5, 0, x, y).cut(cyl(13, -2, 1, x, y)) for x, y in ring_pts(R_A)])
-a_axle = cyl(8, -12, BARREL[2] + 6)
-a_valve = cyl(58, -42, -4, 0, R_A)                   # v1 body + cap, on the top barrel's axis
-a_frame = (box(-12, 12, -R_A - 22, -R_A - 14, -42, BARREL[2] + 6)     # lower strap under the block
-           .fuse(box(-12, 12, -R_A - 22, 4, BARREL[2] - 4, BARREL[2] + 6))   # front axle bracket
-           .fuse(box(-14, 14, -R_A - 22, R_A - 10, -42, -4)))           # rear frame: axle, valve seat
-a_cam = box(-3, 3, -R_A - 14, -R_A - 6, BARREL[2] - 4, BARREL[2] + 2)   # pushes the block back
-a_chamber = grip(True, 100, CHAMBER_TUBE[0], -R_A - 10, -30)
-a_grip_shell = grip(True, 115, CHAMBER_TUBE[0] + 8, -R_A - 8, -30).cut(a_chamber)
-a_guard, a_trig = trigger_set(-R_A - 22, 10)
+y_fire = -R_A                       # bottom barrel
+z_body = -A_SPACER                  # v1.1 body top face
+a_barrels = G.fuse_all([tube(BARREL[0], BARREL[1], 0, A_BARREL, x, y) for x, y in ring_pts(R_A, a0=270.0)])
+a_plates = cyl(block_d_A, 0, 10).fuse(cyl(block_d_A, A_BARREL - 10, A_BARREL - 4))
+for x, y in ring_pts(R_A, a0=270.0):
+    a_plates = a_plates.cut(cyl(23.8 + 2 * BARREL[1], -1, A_BARREL + 1, x, y))
+a_plates = a_plates.cut(cyl(BARREL[0] + 0.5, -1, A_BARREL + 1))           # bushing on the chamber tube
+a_orings = G.fuse_all([cyl(24, -0.6, 0, x, y).cut(cyl(17.5, -1, 1, x, y)) for x, y in ring_pts(R_A, a0=270.0)])
+a_chamber = tube(BARREL[0], BARREL[1], z_body, z_body + A_CHAMBER)          # the axle
+a_plug = cyl(27, z_body + A_CHAMBER, z_body + A_CHAMBER + 5)
+a_body = (cyl(62, z_body - 27, z_body, 0, y_fire).fuse(cyl(28, z_body - 27, z_body))
+          .fuse(box(-14, 14, y_fire, 0, z_body - 27, z_body)))               # v1.1 body
+a_cap = cyl(62, z_body - 43, z_body - 27, 0, y_fire)                        # v1.1 cap, pilot G1/8 behind
+a_spacer = cyl(46, z_body, 0, 0, y_fire).cut(box(-30, 30, y_fire + 14, 30, z_body - 1, 1))
+a_frame = (box(-12, 12, y_fire - 22, y_fire - 14, z_body - 43, A_BARREL + 10)   # rail under the block
+           .fuse(box(-12, 12, y_fire - 22, 14, z_body + A_CHAMBER - 2, z_body + A_CHAMBER + 10)))  # front bracket
+a_cam = box(-3, 3, y_fire - 14, y_fire - 6, A_BARREL - 4, A_BARREL + 4)     # pushes the block back
+a_grip = grip(True, 105, 34, y_fire - 24, z_body - 30)
+a_trigger_valve = cyl(16, 0, 20)
+a_trigger_valve.rotate(V(0, 0, 0), V(1, 0, 0), 90 + GRIP_ANGLE)
+a_trigger_valve.translate(V(0, y_fire - 30, z_body - 26))
+a_guard, a_trig = trigger_set(y_fire - 22, 10)
 
 # ---------------------------------------------------------------- B: six valves
 R_B = 40.0
@@ -139,9 +154,11 @@ def to_view(shape):
 sc = FV.Scene(NAME)
 doc = sc.doc
 for n, s, style in (("A_Barrels", a_barrels, "ghost"), ("A_Block_plates", a_plates, "rotor"),
-                    ("A_Gaskets", a_gaskets, "shoe"), ("A_Axle", a_axle, "steel"),
-                    ("A_Valve_v1", a_valve, "stator"), ("A_Frame", a_frame, "frame"), ("A_Cam", a_cam, "steel"),
-                    ("A_Chamber_tube", a_chamber, "ghost"), ("A_Grip", a_grip_shell, "printed"),
+                    ("A_Breech_orings", a_orings, "oring"), ("A_Chamber_axle", a_chamber, "ghost"),
+                    ("A_Chamber_plug", a_plug, "rotor"), ("A_Valve_body_v11", a_body, "rotor"),
+                    ("A_Valve_cap_v11", a_cap, "stator"), ("A_Face_spacer", a_spacer, "stator"),
+                    ("A_Frame", a_frame, "frame"), ("A_Cam", a_cam, "steel"), ("A_Grip", a_grip, "printed"),
+                    ("A_Trigger_valve", a_trigger_valve, "steel"),
                     ("A_Guard", a_guard, "frame"), ("A_Trigger", a_trig, "steel")):
     sc.add("A_Nagant", n, to_view(s), style)
 off = V(0, -B_OFFSET, 0)
@@ -153,8 +170,9 @@ for n, s, style in (("B_Barrels", b_barrels, "ghost"), ("B_Chambers", b_chambers
                     ("B_Guard", b_guard, "frame"), ("B_Trigger", b_trig, "steel")):
     sc.add("B_Six_valves", n, to_view(s), style, offset=off)
 for text, pos in [
-    ("A: НАГАН — 1 клапан v1, блок 6 стволов Ø%.0f, поджим к прокладке" % block_d_A, (0, R_A + 50, 60)),
-    ("A: камера 100 см3 в рукоятке (труба 38x1,2)", (0, -R_A - 130, -40)),
+    ("A: НАГАН — клапан v1.1 как есть, блок 6 стволов Ø%.0f, стреляет нижний" % block_d_A, (0, R_A + 50, 60)),
+    ("A: камера = ось блока (труба 25, %.0f мм)" % A_CHAMBER, (0, 20, A_CHAMBER + 20)),
+    ("A: в рукоятке только клапан спуска", (0, -R_A - 140, -40)),
     ("B: 6 КЛАПАНОВ — блок Ø%.0f, камера вокруг каждого ствола" % block_d_B, (B_OFFSET, R_B + 50, 60)),
     ("B: ось с поворотным стыком подачи, боёк по ниппелю", (B_OFFSET, -R_B - 140, -60)),
 ]:
