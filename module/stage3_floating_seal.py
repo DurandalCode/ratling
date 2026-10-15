@@ -69,7 +69,7 @@ WASHER = (17.0, 13.0, 1.5)          # rubber, from the diaphragm sheet: OD, ID, 
 WASHER_RECESS = 1.0                 # 0.5 proud
 NOSE_BELOW_COLLAR = 0.2             # nose face under the collar's top at rest
 H_INLET = 2.0
-H_SLIDE = 10.0
+H_SLIDE = 10.0                      # straight sliding bore, below the 45 deg flange seat
 COLLAR_T = 6.0
 SPRING_POCKET = (5.5, 5.0)          # Ø, depth, in the collar's underside
 SPRING_R = 13.8
@@ -79,8 +79,9 @@ GAPS = (0.5, 1.0)                   # M3 washer stacks under the breech to try
 # ---------------------------------------------------------------- derived
 slide_root = SLEEVE_BORE - 2 * ORING_CS * (1 - SLIDE_SQUEEZE)
 slide_stretch = slide_root / ORING_ID - 1
+cone_h = FLANGE_D / 2 - (SLEEVE_BORE / 2 - SLEEVE_CLEAR)   # 45 deg underside of the flange (printed upward)
 z1 = H_INLET
-z2 = z1 + H_SLIDE                   # counterbore floor: flange rests here
+z2 = z1 + H_SLIDE + cone_h          # flange's top of cone: it rests on a matching 45 deg seat
 h_housing = z2 + FLANGE_T + TRAVEL_ROOM
 z_collar_top = h_housing + COLLAR_T
 z_nose = z_collar_top - NOSE_BELOW_COLLAR
@@ -101,7 +102,9 @@ def bolt_holes(z0, z1_, d=BREECH_BOLT_HOLE):
 
 # ---------------------------------------------------------------- housing
 housing = d_plate(PLATE_D, 0, h_housing)
-cuts = [cyl(INLET_D / 2, -1, z1 + 0.01), cyl(SLEEVE_BORE / 2, z1, z2 + 0.01),
+seat = revolve([(0, z2 - cone_h), (SLEEVE_BORE / 2, z2 - cone_h), (FLANGE_D / 2 + 0.2, z2 + 0.2), (0, z2 + 0.2)])
+cuts = [cyl(INLET_D / 2, -1, z1 + 0.01), cyl(SLEEVE_BORE / 2, z1, z2 - cone_h + 0.01),
+        seat.common(d_plate(FLANGE_D + 0.4, z2 - cone_h - 1, z2 + 1)),
         d_plate(FLANGE_D + 0.4, z2, h_housing + 1)] + bolt_holes(-1, h_housing + 1)
 for c in cuts:
     housing = housing.cut(c)
@@ -111,9 +114,12 @@ housing = housing.removeSplitter()
 g0 = z_rear + 2.0
 g1 = g0 + groove_w
 sleeve = revolve([(INLET_D / 2, z_rear), (sleeve_r, z_rear), (sleeve_r, g0), (slide_root / 2, g0),
-                  (slide_root / 2, g1), (sleeve_r, g1 + (sleeve_r - slide_root / 2)), (sleeve_r, z2),
-                  (NOSE_D / 2, z2), (NOSE_D / 2, z_nose), (INLET_D / 2, z_nose)])
-sleeve = sleeve.fuse(d_plate(FLANGE_D, z2, z2 + FLANGE_T).cut(cyl(INLET_D / 2, z2 - 1, z2 + FLANGE_T + 1)))
+                  (slide_root / 2, g1), (sleeve_r, g1 + (sleeve_r - slide_root / 2)), (sleeve_r, z2 - cone_h),
+                  (NOSE_D / 2, z2 - cone_h), (NOSE_D / 2, z_nose), (INLET_D / 2, z_nose)])
+flange = d_plate(FLANGE_D, z2, z2 + FLANGE_T).fuse(
+    revolve([(sleeve_r - 0.01, z2 - cone_h), (FLANGE_D / 2, z2 + 0.01), (0, z2 + 0.01), (0, z2 - cone_h)])
+    .common(d_plate(FLANGE_D, z2 - cone_h, z2 + 0.02)))
+sleeve = sleeve.fuse(flange.cut(cyl(INLET_D / 2, z2 - cone_h - 1, z2 + FLANGE_T + 1)))
 sleeve = sleeve.cut(cyl(WASHER[0] / 2 + 0.2, z_nose - WASHER_RECESS, z_nose + 1).cut(cyl(INLET_D / 2 + 0.6, z_nose - 2, z_nose + 2)))
 sleeve = sleeve.removeSplitter()
 
@@ -139,6 +145,7 @@ checks = {
     "net push on the sleeve forward (%.0f N at %.0f bar)" % (F_net, P_WORK_BAR): F_net >= 20.0,
     "sliding O-ring stretch 0..6 %% (%.1f %%)" % (slide_stretch * 100): 0 <= slide_stretch <= 0.06,
     "sleeve wall under its groove >= 2 mm": (slide_root - INLET_D) / 2 >= 2.0,
+    "sliding O-ring stays in the straight bore over the stroke": g1 + TRAVEL_ROOM + 0.5 <= z2 - cone_h,
     "washer bears >= 1.2 mm wide on the breech's flat inside its face groove":
         min(WASHER[0] / 2, face_groove_in) - INLET_D / 2 >= 1.2,
     "nose stroke to the breech covered by the flange's room, every gap":
