@@ -152,6 +152,17 @@ SPOT_FACE_R = 22.0          # flat for the fitting's seal
 PILOT_CH_D = 3.0
 PILOT_UP_D = 3.5
 
+# Drilling template for the diaphragm: the rubber lies on a base whose two pins
+# (at two rod holes) pierce it; a guide disc of the diaphragm's own Ø goes on
+# the same pins. Drill through the guides, cut the outline round the disc.
+JIG_GUIDE_CLEAR = 0.15      # guide hole over the drill
+JIG_RELIEF = 1.0            # base relief hole over the drill
+JIG_GUIDE_T = 5.0
+JIG_BASE_T = 4.0
+JIG_BASE_SIDE = 2 * DIA_R + 14.0
+JIG_PIN_D = 2.9
+JIG_PIN_ANGLES = (0.0, 180.0)
+
 # Chamber plug (Stage 3's)
 PLUG_INSERT_LEN = 30.0
 PLUG_FLANGE_T = 5.0
@@ -334,6 +345,22 @@ plug_print = plug_print.fuse(plug_sp)
 plug_print = plug_print.cut(G.fuse_all(screw_pilots(PLUG_FLANGE_T + SCREW_FROM_TUBE_END, (0.0, 120.0, 240.0))))
 plug_print = plug_print.removeSplitter()
 
+# ---------------------------------------------------------------- diaphragm drilling template (print frames)
+jig_holes = ([(RING_R, a, PASS_D) for a in PASS_ANGLES] + [(RING_R, a, ROD_DIA_HOLE_D) for a in ROD_ANGLES]
+             + [(RING_R, a, PIN_HOLE_D) for a in PIN_ANGLES] + [(BLEED_R, BLEED_ANGLE, BLEED_D)])
+jig_base = Part.makeBox(JIG_BASE_SIDE, JIG_BASE_SIDE, JIG_BASE_T, V(-JIG_BASE_SIDE / 2, -JIG_BASE_SIDE / 2, 0))
+jig_base = jig_base.cut(G.fuse_all([cyl(d + JIG_RELIEF, -1, JIG_BASE_T + 1, *at(r, a)[:2]) for r, a, d in jig_holes
+                                    if not (r == RING_R and a in JIG_PIN_ANGLES and d == ROD_DIA_HOLE_D)]))
+for a in JIG_PIN_ANGLES:
+    c = at(RING_R, a)
+    pin_top = JIG_BASE_T + DIA_T + JIG_GUIDE_T - 1.0
+    jig_base = jig_base.fuse(cyl(JIG_PIN_D, JIG_BASE_T - 0.01, pin_top - 0.8, c.x, c.y))
+    jig_base = jig_base.fuse(Part.makeCone(JIG_PIN_D / 2, 0.6, 0.8, V(c.x, c.y, pin_top - 0.81)))   # point pierces
+jig_base = jig_base.removeSplitter()
+jig_guide = cyl(2 * DIA_R, 0, JIG_GUIDE_T).cut(G.fuse_all([cyl(d + JIG_GUIDE_CLEAR, -1, JIG_GUIDE_T + 1, *at(r, a)[:2]) for r, a, d in jig_holes]))
+mark = Part.makeCone(0, 1.2, 1.2, V(*at(DIA_R - 2.0, PILOT_ANGLE)[:2], JIG_GUIDE_T - 1.19))   # dimple: pilot quadrant
+jig_guide = jig_guide.cut(mark).removeSplitter()
+
 # ---------------------------------------------------------------- module assembly
 area = lambda d: math.pi * d * d / 4
 A_tube = area(TUBE_ID)
@@ -426,6 +453,9 @@ checks = [
     ("plug screws outboard of its O-ring",
      PLUG_FLANGE_T + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < plug_groove[0] - 1.0),
     ("tube O-ring stretch 0..6 %", 0 <= oring_stretch <= 0.06),
+    ("drilling template: base and guide valid single solids", G.single_solid(jig_base) and G.single_solid(jig_guide)),
+    ("drilling template: pins go into the guide, >= 1 mm short of its top",
+     JIG_PIN_D < ROD_DIA_HOLE_D + JIG_GUIDE_CLEAR and jig_base.BoundBox.ZMax <= JIG_BASE_T + DIA_T + JIG_GUIDE_T - 1.0 + 1e-6),
     ("rod reaches through the nut, tip clear of the barrel screws",
      z_head + rod_len >= z_bt - NUT_POCKET + NUT_T and z_head + rod_len <= z_bt + 3.0),
 ]
@@ -510,6 +540,11 @@ if not STAGE3V3_LIBRARY:
         ("ЗАГЛУШКА камеры", (40, 0, z_end - 10)),
     ]:
         sc.label("Labels", text, pos)
+    JIG_AT = V(-2 * BODY_R - JIG_BASE_SIDE / 2, 0, -JIG_BASE_T - DIA_T)    # beside the module, stacked as used
+    sc.add("Jig", "Jig_base", jig_base, "frame", offset=JIG_AT)
+    sc.add("Jig", "Jig_rubber", diaphragm_free, "shoe", offset=JIG_AT + V(0, 0, JIG_BASE_T))
+    sc.add("Jig", "Jig_guide", jig_guide, "stator", offset=JIG_AT + V(0, 0, JIG_BASE_T + DIA_T))
+    sc.label("Labels", "ШАБЛОН мембраны: основание со штырьками, резина, накладка", (JIG_AT.x, 0, JIG_AT.z + 30))
     sc.finish(hidden_groups=("Section",), opaque_groups=("Section",))
     doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
@@ -522,7 +557,8 @@ if not STAGE3V3_LIBRARY:
         MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(
             os.path.join(OUT_DIR, name + ".stl"))
 
-    for n, s in (("body", body), ("cap", cap), ("diaphragm", diaphragm_free), ("chamber_plug", plug_print)):
+    for n, s in (("body", body), ("cap", cap), ("diaphragm", diaphragm_free), ("chamber_plug", plug_print),
+                 ("jig_base", jig_base), ("jig_guide", jig_guide)):
         write(s, n)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
         f.write("\n".join(report) + "\n")
