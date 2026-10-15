@@ -118,6 +118,8 @@ def main(argv=None):
     ap.add_argument("--filament", default=FILAMENT)
     ap.add_argument("--infill", default="35%", help="sparse infill density, e.g. 100%%")
     ap.add_argument("--walls", default="4")
+    ap.add_argument("--shells", help="solid top and bottom layers, e.g. 6")
+    ap.add_argument("--pattern", help="sparse infill pattern, e.g. gyroid")
     ap.add_argument("--plate", default="Textured PEI Plate", help="build plate type (PETG: not Cool Plate)")
     ap.add_argument("--support", action="store_true", help="enable supports (parts are drawn not to need them)")
     ap.add_argument("--airtight", action="store_true",
@@ -138,10 +140,16 @@ def main(argv=None):
                  "enable_support": "1" if args.support else "0", "curr_bed_type": args.plate}
     if float(args.infill.rstrip("%")) >= 100:
         overrides["sparse_infill_pattern"] = "zig-zag"      # grid is refused at 100 %
+    elif args.pattern:
+        overrides["sparse_infill_pattern"] = args.pattern
+    if args.shells:
+        overrides["top_shell_layers"] = overrides["bottom_shell_layers"] = args.shells
     filament = preset("filament", args.filament)
     if args.airtight:
         overrides.update(AIRTIGHT_PROCESS)
         overrides["wall_loops"] = str(max(int(args.walls), int(AIRTIGHT_PROCESS["wall_loops"])))
+        if not args.shells:                                   # a thick skin on top and bottom too
+            overrides["top_shell_layers"] = overrides["bottom_shell_layers"] = "6"
         filament = apply(filament, AIRTIGHT_FILAMENT)
     work = tempfile.mkdtemp(prefix="print_plate_")
     settings = {}
