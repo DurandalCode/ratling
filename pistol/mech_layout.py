@@ -77,12 +77,14 @@ LOCK_STROKE = 1.0                   # nose: this far off the breech at rest
 WEDGE_X = (-13.0, -9.6)             # fixed rear face; front face at the flange (rest)
 WEDGE_ANGLE = 15.0                  # front face slope: lift x tan -> sleeve stroke
 WEDGE_LIFT = LOCK_STROKE / math.tan(math.radians(WEDGE_ANGLE))
+WEDGE_SLOT = 4.9                    # wedge slot depth (x) in the housing, from its rear face
 SLEEVE_BORE = 23.5                  # 11/16 x 1/8 O-ring on the sleeve
 NOSE_D = 19.0
 
 NOTCH_R = (14.5, 18.5)              # pawl notches in the hub's rear face, between barrels
 NOTCH_DEPTH = 3.0
 NOTCH_W = 4.0                       # tangential
+NOTCH_SLACK = 0.0                   # notch made this much wider behind the pawl: lost motion before it drives
 SECTOR_R = (12.9, 15.3)             # ring round the axle
 SECTOR_X = (-GAP + 0.4, -0.4)
 ARM_R = 31.0                        # drive arm, radial slot 26..31
@@ -125,6 +127,15 @@ LOOP = dict(t=(0.12, 0.62), gap=4.0, inner=24.0, rod=6.0)   # finger loop along 
 # The 15 deg wedge is self-locking (PLA on PLA), so the shot does not load the lever: the latch
 # only keeps it from falling open.
 LATCH = dict(t=0.32, ball=5.0, into=1.5)
+
+try:
+    globals().update(MECH_OVERRIDES)  # a variant (pistol/hammer_layout.py) sets its own before exec
+except NameError:
+    pass
+try:
+    MECH_LIBRARY                    # True: shapes and functions only, no lever checks or document
+except NameError:
+    MECH_LIBRARY = False
 
 
 def ramp(t, a, b):
@@ -188,7 +199,8 @@ lock_housing = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
                 .cut(cyl_x(LOCK_PISTON_D, -GAP - 12, -GAP + 1, 0, Z_FIRE))
                 .cut(cyl_x(SLEEVE_BORE, -GAP - 17, -GAP - 11.9, 0, Z_FIRE))              # the sleeve's tube
                 .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, -GAP + 1, 0, Z_FIRE))
-                .cut(box(WEDGE_X[0] - 0.3, WEDGE_X[1] + 1.5, -4.5, 4.5, Z_FIRE - 30, Z_FIRE - 10)))  # wedge slot
+                .cut(box(WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, -4.5, 4.5, Z_FIRE - 30, Z_FIRE - 10))   # wedge slot
+                .cut(cyl_x(LOCK_PISTON_D, WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, 0, Z_FIRE - WEDGE_LIFT)))  # its fork, dropped
 lock_port = cyl_x(6, 0, 10, 0, 0)
 lock_port.rotate(V(0, 0, 0), ZA, 90)
 lock_port.translate(V(-GAP - 8, -BREECH_FLANGE_D / 2 + 2, Z_FIRE))
@@ -206,15 +218,20 @@ def lock_sleeve(lk):
 def wedge_shape(lift):
     """Rear face on the housing, front face sloping back as it rises: lift pushes the flange."""
     t = math.tan(math.radians(WEDGE_ANGLE))
-    z_c = Z_FIRE - 12.0                                   # where it bears on the flange (rest)
-    th = lambda z: (WEDGE_X[1] - WEDGE_X[0]) + (z_c - z) * t   # thickness at height z (wedge at rest)
+    z_c = Z_FIRE - (LOCK_PISTON_D - 0.4) / 2              # where it bears: the flange's bottom edge
+    th = lambda z: (WEDGE_X[1] - WEDGE_X[0] - 0.1) + (z_c - z) * t   # thickness at height z (wedge at rest)
     z_top, z_bot = Z_FIRE + 2.0, -82.6
-    prof = Part.Face(Part.makePolygon([V(WEDGE_X[0], 0, z_bot), V(WEDGE_X[0] + th(z_bot), 0, z_bot),
-                                       V(WEDGE_X[0] + th(z_top), 0, z_top), V(WEDGE_X[0], 0, z_top),
-                                       V(WEDGE_X[0], 0, z_bot)]))
+    th_max, th_min = WEDGE_SLOT - 0.3, 1.2                # the slope only where it can bear on the flange
+    z_max, z_min = z_c - (th_max - th(z_c)) / t, z_c + (th(z_c) - th_min) / t
+    x0 = WEDGE_X[0]
+    prof = Part.Face(Part.makePolygon([V(x0, 0, z_bot), V(x0 + th_max, 0, z_bot), V(x0 + th_max, 0, z_max),
+                                       V(x0 + th_min, 0, z_min), V(x0 + th_min, 0, z_top), V(x0, 0, z_top),
+                                       V(x0, 0, z_bot)]))
     fork = prof.extrude(V(0, 28, 0)).translated(V(0, -14, 0))
-    fork = fork.common(cyl_x(LOCK_PISTON_D - 0.4, -30, 0, 0, Z_FIRE).fuse(box(-30, 0, -4, 4, -200, Z_FIRE - 10)))
-    fork = fork.cut(cyl_x(SLEEVE_BORE + 0.6, -30, 0, 0, Z_FIRE))   # a fork round the sleeve's tube
+    dz = WEDGE_LIFT                                       # stays inside the bore and clear of the tube when lifted
+    fork = fork.common(cyl_x(LOCK_PISTON_D - 0.4, -30, 0, 0, Z_FIRE - dz).fuse(box(-30, 0, -4, 4, -200, Z_FIRE - 10)))
+    fork = fork.cut(cyl_x(SLEEVE_BORE + 0.6, -30, 0, 0, Z_FIRE)).cut(cyl_x(SLEEVE_BORE + 0.6, -30, 0, 0, Z_FIRE - dz))
+    fork = fork.cut(box(-30, 0, -(SLEEVE_BORE + 0.6) / 2, (SLEEVE_BORE + 0.6) / 2, Z_FIRE - dz, Z_FIRE))
     return fork.translated(V(0, 0, lift))
 
 
@@ -227,7 +244,7 @@ for i in range(6):
                       V(HUB_X0 + RIM_NOTCH[0], -(BOLT[1] + 1) / 2, -HUB_R - 1))
     hub = hub.cut(turned(rn, 60 * i))
     a = 60 * i                                          # pawl notches between the barrels
-    n = Part.makeBox(NOTCH_DEPTH + 1, NOTCH_W, NOTCH_R[1] - NOTCH_R[0], V(HUB_X0 - 1, -NOTCH_W / 2, NOTCH_R[0]))
+    n = Part.makeBox(NOTCH_DEPTH + 1, NOTCH_W + NOTCH_SLACK, NOTCH_R[1] - NOTCH_R[0], V(HUB_X0 - 1, -NOTCH_W / 2, NOTCH_R[0]))
     hub = hub.cut(turned(n, a - 90))
 hub = hub.cut(cyl_x(BARREL_OD + 0.6, HUB_X0 - 1, HUB_X0 + HUB_T + 1))
 barrels = Part.makeCompound([cyl_x(BARREL_OD, HUB_X0 + 9, HUB_X0 + HUB_T + STUB, *polar(R_RING, -90 + 60 * i))
@@ -376,60 +393,62 @@ valve_bodies = Part.makeCompound([cyl_x(MINI_VALVE[0], tip - MINI_VALVE[1], tip 
                                   for y, tip in MINI_VALVES])           # without the plungers, for clearance checks
 rollers = Part.makeCompound([cyl_x(4.6, tip - 0.5, tip, y, MINI_Z) for y, tip in MINI_VALVES])     # plunger tips
 
-# ---------------------------------------------------------------- checks along the lever stroke
-REST = dict(lever=1.0, block=0.0, bend=0.0, trig=0.0)
-report = [NAME]
-for lv in (0.0, 0.25, 0.5, 0.75, 1.0):
-    st = dict(lever=lv, block=block_drive(lv), bend=0.0, trig=0.0)          # closing stroke, pawl driving
-    sh = pose(st)
-    report.append("  lever %.2f  short arm %+5.1f deg  slider pin z %+6.1f  block %+5.1f deg  detent %.1f mm in"
-                  "  | hits: sector/lock %.1f slider/lock %.1f slider/block %.1f lever/body %.1f lever/block %.1f"
-                  % (lv, lever_angle(lv), slider_z(lv), st["block"], bolt_depth(st["block"]),
-                     sh["Sector"].common(lock_housing).Volume, sh["Slider"].common(lock_housing).Volume,
-                     sh["Slider"].common(sh["Block"]).Volume, sh["Lever"].common(valve_body).Volume,
-                     sh["Lever"].common(sh["Block"]).Volume))
-report.append("  lever short arm %.1f mm, swing %.0f deg; slider stroke %.1f mm for 60 deg"
-              % (LEVER_ARM, LEVER_SWING[0] - LEVER_SWING[1], slider_z(0) - slider_z(1)))
-report.append("  lock: wedge %.0f deg, lifted %.1f mm by the lever's last %.1f deg -> sleeve %.1f mm; the shot adds %.0f N"
-              % (WEDGE_ANGLE, WEDGE_LIFT, LEVER_SWING[1] - min(lever_angle(i / 200) for i in range(201) if lock_of(i / 200) > 0),
-                 LOCK_STROKE, P_WORK_BAR * 0.1 * math.pi / 4 * (SLEEVE_BORE ** 2 - 17.0 ** 2)))
-print("\n".join(report))
-
-# ---------------------------------------------------------------- document
-if NAME in App.listDocuments():
-    App.closeDocument(NAME)
-doc = App.newDocument(NAME)
-
-
-def add(group, name, shape, col, transp=0):
-    o = doc.addObject("Part::Feature", name)
-    o.Shape = shape
-    group.addObject(o)
-    if App.GuiUp:
-        o.ViewObject.ShapeColor = col
-        o.ViewObject.Transparency = transp
-    return o
-
-
 STYLE = {"Block": ((0.55, 0.55, 0.6), 50), "Sector": ((0.9, 0.6, 0.1), 0), "Pawl": ((0.95, 0.35, 0.05), 0),
          "Slider": ((0.9, 0.8, 0.2), 0), "Pin": ((0.2, 0.2, 0.2), 0), "Bolt": ((0.8, 0.2, 0.2), 0),
          "Lever": ((0.35, 0.25, 0.2), 0), "Sleeve": ((0.2, 0.7, 0.3), 0), "Wedge": ((0.75, 0.45, 0.85), 0),
          "Trigger": ((0.3, 0.3, 0.3), 0)}
-fixed = doc.addObject("App::DocumentObjectGroup", "Fixed")
-for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
-                     ("Lock_housing", lock_housing, (0.5, 0.7, 0.5), 30),
-                     ("Chamber_axle", axle, (0.7, 0.7, 0.7), 60), ("Trigger_valves", valves, (0.3, 0.3, 0.8), 40),
-                     ("Valve_rollers", rollers, (0.2, 0.2, 0.2), 0)):
-    add(fixed, n, s_, c, tr)
-for gname, st in (("Rest_closed", REST), ("Lever_open", dict(lever=0.0, block=0.0, bend=0.0, trig=0.0))):
-    g = doc.addObject("App::DocumentObjectGroup", gname)
-    for n, s_ in pose(st).items():
-        add(g, "%s_%s" % (n, gname), s_, *STYLE[n])
-    if App.GuiUp and gname != "Rest_closed":
-        for o in g.Group:
-            o.ViewObject.Visibility = False
-doc.recompute()
-if App.GuiUp:
-    import FreeCADGui as Gui
-    Gui.activeDocument().activeView().viewRear()
-    Gui.SendMsgToActiveView("ViewFit")
+REST = dict(lever=1.0, block=0.0, bend=0.0, trig=0.0)
+if not MECH_LIBRARY:
+    # ---------------------------------------------------------------- checks along the lever stroke
+    report = [NAME]
+    for lv in (0.0, 0.25, 0.5, 0.75, 1.0):
+        st = dict(lever=lv, block=block_drive(lv), bend=0.0, trig=0.0)          # closing stroke, pawl driving
+        sh = pose(st)
+        report.append("  lever %.2f  short arm %+5.1f deg  slider pin z %+6.1f  block %+5.1f deg  detent %.1f mm in"
+                      "  | hits: sector/lock %.1f slider/lock %.1f slider/block %.1f lever/body %.1f lever/block %.1f wedge/lock %.1f wedge/sleeve %.1f"
+                      % (lv, lever_angle(lv), slider_z(lv), st["block"], bolt_depth(st["block"]),
+                         sh["Sector"].common(lock_housing).Volume, sh["Slider"].common(lock_housing).Volume,
+                         sh["Slider"].common(sh["Block"]).Volume, sh["Lever"].common(valve_body).Volume,
+                         sh["Lever"].common(sh["Block"]).Volume, sh["Wedge"].common(lock_housing).Volume,
+                         sh["Wedge"].common(sh["Sleeve"]).Volume))
+    report.append("  lever short arm %.1f mm, swing %.0f deg; slider stroke %.1f mm for 60 deg"
+                  % (LEVER_ARM, LEVER_SWING[0] - LEVER_SWING[1], slider_z(0) - slider_z(1)))
+    report.append("  lock: wedge %.0f deg, lifted %.1f mm by the lever's last %.1f deg -> sleeve %.1f mm; the shot adds %.0f N"
+                  % (WEDGE_ANGLE, WEDGE_LIFT, LEVER_SWING[1] - min(lever_angle(i / 200) for i in range(201) if lock_of(i / 200) > 0),
+                     LOCK_STROKE, P_WORK_BAR * 0.1 * math.pi / 4 * (SLEEVE_BORE ** 2 - 17.0 ** 2)))
+    print("\n".join(report))
+
+    # ---------------------------------------------------------------- document
+    if NAME in App.listDocuments():
+        App.closeDocument(NAME)
+    doc = App.newDocument(NAME)
+
+
+    def add(group, name, shape, col, transp=0):
+        o = doc.addObject("Part::Feature", name)
+        o.Shape = shape
+        group.addObject(o)
+        if App.GuiUp:
+            o.ViewObject.ShapeColor = col
+            o.ViewObject.Transparency = transp
+        return o
+
+
+    fixed = doc.addObject("App::DocumentObjectGroup", "Fixed")
+    for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
+                         ("Lock_housing", lock_housing, (0.5, 0.7, 0.5), 30),
+                         ("Chamber_axle", axle, (0.7, 0.7, 0.7), 60), ("Trigger_valves", valves, (0.3, 0.3, 0.8), 40),
+                         ("Valve_rollers", rollers, (0.2, 0.2, 0.2), 0)):
+        add(fixed, n, s_, c, tr)
+    for gname, st in (("Rest_closed", REST), ("Lever_open", dict(lever=0.0, block=0.0, bend=0.0, trig=0.0))):
+        g = doc.addObject("App::DocumentObjectGroup", gname)
+        for n, s_ in pose(st).items():
+            add(g, "%s_%s" % (n, gname), s_, *STYLE[n])
+        if App.GuiUp and gname != "Rest_closed":
+            for o in g.Group:
+                o.ViewObject.Visibility = False
+    doc.recompute()
+    if App.GuiUp:
+        import FreeCADGui as Gui
+        Gui.activeDocument().activeView().viewRear()
+        Gui.SendMsgToActiveView("ViewFit")
