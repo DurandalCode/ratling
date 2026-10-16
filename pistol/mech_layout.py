@@ -3,10 +3,10 @@
 Ratling six-barrel pistol: mechanism layout, lever-action variant.
 
 The barrel block stands still along its axis and turns free; the shot is
-sealed by a lock: a sleeve in the valve face, driven onto the breech of the
-bottom barrel by its own small piston (lock pressure from the first stage
-of a two-stage trigger), then pushed harder by the shot itself. The second
-stage vents the v1.1 valve's pilot. The trigger does nothing else.
+sealed by a lock: a sleeve in the valve face, pushed 1 mm onto the breech
+of the bottom barrel by a wedge that the lever lifts in the last degrees of
+its closing stroke, then pushed harder by the shot itself. The trigger has
+one job: it vents the v1.1 valve's pilot through one push-button valve.
 
 The block is turned by a Winchester-style lever, pivoted at the front
 under the block, round the trigger and with a finger loop along the grip:
@@ -16,16 +16,17 @@ under the block, round the trigger and with a finger loop along the grip:
                         detent holds the block
     lever closed (up):  slider up, sector turns the block 60 deg; the
                         spring detent rides out of its rim notch and
-                        clicks into the next
-    trigger:            lock on, then fire; release: vent shut, lock off
+                        clicks into the next; in the last ~5 deg the
+                        lever's bar lifts the wedge and the lock closes
+    trigger:            fire; release: vent shut (the chamber recharges)
 
 Indexing: six notches in the hub's rear face between the barrels, a pawl
 sector round the axle (the chamber tube) in the 4 mm space in front of the
 lock housing, a slider on the right pinned into a radial slot in its arm,
 and the lever's short arm, pointing back from its pivot, in a horizontal
 slot at the slider's foot (a Scotch yoke). Detent: a spring bolt with a V
-tip under the lower left barrel. Trigger valves: two mini 3/2 push-button
-valves behind the trigger, met by a bar across its back.
+tip under the lower left barrel. Trigger valve: one mini 3/2 push-button
+valve right behind the trigger.
 
 Plain masses at their sizes. pose(state) gives every moving shape for a
 state dict (lever 0 open .. 1 closed, block angle, pawl bend, trigger,
@@ -71,7 +72,11 @@ except NameError:
 GAP = 4.0                           # lock housing face at x = -GAP: room for the pawl sector
 LOCK_H = 24.0                       # lock housing length
 X_BODY_TOP = -GAP - LOCK_H
-LOCK_PISTON_D = 28.1                # 24 x 2 O-ring on the sleeve's flange
+LOCK_PISTON_D = 28.1                # bore for the sleeve's flange
+LOCK_STROKE = 1.0                   # nose: this far off the breech at rest
+WEDGE_X = (-13.0, -9.6)             # fixed rear face; front face at the flange (rest)
+WEDGE_ANGLE = 15.0                  # front face slope: lift x tan -> sleeve stroke
+WEDGE_LIFT = LOCK_STROKE / math.tan(math.radians(WEDGE_ANGLE))
 SLEEVE_BORE = 23.5                  # 11/16 x 1/8 O-ring on the sleeve
 NOSE_D = 19.0
 
@@ -96,7 +101,7 @@ TRIGGER_PIVOT = V(-52, 0, -62)
 # Trigger valves: two mini 3/2 push-button valves side by side behind the trigger, plungers
 # forward; a bar across the trigger's back meets stage 1 (lock) before stage 2 (fire). Envelope.
 MINI_VALVE = (14.0, 36.0)           # Ø, length
-MINI_VALVES = ((-8.5, -59.5), (8.5, -61.5))     # y, plunger tip x (plungers 4.5 long)
+MINI_VALVES = ((0.0, -60.0),)                   # y, plunger tip x (plunger 4.5 long): one valve, fire
 MINI_Z = TRIGGER_PIVOT.z - 12.0
 
 # Lever (Winchester): pivot at the front, under the block; its short arm runs back to a
@@ -122,12 +127,8 @@ def ramp(t, a, b):
     return 0.0 if t <= a else 1.0 if t >= b else 0.5 - 0.5 * math.cos(math.pi * (t - a) / (b - a))
 
 
-def lock(trig):
-    return ramp(trig, 0.35, 0.6)
-
-
 def fire(trig):
-    return ramp(trig, 0.85, 0.97)
+    return ramp(trig, 0.55, 0.75)
 
 
 def lever_angle(lv):                # lv: 0 open .. 1 closed
@@ -181,7 +182,9 @@ valve_cap = body_frame_to_pistol(cap_a)
 lock_housing = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
                 .common(box(-GAP - LOCK_H - 1, -GAP + 1, -30, 30, Z_FIRE - 30, Z_FIRE + BREECH_FLAT_X))
                 .cut(cyl_x(LOCK_PISTON_D, -GAP - 12, -GAP + 1, 0, Z_FIRE))
-                .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, -GAP + 1, 0, Z_FIRE)))
+                .cut(cyl_x(SLEEVE_BORE, -GAP - 17, -GAP - 11.9, 0, Z_FIRE))              # the sleeve's tube
+                .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, -GAP + 1, 0, Z_FIRE))
+                .cut(box(WEDGE_X[0] - 0.3, WEDGE_X[1] + 1.5, -4.5, 4.5, Z_FIRE - 30, Z_FIRE - 10)))  # wedge slot
 lock_port = cyl_x(6, 0, 10, 0, 0)
 lock_port.rotate(V(0, 0, 0), ZA, 90)
 lock_port.translate(V(-GAP - 8, -BREECH_FLANGE_D / 2 + 2, Z_FIRE))
@@ -189,11 +192,26 @@ axle = cyl_x(BARREL_OD, X_BODY_TOP, HUB_X0 + HUB_T + STUB + 20).cut(cyl_x(23.8, 
 
 
 def lock_sleeve(lk):
-    x_nose = -GAP + 0.2 + lk * (GAP + HUB_X0 - 0.2 - 0.1)          # nose face: rest -> on the breech
+    x_nose = HUB_X0 - 0.1 - LOCK_STROKE * (1 - lk)                  # nose face: 1 mm off -> on the breech
     s = cyl_x(LOCK_PISTON_D - 0.4, x_nose - 9, x_nose - 6, 0, Z_FIRE)
     s = s.fuse(cyl_x(SLEEVE_BORE - 0.2, x_nose - 16, x_nose - 6, 0, Z_FIRE))
     s = s.fuse(cyl_x(NOSE_D, x_nose - 6, x_nose, 0, Z_FIRE))
     return s.cut(cyl_x(SEAT_D, x_nose - 20, x_nose + 1, 0, Z_FIRE))
+
+
+def wedge_shape(lift):
+    """Rear face on the housing, front face sloping back as it rises: lift pushes the flange."""
+    t = math.tan(math.radians(WEDGE_ANGLE))
+    z_c = Z_FIRE - 12.0                                   # where it bears on the flange (rest)
+    th = lambda z: (WEDGE_X[1] - WEDGE_X[0]) + (z_c - z) * t   # thickness at height z (wedge at rest)
+    z_top, z_bot = Z_FIRE + 2.0, -82.6
+    prof = Part.Face(Part.makePolygon([V(WEDGE_X[0], 0, z_bot), V(WEDGE_X[0] + th(z_bot), 0, z_bot),
+                                       V(WEDGE_X[0] + th(z_top), 0, z_top), V(WEDGE_X[0], 0, z_top),
+                                       V(WEDGE_X[0], 0, z_bot)]))
+    fork = prof.extrude(V(0, 28, 0)).translated(V(0, -14, 0))
+    fork = fork.common(cyl_x(LOCK_PISTON_D - 0.4, -30, 0, 0, Z_FIRE).fuse(box(-30, 0, -4, 4, -200, Z_FIRE - 10)))
+    fork = fork.cut(cyl_x(SLEEVE_BORE + 0.6, -30, 0, 0, Z_FIRE))   # a fork round the sleeve's tube
+    return fork.translated(V(0, 0, lift))
 
 
 # ---------------------------------------------------------------- block (turns)
@@ -307,10 +325,22 @@ def lever_shape(lv):
     return s
 
 
+def wedge_lift(lv):
+    """The lever's bar meets the wedge's foot in the last degrees of closing and lifts it."""
+    px, pz = LEVER_PIVOT.x, LEVER_PIVOT.z
+    x0, z0 = sum(WEDGE_X) / 2, LEVER_BAR_Z + 3.0                       # bar top under the wedge, closed
+    d = math.radians(lever_angle(lv) - LEVER_SWING[1])
+    z = pz - (x0 - px) * math.sin(d) + (z0 - pz) * math.cos(d)
+    return min(max(z - (z0 - WEDGE_LIFT), 0.0), WEDGE_LIFT)
+
+
+def lock_of(lv):
+    return wedge_lift(lv) / WEDGE_LIFT
+
+
 def trigger_at(trig):
     blade = box(-4, 6, -3, 3, -28, 0)
-    bar = box(-6.5, -4, -14, 14, -16, -8)                                # across its back: meets the valves
-    t = blade.fuse(bar)
+    t = blade
     t.translate(TRIGGER_PIVOT)
     t.rotate(TRIGGER_PIVOT, YA, 22.0 * trig)                           # pulled back
     return t
@@ -324,7 +354,7 @@ def pose(st):
     tooth = pawl_tooth.translated(V(-PAWL_BACK * st["bend"], 0, 0))
     return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec), "Pawl": turned(tooth, sec),
             "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Lever": lever_shape(lv),
-            "Sleeve": lock_sleeve(lock(trig)), "Trigger": trigger_at(trig)}
+            "Sleeve": lock_sleeve(lock_of(lv)), "Wedge": wedge_shape(wedge_lift(lv)), "Trigger": trigger_at(trig)}
 
 
 valves = Part.makeCompound([cyl_x(MINI_VALVE[0], tip - MINI_VALVE[1], tip - 4.5, y, MINI_Z)
@@ -347,9 +377,9 @@ for lv in (0.0, 0.25, 0.5, 0.75, 1.0):
                      sh["Lever"].common(sh["Block"]).Volume))
 report.append("  lever short arm %.1f mm, swing %.0f deg; slider stroke %.1f mm for 60 deg"
               % (LEVER_ARM, LEVER_SWING[0] - LEVER_SWING[1], slider_z(0) - slider_z(1)))
-report.append("  lock: piston Ø%.1f round the Ø%.1f sleeve: %.0f N at %.0f bar; shot adds %.0f N"
-              % (LOCK_PISTON_D, SLEEVE_BORE, P_WORK_BAR * 0.1 * math.pi / 4 * (LOCK_PISTON_D ** 2 - SLEEVE_BORE ** 2),
-                 P_WORK_BAR, P_WORK_BAR * 0.1 * math.pi / 4 * (SLEEVE_BORE ** 2 - 17.0 ** 2)))
+report.append("  lock: wedge %.0f deg, lifted %.1f mm by the lever's last %.1f deg -> sleeve %.1f mm; the shot adds %.0f N"
+              % (WEDGE_ANGLE, WEDGE_LIFT, LEVER_SWING[1] - min(lever_angle(i / 200) for i in range(201) if lock_of(i / 200) > 0),
+                 LOCK_STROKE, P_WORK_BAR * 0.1 * math.pi / 4 * (SLEEVE_BORE ** 2 - 17.0 ** 2)))
 print("\n".join(report))
 
 # ---------------------------------------------------------------- document
@@ -370,10 +400,11 @@ def add(group, name, shape, col, transp=0):
 
 STYLE = {"Block": ((0.55, 0.55, 0.6), 50), "Sector": ((0.9, 0.6, 0.1), 0), "Pawl": ((0.95, 0.35, 0.05), 0),
          "Slider": ((0.9, 0.8, 0.2), 0), "Pin": ((0.2, 0.2, 0.2), 0), "Bolt": ((0.8, 0.2, 0.2), 0),
-         "Lever": ((0.35, 0.25, 0.2), 0), "Sleeve": ((0.2, 0.7, 0.3), 0), "Trigger": ((0.3, 0.3, 0.3), 0)}
+         "Lever": ((0.35, 0.25, 0.2), 0), "Sleeve": ((0.2, 0.7, 0.3), 0), "Wedge": ((0.75, 0.45, 0.85), 0),
+         "Trigger": ((0.3, 0.3, 0.3), 0)}
 fixed = doc.addObject("App::DocumentObjectGroup", "Fixed")
 for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
-                     ("Lock_housing", lock_housing, (0.5, 0.7, 0.5), 30), ("Lock_port", lock_port, (0.7, 0.7, 0.7), 0),
+                     ("Lock_housing", lock_housing, (0.5, 0.7, 0.5), 30),
                      ("Chamber_axle", axle, (0.7, 0.7, 0.7), 60), ("Trigger_valves", valves, (0.3, 0.3, 0.8), 40),
                      ("Valve_rollers", rollers, (0.2, 0.2, 0.2), 0)):
     add(fixed, n, s_, c, tr)

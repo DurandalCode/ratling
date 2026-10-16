@@ -40,26 +40,27 @@ def frames_for_shot(k):
         u = i / (OPEN_F - 1)
         bend = ramp(u, 0.05, 0.15) * (1 - ramp(u, 0.85, 0.97))
         out.append((dict(lever=1 - u, block=b0, bend=bend, trig=0.0),
+                    "рычаг вниз: клин опускается, запор отходит" if lock_of(1 - u) > 0.05 else
                     "рычаг вниз: собачка идёт к следующему вырезу, фиксатор держит блок"))
     for i in range(CLOSE_F):
         lv = i / (CLOSE_F - 1)
         out.append((dict(lever=lv, block=b0 + block_drive(lv), bend=0.0, trig=0.0),
-                    "рычаг вверх: поворот блока %.0f°%s" % (block_drive(lv), ", щелчок" if lv > 0.95 else "")))
+                    "рычаг вверх: поворот блока %.0f°%s" % (block_drive(lv), ", клин прижимает запор" if lock_of(lv) > 0.3 else "")))
     for i in range(PULL_F):
         tg = i / (PULL_F - 1)
         out.append((dict(lever=1.0, block=b0 + 60, bend=0.0, trig=tg),
-                    "ВЫСТРЕЛ: ствол %d" % (k + 1) if fire(tg) > 0.5 else "спуск: запор прижат" if lock(tg) > 0.5 else "спуск"))
+                    "ВЫСТРЕЛ: ствол %d" % (k + 1) if fire(tg) > 0.5 else "спуск"))
     out += [(dict(lever=1.0, block=b0 + 60, bend=0.0, trig=1.0), "ВЫСТРЕЛ: ствол %d" % (k + 1))] * HOLD_F
     for i in range(LET_F):
         out.append((dict(lever=1.0, block=b0 + 60, bend=0.0, trig=1 - i / (LET_F - 1)),
-                    "спуск отпущен: запор отходит, камера заряжается"))
+                    "спуск отпущен: сброс закрыт, камера заряжается"))
     return out
 
 
 doc = App.getDocument(NAME)
 base = {n: doc.getObject(n).Shape.copy() for n in ON_BLOCK}
 mv = {n: doc.getObject(n) for n in STYLE}
-REAR_SHOW = {"Block", "Sector", "Pawl", "Slider", "Pin", "Bolt", "Sleeve", "Lock_housing", "Chamber_axle",
+REAR_SHOW = {"Block", "Sector", "Pawl", "Slider", "Pin", "Bolt", "Sleeve", "Wedge", "Lock_housing", "Chamber_axle",
              "Detent_housing"}
 
 

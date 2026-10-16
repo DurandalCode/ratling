@@ -92,7 +92,7 @@ sweep = [pose(dict(lever=lv, block=0.0, bend=0.0, trig=tg)) for lv in (0.0, 0.25
 slab = box(fx[0], fx[1], -16, 16, fz[0] - 1, fz[0] + FRAME_WALL + 1)
 xs = []
 for st_ in sweep:
-    for n_ in ("Lever", "Trigger"):
+    for n_ in ("Lever", "Trigger", "Wedge"):
         c_ = st_[n_].common(slab)
         if c_.Volume > 1e-3:
             xs += [c_.BoundBox.XMin, c_.BoundBox.XMax]
@@ -197,7 +197,7 @@ axle_cap = Part.makeCone(9, 3, 10, V(HUB_X0 + HUB_T + STUB + 20, 0, 0), XA)
 
 # ---------------------------------------------------------------- checks
 rest = pose(REST)
-moving = ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Lever", "Sleeve", "Trigger")
+moving = ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Lever", "Sleeve", "Wedge", "Trigger")
 worst = {}
 for lv in (0.0, 0.25, 0.5, 0.75, 1.0):
     for tg in (0.0, 1.0):

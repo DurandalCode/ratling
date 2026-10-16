@@ -51,17 +51,16 @@ def frames_for_shot(k):
         lv = i / (CLOSE_F - 1)
         st = dict(lever=lv, block=b0 + block_drive(lv), bend=0.0, trig=0.0)
         out.append((st, "рычаг вверх: поворот блока %.0f°%s"
-                    % (block_drive(lv), ", щелчок фиксатора" if lv > 0.95 else "")))
+                    % (block_drive(lv), ", клин прижимает запор" if lock_of(lv) > 0.3 else "")))
     for i in range(PULL_F):                         # trigger pulled
         tg = i / (PULL_F - 1)
         st = dict(lever=1.0, block=b0 + 60, bend=0.0, trig=tg)
-        out.append((st, "ВЫСТРЕЛ: ствол %d" % (k + 1) if fire(tg) > 0.5 else
-                    "спуск: запор прижат" if lock(tg) > 0.5 else "спуск"))
+        out.append((st, "ВЫСТРЕЛ: ствол %d" % (k + 1) if fire(tg) > 0.5 else "спуск"))
     out += [(dict(lever=1.0, block=b0 + 60, bend=0.0, trig=1.0), "ВЫСТРЕЛ: ствол %d" % (k + 1))] * HOLD_F
     for i in range(LET_F):                          # trigger let go
         tg = 1 - i / (LET_F - 1)
         out.append((dict(lever=1.0, block=b0 + 60, bend=0.0, trig=tg),
-                    "спуск отпущен: сброс закрыт, запор отходит, камера заряжается"))
+                    "спуск отпущен: сброс закрыт, камера заряжается"))
     return out
 
 
