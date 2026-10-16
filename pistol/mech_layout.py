@@ -121,6 +121,10 @@ GRIP_ANGLE = 36.0
 GRIP_LEN = 118.0
 GRIP_SECTIONS = ((0.0, 48, 34), (0.4, 40, 31), (0.8, 44, 33), (1.0, 48, 36))   # t, depth, width
 LOOP = dict(t=(0.12, 0.62), gap=4.0, inner=24.0, rod=6.0)   # finger loop along the grip front
+# Lever latch: a spring ball in the grip's front drops into a dimple in the loop's rear strap.
+# The 15 deg wedge is self-locking (PLA on PLA), so the shot does not load the lever: the latch
+# only keeps it from falling open.
+LATCH = dict(t=0.32, ball=5.0, into=1.5)
 
 
 def ramp(t, a, b):
@@ -290,6 +294,14 @@ def grip_frame():
     return gd, f
 
 
+def latch_point():
+    """Ball centre: in front of the grip, sunk LATCH['into'] into the loop's rear strap."""
+    gd, f = grip_frame()
+    h0 = GRIP_SECTIONS[0][1]
+    strap_face = h0 / 2 + LOOP["gap"]                    # the rear strap's face towards the grip
+    return GRIP_START + gd * (GRIP_LEN * LATCH["t"]) + f * (strap_face + LATCH["into"] - LATCH["ball"] / 2)
+
+
 def lever_closed():
     P = LEVER_PIVOT
     a = math.radians(LEVER_SWING[1])
@@ -306,13 +318,14 @@ def lever_closed():
     bar = _rod(P, drop).fuse(_rod(drop, V(g_front.x, 0, LEVER_BAR_Z))).fuse(_rod(V(g_front.x, 0, LEVER_BAR_Z), g_front))
     gd, f = grip_frame()                                                # finger loop along the grip front
     h0 = GRIP_SECTIONS[0][1]
-    rear0 = GRIP_START + gd * (GRIP_LEN * LOOP["t"][0]) + f * (h0 / 2 + LOOP["gap"] + LOOP["rod"] / 2 + LOOP["inner"] / 2)
-    rear1 = GRIP_START + gd * (GRIP_LEN * LOOP["t"][1]) + f * (h0 / 2 + LOOP["gap"] + LOOP["rod"] / 2 + LOOP["inner"] / 2)
+    rear0 = GRIP_START + gd * (GRIP_LEN * LOOP["t"][0]) + f * (h0 / 2 + LOOP["gap"] + LOOP["rod"] + LOOP["inner"] / 2)
+    rear1 = GRIP_START + gd * (GRIP_LEN * LOOP["t"][1]) + f * (h0 / 2 + LOOP["gap"] + LOOP["rod"] + LOOP["inner"] / 2)
     loop = _stadium(rear0, rear1, LOOP["inner"] / 2 + LOOP["rod"]).cut(
         _stadium(rear0, rear1, LOOP["inner"] / 2, -5.0, 10.0))
     g_rear = V(gc.x - 20, 0, gc.z)
     join = _rod(g_rear, rear0 - gd * ((LOOP["inner"] + LOOP["rod"]) / 2))   # guard's rear end -> top of the loop
-    return Part.makeCompound([short, pin, shaft, boss, guard.fuse(bar).fuse(loop).fuse(join)])
+    hand = guard.fuse(bar).fuse(loop).fuse(join).cut(Part.makeSphere(LATCH["ball"] / 2 + 0.1, latch_point()))  # latch dimple
+    return Part.makeCompound([short, pin, shaft, boss, hand])
 
 
 LEVER_CLOSED = lever_closed()

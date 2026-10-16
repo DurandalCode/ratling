@@ -138,6 +138,16 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
                                  crystal(c_end + gd * 11 + V(0, -8, -3), gd + V(0.3, -0.7, -0.3), 24, 6)])
 hose = Part.makeCylinder(3, 70, c_end + gd * 20, gd)
 
+# ---------------------------------------------------------------- lever latch: spring ball in the grip's front
+_gd, _f = grip_frame()
+lp = latch_point()
+latch_bore = Part.makeCylinder(LATCH["ball"] / 2 + 0.2, 16, lp - _f * 14, _f)   # ball + spring pocket
+latch_ball = Part.makeSphere(LATCH["ball"] / 2, lp)
+latch_spring = Part.makeCylinder(LATCH["ball"] / 2 - 0.3, 9, lp - _f * 12, _f)
+latch_boss = Part.makeCylinder(4.8, 12, lp - _f * 11, _f).common(
+    Part.makeCylinder(20, 50, lp - _f * 49.0, _f))           # boss on the grip's front, ending 1 mm short of the ball centre
+grip = grip.fuse(latch_boss.cut(Part.makeCylinder(20, 30, lp - _f * 1.0, _f))).cut(latch_bore)
+
 # ---------------------------------------------------------------- rail (lever pivot) and detent housing
 cheeks = Part.makeCompound([box(RAIL["x"][0], RAIL["x"][1], s_ * RAIL["cheek"][0], s_ * RAIL["cheek"][1],
                                 RAIL["z"][0], RAIL["z"][1]) if s_ > 0 else
@@ -219,6 +229,8 @@ report = [NAME, "  mechanism vs dress (worst over lever and trigger strokes, mm3
 report += ["    %-8s / %-11s %.1f" % (k[0], k[1], v_) for k, v_ in sorted(worst.items()) if v_ > 0.05] or ["    none"]
 report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
            "  trigger valves inside grip/frame: %.0f %%" % (inside * 100),
+           "  lever latch: ball Ø%.0f %.1f mm into the loop's strap, the rest in the grip (ball/grip %.2f mm3)"
+           % (LATCH["ball"], LATCH["into"], latch_ball.common(grip).Volume),
            "  trigger blade back at the valves' height: rest x %.1f, pulled x %.1f; plungers at %s"
            % (blade_back(0.0), blade_back(1.0), " / ".join("%.0f" % t for _, t in MINI_VALVES)),
            "  overall: %.0f mm long (pommel to muzzle), %.0f mm high, block Ø%.0f"
@@ -262,7 +274,8 @@ for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Tang", pod, IRON, 0), ("Rail_c
                      ("Vial_glass", vial, GLASS, 65), ("Vial_caps", vial_caps, BRASS, 0), ("Vial_cage", cage, IRON, 0),
                      ("Warpstone_vial", vial_stone, WARP, 0), ("Gauge", gauge, BRASS, 0), ("Gauge_glass", gauge_glass, (0.9, 0.9, 0.85), 0),
                      ("Gauge_needle", needle, (0.6, 0.05, 0.05), 0), ("Pilot_pipe", pilot_pipe, COPPER, 0),
-                     ("Axle_cap", axle_cap, IRON, 0)):
+                     ("Axle_cap", axle_cap, IRON, 0), ("Latch_ball", latch_ball, (0.7, 0.7, 0.72), 0),
+                     ("Latch_spring", latch_spring, (0.5, 0.5, 0.55), 0)):
     add(g_dress, n, s_, c, tr)
 doc.recompute()
 if App.GuiUp:
