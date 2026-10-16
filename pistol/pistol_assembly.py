@@ -115,7 +115,10 @@ frame = frame.cut(Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1
 # Tang: the frame runs on back under the valve cap into the grip, round the trigger valves
 pod = box(min(t for _, t in MINI_VALVES) - MINI_VALVE[1] - 4, max(t for _, t in MINI_VALVES) - 4.5, -19, 19,
           MINI_Z - 9, MINI_Z + 10)
-pod = pod.makeFillet(5.0, pod.Edges).cut(Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z)
+# Backstrap: closes the gap between the frame's rear wall and the grip's top, over the tang
+strap = box(GRIP_START.x - 14, fx[0] + 4, -19, 19, fz[0] - 4, Z_FIRE - 4)
+strap = strap.makeFillet(8.0, strap.Edges)
+pod = pod.makeFillet(5.0, pod.Edges).fuse(strap).cut(Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z)
                                                              for y, tip in MINI_VALVES])).cut(inner)
 rags = []
 for t, tw in ((0.22, 9), (0.45, 12), (0.68, 8), (0.88, 10)):
