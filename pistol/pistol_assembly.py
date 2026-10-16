@@ -35,7 +35,8 @@ try:
     REPO
 except NameError:
     REPO = os.path.expanduser("~/ratling")
-STUB = 160.0                                    # full-length barrels
+BARREL_TUBE = 300.0                             # barrel tube as cut (13 mm of it in the hub)
+STUB = BARREL_TUBE - 13.0
 exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
 
 NAME = "pistol_assembly"
@@ -147,14 +148,14 @@ detent_box = detent_box.cut(Part.makeCompound([bolt_shape(0.0), bolt_shape(30.0)
 # ---------------------------------------------------------------- dress: block straps, frame plates, crest, hammer, vial, gauge, pilot pipe
 block_d = 2 * HUB_R
 straps, spikes, strap_rivets = [], [], []
-for x0, w, tilt in ((HUB_X0 + 2, 12, 0), (95, 8, 4), (HUB_X0 + HUB_T + STUB - 14, 10, -3)):
+for x0, w, tilt in ((HUB_X0 + 2, 12, 0), ((HUB_X0 + HUB_T + STUB) / 2, 8, 4), (HUB_X0 + HUB_T + STUB - 14, 10, -3)):
     s = cyl_x(block_d + 5, x0, x0 + w).cut(cyl_x(block_d - 1, x0 - 1, x0 + w + 1))
     s.rotate(V(x0 + w / 2, 0, 0), YA, tilt)
     straps.append(s)
     for k in range(7):
         q = math.radians(360.0 / 7 * k + random.uniform(-10, 10))
         strap_rivets.append(V(x0 + w / 2, (block_d / 2 + 2.6) * math.cos(q), (block_d / 2 + 2.6) * math.sin(q)))
-    for a_deg in ((30, 150) if x0 < 20 else (90, 210) if x0 > 100 else ()):
+    for a_deg in ((30, 150) if x0 < 20 else (90, 210) if x0 > (HUB_X0 + HUB_T + STUB) * 0.75 else ()):
         q = math.radians(a_deg)
         dv = V(0, math.cos(q), math.sin(q))
         spikes.append(spike(V(x0 + w / 2, 0, 0) + dv * (block_d / 2 + 2), dv + V(0.3, 0, 0), 16, 4))
@@ -218,7 +219,10 @@ report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
            "  trigger blade back at the valves' height: rest x %.1f, pulled x %.1f; plungers at %s"
            % (blade_back(0.0), blade_back(1.0), " / ".join("%.0f" % t for _, t in MINI_VALVES)),
            "  overall: %.0f mm long (pommel to muzzle), %.0f mm high, block Ø%.0f"
-           % (HUB_X0 + HUB_T + STUB + 30 - (c_end + gd * 30).x, fz[1] + 30 - (c_end + gd * 30).z, block_d)]
+           % (HUB_X0 + HUB_T + STUB + 30 - (c_end + gd * 30).x, fz[1] + 30 - (c_end + gd * 30).z, block_d),
+           "  barrels: tube %.0f, breech face to muzzle %.0f; chamber (the axle) %.0f mm of tube, ~%.0f cm3"
+           % (BARREL_TUBE, HUB_T + STUB, axle.BoundBox.XLength,
+              19.6 + (axle.BoundBox.XLength - 60) * math.pi / 4 * 23.8 ** 2 / 1000)]
 print("\n".join(report))
 
 # ---------------------------------------------------------------- document
