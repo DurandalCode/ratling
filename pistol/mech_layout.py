@@ -61,7 +61,10 @@ R_RING = 27.0                       # barrel ring = v1's chamber-to-seat distanc
 Z_FIRE = -R_RING
 BARREL_OD = 25.0
 HUB_R, HUB_X0, HUB_T = 42.5, 0.5, 22.0      # hub rear face at x = HUB_X0
-STUB = 60.0                         # barrel stubs for the mock-up
+try:
+    STUB                            # barrels past the hub: stubs for the mock-up, or set before exec
+except NameError:
+    STUB = 60.0
 GAP = 4.0                           # lock housing face at x = -GAP: room for the pawl sector
 LOCK_H = 24.0                       # lock housing length
 X_BODY_TOP = -GAP - LOCK_H
@@ -161,7 +164,7 @@ lock_housing = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
 lock_port = cyl_x(6, 0, 10, 0, 0)
 lock_port.rotate(V(0, 0, 0), ZA, 90)
 lock_port.translate(V(-GAP - 8, -BREECH_FLANGE_D / 2 + 2, Z_FIRE))
-axle = cyl_x(BARREL_OD, X_BODY_TOP, HUB_X0 + HUB_T + STUB + 20).cut(cyl_x(23.8, X_BODY_TOP - 1, 200))
+axle = cyl_x(BARREL_OD, X_BODY_TOP, HUB_X0 + HUB_T + STUB + 20).cut(cyl_x(23.8, X_BODY_TOP - 1, HUB_X0 + HUB_T + STUB + 21))
 
 
 def lock_sleeve(lk):
@@ -240,13 +243,11 @@ def lever_closed():
     ring_c = V(TRIGGER_PIVOT.x + 2, -3, TRIGGER_PIVOT.z - 24)          # guard round the trigger: a U, open on
     guard = Part.makeCylinder(22, 6, ring_c, YA).cut(Part.makeCylinder(16, 8, ring_c - V(0, 1, 0), YA))   # top, so the
     guard = guard.cut(box(ring_c.x - 23, ring_c.x + 5, -10, 10, ring_c.z, ring_c.z + 30))             # trigger hangs in it
-    loop_c = V(ring_c.x - 34, -3, ring_c.z - 8)                         # finger loop behind it
-    loop = Part.makeCylinder(15, 6, loop_c, YA).cut(Part.makeCylinder(10, 8, loop_c - V(0, 1, 0), YA))
     front = V(ring_c.x + 19, -3, ring_c.z)                              # strut: pivot -> the U's front end,
     d = V(front.x - P.x, 0, front.z - P.z)                             # clear in front of the trigger
     bar = Part.makeBox(d.Length, 6, 6, V(P.x, -3, P.z - 3))
     bar.rotate(V(P.x, 0, P.z), YA, -math.degrees(math.atan2(d.z, d.x)))
-    return Part.makeCompound([short, link, pin, shaft, guard.fuse(loop).fuse(bar)])
+    return Part.makeCompound([short, link, pin, shaft, guard.fuse(bar)])     # no finger loop: the grip is there
 
 
 LEVER_CLOSED = lever_closed()
