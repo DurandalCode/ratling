@@ -8,12 +8,13 @@ bottom barrel by its own small piston (lock pressure from the first stage
 of a two-stage trigger), then pushed harder by the shot itself. The second
 stage vents the v1.1 valve's pilot. The trigger does nothing else.
 
-The block is turned by a Winchester-style lever round the trigger:
+The block is turned by a Winchester-style lever, pivoted at the front
+under the block, round the trigger and with a finger loop along the grip:
 
-    lever open (down):  slider up, pawl sector swings back, its tooth bent
-                        back out of the notch, into the next one; the
+    lever open (down):  slider down, pawl sector swings back, its tooth
+                        bent back out of the notch, into the next one; the
                         detent holds the block
-    lever closed (up):  slider down, sector turns the block 60 deg; the
+    lever closed (up):  slider up, sector turns the block 60 deg; the
                         spring detent rides out of its rim notch and
                         clicks into the next
     trigger:            lock on, then fire; release: vent shut, lock off
@@ -21,8 +22,10 @@ The block is turned by a Winchester-style lever round the trigger:
 Indexing: six notches in the hub's rear face between the barrels, a pawl
 sector round the axle (the chamber tube) in the 4 mm space in front of the
 lock housing, a slider on the right pinned into a radial slot in its arm,
-and the lever's short arm in a horizontal slot at the slider's foot (a
-Scotch yoke). Detent: a spring bolt under the hub with a V tip.
+and the lever's short arm, pointing back from its pivot, in a horizontal
+slot at the slider's foot (a Scotch yoke). Detent: a spring bolt with a V
+tip under the lower left barrel. Trigger valves: two mini 3/2 push-button
+valves behind the trigger, met by a bar across its back.
 
 Plain masses at their sizes. pose(state) gives every moving shape for a
 state dict (lever 0 open .. 1 closed, block angle, pawl bend, trigger,
@@ -89,16 +92,30 @@ BOLT_X0 = 3.0
 BOLT_DEPTH = 6.0                    # into the rim notch
 RIM_NOTCH = (2.5, 8.5)              # x range of the rim notches (behind the barrel sockets)
 
-TRIGGER_PIVOT = V(-52, 0, -70)     # low enough that its tail clears the valve cap
-VALVE_BOX = (22.0, 24.0, 52.0)      # M3R110, rough envelope (to be measured)
+TRIGGER_PIVOT = V(-52, 0, -62)
+# Trigger valves: two mini 3/2 push-button valves side by side behind the trigger, plungers
+# forward; a bar across the trigger's back meets stage 1 (lock) before stage 2 (fire). Envelope.
+MINI_VALVE = (14.0, 36.0)           # Ø, length
+MINI_VALVES = ((-8.5, -59.5), (8.5, -61.5))     # y, plunger tip x (plungers 4.5 long)
+MINI_Z = TRIGGER_PIVOT.z - 12.0
 
-# Lever: short arm in a horizontal slot at the slider's foot (Scotch yoke)
+# Lever (Winchester): pivot at the front, under the block; its short arm runs back to a
+# horizontal slot in the slider's foot (Scotch yoke); closing the lever (rear up) drives.
 LEVER_ARM = PIN_R0 * math.sin(math.radians(30)) / math.sin(math.radians(25))   # +-25 deg -> slider +-14.1
-LEVER_SWING = (25.0, -25.0)         # short arm angle: open .. closed (up is positive)
-YOKE_DROP = 64.0                    # slider foot slot this far under the slider pin
-LEVER_PIVOT = V((SLIDER_X[0] + SLIDER_X[1]) / 2 - LEVER_ARM * (1 + math.cos(math.radians(25))) / 2, 0, -YOKE_DROP)
+LEVER_SWING = (-25.0, 25.0)         # short arm elevation (it points back): open .. closed
+YOKE_DROP = 52.0                    # slider foot slot this far under the slider pin
+LEVER_PIVOT = V((SLIDER_X[0] + SLIDER_X[1]) / 2 + LEVER_ARM * (1 + math.cos(math.radians(25))) / 2, 0, -YOKE_DROP)
 LEVER_ARM_Y = (SLIDER_Y[1], SLIDER_Y[1] + 3.0)
+LEVER_BAR_Z = -82.0                 # the lever's bar runs back under the frame at this height
 DETENT_HALF = 6.0                   # deg either side of a notch where the V tip still sits in it
+DETENT_ANGLE = -150.0               # under the lower left barrel: the lever's bar has the bottom
+
+# Grip (shared with pistol_assembly.py; the lever's finger loop follows its front)
+GRIP_START = V(-92.0, 0, -62.0)
+GRIP_ANGLE = 36.0
+GRIP_LEN = 118.0
+GRIP_SECTIONS = ((0.0, 48, 34), (0.4, 40, 31), (0.8, 44, 33), (1.0, 48, 36))   # t, depth, width
+LOOP = dict(t=(0.12, 0.62), gap=4.0, inner=24.0, rod=6.0)   # finger loop along the grip front
 
 
 def ramp(t, a, b):
@@ -121,9 +138,13 @@ def slider_z(lv):                   # slider pin height (pin on the sector arm's
     return LEVER_ARM * math.sin(math.radians(lever_angle(lv)))
 
 
-def sector_turn(lv):                # 0 open .. -60 closed
+def sector_turn(lv):                # -60 open .. 0 closed
     y = PIN_R0 * math.cos(math.radians(ARM_A0))
     return math.degrees(math.atan2(slider_z(lv), y)) - ARM_A0
+
+
+def block_drive(lv):                # block turn on the closing stroke: 0 open .. +60 closed
+    return sector_turn(lv) - sector_turn(0.0)
 
 
 # ---------------------------------------------------------------- helpers
@@ -227,69 +248,96 @@ def bolt_depth(block_deg):
 
 def bolt_shape(block_deg):
     top = -HUB_R + bolt_depth(block_deg)
-    return box(HUB_X0 + BOLT_X0, HUB_X0 + BOLT_X0 + BOLT[0], -BOLT[1] / 2, BOLT[1] / 2, top - 22, top)
+    return turned(box(HUB_X0 + BOLT_X0, HUB_X0 + BOLT_X0 + BOLT[0], -BOLT[1] / 2, BOLT[1] / 2, top - 22, top),
+                  DETENT_ANGLE + 90)
 
 
 # ---------------------------------------------------------------- lever (drawn closed, turned about its pivot)
+def _rod(p0, p1, w=6.0, y0=-3.0, t=6.0):
+    d = V(p1.x - p0.x, 0, p1.z - p0.z)
+    r = Part.makeBox(d.Length, t, w, V(p0.x, y0, p0.z - w / 2))
+    r.rotate(V(p0.x, 0, p0.z), YA, -math.degrees(math.atan2(d.z, d.x)))
+    return r.fuse(Part.makeCylinder(w / 2, t, V(p0.x, y0, p0.z), YA)).fuse(Part.makeCylinder(w / 2, t, V(p1.x, y0, p1.z), YA))
+
+
+def _stadium(c0, c1, r, y0=-3.0, t=6.0):
+    """Solid stadium (two discs joined) in the x-z plane, extruded along y."""
+    return _rod(c0, c1, 2 * r, y0, t)
+
+
+def grip_frame():
+    a = math.radians(GRIP_ANGLE)
+    gd = V(-math.cos(a), 0, -math.sin(a))       # down the grip
+    f = V(math.sin(a), 0, -math.cos(a))         # its front, square to it
+    return gd, f
+
+
 def lever_closed():
     P = LEVER_PIVOT
     a = math.radians(LEVER_SWING[1])
-    tip = V(P.x + LEVER_ARM * math.cos(a), 0, P.z + LEVER_ARM * math.sin(a))
-    short = Part.makeCylinder(4, LEVER_ARM_Y[1] - LEVER_ARM_Y[0], V(P.x, LEVER_ARM_Y[0], P.z), YA)
-    link = Part.makeBox(LEVER_ARM, LEVER_ARM_Y[1] - LEVER_ARM_Y[0], 7, V(P.x, LEVER_ARM_Y[0], P.z - 3.5))
-    link.rotate(V(P.x, 0, P.z), YA, -LEVER_SWING[1])
+    tip = V(P.x - LEVER_ARM * math.cos(a), 0, P.z + LEVER_ARM * math.sin(a))
+    short = _rod(P, tip, 7.0, LEVER_ARM_Y[0], LEVER_ARM_Y[1] - LEVER_ARM_Y[0])
     pin = Part.makeCylinder(1.5, LEVER_ARM_Y[1] - SLIDER_Y[0] + 1, V(tip.x, SLIDER_Y[0] - 1, tip.z), YA)
     shaft = Part.makeCylinder(4, LEVER_ARM_Y[1] + 3, V(P.x, -3, P.z), YA)
-    ring_c = V(TRIGGER_PIVOT.x + 2, -3, TRIGGER_PIVOT.z - 24)          # guard round the trigger: a U, open on
-    guard = Part.makeCylinder(22, 6, ring_c, YA).cut(Part.makeCylinder(16, 8, ring_c - V(0, 1, 0), YA))   # top, so the
-    guard = guard.cut(box(ring_c.x - 23, ring_c.x + 5, -10, 10, ring_c.z, ring_c.z + 30))             # trigger hangs in it
-    front = V(ring_c.x + 19, -3, ring_c.z)                              # strut: pivot -> the U's front end,
-    d = V(front.x - P.x, 0, front.z - P.z)                             # clear in front of the trigger
-    bar = Part.makeBox(d.Length, 6, 6, V(P.x, -3, P.z - 3))
-    bar.rotate(V(P.x, 0, P.z), YA, -math.degrees(math.atan2(d.z, d.x)))
-    return Part.makeCompound([short, link, pin, shaft, guard.fuse(bar)])     # no finger loop: the grip is there
+    boss = Part.makeCylinder(7, 6, V(P.x, -3, P.z), YA)
+    gc = V(TRIGGER_PIVOT.x - 2, 0, TRIGGER_PIVOT.z - 24)                # trigger guard: a U, open on top
+    guard = Part.makeCylinder(23, 6, gc - V(0, 3, 0), YA).cut(Part.makeCylinder(17, 8, gc - V(0, 4, 0), YA))
+    guard = guard.cut(box(gc.x - 24, gc.x + 24, -10, 10, gc.z, gc.z + 30))
+    drop = V(P.x - 6, 0, LEVER_BAR_Z)                                   # bar: down from the pivot, back under the frame
+    g_front = V(gc.x + 20, 0, gc.z)
+    bar = _rod(P, drop).fuse(_rod(drop, V(g_front.x, 0, LEVER_BAR_Z))).fuse(_rod(V(g_front.x, 0, LEVER_BAR_Z), g_front))
+    gd, f = grip_frame()                                                # finger loop along the grip front
+    h0 = GRIP_SECTIONS[0][1]
+    rear0 = GRIP_START + gd * (GRIP_LEN * LOOP["t"][0]) + f * (h0 / 2 + LOOP["gap"] + LOOP["rod"] / 2 + LOOP["inner"] / 2)
+    rear1 = GRIP_START + gd * (GRIP_LEN * LOOP["t"][1]) + f * (h0 / 2 + LOOP["gap"] + LOOP["rod"] / 2 + LOOP["inner"] / 2)
+    loop = _stadium(rear0, rear1, LOOP["inner"] / 2 + LOOP["rod"]).cut(
+        _stadium(rear0, rear1, LOOP["inner"] / 2, -5.0, 10.0))
+    g_rear = V(gc.x - 20, 0, gc.z)
+    join = _rod(g_rear, rear0 - gd * ((LOOP["inner"] + LOOP["rod"]) / 2))   # guard's rear end -> top of the loop
+    return Part.makeCompound([short, pin, shaft, boss, guard.fuse(bar).fuse(loop).fuse(join)])
 
 
 LEVER_CLOSED = lever_closed()
 
 
 def lever_shape(lv):
+    """Drawn closed; opening drops the rear (the short arm goes down with it)."""
     s = LEVER_CLOSED.copy()
-    s.rotate(V(LEVER_PIVOT.x, 0, LEVER_PIVOT.z), YA, -(lever_angle(lv) - LEVER_SWING[1]))
+    s.rotate(V(LEVER_PIVOT.x, 0, LEVER_PIVOT.z), YA, lever_angle(lv) - LEVER_SWING[1])
     return s
 
 
 def trigger_at(trig):
-    blade = box(-4, 6, -3, 3, -28, 0).fuse(box(-16, 4, -3, 3, -4, 4))     # finger blade + tail to the valves
-    blade.translate(TRIGGER_PIVOT)
-    blade.rotate(TRIGGER_PIVOT, YA, 22.0 * trig)                       # pulled back
-    return blade
+    blade = box(-4, 6, -3, 3, -28, 0)
+    bar = box(-6.5, -4, -14, 14, -16, -8)                                # across its back: meets the valves
+    t = blade.fuse(bar)
+    t.translate(TRIGGER_PIVOT)
+    t.rotate(TRIGGER_PIVOT, YA, 22.0 * trig)                           # pulled back
+    return t
 
 
 def pose(st):
     """Moving shapes for a state: lever (0 open..1 closed), block (deg), bend (pawl, 0..1), trig (0..1)."""
     lv, trig = st["lever"], st["trig"]
     sl, pin = slider_parts(lv)
-    sec = sector_turn(lv)
+    sec = sector_turn(lv)                       # the sector follows the slider
     tooth = pawl_tooth.translated(V(-PAWL_BACK * st["bend"], 0, 0))
     return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec), "Pawl": turned(tooth, sec),
             "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Lever": lever_shape(lv),
             "Sleeve": lock_sleeve(lock(trig)), "Trigger": trigger_at(trig)}
 
 
-# Two M3R110 side by side behind the valve cap (in the grip), long axis along x; the trigger's
-# rear tail lifts their rollers, stage 1 (lock) a little before stage 2 (fire). Envelope only.
-VALVES_X = (X_BODY_TOP - BODY_H - CAP_T - 3 - VALVE_BOX[2], X_BODY_TOP - BODY_H - CAP_T - 3)
-valves = Part.makeCompound([box(VALVES_X[0], VALVES_X[1], y0, y0 + VALVE_BOX[1], -56, -56 + VALVE_BOX[0])
-                            for y0 in (-VALVE_BOX[1] - 1, 1)])
-rollers = Part.makeCompound([Part.makeCylinder(4, 8, V(VALVES_X[1] - 6, y0, z), YA)       # tail lifts them 3.5 / 2 mm
-                             for y0, z in ((-VALVE_BOX[1] / 2 - 4, -60.0), (VALVE_BOX[1] / 2 - 4, -58.5))])
+valves = Part.makeCompound([cyl_x(MINI_VALVE[0], tip - MINI_VALVE[1], tip - 4.5, y, MINI_Z)
+                            .fuse(cyl_x(5, tip - 4.51, tip, y, MINI_Z)) for y, tip in MINI_VALVES])
+valve_bodies = Part.makeCompound([cyl_x(MINI_VALVE[0], tip - MINI_VALVE[1], tip - 4.5, y, MINI_Z)
+                                  for y, tip in MINI_VALVES])           # without the plungers, for clearance checks
+rollers = Part.makeCompound([cyl_x(4.6, tip - 0.5, tip, y, MINI_Z) for y, tip in MINI_VALVES])     # plunger tips
 
 # ---------------------------------------------------------------- checks along the lever stroke
 REST = dict(lever=1.0, block=0.0, bend=0.0, trig=0.0)
 report = [NAME]
 for lv in (0.0, 0.25, 0.5, 0.75, 1.0):
-    st = dict(lever=lv, block=sector_turn(lv), bend=0.0, trig=0.0)          # closing stroke, pawl driving
+    st = dict(lever=lv, block=block_drive(lv), bend=0.0, trig=0.0)          # closing stroke, pawl driving
     sh = pose(st)
     report.append("  lever %.2f  short arm %+5.1f deg  slider pin z %+6.1f  block %+5.1f deg  detent %.1f mm in"
                   "  | hits: sector/lock %.1f slider/lock %.1f slider/block %.1f lever/body %.1f lever/block %.1f"
@@ -326,7 +374,7 @@ STYLE = {"Block": ((0.55, 0.55, 0.6), 50), "Sector": ((0.9, 0.6, 0.1), 0), "Pawl
 fixed = doc.addObject("App::DocumentObjectGroup", "Fixed")
 for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
                      ("Lock_housing", lock_housing, (0.5, 0.7, 0.5), 30), ("Lock_port", lock_port, (0.7, 0.7, 0.7), 0),
-                     ("Chamber_axle", axle, (0.7, 0.7, 0.7), 60), ("Trigger_valves_M3R110", valves, (0.3, 0.3, 0.8), 40),
+                     ("Chamber_axle", axle, (0.7, 0.7, 0.7), 60), ("Trigger_valves", valves, (0.3, 0.3, 0.8), 40),
                      ("Valve_rollers", rollers, (0.2, 0.2, 0.2), 0)):
     add(fixed, n, s_, c, tr)
 for gname, st in (("Rest_closed", REST), ("Lever_open", dict(lever=0.0, block=0.0, bend=0.0, trig=0.0))):
