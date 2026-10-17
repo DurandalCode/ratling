@@ -56,7 +56,8 @@ STANDOFFS = ((-48.0, -45.0, (1, -1)), (-48.0, -5.0, (-1,)))   # x, z, sides: the
 SIDE_BOSSES = ((-50.0, 22.0), (-10.0, 22.0), (-90.0, 6.0), (-90.0, -67.0), (-50.0, -67.0), (-10.0, -67.0))   # x, z: 1 mm into the walls
 BOSS_D, BOSS_L = 8.0, 10.0
 TRIGGER_CHEEKS = dict(x=(-56.0, -48.0), y=(3.3, 7.0))          # the trigger's pivot (an M3 screw and nut) between them
-GRIP_SCREWS = ((-92.0, 12.0), (-92.0, -12.0), (-68.0, 12.0), (-68.0, -12.0))   # x, y: grip/tang to the cage's floor
+GRIP_SCREWS = ((-96.0, 29.0), (-96.0, -29.0), (-64.0, 29.0), (-64.0, -29.0))   # x, y: grip/tang to the cage's floor, outside the valve
+VALVE_BOX_Y = 33.0                  # the tang is a box under the frame round the vent valve and its fittings
 GUARD_TAB = dict(x=(-27.0, -13.0), y=5.0, t=3.0)                # the guard's front tab under the floor
 SPUR_SLOT = dict(a=(58.0, 210.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
 FRAME_FILLET = 12.0
@@ -160,17 +161,20 @@ grip = Part.makeLoft([Part.Wire(Part.Ellipse(GRIP_START + gd * (GRIP_LEN * t) + 
                                              GRIP_START + gd * (GRIP_LEN * t)).toShape()) for t, h, w in GRIP_SECTIONS],
                      True, False)
 grip = grip.cut(outer)                          # the frame's foot covers its top
-mini_valves = valves                            # mech_layout's trigger valves
-_vv = Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z) for y, tip in MINI_VALVES])
-frame, skin = frame.cut(_vv), skin.cut(_vv)                              # through the frame's rear wall
+mini_valves = valves                            # hammer_layout's AirTAC vent valve
+_a = AIRTAC
+_vv = box(VENT_FRONT - _a["L"] - 0.5, VENT_FRONT + 0.5, -_a["W"] / 2 - _a["elbow"][1] - _a["elbow"][0] / 2 - 0.5,
+          _a["W"] / 2 + _a["elbow"][1] + _a["elbow"][0] / 2 + 0.5, MINI_Z - _a["T"] / 2 - 0.5, MINI_Z + _a["T"] / 2 + 0.5)
+_vv = _vv.fuse(valve_bodies)                    # the valve pokes up through the cage's floor, its A elbow higher
+frame, skin = frame.cut(_vv), skin.cut(_vv)
 # Tang: the frame runs on back under the valve cap into the grip, round the trigger valves
-pod = box(min(t for _, t in MINI_VALVES) - MINI_VALVE[1] - 4, max(t for _, t in MINI_VALVES) - 4.5, -19, 19,
-          MINI_Z - 9, MINI_Z + 10)
+pod = box(VENT_FRONT - _a["L"] - 3.0, VENT_FRONT - 2.0, -VALVE_BOX_Y, VALVE_BOX_Y,
+          MINI_Z - _a["T"] / 2 - 7.0, fz[0] + 1.0)
 # Backstrap: closes the gap between the frame's rear wall and the grip's top, over the tang
 strap = box(GRIP_START.x - 14, fx[0] + 4, -19, 19, fz[0] - 4, Z_FIRE - 4)
 strap = strap.makeFillet(min(8.0, strap.BoundBox.XLength / 2 - 1), strap.Edges)
-pod = pod.makeFillet(5.0, pod.Edges).fuse(strap).cut(Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z)
-                                                             for y, tip in MINI_VALVES])).cut(inner)
+pod = pod.makeFillet(5.0, pod.Edges).fuse(strap).cut(_vv).cut(inner)
+pod = pod.cut(Part.makeCompound([trigger_h(i / 6).translated(V(dx_, 0, 0)) for i in range(7) for dx_ in (-1.0, 0.0)]))   # the trigger's swing
 rags = []
 for t, tw in ((0.22, 9), (0.45, 12), (0.68, 8), (0.88, 10)):
     c = GRIP_START + gd * (GRIP_LEN * t)
@@ -192,15 +196,15 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
 # port. Pilot (4/2.5 PU) from its A port back, up a channel in the backstrap, in through the cage's rear wall
 # to the cap's G1/8 push-in. The pilot is the chamber's pressure once charged: a tee on it feeds the gauge,
 # out through the side plate on the left, where the shooter sees it.
-x_vrear = MINI_VALVES[0][1] - MINI_VALVE[1]
-supply_pts = [c_end + gd * 70, c_end + gd * 15, GRIP_START + gd * (GRIP_LEN * 0.6), GRIP_START + gd * (GRIP_LEN * 0.25),
-              V(x_vrear - 14, -3.5, MINI_Z - 3), V(x_vrear - 6, -3.5, MINI_Z)]
+r_end, _ = vent_port("R")
+a_end, _ = vent_port("A")
+supply_pts = [c_end + gd * 70, c_end + gd * 15, GRIP_START + gd * (GRIP_LEN * 0.6), GRIP_START + gd * (GRIP_LEN * 0.3),
+              V(-104, 6, -89), V(r_end.x - 10, r_end.y - 2, r_end.z - 3), V(r_end.x, r_end.y, r_end.z - 0.5)]
 supply_line = pipe_along(supply_pts, 3.0)
-pilot_pts = [V(x_vrear - 6, 3.5, MINI_Z), V(x_vrear - 8.5, 3.5, MINI_Z + 3), V(-103, 3.5, -62), V(-102, 3.5, -46),
-             V(-96, 3.0, -34), V(-88, 1.0, -29), V(-82, 0, Z_FIRE)]
+pilot_pts = [V(a_end.x, a_end.y, a_end.z + 0.5), V(a_end.x, a_end.y, -50), V(-82, -14, -38), V(-82, -5, -31), V(-82, 0, Z_FIRE)]
 pilot_line = pipe_along(pilot_pts, 2.0)
-TEE = V(-96, 3.0, -34)
-gauge_pts = [TEE, V(-93, -10, -38), V(-88, -28, -40), V(-84, -fy[1] + 1, -40), V(-84, -fy[1] - 2, -40)]
+TEE = V(-82, -14, -38)
+gauge_pts = [TEE, V(-83, -24, -40), V(-84, -fy[1] + 1, -40), V(-84, -fy[1] - 2, -40)]
 gauge_line = pipe_along(gauge_pts, 2.0)
 tee = Part.makeSphere(4.0, TEE)
 hose = supply_line
@@ -273,7 +277,8 @@ grip = grip.fuse(pod).removeSplitter()
 grip_pilots = Part.makeCompound([Part.makeCylinder(1.25, 9.0, V(x_, y_, fz[0] - 9.0), ZA) for x_, y_ in GRIP_SCREWS])
 floor_holes = Part.makeCompound([Part.makeCylinder(1.7, EVA_T + CAGE_T + 2, V(x_, y_, fz[0] - 1), ZA)
                                  for x_, y_ in GRIP_SCREWS + ((sum(GUARD_TAB["x"]) / 2, 0.0),)])
-vent_screw = Part.makeCylinder(1.25, 12.0, V(MINI_VALVES[0][1] - MINI_VALVE[1] / 2, 0, MINI_Z - MINI_VALVE[0] / 2 - 11.5), ZA)
+vent_screw = Part.makeCompound([Part.makeCylinder(1.6, 30.0, V(VENT_FRONT - d_, y_, MINI_Z - 20.0), ZA)
+                                for d_, y_ in AIRTAC["holes"]])         # 3 x M3 x 30 through the valve into the tang, nuts below
 grip = grip.cut(grip_pilots).cut(vent_screw)
 frame, skin = frame.cut(floor_holes), skin.cut(floor_holes)
 
@@ -369,7 +374,7 @@ sup = top_strap.fuse(nose).fuse(washer)
 blk_hit = max(hit(turned(block, a_), sup) + hit(turned(Part.makeCompound(straps), a_), top_strap) for a_ in (0.0, 15.0, 30.0, 45.0))
 fixed_hits = {"air lines/valve": hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_body)
               + hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_cap)
-              + hit(Part.makeCompound([pilot_line, gauge_line, tee, supply_line]), mini_valves),
+              + hit(Part.makeCompound([pilot_line, gauge_line, tee, supply_line]), vent_body),   # (their ends sit in the fittings)
               "air lines/springs+rib": hit(Part.makeCompound([pilot_line, gauge_line, tee]), mainsprings.fuse(spring_rib)),
               "slider/stop at full cock": hit(slider_h(1.0)[0], slider_stop.translated(V(0, 0, -0.1))),
               "side plate/valve": hit(side_plate, valve_body) + hit(side_plate, valve_cap) + hit(side_plate, lock_housing_h),
@@ -378,7 +383,7 @@ fixed_hits = {"air lines/valve": hit(Part.makeCompound([pilot_line, gauge_line, 
               "block/supports": blk_hit, "strap/vial": hit(top_strap, vial.fuse(cage)) + hit(top_strap, crest),
               "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
               "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume}
-inside = mini_valves.common(grip.fuse(outer).fuse(pod.fuse(Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z) for y, tip in MINI_VALVES])))).Volume / mini_valves.Volume
+inside = mini_valves.common(grip.fuse(outer).fuse(pod).fuse(_vv)).Volume / mini_valves.Volume
 spur_out = lambda c: hammer_shape(c).cut(outer).Volume
 report = [NAME, "  mechanism vs dress (worst over the hammer and trigger strokes, mm3):"]
 report += ["    %-8s / %-11s %.1f" % (k[0], k[1], v_) for k, v_ in sorted(worst.items()) if v_ > 0.05] or ["    none"]
@@ -452,14 +457,14 @@ MATERIAL = {
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
-            "Vent_valve": "mini 3/2 push-button valve, or module/stage3_vent_head.py", "Pin": "steel pin Ø3",
+            "Vent_valve": "AirTAC M3R110-06 with its roller off (or M3PP110-06): G1/8 elbows for A (4 mm) and R (6 mm), a G1/8 silencer on P", "Pin": "steel pin Ø3",
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
             "Pilot_pipe": "PU tube 4/2.5: vent valve A -> cap G1/8 push-in, up the backstrap",
             "Gauge_line": "PU tube 4/2.5, tee to the gauge", "Tee": "push-in tee for 4 mm tube", "Axle_cap": "M6 stud + cap nut",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its tab, rear end glued in the grip",
-            "Grip": "with the tang: 4 x ST2.9 x 13 down through the cage's floor; ST2.9 x 9.5 from below holds the vent valve",
+            "Grip": "with the valve box: 4 x ST2.9 x 13 down through the cage's floor; the vent valve on 3 x M3 x 30 + nuts",
             "Frame_side": "6 x ST2.9 x 13 into the cage's bosses",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 96: the slider's guide, floor to the stop pad", "Trigger": "pivot: M3 x 16 screw + nylock nut"}

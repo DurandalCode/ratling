@@ -74,7 +74,6 @@ except NameError:
 # notches in its rim) and 5 mm sockets the barrels are glued into; the front disc 6 mm.
 MECH_OVERRIDES = dict(ARM_A0=SECTOR_SWING / 2, PIN_R0=24.5 / math.cos(math.radians(SECTOR_SWING / 2)), ARM_R=33.0,
                       NOTCH_SLACK=16.5 * math.radians(LOST_DEG), HUB_T=HUB_T_HAMMER, FRONT_T=6.0,
-                      MINI_VALVES=((0.0, -58.5),),       # the vent valve 1.5 forward: the crescent trigger's stroke
                       SLIDER_Y=(23.0, 31.5))             # thicker round its guide rod
 MECH_LIBRARY = True
 exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
@@ -100,7 +99,7 @@ SLIDER_REACH = 48.0                 # slider body: from its pin this far down (t
 CHEEK_X = (-14.5, -7.0)             # slider's rear cheek with the cam slot
 PUSHER_T = 3.0
 CAM_RISE = 3.0                      # slider rise that opens the lock
-TRIGGER_TRAVEL = 23.0               # deg: pushes the vent plunger ~3 of its 4.5
+TRIGGER_TRAVEL = 23.0               # deg; reset below: the pull that brings the trigger onto the vent valve's face
 LOCK_SEAT_N = 20.0                  # sleeve onto the breech's O-ring before the shot (the shot adds ~41 N): bench it
 MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-30.2, -18.6), (-18.2, -6.6)))   # music wire torsion springs, x2, both left
 SPRING_PEG = (30.0, 9.5, 1.5)       # on the hammer's hub, left face: direction at rest, radius, pin radius (the springs' legs)
@@ -255,6 +254,61 @@ def _trigger_blank():
 
 TRIGGER = _trigger_blank()
 
+# ---------------------------------------------------------------- vent valve: an AirTAC M3R110-06 without its roller
+# Body 42.5 (plunger axis) x 27 x 18.5, lying: the plunger forward on the trigger's back, 27 across the pistol.
+# Ports on the 18.5 x 42.5 faces: A left (elbow up: the pilot line straight up to the cap), R right (elbow down:
+# the supply from the grip), P right (a silencer: the exhaust). Its spool shifts in the plunger's 2..3 mm: the
+# trigger pushes it 3 mm, its back meeting the body's face, which is the trigger's stop. Three M3 through it.
+AIRTAC = dict(L=42.5, W=27.0, T=18.5, plunger=(6.0, 3.0), elbow=(11.0, 6.5, 12.0),
+              ports={"A": (21.0, -1, +1), "R": (14.0, +1, -1)}, P=(27.0, +1), holes=((14.0, -10.0), (28.0, -10.0), (21.0, 5.8)))
+VENT_GAP = 0.3                      # trigger's back to the plunger at rest
+_band = lambda h: box(-200, TRIGGER_PIVOT.x, -4, 4, MINI_Z - h, MINI_Z + h)
+
+
+def _back_x(travel, h):
+    return _rot_y(TRIGGER.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, travel).common(_band(h)).BoundBox.XMin
+
+
+VENT_TIP = _back_x(0.0, 1.5) - VENT_GAP
+VENT_FRONT = VENT_TIP - AIRTAC["plunger"][1]
+_lo, _hi = 5.0, 40.0                # the pull that brings the trigger's back to the body's face
+for _ in range(14):
+    _mid = (_lo + _hi) / 2
+    if _back_x(_mid, AIRTAC["T"] / 2) > VENT_FRONT:
+        _lo = _mid
+    else:
+        _hi = _mid
+TRIGGER_TRAVEL = _lo
+VENT_PUSH = VENT_TIP - _back_x(TRIGGER_TRAVEL, 1.5)
+
+
+def vent_port(name):
+    """Where the tube goes into the port's fitting, and which way (unit vector, out of the fitting)."""
+    d, side, up = AIRTAC["ports"][name]
+    e = AIRTAC["elbow"]
+    return V(VENT_FRONT - d, side * (AIRTAC["W"] / 2 + e[1]), MINI_Z + up * e[2]), V(0, 0, up)
+
+
+def _vent_valve():
+    a, e = AIRTAC, AIRTAC["elbow"]
+    body = box(VENT_FRONT - a["L"], VENT_FRONT, -a["W"] / 2, a["W"] / 2, MINI_Z - a["T"] / 2, MINI_Z + a["T"] / 2)
+    for d, y in a["holes"]:
+        body = body.cut(Part.makeCylinder(1.6, a["T"] + 2, V(VENT_FRONT - d, y, MINI_Z - a["T"] / 2 - 1), ZA))
+    fit = []
+    for name, (d, side, up) in a["ports"].items():
+        x_ = VENT_FRONT - d
+        fit.append(Part.makeCylinder(e[0] / 2, e[1] + e[0] / 2, V(x_, side * a["W"] / 2, MINI_Z), V(0, side, 0)))
+        fit.append(Part.makeCylinder(e[0] / 2, e[2], V(x_, side * (a["W"] / 2 + e[1]), MINI_Z), V(0, 0, up)))
+    d, side = a["P"]
+    fit.append(Part.makeCylinder(4.0, 10.0, V(VENT_FRONT - d, side * a["W"] / 2, MINI_Z), V(0, side, 0)))   # silencer
+    plunger = cyl_x(a["plunger"][0], VENT_FRONT - 0.01, VENT_TIP, 0, MINI_Z)
+    return body, Part.makeCompound(fit), plunger
+
+
+vent_body, vent_fittings, vent_plunger = _vent_valve()
+valve_bodies = Part.makeCompound([vent_body, vent_fittings])          # for clearance (the plunger is pushed)
+valves = Part.makeCompound([vent_body, vent_fittings, vent_plunger])
+
 
 def trigger_h(trig):
     return _rot_y(TRIGGER.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * trig)
@@ -336,6 +390,9 @@ report.append("  mainspring: 2 x torsion, wire Ø%.1f, OD %.0f, %d coils: %.1f N
               % (ms["d"], ms["od"], ms["coils"], k_ms, pre, torque, pre + HAMMER_SWING, T_back, stress, T_back * 1000 / SPUR[1]))
 report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: pen spring Ø4, ~6 N on the V (holds the block, "
               "clicks under the thumb)")
+report.append("  vent valve: AirTAC M3R110-06 body %.1f x %.0f x %.1f, front at x %.1f; trigger pull %.1f deg pushes its plunger"
+              " %.1f mm (spool shifts in 2..3), its back stopping on the body" % (AIRTAC["L"], AIRTAC["W"], AIRTAC["T"],
+                                                                                   VENT_FRONT, TRIGGER_TRAVEL, VENT_PUSH))
 report.append("  pawl idles %.1f deg of the hammer before it drives: the lock is open by then"
               % next(HAMMER_SWING * i / 400 for i in range(401) if block_drive(i / 400) > 0.0))
 print("\n".join(report))
