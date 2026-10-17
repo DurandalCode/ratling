@@ -262,6 +262,7 @@ TRIGGER = _trigger_blank()
 AIRTAC = dict(L=42.5, W=27.0, T=18.5, plunger=(6.0, 3.0), elbow=(11.0, 6.5, 12.0),
               ports={"A": (21.0, -1, +1), "R": (14.0, +1, -1)}, P=(27.0, +1), holes=((14.0, -10.0), (28.0, -10.0), (21.0, 5.8)))
 VENT_GAP = 0.3                      # trigger's back to the plunger at rest
+VENT_SWITCH = 2.0                   # measured on the bench M3R110: it clicks over ~2 mm into the plunger's travel
 _band = lambda h: box(-200, TRIGGER_PIVOT.x, -4, 4, MINI_Z - h, MINI_Z + h)
 
 
@@ -391,8 +392,8 @@ report.append("  mainspring: 2 x torsion, wire Ø%.1f, OD %.0f, %d coils: %.1f N
 report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: pen spring Ø4, ~6 N on the V (holds the block, "
               "clicks under the thumb)")
 report.append("  vent valve: AirTAC M3R110-06 body %.1f x %.0f x %.1f, front at x %.1f; trigger pull %.1f deg pushes its plunger"
-              " %.1f mm (spool shifts in 2..3), its back stopping on the body" % (AIRTAC["L"], AIRTAC["W"], AIRTAC["T"],
-                                                                                   VENT_FRONT, TRIGGER_TRAVEL, VENT_PUSH))
+              " %.1f mm (it clicks at %.1f: %.1f to spare), its back stopping on the body"
+              % (AIRTAC["L"], AIRTAC["W"], AIRTAC["T"], VENT_FRONT, TRIGGER_TRAVEL, VENT_PUSH, VENT_SWITCH, VENT_PUSH - VENT_SWITCH))
 report.append("  pawl idles %.1f deg of the hammer before it drives: the lock is open by then"
               % next(HAMMER_SWING * i / 400 for i in range(401) if block_drive(i / 400) > 0.0))
 print("\n".join(report))
