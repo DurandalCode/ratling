@@ -233,8 +233,12 @@ detent_box = turned(box(HUB_X0 + BOLT_X0 - 2, HUB_X0 + BOLT_X0 + BOLT[0] + 2, -B
                         -HUB_R - 24, -HUB_R - 1.5), DETENT_ANGLE + 90)
 detent_box = detent_box.cut(Part.makeCompound([bolt_shape(0.0), bolt_shape(30.0)]))
 _db = detent_box.BoundBox                       # a bracket from the cage's left side forward to it, clear of the block
-detent_bracket = box(fx[1] - 8, _db.XMin + 0.9, _db.YMin + 2, -(fy[1] - EVA_T - CAGE_T) + 0.5, _db.ZMax - 10, _db.ZMax)
+# Its bracket is part of it and bolts to the side plate's outer face (2 x M3 x 12 + nuts): the plate prints flat.
+detent_bracket = box(fx[1] - 8, _db.XMin + 0.9, _db.YMin + 2, -(fy[1] - EVA_T), _db.ZMax - 10, _db.ZMax)
 detent_bracket = detent_bracket.cut(cyl_x(2 * 47.6, HUB_X0, 50)).cut(detent_box)
+detent_bolts = Part.makeCompound([Part.makeCylinder(1.7, 30, V(fx[1] - 5.0, -fy[1] - 10, z_), YA)
+                                  for z_ in (_db.ZMax - 2.5, _db.ZMax - 7.5)])
+detent_box = detent_box.fuse(detent_bracket).cut(detent_bolts).removeSplitter()
 
 # ---------------------------------------------------------------- the cage: open on the left, a side plate on screws
 yi = fy[1] - EVA_T - CAGE_T                         # the cage walls' inner faces at y = +-yi
@@ -259,13 +263,13 @@ frame = frame.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2, GUIDE_ROD["z"][1] - GUID
 shaft_holes = Part.makeCylinder(4.0, 2 * fy[1], V(HAMMER_PIVOT.x, -fy[1], HAMMER_PIVOT.z), YA)   # the axle: a press fit
 frame = frame.cut(shaft_holes)
 side_cut = box(fx[0] - 1, fx[1] + 1, -fy[1] - 1, -yi, fz[0] - 1, fz[1] + 1)
-side_plate = frame.common(side_cut).fuse(detent_bracket).fuse(Part.makeCompound(_standoffs(-1)))
+side_plate = frame.common(side_cut).fuse(Part.makeCompound(_standoffs(-1))).cut(detent_bolts)
 frame = frame.cut(side_cut)
 pilots = Part.makeCompound([Part.makeCylinder(1.25, BOSS_L - 1, V(x_, -yi, z_), YA) for x_, z_ in SIDE_BOSSES])
 frame = frame.cut(pilots).removeSplitter()
 side_plate = side_plate.cut(Part.makeCompound([Part.makeCylinder(1.7, 10, V(x_, -fy[1] - 1, z_), YA)
                                               for x_, z_ in SIDE_BOSSES])).removeSplitter()
-skin = skin.cut(shaft_holes)
+skin = skin.cut(shaft_holes).cut(detent_box)
 
 # ---------------------------------------------------------------- grip with the tang, on screws; the guard's tab
 # The tang is part of the grip: one print, under the cage's floor, four ST2.9 down through the floor from
@@ -285,7 +289,7 @@ frame, skin = frame.cut(floor_holes), skin.cut(floor_holes)
 # ---------------------------------------------------------------- dress: block straps, frame plates, crest, hammer, vial, gauge, pilot pipe
 block_d = 2 * HUB_R
 straps, spikes, strap_rivets = [], [], []
-for x0, w, tilt in ((HUB_X0 + 2, 12, 0), ((HUB_X0 + HUB_T + STUB) / 2, 8, 4), (HUB_X0 + HUB_T + STUB - 14, 10, -3)):
+for x0, w, tilt in ((HUB_X0 + 12, 12, 0), ((HUB_X0 + HUB_T + STUB) / 2, 8, 4), (HUB_X0 + HUB_T + STUB - 14, 10, -3)):
     s = cyl_x(block_d + 5, x0, x0 + w).cut(cyl_x(block_d - 1, x0 - 1, x0 + w + 1))
     s.rotate(V(x0 + w / 2, 0, 0), YA, tilt)
     straps.append(s)
@@ -346,6 +350,16 @@ spikes += [spike(V(X_AXLE_END + s_t / 2, sd_ * s_w, STRAP["z"][1] - 8), V(0.3, s
 
 grip, frame, side_plate, skin = grip.cut(air_cut), frame.cut(air_cut), side_plate.cut(air_cut), skin.cut(air_cut)
 grip = max(grip.Solids, key=lambda q: q.Volume) if len(grip.Solids) > 1 else grip
+# The grip prints as two halves split on y = 0, each flat on its cut face: the hose lies in the open channel,
+# the halves close on it and on the vent valve, glued on three Ø3 steel dowels (6 mm into each half).
+GRIP_DOWELS = [GRIP_START + gd * (GRIP_LEN * t) + gn * 13.0 for t in (0.3, 0.75)] + [V(VENT_FRONT - 36.0, 0, MINI_Z - 13.5)]
+dowels = Part.makeCompound([Part.makeCylinder(1.6, 12.0, V(p_.x, -6.0, p_.z), YA) for p_ in GRIP_DOWELS])
+grip = grip.cut(dowels)
+grip_left = grip.common(box(-400, 100, -100, 0, -400, 100)).removeSplitter()
+grip_right = grip.common(box(-400, 100, 0, 100, -400, 100)).removeSplitter()
+for _g in (grip_left, grip_right):
+    if not _g.isValid():
+        _g.fix(0.01, 0.001, 0.1)                 # the split leaves a sliver edge on the loft: heal it
 
 # ---------------------------------------------------------------- checks
 def hit(a, b):
@@ -430,7 +444,7 @@ for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
 g_dress = doc.addObject("App::DocumentObjectGroup", "Dress")
 for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_side", side_plate, (0.3, 0.29, 0.28), 0), ("Frame_skin", skin, IRON, 0), ("Trigger_guard", guard, IRON, 0),
-                     ("Detent_housing", detent_box, IRON, 0), ("Grip", grip, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
+                     ("Detent_housing", detent_box, IRON, 0), ("Grip_left", grip_left, WOOD, 0), ("Grip_right", grip_right, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
                      ("Pommel", pommel, IRON, 0), ("Pommel_claws", Part.makeCompound(claws), DIRTY, 0),
                      ("Warpstone_pommel", warp_pommel, WARP, 0), ("Hose", hose, (0.08, 0.08, 0.08), 0), ("Gauge_line", gauge_line, (0.15, 0.4, 0.8), 0),
                      ("Tee", tee, BRASS, 0),
@@ -449,7 +463,7 @@ doc.recompute()
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Frame", "Frame_side", "Detent_housing", "Grip", "Trigger_guard", "Top_strap",
+              "Sleeve", "Pusher", "Trigger", "Frame", "Frame_side", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard", "Top_strap",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
@@ -464,7 +478,9 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+
             "Gauge_line": "PU tube 4/2.5, tee to the gauge", "Tee": "push-in tee for 4 mm tube", "Axle_cap": "M6 stud + cap nut",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its tab, rear end glued in the grip",
-            "Grip": "with the valve box: 4 x ST2.9 x 13 down through the cage's floor; the vent valve on 3 x M3 x 30 + nuts",
+            "Grip_left": "half, with the valve box: glued to the right on 3 x Ø3 x 12 dowels; 2 x ST2.9 x 13 down through the floor",
+            "Grip_right": "half: the vent valve on 3 x M3 x 30 + nuts through both; 2 x ST2.9 x 13 down through the floor",
+            "Detent_housing": "with its bracket: 2 x M3 x 12 + nuts to the side plate's outer face",
             "Frame_side": "6 x ST2.9 x 13 into the cage's bosses",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 96: the slider's guide, floor to the stop pad", "Trigger": "pivot: M3 x 16 screw + nylock nut"}
