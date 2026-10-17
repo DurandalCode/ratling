@@ -162,7 +162,8 @@ spur = spur.fuse(Part.makeCylinder(4.0, 10, _sp(28.5, 19.5, -5.0), YA))         
 c_tip0 = _at(H, crank_angle(0.0), HAMMER_ARM)
 crank = _rod(H, c_tip0, 8.0, CRANK_Y[0], CRANK_Y[1] - CRANK_Y[0])
 crank_pin = Part.makeCylinder(1.5, BRACKET_Y[1] + 0.5 - CRANK_Y[0], V(c_tip0.x, CRANK_Y[0], c_tip0.z), YA)
-shaft = Part.makeCylinder(4.0, CRANK_Y[1] + 6.0, V(H.x, -6.0, H.z), YA)
+SHAFT_Y = (-42.0, CRANK_Y[1] + 6.0)  # through both walls of the frame's cage: the left side plate is its other bearing
+shaft = Part.makeCylinder(4.0, SHAFT_Y[1] - SHAFT_Y[0], V(H.x, SHAFT_Y[0], H.z), YA)
 HAMMER = Part.makeCompound([hub_h.fuse(spur), crank, crank_pin, shaft])
 
 

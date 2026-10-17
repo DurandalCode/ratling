@@ -50,6 +50,12 @@ EVA_T = 3.0                         # the frame's look: an EVA skin this thick o
 CAGE_T = 3.0
 CAGE_WINDOWS = dict(side=((-40.0, -16.0), (-60.0, 12.0)), top=((-50.0, -18.0), 24.0), bottom=((-40.0, -10.0), 24.0))
 STANDOFFS = ((-48.0, -45.0, (1, -1)), (-48.0, -5.0, (-1,)))   # x, z, sides: the cage to the valve body (not where the crank runs)
+# The cage opens on the left: the mechanism goes in from that side, and a side plate closes it on six ST2.9
+# into bosses on the cage's top and bottom walls. The plate is also the hammer shaft's left bearing and
+# carries the detent's bracket.
+SIDE_BOSSES = ((-50.0, 22.0), (-10.0, 22.0), (-90.0, 6.0), (-90.0, -67.0), (-50.0, -67.0), (-10.0, -67.0))   # x, z: 1 mm into the walls
+BOSS_D, BOSS_L = 8.0, 10.0
+TRIGGER_CHEEKS = dict(x=(-56.0, -48.0), y=(3.3, 7.0))          # the trigger's pivot (an M3 screw and nut) between them
 SPUR_SLOT = dict(a=(58.0, 210.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
 FRAME_FILLET = 12.0
 REAR = dict(x=-60.0, top=15.0)      # behind this the frame steps down: the hammer stands up out of it
@@ -112,9 +118,17 @@ win = box(wx[0], wx[1], fy[0] - 1, fy[1] + 1, wz[0], wz[1])
 win = win.makeFillet(6.0, [e for e in win.Edges if abs(e.Vertexes[0].Point.y - e.Vertexes[-1].Point.y) > 1])
 frame = frame.cut(win.common(box(fx[0], fx[1], -100, -y_in + 0.5, -200, 200).fuse(box(fx[0], fx[1], y_in - 0.5, 100, -200, 200))))
 frame = frame.cut(box(tx[0], tx[1], -ty, ty, fz[1] - 10, fz[1] + 1)).cut(box(bx[0], bx[1], -by, by, fz[0] - 1, fz[0] + 10))
-standoffs = Part.makeCompound([Part.makeCylinder(5.0, y_in - 20 + 0.5, V(x_, sg * (y_in + 0.5), z_), V(0, -sg, 0)).cut(valve_body)
-                               for x_, z_, sides in STANDOFFS for sg in sides])
-frame = frame.fuse(standoffs).removeSplitter()
+def _standoffs(sign):
+    out = []
+    for x_, z_, sides in STANDOFFS:
+        if sign in sides:
+            s_ = Part.makeCylinder(5.0, y_in - 20 + 0.5, V(x_, sign * (y_in + 0.5), z_), V(0, -sign, 0)).cut(valve_body)
+            out.append(max(s_.Solids, key=lambda q: q.Volume))          # up to the valve's face, no crumbs past it
+    return out
+
+
+standoffs = Part.makeCompound(_standoffs(1) + _standoffs(-1))
+frame = frame.fuse(Part.makeCompound(_standoffs(1))).removeSplitter()      # the left ones go on the side plate
 # Slot in the bottom wall for the trigger over its stroke
 slab = box(fx[0], fx[1], -16, 16, fz[0] - 1, fz[0] + EVA_T + CAGE_T + 1)
 xs = []
@@ -196,6 +210,28 @@ _db = detent_box.BoundBox                       # a bracket from the cage's left
 detent_bracket = box(fx[1] - 8, _db.XMin + 0.9, _db.YMin + 2, -(fy[1] - EVA_T - CAGE_T) + 0.5, _db.ZMax - 10, _db.ZMax)
 detent_bracket = detent_bracket.cut(cyl_x(2 * 47.6, HUB_X0, 50)).cut(detent_box)
 
+# ---------------------------------------------------------------- the cage: open on the left, a side plate on screws
+yi = fy[1] - EVA_T - CAGE_T                         # the cage walls' inner faces at y = +-yi
+bosses = Part.makeCompound([Part.makeCylinder(BOSS_D / 2, BOSS_L, V(x_, -yi - 0.5, z_), YA) for x_, z_ in SIDE_BOSSES])
+frame = frame.fuse(bosses)
+tc = TRIGGER_CHEEKS
+cheek_top = TRIGGER_PIVOT.z + 3.5
+cheeks = Part.makeCompound([box(tc["x"][0], tc["x"][1], sg * tc["y"][0] if sg > 0 else -tc["y"][1],
+                                tc["y"][1] if sg > 0 else -tc["y"][0], fz[0] + EVA_T + CAGE_T - 0.5, cheek_top)
+                            for sg in (1, -1)])
+cheeks = cheeks.cut(Part.makeCylinder(1.6, 2 * tc["y"][1] + 2, V(TRIGGER_PIVOT.x, -tc["y"][1] - 1, TRIGGER_PIVOT.z), YA))
+frame = frame.fuse(cheeks)
+shaft_holes = Part.makeCylinder(4.15, 2 * fy[1], V(HAMMER_PIVOT.x, -fy[1], HAMMER_PIVOT.z), YA)
+frame = frame.cut(shaft_holes)
+side_cut = box(fx[0] - 1, fx[1] + 1, -fy[1] - 1, -yi, fz[0] - 1, fz[1] + 1)
+side_plate = frame.common(side_cut).fuse(detent_bracket).fuse(Part.makeCompound(_standoffs(-1)))
+frame = frame.cut(side_cut)
+pilots = Part.makeCompound([Part.makeCylinder(1.25, BOSS_L - 1, V(x_, -yi, z_), YA) for x_, z_ in SIDE_BOSSES])
+frame = frame.cut(pilots).removeSplitter()
+side_plate = side_plate.cut(Part.makeCompound([Part.makeCylinder(1.7, 10, V(x_, -fy[1] - 1, z_), YA)
+                                              for x_, z_ in SIDE_BOSSES])).removeSplitter()
+skin = skin.cut(shaft_holes)
+
 # ---------------------------------------------------------------- dress: block straps, frame plates, crest, hammer, vial, gauge, pilot pipe
 block_d = 2 * HUB_R
 straps, spikes, strap_rivets = [], [], []
@@ -274,8 +310,8 @@ for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
     for tg in (0.0, 1.0):
         st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=tg))
         for n in moving:
-            for other_name, other in (("frame", frame), ("skin", skin), ("grip", grip), ("tang", pod), ("detent box", detent_box),
-                                      ("bracket", detent_bracket), ("guard", guard),
+            for other_name, other in (("frame", frame), ("side plate", side_plate), ("skin", skin), ("grip", grip),
+                                      ("tang", pod), ("detent box", detent_box), ("guard", guard),
                                       ("vent valve", valve_bodies), ("crest", crest)):
                 if n == "Bolt" and other_name == "detent box":
                     continue                     # it slides in it
@@ -283,7 +319,10 @@ for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
                 worst[(n, other_name)] = max(worst.get((n, other_name), 0.0), v_)
 sup = top_strap.fuse(nose).fuse(washer)
 blk_hit = max(hit(turned(block, a_), sup) + hit(turned(Part.makeCompound(straps), a_), top_strap) for a_ in (0.0, 15.0, 30.0, 45.0))
-fixed_hits = {"block/supports": blk_hit, "strap/vial": hit(top_strap, vial.fuse(cage)) + hit(top_strap, crest),
+fixed_hits = {"side plate/valve": hit(side_plate, valve_body) + hit(side_plate, valve_cap) + hit(side_plate, lock_housing_h),
+              "bosses/valve": hit(bosses, valve_body) + hit(bosses, valve_cap),
+              "cheeks/valve": hit(cheeks, valve_body) + hit(cheeks, mini_valves),
+              "block/supports": blk_hit, "strap/vial": hit(top_strap, vial.fuse(cage)) + hit(top_strap, crest),
               "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
               "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume}
 inside = mini_valves.common(grip.fuse(outer).fuse(pod.fuse(Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z) for y, tip in MINI_VALVES])))).Volume / mini_valves.Volume
@@ -331,8 +370,8 @@ for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve
 for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
 g_dress = doc.addObject("App::DocumentObjectGroup", "Dress")
-for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_skin", skin, IRON, 0), ("Tang", pod, IRON, 0), ("Trigger_guard", guard, IRON, 0),
-                     ("Detent_housing", detent_box, IRON, 0), ("Detent_bracket", detent_bracket, IRON, 0), ("Grip", grip, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
+for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_side", side_plate, (0.3, 0.29, 0.28), 0), ("Frame_skin", skin, IRON, 0), ("Tang", pod, IRON, 0), ("Trigger_guard", guard, IRON, 0),
+                     ("Detent_housing", detent_box, IRON, 0), ("Grip", grip, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
                      ("Pommel", pommel, IRON, 0), ("Pommel_claws", Part.makeCompound(claws), DIRTY, 0),
                      ("Warpstone_pommel", warp_pommel, WARP, 0), ("Hose", hose, (0.08, 0.08, 0.08), 0),
                      ("Straps", Part.makeCompound(straps), IRON, 0), ("Strap_rivets", rivets(strap_rivets), DIRTY, 0),
@@ -350,7 +389,7 @@ doc.recompute()
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Frame", "Tang", "Detent_housing", "Detent_bracket", "Grip", "Top_strap",
+              "Sleeve", "Pusher", "Trigger", "Frame", "Frame_side", "Tang", "Detent_housing", "Grip", "Top_strap",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
@@ -362,7 +401,8 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose to the receiver",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge (a real one: it reads the chamber)",
             "Pilot_pipe": "copper or PU tube Ø4-5: the pilot line, cap to vent valve", "Axle_cap": "M6 stud + cap nut",
-            "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1", "Trigger_guard": "Ø5 steel or aluminium rod, bent"}
+            "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1", "Trigger_guard": "Ø5 steel or aluminium rod, bent",
+            "Frame_side": "6 x ST2.9 x 13 into the cage's bosses", "Trigger": "pivot: M3 x 16 screw + nylock nut"}
 FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)
 mat_of = {n: m for m, ns in MATERIAL.items() for n in ns}
 lines, grams = [], 0.0
