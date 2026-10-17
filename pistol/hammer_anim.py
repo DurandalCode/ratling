@@ -3,9 +3,9 @@
 Ratling six-barrel pistol: full-cycle animation of the hammer layout.
 
 Six shots, one from each barrel, the block one full turn. Each shot: the
-thumb cocks the hammer (lock off, then the block turns 60 deg), trigger
-stage 1 trips the sear (the hammer falls, the pawl skips back, the lock
-closes), stage 2 vents the pilot (the shot), and the trigger is let go.
+thumb pulls the hammer back (lock off, then the block turns 60 deg), lets
+it go (the pawl skips back, the lock closes), the trigger vents the pilot
+(the shot) and is let go.
 
 Uses pistol/hammer_layout.py's pose(). Writes exports/pistol_hammer_cycle.gif:
 the rear view (ratchet) left, the side view right, the phase below.
@@ -30,43 +30,38 @@ exec(open(os.path.join(REPO, "pistol", "hammer_layout.py")).read())
 
 OUT = os.path.join(REPO, "exports", "pistol_hammer_cycle.gif")
 TMP = os.path.join(REPO, "exports", "_anim_tmp")
-COCK_F, STAGE1_F, FALL_F, PULL_F, HOLD_F, LET_F = 14, 3, 5, 5, 3, 6
+COCK_F, BACK_F, FALL_F, PULL_F, HOLD_F, LET_F = 14, 2, 6, 6, 3, 6
 FRAME_MS = 80
 FONT = "/System/Library/Fonts/Supplemental/Arial.ttf"
-BACK_HIDE = ("Valve_body", "Valve_cap", "Valves", "Trigger", "Hammer", "Sear", "Trigger_bar")
+BACK_HIDE = ("Valve_body", "Valve_cap", "Valves", "Trigger", "Hammer")
 
 
 def frames_for_shot(k):
     b0 = 60.0 * k
     out = []
-    for i in range(COCK_F):                         # thumb cocks the hammer
+    for i in range(COCK_F):                         # thumb pulls the hammer back
         c = i / (COCK_F - 1)
-        st = dict(cock=c, block=b0 + block_drive(c), bend=0.0, trig=0.0, sear=0.0)
         if lock_h(c) > 0.0:
-            text = "взвод курка: запор отходит"
+            text = "курок назад: запор отходит"
         elif block_drive(c) <= 0.0:
-            text = "взвод курка: запор открыт, собачка ещё не взялась"
+            text = "курок назад: запор открыт, собачка ещё не взялась"
         else:
-            text = "взвод курка: поворот блока %.0f°%s" % (block_drive(c), ", шептало держит курок" if c > 0.97 else "")
-        out.append((st, text))
+            text = "курок назад: поворот блока %.0f°%s" % (block_drive(c), ", щелчок фиксатора" if c > 0.97 else "")
+        out.append((dict(cock=c, block=b0 + block_drive(c), bend=0.0, trig=0.0), text))
     b1 = b0 + 60
-    for i in range(STAGE1_F):                       # trigger stage 1: the sear trips
-        tg = STAGE1 * (i + 1) / STAGE1_F
-        out.append((dict(cock=1.0, block=b1, bend=0.0, trig=tg, sear=sear_of(tg)), "спуск, 1-я ступень: шептало отпускает курок"))
-    for i in range(FALL_F):                         # the hammer falls, the pawl skips back, the lock shuts
+    out += [(dict(cock=1.0, block=b1, bend=0.0, trig=0.0), "палец отпускает курок")] * BACK_F
+    for i in range(FALL_F):                         # the spring brings it forward: pawl skips back, lock shuts
         u = (i + 1) / FALL_F
         bend = ramp(u, 0.0, 0.15) * (1 - ramp(u, 0.8, 0.95))
-        out.append((dict(cock=1 - u, block=b1, bend=bend, trig=STAGE1, sear=1.0),
-                    "курок падает: запор закрывается" if lock_h(1 - u) > 0 else "курок падает: собачка идёт к следующему вырезу"))
-    for i in range(PULL_F):                         # stage 2: the vent
-        tg = STAGE1 + (1 - STAGE1) * (i + 1) / PULL_F
-        out.append((dict(cock=0.0, block=b1, bend=0.0, trig=tg, sear=sear_of(tg)),
-                    "ВЫСТРЕЛ: ствол %d" % (k + 1) if fire(tg) > 0.5 else "спуск, 2-я ступень"))
-    out += [(dict(cock=0.0, block=b1, bend=0.0, trig=1.0, sear=1.0), "ВЫСТРЕЛ: ствол %d" % (k + 1))] * HOLD_F
+        out.append((dict(cock=1 - u, block=b1, bend=bend, trig=0.0),
+                    "курок возвращается: запор закрывается" if lock_h(1 - u) > 0 else
+                    "курок возвращается: собачка идёт к следующему вырезу"))
+    for i in range(PULL_F):
+        tg = (i + 1) / PULL_F
+        out.append((dict(cock=0.0, block=b1, bend=0.0, trig=tg), "ВЫСТРЕЛ: ствол %d" % (k + 1) if fire(tg) > 0.5 else "спуск"))
+    out += [(dict(cock=0.0, block=b1, bend=0.0, trig=1.0), "ВЫСТРЕЛ: ствол %d" % (k + 1))] * HOLD_F
     for i in range(LET_F):
-        tg = 1 - (i + 1) / LET_F
-        out.append((dict(cock=0.0, block=b1, bend=0.0, trig=tg, sear=sear_of(tg)),
-                    "спуск отпущен: сброс закрыт, камера заряжается"))
+        out.append((dict(cock=0.0, block=b1, bend=0.0, trig=1 - (i + 1) / LET_F), "спуск отпущен: сброс закрыт, камера заряжается"))
     return out
 
 
@@ -113,7 +108,7 @@ os.makedirs(TMP, exist_ok=True)
 font = ImageFont.truetype(FONT, 24)
 images = []
 try:
-    put(dict(cock=1.0, block=0.0, bend=0.0, trig=0.0, sear=0.0))
+    put(dict(cock=1.0, block=0.0, bend=0.0, trig=0.0))
     show(BACK_HIDE, False)
     view.viewLeft(); Gui.updateGui(); view.fitAll(); Gui.updateGui(); cam_back = view.getCamera()
     show(BACK_HIDE, True)
