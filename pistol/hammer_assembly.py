@@ -37,7 +37,8 @@ try:
     BARREL_TUBE                                 # or set before exec
 except NameError:
     BARREL_TUBE = 200.0                         # barrel tube as cut (13 mm of it in the hub)
-STUB = BARREL_TUBE - 13.0
+HUB_T_HAMMER = 14.0                             # the block's rear disc (hammer_layout.py)
+STUB = BARREL_TUBE - (HUB_T_HAMMER - 9.0)       # the tube from the rear disc's seat (9 deep) to the muzzle
 exec(open(os.path.join(REPO, "pistol", "hammer_layout.py")).read())
 
 NAME = "pistol_hammer_assembly"
@@ -173,9 +174,17 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
 hose = Part.makeCylinder(3, 70, c_end + gd * 20, gd)
 
 # ---------------------------------------------------------------- trigger guard: from the frame's foot round the trigger into the grip
-GUARD = [V(-24, 0, fz[0] + 3), V(-22, 0, -90), V(-30, 0, -104), V(-48, 0, -111), V(-68, 0, -107), V(-84, 0, -97),
-         V(-95, 0, -87)]                        # a round loop through these
-guard = pipe_along(GUARD, 2.6)
+# A flat band (ellipse GUARD_SECTION, wide across) swept along a teardrop that leaves the frame's foot
+# going down and forward and runs into the grip's front along it.
+GUARD = [V(-20, 0, fz[0] + 5), V(-18, 0, -86), V(-23, 0, -100), V(-38, 0, -110), V(-58, 0, -109), V(-76, 0, -100),
+         V(-90, 0, -90), V(-97, 0, -85)]
+GUARD_SECTION = (3.2, 2.2)                      # half-width across (y), half-thickness in the loop's plane
+_gc = Part.BSplineCurve()
+_gc.interpolate(GUARD)
+_t0 = _gc.tangent(_gc.FirstParameter)[0]
+_n0 = _t0.cross(YA).normalize()
+_prof = Part.Ellipse(GUARD[0] + YA * GUARD_SECTION[0], GUARD[0] + _n0 * GUARD_SECTION[1], GUARD[0])
+guard = Part.Wire(_gc.toShape()).makePipeShell([Part.Wire(_prof.toShape())], True, True)   # Frenet: no twist in a plane
 guard = Part.Solid(guard) if guard.ShapeType != "Solid" else guard
 guard = guard.cut(inner).removeSplitter()
 

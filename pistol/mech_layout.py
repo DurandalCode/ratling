@@ -65,6 +65,8 @@ R_RING = 27.0                       # barrel ring = v1's chamber-to-seat distanc
 Z_FIRE = -R_RING
 BARREL_OD = 25.0
 HUB_R, HUB_X0, HUB_T = 42.5, 0.5, 22.0      # hub rear face at x = HUB_X0
+HUB_SEAT = 9.0                      # the breech seat's depth in the hub; the barrel sockets from there
+FRONT_T = 8.0                       # front plate
 try:
     STUB                            # barrels past the hub: stubs for the mock-up, or set before exec
 except NameError:
@@ -239,7 +241,8 @@ def wedge_shape(lift):
 hub = cyl_x(2 * HUB_R, HUB_X0, HUB_X0 + HUB_T)
 for i in range(6):
     y, z = polar(R_RING, -90 + 60 * i)
-    hub = hub.cut(cyl_x(SEAT_D, HUB_X0 - 1, HUB_X0 + 10, y, z)).cut(cyl_x(BARREL_OD + 0.3, HUB_X0 + 9, HUB_X0 + HUB_T + 1, y, z))
+    hub = hub.cut(cyl_x(SEAT_D, HUB_X0 - 1, HUB_X0 + HUB_SEAT + 1, y, z)).cut(
+        cyl_x(BARREL_OD + 0.3, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T + 1, y, z))
     rn = Part.makeBox(RIM_NOTCH[1] - RIM_NOTCH[0], BOLT[1] + 1, BOLT_DEPTH + 1,
                       V(HUB_X0 + RIM_NOTCH[0], -(BOLT[1] + 1) / 2, -HUB_R - 1))
     hub = hub.cut(turned(rn, 60 * i))
@@ -247,11 +250,11 @@ for i in range(6):
     n = Part.makeBox(NOTCH_DEPTH + 1, NOTCH_W + NOTCH_SLACK, NOTCH_R[1] - NOTCH_R[0], V(HUB_X0 - 1, -NOTCH_W / 2, NOTCH_R[0]))
     hub = hub.cut(turned(n, a - 90))
 hub = hub.cut(cyl_x(BARREL_OD + 0.6, HUB_X0 - 1, HUB_X0 + HUB_T + 1))
-barrels = Part.makeCompound([cyl_x(BARREL_OD, HUB_X0 + 9, HUB_X0 + HUB_T + STUB, *polar(R_RING, -90 + 60 * i))
+barrels = Part.makeCompound([cyl_x(BARREL_OD, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T + STUB, *polar(R_RING, -90 + 60 * i))
                              .cut(cyl_x(23.8, 0, 300, *polar(R_RING, -90 + 60 * i))) for i in range(6)])
 oring_faces = Part.makeCompound([cyl_x(23.8, HUB_X0 - 0.6, HUB_X0, *polar(R_RING, -90 + 60 * i))
                                  .cut(cyl_x(16.2, -5, 5, *polar(R_RING, -90 + 60 * i))) for i in range(6)])
-front_plate = cyl_x(2 * HUB_R - 6, HUB_X0 + HUB_T + STUB - 8, HUB_X0 + HUB_T + STUB).cut(
+front_plate = cyl_x(2 * HUB_R - 6, HUB_X0 + HUB_T + STUB - FRONT_T, HUB_X0 + HUB_T + STUB).cut(
     cyl_x(BARREL_OD + 0.6, 0, 300))
 for i in range(6):
     front_plate = front_plate.cut(cyl_x(BARREL_OD + 0.3, 0, 300, *polar(R_RING, -90 + 60 * i)))

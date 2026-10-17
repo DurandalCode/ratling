@@ -66,8 +66,14 @@ except NameError:
 HAMMER_SWING = 56.0                 # deg, down .. cocked
 SECTOR_SWING = 68.0                 # 60 for the block + the notch's lost motion
 LOST_DEG = SECTOR_SWING - 60.0
+try:
+    HUB_T_HAMMER                    # the rear disc: set before exec (hammer_assembly.py needs it for the barrels)
+except NameError:
+    HUB_T_HAMMER = 14.0
+# Block: two discs and the bought tubes. The rear disc: breech seats (9 deep, O-ring faces, pawl notches, detent
+# notches in its rim) and 5 mm sockets the barrels are glued into; the front disc 6 mm.
 MECH_OVERRIDES = dict(ARM_A0=SECTOR_SWING / 2, PIN_R0=24.5 / math.cos(math.radians(SECTOR_SWING / 2)), ARM_R=33.0,
-                      NOTCH_SLACK=16.5 * math.radians(LOST_DEG))
+                      NOTCH_SLACK=16.5 * math.radians(LOST_DEG), HUB_T=HUB_T_HAMMER, FRONT_T=6.0)
 MECH_LIBRARY = True
 exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
 MECH_LIBRARY = False
