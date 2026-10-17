@@ -35,7 +35,10 @@ try:
     REPO
 except NameError:
     REPO = os.path.expanduser("~/ratling")
-BARREL_TUBE = 300.0                             # barrel tube as cut (13 mm of it in the hub)
+try:
+    BARREL_TUBE                                 # or set before exec
+except NameError:
+    BARREL_TUBE = 300.0                         # barrel tube as cut (13 mm of it in the hub)
 STUB = BARREL_TUBE - 13.0
 exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
 
