@@ -74,7 +74,8 @@ except NameError:
 # notches in its rim) and 5 mm sockets the barrels are glued into; the front disc 6 mm.
 MECH_OVERRIDES = dict(ARM_A0=SECTOR_SWING / 2, PIN_R0=24.5 / math.cos(math.radians(SECTOR_SWING / 2)), ARM_R=33.0,
                       NOTCH_SLACK=16.5 * math.radians(LOST_DEG), HUB_T=HUB_T_HAMMER, FRONT_T=6.0,
-                      MINI_VALVES=((0.0, -58.5),))       # the vent valve 1.5 forward: the crescent trigger's stroke
+                      MINI_VALVES=((0.0, -58.5),),       # the vent valve 1.5 forward: the crescent trigger's stroke
+                      SLIDER_Y=(23.0, 31.5))             # thicker round its guide rod
 MECH_LIBRARY = True
 exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
 MECH_LIBRARY = False
@@ -104,6 +105,7 @@ LOCK_SEAT_N = 20.0                  # sleeve onto the breech's O-ring before the
 MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-30.2, -18.6), (-18.2, -6.6)))   # music wire torsion springs, x2, both left
 SPRING_PEG = (30.0, 9.5, 1.5)       # on the hammer's hub, left face: direction at rest, radius, pin radius (the springs' legs)
 SLEEVE_R = 7.0                      # the hammer's sleeve on the axle, hub to crank: one printed part
+GUIDE_ROD = dict(x=-8.5, y=28.6, d=3.0, z=(-70.5, 25.5))   # the slider runs on a fixed Ø3 steel rod, floor to ceiling
 
 
 def hammer_rot(c):                  # rotation about +y: cocking turns the spur back (negative)
@@ -202,11 +204,12 @@ def cam_slot():
 
 xs = [crank_tip(i / 20).x for i in range(21)]
 SLIDER_H = (box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6)
-            .fuse(box(CHEEK_X[0], CHEEK_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, -6))
+            .fuse(box(CHEEK_X[0], CHEEK_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6))
             .fuse(box(CHEEK_X[0], SLIDER_X[1], SLIDER_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
             .fuse(box(min(xs) - 8, CHEEK_X[0] + 0.01, BRACKET_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
             .cut(box(min(xs) - 2, max(xs) + 2, BRACKET_Y[0] - 1, BRACKET_Y[1] + 1, D_YOKE - 1.7, D_YOKE + 1.7))
-            .cut(cam_slot()))
+            .cut(cam_slot())
+            .cut(Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100), ZA)))
 
 
 def slider_h(c):
@@ -218,7 +221,7 @@ def slider_h(c):
 ring = cyl_x(LOCK_PISTON_D - 0.4, -PUSHER_T / 2, PUSHER_T / 2, 0, Z_FIRE).cut(
     cyl_x(SLEEVE_BORE + 0.6, -5, 5, 0, Z_FIRE))
 lug = box(-PUSHER_T / 2, PUSHER_T / 2, (SLEEVE_BORE + 1) / 2, SLIDER_Y[0] - 0.5, Z_FIRE - 3, Z_FIRE + 3)
-cam_pin = Part.makeCylinder(1.5, SLIDER_Y[1] - SLIDER_Y[0] + 2.5, V(0, SLIDER_Y[0] - 2.5, Z_FIRE), YA)
+cam_pin = Part.makeCylinder(1.5, 2.5 + 3.0, V(0, SLIDER_Y[0] - 2.5, Z_FIRE), YA)      # 3 mm into the cheek, short of the guide rod
 PUSHER = ring.fuse(lug).fuse(cam_pin)
 
 
@@ -278,7 +281,10 @@ REST = dict(cock=0.0, block=0.0, bend=0.0, trig=0.0)
 mainsprings = Part.makeCompound([Part.makeCylinder(MAINSPRING["od"] / 2, y1 - y0, V(H.x, y0, H.z), YA).cut(
     Part.makeCylinder(MAINSPRING["od"] / 2 - MAINSPRING["d"], y1 - y0 + 2, V(H.x, y0 - 1, H.z), YA))
     for y0, y1 in MAINSPRING["y"]])
+guide_rod = Part.makeCylinder(GUIDE_ROD["d"] / 2, GUIDE_ROD["z"][1] - GUIDE_ROD["z"][0],
+                              V(GUIDE_ROD["x"], GUIDE_ROD["y"], GUIDE_ROD["z"][0]), ZA)
 FIXED = {"body": valve_body, "cap": valve_cap, "lock": lock_housing_h, "axle": axle, "vent": valve_bodies, "hammer axle": shaft,
+         "guide rod": guide_rod,
          "mainsprings": mainsprings}
 report = [NAME]
 worst = {}
@@ -354,7 +360,7 @@ fixed = doc.addObject("App::DocumentObjectGroup", "Fixed")
 for n, s_, c_, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
                       ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 30), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 60),
                       ("Vent_valve", valves, (0.3, 0.3, 0.8), 40), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0),
-                      ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0)):
+                      ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0), ("Guide_rod", guide_rod, (0.75, 0.75, 0.78), 0)):
     add(fixed, n, s_, c_, tr)
 for gname, st in (("Rest", REST), ("Hammer_back", dict(cock=1.0, block=60.0, bend=0.0, trig=0.0))):
     g = doc.addObject("App::DocumentObjectGroup", gname)

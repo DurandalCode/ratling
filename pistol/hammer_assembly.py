@@ -227,7 +227,9 @@ slider_stop = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], z_sl_top +
 # The mainsprings' fixed legs rest on a rib off the cage's rear wall, below and behind the hammer's hub.
 spring_rib = box(fx[0] + EVA_T + CAGE_T - 0.5, HAMMER_PIVOT.x - 6.0, MAINSPRING["y"][0][0] - 1.0, -6.0,
                  HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5)
-frame = frame.fuse(slider_stop).fuse(spring_rib)
+rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] + EVA_T + CAGE_T - 0.5), ZA)   # the guide rod's foot
+frame = frame.fuse(slider_stop).fuse(spring_rib).fuse(rod_boss)
+frame = frame.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2, GUIDE_ROD["z"][1] - GUIDE_ROD["z"][0], V(GUIDE_ROD["x"], GUIDE_ROD["y"], GUIDE_ROD["z"][0]), ZA))
 shaft_holes = Part.makeCylinder(4.0, 2 * fy[1], V(HAMMER_PIVOT.x, -fy[1], HAMMER_PIVOT.z), YA)   # the axle: a press fit
 frame = frame.cut(shaft_holes)
 side_cut = box(fx[0] - 1, fx[1] + 1, -fy[1] - 1, -yi, fz[0] - 1, fz[1] + 1)
@@ -374,7 +376,7 @@ g_mech = doc.addObject("App::DocumentObjectGroup", "Mechanism")
 for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
                      ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 0), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 0),
                      ("Vent_valve", mini_valves, (0.3, 0.3, 0.8), 0), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0),
-                     ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0)):
+                     ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0), ("Guide_rod", guide_rod, (0.75, 0.75, 0.78), 0)):
     add(g_mech, n, s_, c, tr)
 for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
@@ -402,7 +404,7 @@ MATERIAL = {
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
-    "buy": ("Chamber_axle", "Vent_valve", "Pin", "Mainsprings", "Hammer_axle", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
+    "buy": ("Chamber_axle", "Vent_valve", "Pin", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Axle_cap", "Thrust_washer", "Trigger_guard"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
@@ -412,7 +414,8 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+
             "Pilot_pipe": "copper or PU tube Ø4-5: the pilot line, cap to vent valve", "Axle_cap": "M6 stud + cap nut",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1", "Trigger_guard": "Ø5 steel or aluminium rod, bent",
             "Frame_side": "6 x ST2.9 x 13 into the cage's bosses",
-            "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls", "Trigger": "pivot: M3 x 16 screw + nylock nut"}
+            "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
+            "Guide_rod": "steel rod Ø3 x 96: the slider's guide, floor to the stop pad", "Trigger": "pivot: M3 x 16 screw + nylock nut"}
 FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)
 mat_of = {n: m for m, ns in MATERIAL.items() for n in ns}
 lines, grams = [], 0.0
