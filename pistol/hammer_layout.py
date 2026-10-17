@@ -73,7 +73,8 @@ except NameError:
 # Block: two discs and the bought tubes. The rear disc: breech seats (9 deep, O-ring faces, pawl notches, detent
 # notches in its rim) and 5 mm sockets the barrels are glued into; the front disc 6 mm.
 MECH_OVERRIDES = dict(ARM_A0=SECTOR_SWING / 2, PIN_R0=24.5 / math.cos(math.radians(SECTOR_SWING / 2)), ARM_R=33.0,
-                      NOTCH_SLACK=16.5 * math.radians(LOST_DEG), HUB_T=HUB_T_HAMMER, FRONT_T=6.0)
+                      NOTCH_SLACK=16.5 * math.radians(LOST_DEG), HUB_T=HUB_T_HAMMER, FRONT_T=6.0,
+                      MINI_VALVES=((0.0, -58.5),))       # the vent valve 1.5 forward: the crescent trigger's stroke
 MECH_LIBRARY = True
 exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
 MECH_LIBRARY = False
@@ -98,7 +99,7 @@ SLIDER_REACH = 48.0                 # slider body: from its pin this far down (t
 CHEEK_X = (-14.5, -7.0)             # slider's rear cheek with the cam slot
 PUSHER_T = 3.0
 CAM_RISE = 3.0                      # slider rise that opens the lock
-TRIGGER_TRAVEL = 22.0               # deg
+TRIGGER_TRAVEL = 23.0               # deg: pushes the vent plunger ~3 of its 4.5
 LOCK_SEAT_N = 20.0                  # sleeve onto the breech's O-ring before the shot (the shot adds ~41 N): bench it
 MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-18.2, -6.6), (5.8, 17.4)))   # music wire torsion springs, x2
 
@@ -221,8 +222,31 @@ lock_housing_h = lock_housing.cut(box(X_OPEN - PUSHER_T / 2 - 0.4, X_LOCKED + PU
                                       (SLEEVE_BORE + 1) / 2 - 1, 30, Z_FIRE - 3.5, Z_FIRE + 3.5))
 
 # ---------------------------------------------------------------- trigger: one stage, straight onto the vent valve
+# A crescent: concave finger face in front, the tip curled forward like a claw, grooves across the finger face.
+# Its back at the vent valve's height (12 under the pivot) stays at x -4 from it, where the old blade's was.
+TRIGGER_OUTLINE = [(4.6, 0.5), (5.5, -4.0), (4.0, -11.0), (3.0, -17.0), (3.2, -22.0), (4.6, -26.5), (7.0, -30.0),
+                   (9.5, -31.5), (8.5, -33.5), (5.0, -33.5), (1.5, -31.0), (-1.2, -26.0), (-3.0, -19.0), (-4.0, -12.0),
+                   (-4.0, -4.0), (-3.0, 1.5), (0.5, 3.3)]       # under the valve body: r <= 3.6 round the pivot
+TRIGGER_WIDTH = 6.0
+
+
+def _trigger_blank():
+    pts = [V(x, -TRIGGER_WIDTH / 2, z) for x, z in TRIGGER_OUTLINE]
+    c = Part.BSplineCurve()
+    c.interpolate(pts, PeriodicFlag=True)
+    t = Part.Face(Part.Wire(c.toShape())).extrude(V(0, TRIGGER_WIDTH, 0))
+    t = t.fuse(Part.makeCylinder(3.6, TRIGGER_WIDTH, V(0, -TRIGGER_WIDTH / 2, 0), YA))          # round the pivot pin
+    for z_ in (-15.0, -18.0, -21.0):                                                            # finger grooves
+        g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(3.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, z_), YA)
+        t = t.cut(g)
+    return t.cut(Part.makeCylinder(1.6, TRIGGER_WIDTH + 2, V(0, -TRIGGER_WIDTH / 2 - 1, 0), YA)).removeSplitter()
+
+
+TRIGGER = _trigger_blank()
+
+
 def trigger_h(trig):
-    return _rot_y(box(-4, 6, -3, 3, -28, 0).translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * trig)
+    return _rot_y(TRIGGER.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * trig)
 
 
 def pose(st):
