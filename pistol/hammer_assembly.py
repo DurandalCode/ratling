@@ -150,11 +150,10 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
 hose = Part.makeCylinder(3, 70, c_end + gd * 20, gd)
 
 # ---------------------------------------------------------------- trigger guard: from the frame's foot round the trigger into the grip
-GUARD = [V(-24, 0, fz[0] + 3), V(-24, 0, -96), V(-36, 0, -108), V(-66, 0, -108), V(-95, 0, -87)]
-guard = None
-for p0, p1 in zip(GUARD, GUARD[1:]):
-    r_ = _rod(p0, p1, 5.0, -3.0, 6.0)
-    guard = r_ if guard is None else guard.fuse(r_)
+GUARD = [V(-24, 0, fz[0] + 3), V(-22, 0, -90), V(-30, 0, -104), V(-48, 0, -111), V(-68, 0, -107), V(-84, 0, -97),
+         V(-95, 0, -87)]                        # a round loop through these
+guard = pipe_along(GUARD, 2.6)
+guard = Part.Solid(guard) if guard.ShapeType != "Solid" else guard
 guard = guard.cut(inner).removeSplitter()
 
 # ---------------------------------------------------------------- detent housing
@@ -235,8 +234,9 @@ report = [NAME, "  mechanism vs dress (worst over the hammer and trigger strokes
 report += ["    %-8s / %-11s %.1f" % (k[0], k[1], v_) for k, v_ in sorted(worst.items()) if v_ > 0.05] or ["    none"]
 report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
            "  vent valve inside grip/frame: %.0f %%" % (inside * 100),
-           "  trigger guard: finger room %.0f mm in front of the trigger, %.0f under it"
-           % (GUARD[0].x - 2.5 - trigger_h(0.0).BoundBox.XMax, trigger_h(0.0).BoundBox.ZMin - GUARD[2].z - 2.5),
+           "  trigger guard: %.0f mm from the trigger at rest, %.0f pulled; loop %.0f x %.0f mm inside"
+           % (trigger_h(0.0).distToShape(guard)[0], trigger_h(1.0).distToShape(guard)[0],
+              max(p_.x for p_ in GUARD[:2]) - min(p_.x for p_ in GUARD) - 5.2, fz[0] - min(p_.z for p_ in GUARD) - 2.6),
            "  hammer outside the frame: %.0f mm3 forward, %.0f back" % (spur_out(0.0), spur_out(1.0)),
            "  overall: %.0f mm long (pommel to muzzle), %.0f mm high, block Ø%.0f"
            % (HUB_X0 + HUB_T + STUB + 30 - min((c_end + gd * 30).x, spur_c.x), max(fz[1], spur_tip.z) + 30 - (c_end + gd * 30).z, block_d),
