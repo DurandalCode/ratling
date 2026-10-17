@@ -171,10 +171,6 @@ for x0, w, tilt in ((HUB_X0 + 2, 12, 0), ((HUB_X0 + HUB_T + STUB) / 2, 8, 4), (H
     for k in range(7):
         q = math.radians(360.0 / 7 * k + random.uniform(-10, 10))
         strap_rivets.append(V(x0 + w / 2, (block_d / 2 + 2.6) * math.cos(q), (block_d / 2 + 2.6) * math.sin(q)))
-    for a_deg in ((30, 150) if x0 < 20 else (90, 210) if x0 > (HUB_X0 + HUB_T + STUB) * 0.75 else ()):
-        q = math.radians(a_deg)
-        dv = V(0, math.cos(q), math.sin(q))
-        spikes.append(spike(V(x0 + w / 2, 0, 0) + dv * (block_d / 2 + 2), dv + V(0.3, 0, 0), 16, 4))
 plates, plate_rivets = [], []
 for side, rot, dx, dz in ((1, 7, 4, 6), (-1, -5, -2, -4)):
     y0 = fy[1] if side > 0 else fy[0] - 3
@@ -203,7 +199,30 @@ needle = box(gp.x, gp.x + 9, gp.y + 9, gp.y + 9.8, gp.z - 0.6, gp.z + 0.6)
 needle.rotate(gp, YA, -35)
 pilot_pipe = pipe_along([V(fx[0] - 6, 0, Z_FIRE), V(fx[0] - 16, -22, Z_FIRE - 14), V(fx[0] - 14, -26, MINI_Z - 2),
                          V(fx[0] + 2, -FRAME["y"][1] + 2, MINI_Z)], 2.6)
-axle_cap = Part.makeCone(9, 3, 10, V(HUB_X0 + HUB_T + STUB + 20, 0, 0), XA)
+# ---------------------------------------------------------------- block supports: top strap to the axle's front end
+# The block turns on the axle (hub bore at the back, the front plate's bore at the front). The axle is held
+# by the valve alone, and the lock pushes the block forward at the shot: a top strap from the frame, over the
+# block, down in front of the muzzles (over the top barrel only: the bottom one fires) to a plug glued in the
+# axle's end with an M6 stud. A sleeve on the axle from the strap back to the front plate takes the thrust,
+# through a washer.
+X_MUZZLE = HUB_X0 + HUB_T + STUB
+X_AXLE_END = X_MUZZLE + 20.0
+STRAP = dict(w=10.0, t=6.0, z=(50.0, 56.0), x0=-12.0)
+NOSE_OD = 28.0                                  # under the firing barrel's bore (r 15.1 from the axis)
+WASHER_T = 1.0
+s_w, s_t = STRAP["w"] / 2, STRAP["t"]
+top_strap = (box(STRAP["x0"], X_AXLE_END + s_t, -s_w, s_w, STRAP["z"][0], STRAP["z"][1])
+             .fuse(box(X_AXLE_END, X_AXLE_END + s_t, -s_w, s_w, 0, STRAP["z"][1]))
+             .fuse(Part.makeCylinder(NOSE_OD / 2, s_t, V(X_AXLE_END, 0, 0), XA))
+             .fuse(box(STRAP["x0"], HUB_X0 - 2.5, -s_w, s_w, fz[1] - 2, STRAP["z"][1])))   # its foot on the frame, short of the hub
+top_strap = top_strap.cut(Part.makeCylinder(3.2, 20, V(X_AXLE_END - 1, 0, 0), XA))                 # the stud
+nose = cyl_x(NOSE_OD, X_MUZZLE + WASHER_T, X_AXLE_END, 0, 0).cut(cyl_x(BARREL_OD + 0.4, X_MUZZLE, X_AXLE_END + 1, 0, 0))
+washer = cyl_x(NOSE_OD, X_MUZZLE, X_MUZZLE + WASHER_T, 0, 0).cut(cyl_x(BARREL_OD + 0.4, X_MUZZLE - 1, X_MUZZLE + 2, 0, 0))
+axle_cap = Part.makeCylinder(3.0, 14, V(X_AXLE_END - 4, 0, 0), XA).fuse(        # M6 stud and a cap nut
+    Part.makeCone(8, 5, 9, V(X_AXLE_END + s_t, 0, 0), XA))
+strap_rivets += [V(x_, 0, STRAP["z"][1] + 0.3) for x_ in range(int(STRAP["x0"]) + 8, int(X_AXLE_END), 24)]
+spikes += [spike(V(x_, 0, STRAP["z"][1] - 1), V(0.25, 0, 1), 14, 3.5) for x_ in (X_MUZZLE * 0.3, X_MUZZLE * 0.7)]
+spikes += [spike(V(X_AXLE_END + s_t / 2, sd_ * s_w, STRAP["z"][1] - 8), V(0.3, sd_ * 1, 0.4), 14, 3.0) for sd_ in (-1, 1)]
 
 # ---------------------------------------------------------------- checks
 def hit(a, b):
@@ -226,7 +245,10 @@ for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
                     continue                     # it slides in it
                 v_ = hit(st[n], other)
                 worst[(n, other_name)] = max(worst.get((n, other_name), 0.0), v_)
-fixed_hits = {"valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
+sup = top_strap.fuse(nose).fuse(washer)
+blk_hit = max(hit(turned(block, a_), sup) + hit(turned(Part.makeCompound(straps), a_), top_strap) for a_ in (0.0, 15.0, 30.0, 45.0))
+fixed_hits = {"block/supports": blk_hit, "strap/vial": hit(top_strap, vial.fuse(cage)) + hit(top_strap, crest),
+              "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
               "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume}
 inside = mini_valves.common(grip.fuse(outer).fuse(pod.fuse(Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z) for y, tip in MINI_VALVES])))).Volume / mini_valves.Volume
 spur_out = lambda c: hammer_shape(c).cut(outer).Volume
@@ -239,7 +261,11 @@ report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
               max(p_.x for p_ in GUARD[:2]) - min(p_.x for p_ in GUARD) - 5.2, fz[0] - min(p_.z for p_ in GUARD) - 2.6),
            "  hammer outside the frame: %.0f mm3 forward, %.0f back" % (spur_out(0.0), spur_out(1.0)),
            "  overall: %.0f mm long (pommel to muzzle), %.0f mm high, block Ø%.0f"
-           % (HUB_X0 + HUB_T + STUB + 30 - min((c_end + gd * 30).x, spur_c.x), max(fz[1], spur_tip.z) + 30 - (c_end + gd * 30).z, block_d),
+           % (X_AXLE_END + s_t + 9 - min((c_end + gd * 30).x, spur_c.x), STRAP["z"][1] + 14 - (c_end + gd * 30).z, block_d),
+           "  front support: strap %.0f x %.0f over the block (%.1f mm clear of its straps), down %.0f mm ahead of the muzzles;"
+           " nose Ø%.0f clears the firing bore by %.1f mm"
+           % (STRAP["w"], STRAP["t"], STRAP["z"][0] - (block_d / 2 + 2.5), X_AXLE_END - X_MUZZLE,
+              NOSE_OD, R_RING - 23.8 / 2 - NOSE_OD / 2),
            "  barrels: tube %.0f, breech face to muzzle %.0f; chamber (the axle) %.0f mm of tube, ~%.0f cm3"
            % (BARREL_TUBE, HUB_T + STUB, axle.BoundBox.XLength,
               19.6 + (axle.BoundBox.XLength - 60) * math.pi / 4 * 23.8 ** 2 / 1000)]
@@ -279,7 +305,8 @@ for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Tang", pod, IRON, 0), ("Trigge
                      ("Vial_glass", vial, GLASS, 65), ("Vial_caps", vial_caps, BRASS, 0), ("Vial_cage", cage, IRON, 0),
                      ("Warpstone_vial", vial_stone, WARP, 0), ("Gauge", gauge, BRASS, 0), ("Gauge_glass", gauge_glass, (0.9, 0.9, 0.85), 0),
                      ("Gauge_needle", needle, (0.6, 0.05, 0.05), 0), ("Pilot_pipe", pilot_pipe, COPPER, 0),
-                     ("Axle_cap", axle_cap, IRON, 0)):
+                     ("Axle_cap", axle_cap, IRON, 0), ("Top_strap", top_strap, IRON, 0), ("Nose_sleeve", nose, IRON, 0),
+                     ("Thrust_washer", washer, (0.85, 0.85, 0.8), 0)):
     add(g_dress, n, s_, c, tr)
 doc.recompute()
 if App.GuiUp:
