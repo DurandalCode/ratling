@@ -10,6 +10,9 @@ any more: its socket is glued to the barrel on a band at its mouth, the barrel i
 rear plug through glue only. The screw lugs and the screw jig are gone. Thin CA or 5-minute epoxy; keep it off
 the O-rings. To take it apart: acetone on the CA joints, or cut the tube (it cuts, it just does not drill).
 
+The barrel O-rings are 24 x 2.5 now (were 24 x 2, too thin): the annulus round the socket drops to ~200 mm2,
+still over the valve's curtain (146); 24 x 3 would not (158).
+
 v4.1 (kept below for history).
 
 v4.1 (after v4 leaked into the barrel while the pilot filled): the seat ring
@@ -108,7 +111,7 @@ CH_ID = CH_OD - 2 * CH_WALL
 
 RADIAL_CLEAR = 0.20
 CH_ORING = (30.0, 3.0)      # ID x CS, in the chamber tube (rear and front plug)
-BR_ORING = (24.0, 2.0)      # ID x CS, on the barrel (seat ring socket, front plug)
+BR_ORING = (24.0, 2.5)      # ID x CS, on the barrel (seat ring socket, front plug)
 ORING_SQUEEZE = 0.15
 BR_SQUEEZE = 0.12           # v4.1: the barrel's 24 x 2 a little easier, it was cut by the barrel's edge going in
 GROOVE_W = 1.3              # x CS
@@ -381,7 +384,8 @@ checks = [
      abs(sr.BoundBox.ZMin - z_f) < 1e-6 and G.no_overlap(sr, rp.cut(cyl(2 * BEAD_R + 2, z_f, 1)))),
     ("seat %.0f %% of the barrel bore" % (A_seat / A_bore * 100), A_seat >= 0.4 * A_bore),
     ("seat curtain >= 0.7 x seat (lift %.1f: %.0f mm2)" % (LIFT, A_curtain), A_curtain >= 0.7 * A_seat),
-    ("chamber annulus round the socket >= 1.2 x seat (%.0f mm2)" % A_sock_annulus, A_sock_annulus >= 1.2 * A_seat),
+    ("chamber annulus round the socket >= 1.3 x the curtain, the real bottleneck (%.0f vs %.0f mm2)" % (A_sock_annulus, A_curtain),
+     A_sock_annulus >= 1.3 * A_curtain),
     ("gallery entry over the clamp ring >= 1.5 x seat (%.0f mm2)" % A_entry, A_entry >= 1.5 * A_seat),
     ("opens after the pilot loses <= 55 %% (%.0f %%)" % (open_ratio * 100), open_ratio >= 0.45),
     ("diaphragm stretch at full lift <= 30 %% (%.0f %%)" % (dia_strain * 100), dia_strain <= 0.30),
