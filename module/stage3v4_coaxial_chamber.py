@@ -1,13 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-Ratling Stage 3 v4.1: the chamber is a bought tube round the barrel.
+Ratling Stage 3 v4.2: the chamber is a bought tube round the barrel.
+
+v4.2 (the bought tube is too hard to drill): nothing is drilled through it any more. The rear plug and the
+front plug are glued into the tube on a close-fitting band (0.1 mm per side, two grip grooves, a relief groove
+between the band and the O-ring that catches the squeezed-out glue). The seat ring is not screwed to the tube
+any more: its socket is glued to the barrel on a band at its mouth, the barrel is glued in the front plug's sleeve
+(the barrel screws stay), so the pilot's push on the seat ring goes seat ring -> barrel -> front plug -> tube ->
+rear plug through glue only. The screw lugs and the screw jig are gone. Thin CA or 5-minute epoxy; keep it off
+the O-rings. To take it apart: acetone on the CA joints, or cut the tube (it cuts, it just does not drill).
+
+v4.1 (kept below for history).
 
 v4.1 (after v4 leaked into the barrel while the pilot filled): the seat ring
 was held only by the barrel, so the pilot pushed it (and the barrel) ~110 N
 forward off the diaphragm until the chamber came up. Now the seat ring is
-screwed to the chamber tube by four ST2.2 through lugs on its clamp ring,
-drilled in place through a jig that sits on the rear plug and its screw
-heads; the barrel only seals in its socket. The seat stands SEAT_PROUD
+screwed to the chamber tube by four ST2.2 through lugs on its clamp ring (gone in v4.2). The seat stands SEAT_PROUD
 above the clamp face for a surer seal. No stop pins: a lip on the seat ring
 round the diaphragm lands on the rear plug and sets the squeeze; the struts
 stand clear of the diaphragm, so the bleed hole can sit at any angle. Rear plug, diaphragm, front plug and
@@ -43,21 +51,16 @@ Parts, each exported in its print orientation (lowest point at z = 0):
     O-ring cone . a funnel slipped over either end of the chamber tube: the
                   30 x 3 rings close down its taper and come off it a little
                   under the tube's bore, clear of the cut edge. Grease them.
-    screw jig ... collar over the tube's rear end: its lip on the rear
-                  plug's back face, slots over the rear plug's screw heads,
-                  a Ø1.8 drill guide at each of the seat ring's lugs.
     front plug .. sleeve end on the bed: closes the chamber round the barrel
                   (30 x 3 O-ring in the tube, 24 x 2 on the barrel) and holds
                   the barrel with screws through the sleeve.
     diaphragm ... Ø31 disc of rubber sheet with one bleed hole (v4.1: no pin holes).
 
-Assembly: diaphragm on the rear plug's face (the bead inside it), seat ring on
-top (its stop lip round the diaphragm, on the plug's face), plug into the
-tube's rear end and screwed. Barrel in
-from the front into the socket and pushed home: it holds the seat ring
-down on the plug's face. Jig on, drill Ø1.8 through each of the four guides (tube
-and lug), jig off, ST2.2 x 9.5 into each. Then the front plug, drill and screw its
-sleeve to the barrel.
+Assembly (v4.2): dry-fit everything first. Diaphragm on the rear plug's face (the bead inside it), seat
+ring on top (its stop lip round the diaphragm, on the plug's face). Barrel into the socket with glue on
+the socket band only, pushed home. Tube over the seat ring and barrel with the O-ring cone, glue on the
+rear plug's band, plug pressed in to its flange. Front plug onto the barrel and into the tube, glue on
+its two bands, pressed home; then its barrel screws.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
@@ -110,9 +113,16 @@ ORING_SQUEEZE = 0.15
 BR_SQUEEZE = 0.12           # v4.1: the barrel's 24 x 2 a little easier, it was cut by the barrel's edge going in
 GROOVE_W = 1.3              # x CS
 LEAD_CHAMFER = 1.0
-SCREW_PILOT_D, SCREW_DEPTH, SCREW_L = 2.5, 3.8, 4.5   # ST2.9 x 4.5 through the tubes
-SCREW_FROM_TUBE_END = 6.0
-SCREW_ANGLES = (0.0, 120.0, 240.0)
+# v4.2: nothing is drilled through the chamber tube (it is too hard). Plugs, seat ring and barrel are
+# glued instead: each takes a glue band, a close fit (GLUE_CLEAR per side) for CA or thin epoxy, with
+# two grip grooves, and a relief groove between it and the O-ring that catches the squeezed-out glue.
+GLUE_CLEAR = 0.10
+GLUE_GROOVE_W, GLUE_GROOVE_D, GLUE_GROOVE_N = 1.0, 0.4, 2
+GLUE_RELIEF_W, GLUE_RELIEF_D = 1.5, 0.6
+RP_BAND_L = 6.5             # rear plug: band behind the groove, from the tube's end
+FP_BAND_L = 8.5             # front plug
+SOCKET_BAND_L = 8.5         # seat ring socket, round the barrel
+SLEEVE_BAND_L = 6.0         # front plug sleeve, round the barrel
 
 # Valve
 SEAT_D = 16.0
@@ -136,17 +146,13 @@ GROOVE_N, GROOVE_WIDTH, GROOVE_DEPTH = 4, 2.0, 0.6     # pocket floor
 # Seat ring
 RING_T = 3.0                # clamp ring height
 SEAT_PROUD = 0.3            # the seat stands this far above the clamp face, into the diaphragm (v4.1)
-LUG_ANGLES = (0.0, 90.0, 180.0, 270.0)   # seat ring screw lugs (v4.1): midway between the struts
-LUG_W, LUG_H, LUG_R0 = 5.0, 7.0, 13.5
-LUG_SCREW_Z, LUG_PILOT_D, LUG_PILOT_DEPTH = 3.5, 1.8, 5.0       # ST2.2 x 9.5, radial
-JIG_LIP_T, JIG_WALL, JIG_FITTING_D = 3.0, 3.0, 20.0
 # O-ring cone: a funnel over the tube's end. The 30 x 3 rings close down its smooth taper and leave it a
 # little under the tube's bore, so they never touch the tube's cut edge. Off again after assembly.
-CONE_LEN, CONE_SLEEVE, CONE_WALL, CONE_STEP = 25.0, 10.0, 2.0, 0.05   # step: under the bore, over the plug spigots
+CONE_LEN, CONE_SLEEVE, CONE_WALL, CONE_STEP = 25.0, 10.0, 2.0, 0.05   # step: under the bore, over the plug glue bands
 SEAT_TUBE_H = 6.0           # straight seat tube before the 45 deg flare
 STRUT_N, STRUT_W, STRUT_H = 4, 2.5, 11.5
 SOCKET_WALL = 1.2           # outside the barrel O-ring groove
-SOCKET_LEN = 15.0
+SOCKET_LEN = 20.0
 SHOULDER_WALL = 1.5
 
 # Rear plug
@@ -185,6 +191,8 @@ sock_out_r = br_root_r + SOCKET_WALL
 seat_r = SEAT_D / 2
 seat_out_r = seat_r + SEAT_LAND
 ring_out_r = CH_ID / 2 - 0.5
+band_r = CH_ID / 2 - GLUE_CLEAR              # plug glue bands: a close fit in the tube
+glue_in_r = BARREL_OD / 2 + GLUE_CLEAR       # socket / sleeve glue bands: a close fit on the barrel
 z_flare = SEAT_TUBE_H
 z_flare_end = z_flare + (sock_out_r - seat_out_r)
 z_sh = z_flare + (sock_r + SHOULDER_WALL - seat_out_r)    # barrel stop: shoulder in the seat ring
@@ -234,12 +242,13 @@ def bore_groove(z_sq, toward):
         (min(z_sq, z2), max(z_sq, z2))
 
 
-def screw_pilots(z, angles, r_out=None):
-    r_out = spigot_r if r_out is None else r_out
+def band_grooves(z0, z1, r_out):
+    """Grip grooves, evenly spaced between z0 and z1, cut into a band of outer radius r_out."""
     out = []
-    for a in angles:
-        d = at(1, a)
-        out.append(Part.makeCylinder(SCREW_PILOT_D / 2, SCREW_DEPTH + 1, d * (r_out + 1) + V(0, 0, z), -d))
+    for k in range(GLUE_GROOVE_N):
+        zc = z0 + (z1 - z0) * (k + 1) / (GLUE_GROOVE_N + 1)
+        out.append(revolve([(r_out - GLUE_GROOVE_D, zc - GLUE_GROOVE_W / 2), (r_out + 1, zc - GLUE_GROOVE_W / 2),
+                            (r_out + 1, zc + GLUE_GROOVE_W / 2), (r_out - GLUE_GROOVE_D, zc + GLUE_GROOVE_W / 2)]))
     return out
 
 
@@ -249,6 +258,11 @@ rp = cyl(CH_OD, z_rp, z_te).fuse(revolve([(0, z_te - 0.5), (spigot_r, z_te - 0.5
 rp = rp.fuse(revolve([(BEAD_R - BEAD_W[0] / 2, z_f - 0.01), (BEAD_R + BEAD_W[0] / 2, z_f - 0.01),
                       (BEAD_R + BEAD_W[1] / 2, z_f + BEAD_H), (BEAD_R - BEAD_W[1] / 2, z_f + BEAD_H)]))
 rp_groove, rp_groove_z = shaft_groove(z_f - RP_GROOVE_WALL, +1)     # chamber in front: rear wall square
+rp = rp.fuse(revolve([(spigot_r - 0.5, z_te), (band_r, z_te), (band_r, z_te + RP_BAND_L), (spigot_r - 0.5, z_te + RP_BAND_L)]))
+rp_relief_z = (z_te + RP_BAND_L, z_te + RP_BAND_L + GLUE_RELIEF_W)
+rp_glue = [revolve([(spigot_r - GLUE_RELIEF_D, rp_relief_z[0]), (spigot_r + 1, rp_relief_z[0]),
+                    (spigot_r + 1, rp_relief_z[1]), (spigot_r - GLUE_RELIEF_D, rp_relief_z[1])])] \
+    + band_grooves(z_te, z_te + RP_BAND_L, band_r)
 pilot_cuts = [revolve([(0, z_floor), (MOUTH_R - MOUTH_CHAMFER, z_floor), (MOUTH_R - MOUTH_CHAMFER, z_f - MOUTH_CHAMFER),
                        (MOUTH_R, z_f), (MOUTH_R, z_f + 1), (0, z_f + 1)]),
               cyl(PILOT_D, z_rp + G18_TAP_DEPTH, z_floor + 0.01),
@@ -258,18 +272,13 @@ for i in range(GROOVE_N):
     g = Part.makeBox(MOUTH_R - 2, GROOVE_WIDTH, GROOVE_DEPTH + 0.5, V(0, -GROOVE_WIDTH / 2, z_floor - GROOVE_DEPTH))
     g.rotate(V(0, 0, 0), Z, 360.0 / GROOVE_N * i + 45)
     pilot_cuts.append(g)
-rp = rp.cut(G.fuse_all([rp_groove] + pilot_cuts + screw_pilots(z_te + SCREW_FROM_TUBE_END, SCREW_ANGLES)))
+rp = rp.cut(G.fuse_all([rp_groove] + pilot_cuts + rp_glue))
 rp = rp.removeSplitter()
 
 # ---------------------------------------------------------------- seat ring
 sr = revolve([(MOUTH_R, 0), (ring_out_r, 0), (ring_out_r, RING_T), (MOUTH_R, RING_T)])
 sr = sr.fuse(revolve([(seat_r, -SEAT_PROUD), (seat_out_r, -SEAT_PROUD), (seat_out_r, z_flare), (sock_out_r, z_flare_end),
                       (sock_out_r, z_sock), (seat_r, z_sock)]))
-for a in LUG_ANGLES:                                                 # screw lugs on the clamp ring
-    lug = Part.makeBox(ring_out_r - LUG_R0, LUG_W, LUG_H, V(LUG_R0, -LUG_W / 2, 0))
-    lug = lug.common(cyl(2 * ring_out_r, 0, LUG_H))
-    lug.rotate(V(0, 0, 0), Z, a)
-    sr = sr.fuse(lug)
 for i in range(STRUT_N):
     s = Part.makeBox(ring_out_r - seat_out_r + 0.5, STRUT_W, STRUT_H, V(seat_out_r - 0.5, -STRUT_W / 2, 0))
     s = s.cut(Part.makeBox(MOUTH_R - seat_out_r, STRUT_W + 2, STRUT_RELIEF, V(seat_out_r, -STRUT_W / 2 - 1, -0.01)))
@@ -277,26 +286,16 @@ for i in range(STRUT_N):
     sr = sr.fuse(s)
 sr = sr.fuse(revolve([(STOP_LIP_R0, -t_c), (ring_out_r, -t_c), (ring_out_r, 0.01), (STOP_LIP_R0, 0.01)]))   # stop lip
 sr_groove, sr_groove_z = bore_groove(z_sh + 3.0, +1)                # barrel side behind: rear wall square
+z_sband = z_sock - SOCKET_BAND_L                                     # glue band round the barrel: the socket's mouth
+sr_relief_z = (z_sband - GLUE_RELIEF_W, z_sband)
 sr_cuts = [revolve([(0, -1), (seat_r, -1), (seat_r, z_sh), (sock_r, z_sh),
-                    (sock_r, z_sock - LEAD_CHAMFER), (sock_r + LEAD_CHAMFER, z_sock + 0.01),
-                    (sock_r + LEAD_CHAMFER, z_sock + 1), (0, z_sock + 1)]),
+                    (sock_r, z_sband), (glue_in_r, z_sband),
+                    (glue_in_r, z_sock - LEAD_CHAMFER), (glue_in_r + LEAD_CHAMFER, z_sock + 0.01),
+                    (glue_in_r + LEAD_CHAMFER, z_sock + 1), (0, z_sock + 1)]),
+           revolve([(sock_r - 1, sr_relief_z[0]), (sock_r + GLUE_RELIEF_D, sr_relief_z[0]),
+                    (sock_r + GLUE_RELIEF_D, sr_relief_z[1]), (sock_r - 1, sr_relief_z[1])]),
            sr_groove]
 sr = sr.cut(G.fuse_all(sr_cuts)).removeSplitter()
-# Screw jig (v4.1): over the tube's rear end, lip on the rear plug's back face
-jig_r_in = CH_OD / 2 + 0.15
-z_jig0 = z_rp - JIG_LIP_T
-jig = cyl(CH_OD + 2 * (0.15 + JIG_WALL), z_jig0, LUG_SCREW_Z + 8).cut(cyl(2 * jig_r_in, z_rp, LUG_SCREW_Z + 9))
-jig = jig.cut(cyl(JIG_FITTING_D, z_jig0 - 1, z_rp + 1))
-for a in SCREW_ANGLES:                                               # slots over the rear plug's screw heads: index it
-    sl = Part.makeBox(CH_OD, 6.0, (z_te + SCREW_FROM_TUBE_END + 4) - z_rp + 1, V(0, -3.0, z_rp - 0.5))
-    sl.rotate(V(0, 0, 0), Z, a)
-    jig = jig.cut(sl)
-lug_holes = []
-for a in LUG_ANGLES:
-    d = at(1, a)
-    lug_holes.append(Part.makeCylinder(LUG_PILOT_D / 2, CH_OD / 2 + JIG_WALL + 2 - (ring_out_r - LUG_PILOT_DEPTH),
-                                       d * (ring_out_r - LUG_PILOT_DEPTH) + V(0, 0, LUG_SCREW_Z), d))
-jig = jig.cut(G.fuse_all(lug_holes)).removeSplitter()
 # O-ring cone: sleeve over the tube's end, its face on the tube's end, taper in front (printed taper up)
 _o_free = 2 * ch_root_r + 2 * CH_ORING[1]           # the ring's OD as it sits in its groove, unsqueezed
 _cone_in = max(_o_free + 1.0, CH_OD)                # mouth: the ring goes in free
@@ -330,7 +329,15 @@ fp = revolve([(sock_r, z_fp_tip), (spigot_r - LEAD_CHAMFER, z_fp_tip), (spigot_r
               (sock_out_r, z_fp_end), (sock_r, z_fp_end)])
 fp_groove, fp_groove_z = shaft_groove(z_fp_tip + FP_GROOVE_WALL, -1)  # chamber behind: front wall square
 fp_bgroove, fp_bgroove_z = bore_groove(z_fp_tip + FP_GROOVE_WALL, -1)
-fp_cuts = [fp_groove, fp_bgroove] + screw_pilots(z_tf - SCREW_FROM_TUBE_END, SCREW_ANGLES)
+fp = fp.fuse(revolve([(spigot_r - 0.5, z_tf - FP_BAND_L), (band_r, z_tf - FP_BAND_L), (band_r, z_tf), (spigot_r - 0.5, z_tf)]))
+fp_relief_z = (z_tf - FP_BAND_L - GLUE_RELIEF_W, z_tf - FP_BAND_L)
+z_sleeve_band = z_fs + 1.0                                           # barrel glue band in the sleeve, ahead of the flange
+fp = fp.fuse(revolve([(glue_in_r, z_sleeve_band), (sock_out_r - 0.5, z_sleeve_band), (sock_out_r - 0.5, z_sleeve_band + SLEEVE_BAND_L),
+                      (glue_in_r, z_sleeve_band + SLEEVE_BAND_L)]))
+fp_cuts = [fp_groove, fp_bgroove,
+           revolve([(spigot_r - GLUE_RELIEF_D, fp_relief_z[0]), (spigot_r + 1, fp_relief_z[0]),
+                    (spigot_r + 1, fp_relief_z[1]), (spigot_r - GLUE_RELIEF_D, fp_relief_z[1])])] \
+    + band_grooves(z_tf - FP_BAND_L, z_tf, band_r)
 z_bs = z_fp_end - BARREL_SCREW_FROM_END
 for a in (60.0, 180.0, 300.0):
     d = at(1, a)
@@ -353,15 +360,16 @@ A_curtain = math.pi * SEAT_D * LIFT
 A_sock_annulus = area(CH_ID) - area(2 * sock_out_r)
 z_entry_top = z_flare + (MOUTH_R - seat_out_r)              # flare height at the gallery's outer radius
 A_entry = 2 * math.pi * MOUTH_R * (z_entry_top - RING_T) - STRUT_N * STRUT_W * (z_entry_top - RING_T)
-z_lug_top = z_flare + (LUG_R0 - seat_out_r)                  # flare height over the lugs' inner edge (v4.1)
-A_entry_lugs = (2 * math.pi * LUG_R0 - STRUT_N * STRUT_W - len(LUG_ANGLES) * LUG_W) * (z_lug_top - RING_T) \
-    + len(LUG_ANGLES) * LUG_W * (z_lug_top - LUG_H)          # and past the lugs, further out
 open_ratio = 1 - A_seat_eff / A_dia
 annulus_w = MOUTH_R - (seat_r + SEAT_LAND / 2)
 dia_strain = math.hypot(annulus_w, LIFT) / annulus_w - 1
 pocket_v = (A_dia * LIFT + area(PILOT_D) * (z_floor - z_rp - G18_TAP_DEPTH)) / 1000
 dead_v = A_seat * z_sh / 1000
+G_SHEAR = 0.8                                                # MPa, a cautious working shear for CA / epoxy on PLA
+G_AREA = (math.pi * 2 * band_r * RP_BAND_L, math.pi * 2 * band_r * FP_BAND_L,
+          math.pi * 2 * glue_in_r * SOCKET_BAND_L, math.pi * 2 * glue_in_r * SLEEVE_BAND_L)
 F_rp = P_MAX_BAR * 0.1 * area(CH_ID)
+F_ring = P_MAX_BAR * 0.1 * A_dia                            # pilot up at the top pressure, chamber empty
 F_open = P_WORK_BAR * 0.1 * A_dia                            # pilot up, chamber empty: on the seat ring / barrel
 
 checks = [
@@ -387,10 +395,15 @@ checks = [
     ("socket wall >= 1.2 mm, shoulder wall >= 1.5 mm", SOCKET_WALL >= 1.2 and SHOULDER_WALL >= 1.5),
     ("socket groove ahead of the shoulder", sr_groove_z[0] >= z_sh + 2.0),
     ("pilot pocket floor grooves above the G1/8 tap", z_floor - GROOVE_DEPTH - (z_rp + G18_TAP_DEPTH + 2.4) >= 2.0),
-    ("rear plug groove behind the pocket, screws behind the groove",
-     rp_groove_z[1] <= z_floor - 2.0 and z_te + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 <= rp_groove_z[0] - 1.0),
-    ("front plug screws ahead of its groove",
-     z_tf - SCREW_FROM_TUBE_END - SCREW_PILOT_D / 2 >= max(fp_groove_z[1], fp_bgroove_z[1]) + 1.0),
+    ("rear plug groove behind the pocket, glue band and relief behind the groove",
+     rp_groove_z[1] <= z_floor - 2.0 and rp_relief_z[1] <= rp_groove_z[0] - 0.5),
+    ("front plug glue band ahead of its groove",
+     fp_relief_z[0] >= max(fp_groove_z[1], fp_bgroove_z[1]) + 0.5),
+    ("socket glue band ahead of the barrel groove, relief between", sr_groove_z[1] + 0.5 <= sr_relief_z[0] and z_sband < z_sock - LEAD_CHAMFER),
+    ("sleeve glue band clear of the barrel screws", z_sleeve_band + SLEEVE_BAND_L <= z_bs - BARREL_SCREW_HOLE / 2 - 0.5),
+    ("glue bands carry their load at <= %.1f MPa (plugs %.0f N: %.0f / %.0f mm2; barrel %.0f N: %.0f / %.0f mm2)"
+     % (G_SHEAR, F_rp, G_AREA[0], G_AREA[1], F_ring, G_AREA[2], G_AREA[3]),
+     min(G_AREA[:2]) * G_SHEAR >= F_rp and min(G_AREA[2:]) * G_SHEAR >= F_ring),
     ("barrel screws in the sleeve, ahead of the barrel groove", z_bs - BARREL_SCREW_HOLE / 2 >= z_fs + 1.0),
     ("chamber O-ring stretch 0..6 %% (%.1f %%)" % (ch_stretch * 100), 0 <= ch_stretch <= 0.06),
     ("barrel O-ring stretch 0..6 %% (%.1f %%)" % (br_stretch * 100), 0 <= br_stretch <= 0.06),
@@ -398,18 +411,10 @@ checks = [
     ("barrel longer than the chamber", z_sh + BARREL_LEN >= z_fp_end + 20),
     ("nothing wider than the chamber tube", max(rp.BoundBox.XMax, fp.BoundBox.XMax) <= CH_OD / 2 + 1e-6),
     ("drilling template valid single solid", G.single_solid(jig_guide)),
-    ("screw jig valid single solid", G.single_solid(jig)),
     ("O-ring cone: mouth over the free ring (Ø%.1f > %.1f), exit under the bore (Ø%.1f < %.1f), taper <= 10 deg"
      % (_cone_in, _o_free, _cone_out, CH_ID),
-     G.single_solid(oring_cone) and _cone_in > _o_free and 2 * spigot_r + 0.2 <= _cone_out < CH_ID
+     G.single_solid(oring_cone) and _cone_in > _o_free and 2 * band_r + 0.05 <= _cone_out < CH_ID
      and math.degrees(math.atan2((_cone_in - _cone_out) / 2, CONE_LEN)) <= 10.0),
-    ("lugs clear of the struts and the bleed hole",
-     all(min(abs(((a - 360.0 / STRUT_N * (i + 0.5)) + 180) % 360 - 180) for i in range(STRUT_N)) * math.pi / 180 * LUG_R0
-         >= LUG_W / 2 + STRUT_W / 2 for a in LUG_ANGLES)),
-    ("gallery past the lugs >= 1.5 x seat (%.0f mm2)" % A_entry_lugs, A_entry_lugs >= 1.5 * A_seat),
-    ("lug screws well ahead of the rear plug's (%.0f mm)" % (LUG_SCREW_Z - z_te - SCREW_FROM_TUBE_END),
-     LUG_SCREW_Z - (z_te + SCREW_FROM_TUBE_END) >= 15.0),
-    ("lug screw plane under the flare", LUG_SCREW_Z + LUG_PILOT_D / 2 + 1.0 <= LUG_H <= z_flare + (LUG_R0 - seat_out_r)),
     ("seat proud of the clamp face, < half the diaphragm", 0 < SEAT_PROUD < DIA_T / 2),
 ]
 
@@ -429,10 +434,11 @@ report = [
     "  chamber                : %.0f cm3, tube %.0f x %.1f, %.0f mm long" % (chamber_v, CH_OD, CH_WALL, chamber_len),
     "  module                 : Ø%.0f, %.0f mm long with a %.0f mm barrel; pack pitch %.0f"
     % (CH_OD, z_sh + BARREL_LEN - z_rp, BARREL_LEN, PACK_PITCH),
-    "  @ %.0f bar               : rear plug %.0f N back (3 screws); pilot pushes the seat ring %.0f N forward at %.0f bar,"
-    " now on its ST2.2 in the tube, not the barrel" % (P_MAX_BAR, F_rp, F_open, P_WORK_BAR),
-    "  seat ring screws       : %d x ST2.2 x 9.5 at %s deg, %.1f mm ahead of the seat face (%.1f mm from the tube's rear end);"
-    " drill Ø%.1f through the jig" % (len(LUG_ANGLES), "/".join("%.0f" % a for a in LUG_ANGLES), LUG_SCREW_Z, LUG_SCREW_Z - z_te, LUG_PILOT_D),
+    "  @ %.0f bar               : rear plug %.0f N back (glued); pilot pushes the seat ring %.0f N forward at %.0f bar,"
+    " held through its glued socket, the barrel and the glued sleeve" % (P_MAX_BAR, F_rp, F_open, P_WORK_BAR),
+    "  glue                   : nothing is drilled through the tube. Bands (close fit %.2f per side, CA or thin epoxy):"
+    " rear plug %.1f mm, front plug %.1f, socket on the barrel %.1f, sleeve on the barrel %.1f; a relief groove"
+    " between each and its O-ring" % (GLUE_CLEAR, RP_BAND_L, FP_BAND_L, SOCKET_BAND_L, SLEEVE_BAND_L),
     "  O-rings                : 2 x %g x %g (chamber tube), 2 x %g x %g (barrel)" % (CH_ORING + BR_ORING),
     "  rear plug / seat ring / front plug: %.1f / %.1f / %.1f cm3" % (rp.Volume / 1000, sr.Volume / 1000, fp.Volume / 1000),
 ]
@@ -480,7 +486,6 @@ if not STAGE3V4_LIBRARY:
     ]:
         sc.label("Labels", text, pos)
     sc.add("Jig", "Jig_guide", jig_guide, "stator", offset=V(-3 * CH_OD, 0, z_rp))
-    sc.add("Jig", "Screw_jig", jig, "ghost")
     sc.label("Labels", "ШАБЛОН для сверления мембраны", (-3 * CH_OD, 0, z_rp + 15))
     sc.finish(hidden_groups=("Section",), opaque_groups=("Section",))
     doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
@@ -497,7 +502,7 @@ if not STAGE3V4_LIBRARY:
             os.path.join(OUT_DIR, name + ".stl"))
 
     for n, s, flip in (("rear_plug", rp, False), ("seat_ring", sr, False), ("front_plug", fp, True),
-                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("screw_jig", jig, False),
+                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False),
                        ("oring_cone", oring_cone, True)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
