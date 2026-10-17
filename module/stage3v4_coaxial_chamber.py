@@ -40,6 +40,9 @@ Parts, each exported in its print orientation (lowest point at z = 0):
                   the barrel socket (24 x 2 O-ring in it), a stop lip round
                   the diaphragm that sets the squeeze; four ST2.2 through the
                   chamber tube into the lugs hold it there.
+    O-ring cone . a funnel slipped over either end of the chamber tube: the
+                  30 x 3 rings close down its taper and come off it a little
+                  under the tube's bore, clear of the cut edge. Grease them.
     screw jig ... collar over the tube's rear end: its lip on the rear
                   plug's back face, slots over the rear plug's screw heads,
                   a Ø1.8 drill guide at each of the seat ring's lugs.
@@ -136,6 +139,9 @@ LUG_ANGLES = (0.0, 90.0, 180.0, 270.0)   # seat ring screw lugs (v4.1): midway b
 LUG_W, LUG_H, LUG_R0 = 5.0, 7.0, 13.5
 LUG_SCREW_Z, LUG_PILOT_D, LUG_PILOT_DEPTH = 3.5, 1.8, 5.0       # ST2.2 x 9.5, radial
 JIG_LIP_T, JIG_WALL, JIG_FITTING_D = 3.0, 3.0, 20.0
+# O-ring cone: a funnel over the tube's end. The 30 x 3 rings close down its smooth taper and leave it a
+# little under the tube's bore, so they never touch the tube's cut edge. Off again after assembly.
+CONE_LEN, CONE_SLEEVE, CONE_WALL, CONE_STEP = 25.0, 10.0, 2.0, 0.05   # step: under the bore, over the plug spigots
 SEAT_TUBE_H = 6.0           # straight seat tube before the 45 deg flare
 STRUT_N, STRUT_W, STRUT_H = 4, 2.5, 11.5
 SOCKET_WALL = 1.2           # outside the barrel O-ring groove
@@ -290,6 +296,13 @@ for a in LUG_ANGLES:
     lug_holes.append(Part.makeCylinder(LUG_PILOT_D / 2, CH_OD / 2 + JIG_WALL + 2 - (ring_out_r - LUG_PILOT_DEPTH),
                                        d * (ring_out_r - LUG_PILOT_DEPTH) + V(0, 0, LUG_SCREW_Z), d))
 jig = jig.cut(G.fuse_all(lug_holes)).removeSplitter()
+# O-ring cone: sleeve over the tube's end, its face on the tube's end, taper in front (printed taper up)
+_o_free = 2 * ch_root_r + 2 * CH_ORING[1]           # the ring's OD as it sits in its groove, unsqueezed
+_cone_in = max(_o_free + 1.0, CH_OD)                # mouth: the ring goes in free
+_cone_out = CH_ID - 2 * CONE_STEP                   # exit: a little under the tube's bore
+oring_cone = revolve([(_cone_out / 2, 0), (CH_OD / 2 + 0.15, 0), (CH_OD / 2 + 0.15, -CONE_SLEEVE),
+                      (CH_OD / 2 + 0.15 + CONE_WALL, -CONE_SLEEVE), (CH_OD / 2 + 0.15 + CONE_WALL, CONE_LEN),
+                      (_cone_in / 2, CONE_LEN)])
 
 # ---------------------------------------------------------------- diaphragm (clamped, in place)
 dcuts = [cyl(BLEED_D, -t_c - 1, 1, *at(BLEED_R, BLEED_ANGLE)[:2])]
@@ -385,6 +398,10 @@ checks = [
     ("nothing wider than the chamber tube", max(rp.BoundBox.XMax, fp.BoundBox.XMax) <= CH_OD / 2 + 1e-6),
     ("drilling template valid single solid", G.single_solid(jig_guide)),
     ("screw jig valid single solid", G.single_solid(jig)),
+    ("O-ring cone: mouth over the free ring (Ø%.1f > %.1f), exit under the bore (Ø%.1f < %.1f), taper <= 10 deg"
+     % (_cone_in, _o_free, _cone_out, CH_ID),
+     G.single_solid(oring_cone) and _cone_in > _o_free and 2 * spigot_r + 0.2 <= _cone_out < CH_ID
+     and math.degrees(math.atan2((_cone_in - _cone_out) / 2, CONE_LEN)) <= 10.0),
     ("lugs clear of the struts and the bleed hole",
      all(min(abs(((a - 360.0 / STRUT_N * (i + 0.5)) + 180) % 360 - 180) for i in range(STRUT_N)) * math.pi / 180 * LUG_R0
          >= LUG_W / 2 + STRUT_W / 2 for a in LUG_ANGLES)),
@@ -479,7 +496,8 @@ if not STAGE3V4_LIBRARY:
             os.path.join(OUT_DIR, name + ".stl"))
 
     for n, s, flip in (("rear_plug", rp, False), ("seat_ring", sr, False), ("front_plug", fp, True),
-                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("screw_jig", jig, False)):
+                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("screw_jig", jig, False),
+                       ("oring_cone", oring_cone, True)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
         f.write("\n".join(report) + "\n")
