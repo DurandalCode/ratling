@@ -101,7 +101,9 @@ PUSHER_T = 3.0
 CAM_RISE = 3.0                      # slider rise that opens the lock
 TRIGGER_TRAVEL = 23.0               # deg: pushes the vent plunger ~3 of its 4.5
 LOCK_SEAT_N = 20.0                  # sleeve onto the breech's O-ring before the shot (the shot adds ~41 N): bench it
-MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-18.2, -6.6), (5.8, 17.4)))   # music wire torsion springs, x2
+MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-30.2, -18.6), (-18.2, -6.6)))   # music wire torsion springs, x2, both left
+SPRING_PEG = (30.0, 9.5, 1.5)       # on the hammer's hub, left face: direction at rest, radius, pin radius (the springs' legs)
+SLEEVE_R = 7.0                      # the hammer's sleeve on the axle, hub to crank: one printed part
 
 
 def hammer_rot(c):                  # rotation about +y: cocking turns the spur back (negative)
@@ -162,9 +164,14 @@ spur = spur.fuse(Part.makeCylinder(4.0, 10, _sp(28.5, 19.5, -5.0), YA))         
 c_tip0 = _at(H, crank_angle(0.0), HAMMER_ARM)
 crank = _rod(H, c_tip0, 8.0, CRANK_Y[0], CRANK_Y[1] - CRANK_Y[0])
 crank_pin = Part.makeCylinder(1.5, BRACKET_Y[1] + 0.5 - CRANK_Y[0], V(c_tip0.x, CRANK_Y[0], c_tip0.z), YA)
-SHAFT_Y = (-42.0, CRANK_Y[1] + 6.0)  # through both walls of the frame's cage: the left side plate is its other bearing
+SHAFT_Y = (-42.0, CRANK_Y[1] + 6.0)  # a fixed Ø8 steel axle through both walls of the cage; the hammer turns on it
 shaft = Part.makeCylinder(4.0, SHAFT_Y[1] - SHAFT_Y[0], V(H.x, SHAFT_Y[0], H.z), YA)
-HAMMER = Part.makeCompound([hub_h.fuse(spur), crank, crank_pin, shaft])
+sleeve = Part.makeCylinder(SLEEVE_R, CRANK_Y[0] - 4.9, V(H.x, 4.9, H.z), YA)          # hub to crank: one part
+peg_at = _at(H, SPRING_PEG[0], SPRING_PEG[1])
+peg = Part.makeCylinder(SPRING_PEG[2], -4.9 - MAINSPRING["y"][0][0], V(peg_at.x, MAINSPRING["y"][0][0], peg_at.z), YA)
+hammer_body = hub_h.fuse(spur).fuse(sleeve).fuse(crank).fuse(peg).cut(
+    Part.makeCylinder(4.15, 100, V(H.x, -50, H.z), YA)).removeSplitter()
+HAMMER = Part.makeCompound([hammer_body, crank_pin])
 
 
 def hammer_shape(c):
@@ -271,7 +278,7 @@ REST = dict(cock=0.0, block=0.0, bend=0.0, trig=0.0)
 mainsprings = Part.makeCompound([Part.makeCylinder(MAINSPRING["od"] / 2, y1 - y0, V(H.x, y0, H.z), YA).cut(
     Part.makeCylinder(MAINSPRING["od"] / 2 - MAINSPRING["d"], y1 - y0 + 2, V(H.x, y0 - 1, H.z), YA))
     for y0, y1 in MAINSPRING["y"]])
-FIXED = {"body": valve_body, "cap": valve_cap, "lock": lock_housing_h, "axle": axle, "vent": valve_bodies,
+FIXED = {"body": valve_body, "cap": valve_cap, "lock": lock_housing_h, "axle": axle, "vent": valve_bodies, "hammer axle": shaft,
          "mainsprings": mainsprings}
 report = [NAME]
 worst = {}
@@ -346,7 +353,8 @@ def add(group, name, shape, col, transp=0):
 fixed = doc.addObject("App::DocumentObjectGroup", "Fixed")
 for n, s_, c_, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
                       ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 30), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 60),
-                      ("Vent_valve", valves, (0.3, 0.3, 0.8), 40), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0)):
+                      ("Vent_valve", valves, (0.3, 0.3, 0.8), 40), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0),
+                      ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0)):
     add(fixed, n, s_, c_, tr)
 for gname, st in (("Rest", REST), ("Hammer_back", dict(cock=1.0, block=60.0, bend=0.0, trig=0.0))):
     g = doc.addObject("App::DocumentObjectGroup", gname)
