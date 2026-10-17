@@ -187,7 +187,24 @@ claws = [spike(c_end + gd * 4 + V(0, 15 * math.cos(math.radians(k)), 15 * math.s
 warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1), 40, 11),
                                  crystal(c_end + gd * 11 + V(0, 8, 5), gd + V(-0.2, 0.8, 0.5), 28, 7),
                                  crystal(c_end + gd * 11 + V(0, -8, -3), gd + V(0.3, -0.7, -0.3), 24, 6)])
-hose = Part.makeCylinder(3, 70, c_end + gd * 20, gd)
+# ---------------------------------------------------------------- air: supply up the grip, pilot to the cap, a tee to the gauge
+# Supply (6/4 hose from the receiver) in through the pommel, up a channel in the grip to the vent valve's R
+# port. Pilot (4/2.5 PU) from its A port back, up a channel in the backstrap, in through the cage's rear wall
+# to the cap's G1/8 push-in. The pilot is the chamber's pressure once charged: a tee on it feeds the gauge,
+# out through the side plate on the left, where the shooter sees it.
+x_vrear = MINI_VALVES[0][1] - MINI_VALVE[1]
+supply_pts = [c_end + gd * 70, c_end + gd * 15, GRIP_START + gd * (GRIP_LEN * 0.6), GRIP_START + gd * (GRIP_LEN * 0.25),
+              V(x_vrear - 14, -3.5, MINI_Z - 3), V(x_vrear - 6, -3.5, MINI_Z)]
+supply_line = pipe_along(supply_pts, 3.0)
+pilot_pts = [V(x_vrear - 6, 3.5, MINI_Z), V(x_vrear - 8.5, 3.5, MINI_Z + 3), V(-103, 3.5, -62), V(-102, 3.5, -46),
+             V(-96, 3.0, -34), V(-88, 1.0, -29), V(-82, 0, Z_FIRE)]
+pilot_line = pipe_along(pilot_pts, 2.0)
+TEE = V(-96, 3.0, -34)
+gauge_pts = [TEE, V(-93, -10, -38), V(-88, -28, -40), V(-84, -fy[1] + 1, -40), V(-84, -fy[1] - 2, -40)]
+gauge_line = pipe_along(gauge_pts, 2.0)
+tee = Part.makeSphere(4.0, TEE)
+hose = supply_line
+air_cut = pipe_along(supply_pts, 3.6).fuse(pipe_along(pilot_pts, 2.6)).fuse(pipe_along(gauge_pts, 2.6)).fuse(Part.makeSphere(5.0, TEE))
 
 # ---------------------------------------------------------------- trigger guard: from the frame's foot round the trigger into the grip
 # A flat band (ellipse GUARD_SECTION, wide across) swept along a teardrop that leaves the frame's foot
@@ -291,13 +308,12 @@ vial_caps = Part.makeCylinder(10, 4, vc - V(0, 0, 2), ZA).fuse(Part.makeCylinder
 cage = Part.makeCompound([Part.makeCylinder(1.2, 32, vc + V(10 * math.cos(math.radians(q)), 10 * math.sin(math.radians(q)), 0), ZA)
                           for q in (0, 120, 240)])
 vial_stone = crystal(vc + V(0, 0, 14), V(0.2, 0.1, 1), 24, 5)
-gp = V(fx[0] + 50, fy[1] + 18, Z_FIRE + 30)
-gauge = Part.makeCylinder(12, 8, gp, YA).fuse(Part.makeCylinder(3, 16, gp - V(0, 15, 0), YA))
-gauge_glass = Part.makeCylinder(10.5, 1, gp + V(0, 8, 0), YA)
-needle = box(gp.x, gp.x + 9, gp.y + 9, gp.y + 9.8, gp.z - 0.6, gp.z + 0.6)
+gp = V(-84, -fy[1] - 4, -40)                    # the gauge on the left side, facing the shooter's side
+gauge = Part.makeCylinder(12.5, 8, gp, -YA).fuse(Part.makeCylinder(3, 6, gp + V(0, 2, 0), -YA))
+gauge_glass = Part.makeCylinder(11, 1, gp - V(0, 8, 0), -YA)
+needle = box(gp.x, gp.x + 9, gp.y - 9.8, gp.y - 9, gp.z - 0.6, gp.z + 0.6)
 needle.rotate(gp, YA, -35)
-pilot_pipe = pipe_along([V(fx[0] - 6, 0, Z_FIRE), V(fx[0] - 16, -22, Z_FIRE - 14), V(fx[0] - 14, -26, MINI_Z - 2),
-                         V(fx[0] + 2, -FRAME["y"][1] + 2, MINI_Z)], 2.6)
+pilot_pipe = pilot_line
 # ---------------------------------------------------------------- block supports: top strap to the axle's front end
 # The block turns on the axle (hub bore at the back, the front plate's bore at the front). The axle is held
 # by the valve alone, and the lock pushes the block forward at the shot: a top strap from the frame, over the
@@ -323,6 +339,9 @@ strap_rivets += [V(x_, 0, STRAP["z"][1] + 0.3) for x_ in range(int(STRAP["x0"]) 
 spikes += [spike(V(x_, 0, STRAP["z"][1] - 1), V(0.25, 0, 1), 14, 3.5) for x_ in (X_MUZZLE * 0.3, X_MUZZLE * 0.7)]
 spikes += [spike(V(X_AXLE_END + s_t / 2, sd_ * s_w, STRAP["z"][1] - 8), V(0.3, sd_ * 1, 0.4), 14, 3.0) for sd_ in (-1, 1)]
 
+grip, frame, side_plate, skin = grip.cut(air_cut), frame.cut(air_cut), side_plate.cut(air_cut), skin.cut(air_cut)
+grip = max(grip.Solids, key=lambda q: q.Volume) if len(grip.Solids) > 1 else grip
+
 # ---------------------------------------------------------------- checks
 def hit(a, b):
     try:
@@ -340,6 +359,7 @@ for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
         for n in moving:
             for other_name, other in (("frame", frame), ("side plate", side_plate), ("skin", skin), ("grip", grip),
                                       ("detent box", detent_box), ("guard", guard),
+                                      ("air lines", Part.makeCompound([supply_line, pilot_line, gauge_line, tee])),
                                       ("vent valve", valve_bodies), ("crest", crest)):
                 if n == "Bolt" and other_name == "detent box":
                     continue                     # it slides in it
@@ -347,7 +367,11 @@ for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
                 worst[(n, other_name)] = max(worst.get((n, other_name), 0.0), v_)
 sup = top_strap.fuse(nose).fuse(washer)
 blk_hit = max(hit(turned(block, a_), sup) + hit(turned(Part.makeCompound(straps), a_), top_strap) for a_ in (0.0, 15.0, 30.0, 45.0))
-fixed_hits = {"slider/stop at full cock": hit(slider_h(1.0)[0], slider_stop.translated(V(0, 0, -0.1))),
+fixed_hits = {"air lines/valve": hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_body)
+              + hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_cap)
+              + hit(Part.makeCompound([pilot_line, gauge_line, tee, supply_line]), mini_valves),
+              "air lines/springs+rib": hit(Part.makeCompound([pilot_line, gauge_line, tee]), mainsprings.fuse(spring_rib)),
+              "slider/stop at full cock": hit(slider_h(1.0)[0], slider_stop.translated(V(0, 0, -0.1))),
               "side plate/valve": hit(side_plate, valve_body) + hit(side_plate, valve_cap) + hit(side_plate, lock_housing_h),
               "bosses/valve": hit(bosses, valve_body) + hit(bosses, valve_cap),
               "cheeks/valve": hit(cheeks, valve_body) + hit(cheeks, mini_valves),
@@ -403,13 +427,14 @@ g_dress = doc.addObject("App::DocumentObjectGroup", "Dress")
 for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_side", side_plate, (0.3, 0.29, 0.28), 0), ("Frame_skin", skin, IRON, 0), ("Trigger_guard", guard, IRON, 0),
                      ("Detent_housing", detent_box, IRON, 0), ("Grip", grip, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
                      ("Pommel", pommel, IRON, 0), ("Pommel_claws", Part.makeCompound(claws), DIRTY, 0),
-                     ("Warpstone_pommel", warp_pommel, WARP, 0), ("Hose", hose, (0.08, 0.08, 0.08), 0),
+                     ("Warpstone_pommel", warp_pommel, WARP, 0), ("Hose", hose, (0.08, 0.08, 0.08), 0), ("Gauge_line", gauge_line, (0.15, 0.4, 0.8), 0),
+                     ("Tee", tee, BRASS, 0),
                      ("Straps", Part.makeCompound(straps), IRON, 0), ("Strap_rivets", rivets(strap_rivets), DIRTY, 0),
                      ("Spikes", Part.makeCompound(spikes), DIRTY, 0), ("Plates", Part.makeCompound(plates), RUST, 0),
                      ("Plate_rivets", rivets(plate_rivets), DIRTY, 0), ("Crest", crest, DIRTY, 0),
                      ("Vial_glass", vial, GLASS, 65), ("Vial_caps", vial_caps, BRASS, 0), ("Vial_cage", cage, IRON, 0),
                      ("Warpstone_vial", vial_stone, WARP, 0), ("Gauge", gauge, BRASS, 0), ("Gauge_glass", gauge_glass, (0.9, 0.9, 0.85), 0),
-                     ("Gauge_needle", needle, (0.6, 0.05, 0.05), 0), ("Pilot_pipe", pilot_pipe, COPPER, 0),
+                     ("Gauge_needle", needle, (0.6, 0.05, 0.05), 0), ("Pilot_pipe", pilot_pipe, (0.15, 0.4, 0.8), 0),
                      ("Axle_cap", axle_cap, IRON, 0), ("Top_strap", top_strap, IRON, 0), ("Nose_sleeve", nose, IRON, 0),
                      ("Thrust_washer", washer, (0.85, 0.85, 0.8), 0)):
     add(g_dress, n, s_, c, tr)
@@ -424,13 +449,14 @@ MATERIAL = {
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
     "buy": ("Chamber_axle", "Vent_valve", "Pin", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
-            "Gauge_needle", "Pilot_pipe", "Axle_cap", "Thrust_washer"),
+            "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
             "Vent_valve": "mini 3/2 push-button valve, or module/stage3_vent_head.py", "Pin": "steel pin Ø3",
-            "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose to the receiver",
-            "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge (a real one: it reads the chamber)",
-            "Pilot_pipe": "copper or PU tube Ø4-5: the pilot line, cap to vent valve", "Axle_cap": "M6 stud + cap nut",
+            "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
+            "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
+            "Pilot_pipe": "PU tube 4/2.5: vent valve A -> cap G1/8 push-in, up the backstrap",
+            "Gauge_line": "PU tube 4/2.5, tee to the gauge", "Tee": "push-in tee for 4 mm tube", "Axle_cap": "M6 stud + cap nut",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its tab, rear end glued in the grip",
             "Grip": "with the tang: 4 x ST2.9 x 13 down through the cage's floor; ST2.9 x 9.5 from below holds the vent valve",
