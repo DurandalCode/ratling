@@ -4,8 +4,9 @@ Negative of the pack layouts: a flat plate (outline = the layout's red contour
 + WALL) with a Ø25.4 hole per barrel (barrel Ø25 coaxial with the Ø38 tube), for 256 x 256 beds. A plate wider than the
 bed is cut at x = 0 into two halves, joined by straps: a bar with two Ø3.8 pegs
 that go into Ø4 holes drilled in the web between barrel holes on either side.
-Run inside FreeCAD (the layouts come from pack_layouts.py):
+Run inside FreeCAD (the layouts come from pack_layouts.py; LAYERS = 0.2 mm layers, default 8):
     REPO = '/Users/<you>/ratling'
+    LAYERS = 5
     exec(open(REPO + '/mitrailleuse/pack_plate.py').read())
 Writes exports/pack_layouts/stl/plate_*.stl.
 """
@@ -25,7 +26,10 @@ exec(open(_ns["__file__"]).read().rsplit("\nmain()", 1)[0], _ns)
 D, LAYOUTS, shroud_r, bbox = _ns["D"], _ns["LAYOUTS"], _ns["shroud_r"], _ns["bbox"]
 
 V = App.Vector
-LAYERS = 8
+try:
+    LAYERS
+except NameError:
+    LAYERS = 8
 H = LAYERS * 0.2
 BED = 256.0
 WALL = 4.0
