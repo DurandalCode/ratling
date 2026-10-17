@@ -87,14 +87,105 @@ def write_stl(path, tris):
             f.write(struct.pack("<12fH", *[x / m for x in n], *a, *b, *c, 0))
 
 
+def cylinder(tris, cx, cy, r, z0, z1):
+    for k in range(SEG):
+        a0, a1 = 2 * math.pi * k / SEG, 2 * math.pi * (k + 1) / SEG
+        p0 = (cx + r * math.cos(a0), cy + r * math.sin(a0))
+        p1 = (cx + r * math.cos(a1), cy + r * math.sin(a1))
+        quad(tris, p0 + (z0,), p1 + (z0,), p1 + (z1,), p0 + (z1,))
+        tris.append(((cx, cy, z1), p0 + (z1,), p1 + (z1,)))
+        tris.append(((cx, cy, z0), p1 + (z0,), p0 + (z0,)))
+
+
+def box(tris, A, B, C, E, z0, z1):
+    quad(tris, A + (z1,), B + (z1,), C + (z1,), E + (z1,))
+    quad(tris, E + (z0,), C + (z0,), B + (z0,), A + (z0,))
+    for u, v in ((A, B), (B, C), (C, E), (E, A)):
+        quad(tris, u + (z0,), v + (z0,), v + (z1,), u + (z1,))
+
+
+def sector(tris, cx, cy, r0, r1, a0, a1, h):
+    n = 60
+    for k in range(n):
+        t0, t1 = a0 + (a1 - a0) * k / n, a0 + (a1 - a0) * (k + 1) / n
+        o0 = (cx + r1 * math.cos(t0), cy + r1 * math.sin(t0))
+        o1 = (cx + r1 * math.cos(t1), cy + r1 * math.sin(t1))
+        i0 = (cx + r0 * math.cos(t0), cy + r0 * math.sin(t0))
+        i1 = (cx + r0 * math.cos(t1), cy + r0 * math.sin(t1))
+        quad(tris, o0 + (0,), o1 + (0,), o1 + (h,), o0 + (h,))
+        quad(tris, i1 + (0,), i0 + (0,), i0 + (h,), i1 + (h,))
+        quad(tris, o0 + (h,), o1 + (h,), i1 + (h,), i0 + (h,))
+        quad(tris, o1 + (0,), o0 + (0,), i0 + (0,), i1 + (0,))
+    for a, rr in ((a0, 1), (a1, -1)):
+        ca, sa = math.cos(a), math.sin(a)
+        A, B = (cx + r0 * ca, cy + r0 * sa), (cx + r1 * ca, cy + r1 * sa)
+        if rr > 0:
+            quad(tris, A + (0,), B + (0,), B + (h,), A + (h,))
+        else:
+            quad(tris, B + (0,), A + (0,), A + (h,), B + (h,))
+
+
+def sheet(pts, h):
+    tris = []
+    for x, y in pts:
+        annulus(tris, x, y, h)
+    for i, j in edges(pts):
+        bridge(tris, pts[i], pts[j], h)
+    return tris
+
+
+def split_hex37(out, h):
+    """Zigzag cut down the middle (no disc cut) + three splints with pegs."""
+    pts = _ns["hexagon"](4)
+    def left(x, y):
+        if abs(x) > 1:
+            return x < 0
+        return y <= 1  # centre-column discs: rows r <= 0 left, r = +2 right
+    L = [p for p in pts if left(*p)]
+    R = [p for p in pts if not left(*p)]
+    for nm, g in (("h_hex_37_left", L), ("h_hex_37_right", R)):
+        write_stl(os.path.join(out, nm + ".stl"), sheet(g, h))
+        x0, x1, y0, y1 = bbox(g)
+        print("%-20s %.0f x %.0f  %d discs" % (nm, x1 - x0, y1 - y0, len(g)))
+    seam = sorted([(a, b) for a in L for b in R if math.dist(a, b) <= 41], key=lambda t: t[0][1])
+    pick = [seam[0], seam[len(seam) // 2], seam[-1]]
+    tris, bar_t, peg_h, w = [], 1.0, h, 8.0
+    for k, (a, b) in enumerate(pick):
+        oy = k * 16.0
+        d = math.dist(a, b)
+        ux, uy = (b[0] - a[0]) / d, (b[1] - a[1]) / d
+        # lay the splint along +X at y = oy, a at x = 0
+        A, B = (0.0, oy - w / 2), (d, oy - w / 2)
+        C, E = (d, oy + w / 2), (0.0, oy + w / 2)
+        box(tris, A, B, C, E, 0, bar_t)
+        for cx in (0.0, d):
+            cylinder(tris, cx, oy, w / 2, 0, bar_t)
+            cylinder(tris, cx, oy, HOLE_R - 0.15, bar_t, bar_t + peg_h)
+    write_stl(os.path.join(out, "h_hex_37_splints.stl"), tris)
+    print("h_hex_37_splints     3 pieces, bar %.1f mm + pegs %.1f mm (print pegs up)" % (bar_t, peg_h))
+
+
+def ring_arcs(out, h):
+    """Round shroud Ø264 does not fit the bed: three 120 deg arcs, 4 mm wide."""
+    tris, R = [], 132.0
+    for k in range(3):
+        sector(tris, 0.0, k * 80.0, R - 4, R, math.radians(30), math.radians(150), h)
+    write_stl(os.path.join(out, "i_shroud_ring_3arcs.stl"), tris)
+    print("i_shroud_ring_3arcs  3 arcs 120 deg, 229 x 66 each (O264 shroud)")
+
+
 def main():
     out = os.path.join(REPO, "exports", "pack_layouts", "stl")
     os.makedirs(out, exist_ok=True)
     h = LAYERS * LAYER
+    ring_arcs(out, h)
     for key, name, n, pts, outline in LAYOUTS:
         x0, x1, y0, y1 = bbox(pts)
         w, hh = x1 - x0, y1 - y0
         if key == "i_square_5x5_round":
+            continue
+        if key == "h_hex_37":
+            split_hex37(out, h)
             continue
         if max(w, hh) > BED:
             print("%-20s %.0f x %.0f  does not fit the bed" % (key, w, hh))
