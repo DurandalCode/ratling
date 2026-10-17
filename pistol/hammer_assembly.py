@@ -44,11 +44,14 @@ NAME = "pistol_hammer_assembly"
 random.seed(7)
 
 # ---------------------------------------------------------------- parameters
-FRAME = dict(x=(HAMMER_PIVOT.x - HAMMER_R - 8.0, -1.0), y=(-43.0, 43.0), z=(-76.0, 28.0))   # round the hammer and the raised slider
-SPUR_SLOT = dict(a=(58.0, 195.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
-FRAME_WALL = 3.0
+FRAME = dict(x=(HAMMER_PIVOT.x - HAMMER_R - 8.0, -1.0), y=(-45.0, 45.0), z=(-76.0, 31.0))   # round the hammer and the raised slider
+EVA_T = 3.0                         # the frame's look: an EVA skin this thick over a printed cage
+CAGE_T = 3.0
+CAGE_WINDOWS = dict(side=((-40.0, -16.0), (-60.0, 12.0)), top=((-50.0, -18.0), 24.0), bottom=((-40.0, -10.0), 24.0))
+STANDOFFS = ((-48.0, -45.0, (1, -1)), (-48.0, -5.0, (-1,)))   # x, z, sides: the cage to the valve body (not where the crank runs)
+SPUR_SLOT = dict(a=(58.0, 210.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
 FRAME_FILLET = 12.0
-REAR = dict(x=-60.0, top=12.0)      # behind this the frame steps down: the hammer stands up out of it
+REAR = dict(x=-60.0, top=15.0)      # behind this the frame steps down: the hammer stands up out of it
 
 RUST, IRON, DIRTY = (0.40, 0.24, 0.14), (0.24, 0.23, 0.22), (0.45, 0.43, 0.40)
 COPPER, BRASS, WOOD, RAG = (0.30, 0.55, 0.44), (0.55, 0.45, 0.22), (0.26, 0.16, 0.09), (0.48, 0.42, 0.30)
@@ -85,31 +88,51 @@ def pipe_along(points, r):
 
 # ---------------------------------------------------------------- frame shell
 fx, fy, fz = FRAME["x"], FRAME["y"], FRAME["z"]
-outer_f = box(REAR["x"] - 2, fx[1], fy[0], fy[1], fz[0], fz[1])
-outer_r = box(fx[0], REAR["x"] + 10, fy[0], fy[1], fz[0], REAR["top"])
-outer = outer_f.makeFillet(FRAME_FILLET, outer_f.Edges).fuse(outer_r.makeFillet(FRAME_FILLET, outer_r.Edges)).removeSplitter()
-inner = (box(REAR["x"] + 1, fx[1] + 10, fy[0] + FRAME_WALL, fy[1] - FRAME_WALL, fz[0] + FRAME_WALL, fz[1] - FRAME_WALL)
-         .fuse(box(fx[0] + FRAME_WALL, REAR["x"] + 10, fy[0] + FRAME_WALL, fy[1] - FRAME_WALL, fz[0] + FRAME_WALL,
-                   REAR["top"] - FRAME_WALL)))
-frame = outer.cut(inner)
+def envelope(i, open_front=False):
+    """The frame's outline shrunk by i: tall in front, stepped down behind REAR. open_front: as a cavity, run on
+    forward into the block and square (it is cut away)."""
+    if open_front:
+        return (box(REAR["x"] + 1, fx[1] + 10, fy[0] + i, fy[1] - i, fz[0] + i, fz[1] - i)
+                .fuse(box(fx[0] + i, REAR["x"] + 10, fy[0] + i, fy[1] - i, fz[0] + i, REAR["top"] - i)))
+    f_ = box(REAR["x"] - 2, fx[1], fy[0] + i, fy[1] - i, fz[0] + i, fz[1] - i)
+    r_ = box(fx[0] + i, REAR["x"] + 10, fy[0] + i, fy[1] - i, fz[0] + i, REAR["top"] - i)
+    r = max(FRAME_FILLET - i, 1.0)
+    return f_.makeFillet(r, f_.Edges).fuse(r_.makeFillet(r, r_.Edges)).removeSplitter()
+
+
+outer = envelope(0.0)
+skin_in = envelope(EVA_T)
+inner = envelope(EVA_T + CAGE_T, open_front=True)
+skin = outer.cut(envelope(EVA_T, open_front=True))           # EVA, glued over the cage
+frame = skin_in.cut(inner)                                    # the printed cage, windows cut below
+y_in = fy[1] - EVA_T - CAGE_T
+(wx, wz), (tx, ty), (bx, by) = CAGE_WINDOWS["side"], CAGE_WINDOWS["top"], CAGE_WINDOWS["bottom"]
+win = box(wx[0], wx[1], fy[0] - 1, fy[1] + 1, wz[0], wz[1])
+win = win.makeFillet(6.0, [e for e in win.Edges if abs(e.Vertexes[0].Point.y - e.Vertexes[-1].Point.y) > 1])
+frame = frame.cut(win.common(box(fx[0], fx[1], -100, -y_in + 0.5, -200, 200).fuse(box(fx[0], fx[1], y_in - 0.5, 100, -200, 200))))
+frame = frame.cut(box(tx[0], tx[1], -ty, ty, fz[1] - 10, fz[1] + 1)).cut(box(bx[0], bx[1], -by, by, fz[0] - 1, fz[0] + 10))
+standoffs = Part.makeCompound([Part.makeCylinder(5.0, y_in - 20 + 0.5, V(x_, sg * (y_in + 0.5), z_), V(0, -sg, 0)).cut(valve_body)
+                               for x_, z_, sides in STANDOFFS for sg in sides])
+frame = frame.fuse(standoffs).removeSplitter()
 # Slot in the bottom wall for the trigger over its stroke
-slab = box(fx[0], fx[1], -16, 16, fz[0] - 1, fz[0] + FRAME_WALL + 1)
+slab = box(fx[0], fx[1], -16, 16, fz[0] - 1, fz[0] + EVA_T + CAGE_T + 1)
 xs = []
 for tg in (0.0, 0.5, 1.0):
     c_ = trigger_h(tg).common(slab)
     if c_.Volume > 1e-3:
         xs += [c_.BoundBox.XMin, c_.BoundBox.XMax]
 if xs:
-    frame = frame.cut(box(min(xs) - 1.5, max(xs) + 1.5, -5, 5, fz[0] - 1, fz[0] + FRAME_WALL + 1))
+    t_slot = box(min(xs) - 1.5, max(xs) + 1.5, -5, 5, fz[0] - 1, fz[0] + EVA_T + CAGE_T + 1)
+    frame, skin = frame.cut(t_slot), skin.cut(t_slot)
 # Slot in the top rear for the spur: a pie over its swing, round the pivot
 H_ = HAMMER_PIVOT
 pie = [V(H_.x, -SPUR_SLOT["y"], H_.z)] + [V(H_.x + SPUR_SLOT["r"] * math.cos(math.radians(q)), -SPUR_SLOT["y"],
                                             H_.z + SPUR_SLOT["r"] * math.sin(math.radians(q)))
                                           for q in [SPUR_SLOT["a"][0] + (SPUR_SLOT["a"][1] - SPUR_SLOT["a"][0]) * k / 12 for k in range(13)]]
 spur_slot = Part.Face(Part.makePolygon(pie + [pie[0]])).extrude(V(0, 2 * SPUR_SLOT["y"], 0))
-frame = frame.cut(spur_slot)
-pilot_hole = cyl_x(16, fx[0] - 1, fx[0] + FRAME_WALL + 1, 0, Z_FIRE)          # the cap's G1/8 fitting
-frame = frame.cut(pilot_hole)
+frame, skin = frame.cut(spur_slot), skin.cut(spur_slot)
+pilot_hole = cyl_x(16, fx[0] - 1, fx[0] + EVA_T + CAGE_T + 1, 0, Z_FIRE)          # the cap's G1/8 fitting
+frame, skin = frame.cut(pilot_hole), skin.cut(pilot_hole)
 
 # ---------------------------------------------------------------- grip, trigger valves
 a = math.radians(GRIP_ANGLE)
@@ -121,8 +144,8 @@ grip = Part.makeLoft([Part.Wire(Part.Ellipse(GRIP_START + gd * (GRIP_LEN * t) + 
                      True, False)
 grip = grip.cut(outer)                          # the frame's foot covers its top
 mini_valves = valves                            # mech_layout's trigger valves
-frame = frame.cut(Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z)
-                                     for y, tip in MINI_VALVES]))         # through the frame's rear wall
+_vv = Part.makeCompound([cyl_x(MINI_VALVE[0] + 1, tip - MINI_VALVE[1] - 1, tip + 1, y, MINI_Z) for y, tip in MINI_VALVES])
+frame, skin = frame.cut(_vv), skin.cut(_vv)                              # through the frame's rear wall
 # Tang: the frame runs on back under the valve cap into the grip, round the trigger valves
 pod = box(min(t for _, t in MINI_VALVES) - MINI_VALVE[1] - 4, max(t for _, t in MINI_VALVES) - 4.5, -19, 19,
           MINI_Z - 9, MINI_Z + 10)
@@ -160,6 +183,9 @@ guard = guard.cut(inner).removeSplitter()
 detent_box = turned(box(HUB_X0 + BOLT_X0 - 2, HUB_X0 + BOLT_X0 + BOLT[0] + 2, -BOLT[1] / 2 - 2, BOLT[1] / 2 + 2,
                         -HUB_R - 24, -HUB_R - 1.5), DETENT_ANGLE + 90)
 detent_box = detent_box.cut(Part.makeCompound([bolt_shape(0.0), bolt_shape(30.0)]))
+_db = detent_box.BoundBox                       # a bracket from the cage's left side forward to it, clear of the block
+detent_bracket = box(fx[1] - 8, _db.XMin + 0.9, _db.YMin + 2, -(fy[1] - EVA_T - CAGE_T) + 0.5, _db.ZMax - 10, _db.ZMax)
+detent_bracket = detent_bracket.cut(cyl_x(2 * 47.6, HUB_X0, 50)).cut(detent_box)
 
 # ---------------------------------------------------------------- dress: block straps, frame plates, crest, hammer, vial, gauge, pilot pipe
 block_d = 2 * HUB_R
@@ -239,7 +265,8 @@ for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
     for tg in (0.0, 1.0):
         st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=tg))
         for n in moving:
-            for other_name, other in (("frame", frame), ("grip", grip), ("tang", pod), ("detent box", detent_box), ("guard", guard),
+            for other_name, other in (("frame", frame), ("skin", skin), ("grip", grip), ("tang", pod), ("detent box", detent_box),
+                                      ("bracket", detent_bracket), ("guard", guard),
                                       ("vent valve", valve_bodies), ("crest", crest)):
                 if n == "Bolt" and other_name == "detent box":
                     continue                     # it slides in it
@@ -295,8 +322,8 @@ for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve
 for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
 g_dress = doc.addObject("App::DocumentObjectGroup", "Dress")
-for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Tang", pod, IRON, 0), ("Trigger_guard", guard, IRON, 0),
-                     ("Detent_housing", detent_box, IRON, 0), ("Grip", grip, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
+for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_skin", skin, IRON, 0), ("Tang", pod, IRON, 0), ("Trigger_guard", guard, IRON, 0),
+                     ("Detent_housing", detent_box, IRON, 0), ("Detent_bracket", detent_bracket, IRON, 0), ("Grip", grip, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
                      ("Pommel", pommel, IRON, 0), ("Pommel_claws", Part.makeCompound(claws), DIRTY, 0),
                      ("Warpstone_pommel", warp_pommel, WARP, 0), ("Hose", hose, (0.08, 0.08, 0.08), 0),
                      ("Straps", Part.makeCompound(straps), IRON, 0), ("Strap_rivets", rivets(strap_rivets), DIRTY, 0),
@@ -314,8 +341,9 @@ doc.recompute()
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Frame", "Tang", "Detent_housing", "Grip", "Top_strap", "Nose_sleeve"),
-    "eva": ("Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
+              "Sleeve", "Pusher", "Trigger", "Frame", "Tang", "Detent_housing", "Detent_bracket", "Grip", "Top_strap",
+              "Nose_sleeve"),
+    "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
     "buy": ("Chamber_axle", "Vent_valve", "Pin", "Mainsprings", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Axle_cap", "Thrust_washer", "Trigger_guard"),
@@ -343,6 +371,19 @@ for o in doc.Objects:
 lines += ["    buy    %-16s %s" % (n, BUY_NOTE.get(n, "")) for n in MATERIAL["buy"]]
 lines.append("    eva    " + ", ".join(MATERIAL["eva"]))
 unsorted = [o.Name for o in doc.Objects if o.TypeId == "Part::Feature" and o.Name not in mat_of]
+# The tree by material: hide a group to see the rest (pistol/material_view.py colours by it)
+for gname, label in (("Print", "Печать"), ("EVA", "EVA"), ("Buy", "Покупное")):
+    g = doc.addObject("App::DocumentObjectGroup", gname)
+    g.Label = label
+    for o in [o for o in doc.Objects if o.TypeId == "Part::Feature" and getattr(o, "Material", "") == gname.lower()]:
+        for parent in o.InList:
+            if parent.TypeId == "App::DocumentObjectGroup":
+                parent.removeObject(o)
+        g.addObject(o)
+for old in (g_mech, g_dress):
+    if not old.Group:
+        doc.removeObject(old.Name)
+doc.recompute()
 print("  parts by material (print at ~45 %% fill, valve 80 %%): ~%.0f g of filament%s\n%s"
       % (grams, ("; NOT SORTED: " + ", ".join(unsorted)) if unsorted else "", "\n".join(lines)))
 
