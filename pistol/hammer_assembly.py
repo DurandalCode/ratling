@@ -45,7 +45,7 @@ random.seed(7)
 
 # ---------------------------------------------------------------- parameters
 FRAME = dict(x=(HAMMER_PIVOT.x - HAMMER_R - 8.0, -1.0), y=(-43.0, 43.0), z=(-76.0, 28.0))   # round the hammer and the raised slider
-SPUR_SLOT = dict(a=(68.0, 190.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
+SPUR_SLOT = dict(a=(58.0, 195.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
 FRAME_WALL = 3.0
 FRAME_FILLET = 12.0
 REAR = dict(x=-60.0, top=12.0)      # behind this the frame steps down: the hammer stands up out of it
@@ -290,7 +290,7 @@ def add(group, name, shape, col, transp=0):
 g_mech = doc.addObject("App::DocumentObjectGroup", "Mechanism")
 for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
                      ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 0), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 0),
-                     ("Vent_valve", mini_valves, (0.3, 0.3, 0.8), 0)):
+                     ("Vent_valve", mini_valves, (0.3, 0.3, 0.8), 0), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0)):
     add(g_mech, n, s_, c, tr)
 for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
@@ -309,6 +309,43 @@ for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Tang", pod, IRON, 0), ("Trigge
                      ("Thrust_washer", washer, (0.85, 0.85, 0.8), 0)):
     add(g_dress, n, s_, c, tr)
 doc.recompute()
+
+# ---------------------------------------------------------------- what is printed, cut from EVA, or bought
+# Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
+MATERIAL = {
+    "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
+              "Sleeve", "Pusher", "Trigger", "Frame", "Tang", "Detent_housing", "Grip", "Top_strap", "Nose_sleeve"),
+    "eva": ("Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
+            "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
+    "buy": ("Chamber_axle", "Vent_valve", "Pin", "Mainsprings", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
+            "Gauge_needle", "Pilot_pipe", "Axle_cap", "Thrust_washer", "Trigger_guard"),
+}
+BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
+            "Vent_valve": "mini 3/2 push-button valve, or module/stage3_vent_head.py", "Pin": "steel pin Ø3",
+            "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose to the receiver",
+            "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge (a real one: it reads the chamber)",
+            "Pilot_pipe": "copper or PU tube Ø4-5: the pilot line, cap to vent valve", "Axle_cap": "M6 stud + cap nut",
+            "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1", "Trigger_guard": "Ø5 steel or aluminium rod, bent"}
+FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)
+mat_of = {n: m for m, ns in MATERIAL.items() for n in ns}
+lines, grams = [], 0.0
+for o in doc.Objects:
+    if o.TypeId != "Part::Feature":
+        continue
+    m = mat_of.get(o.Name, "?")
+    o.addProperty("App::PropertyString", "Material", "Ratling", "print / eva / buy")
+    o.Material = m
+    if m == "print":
+        vol = o.Shape.Volume - (barrels.Volume if o.Name == "Block" else 0.0)
+        g_ = vol / 1000 * 1.24 * FILL.get(o.Name, 0.45)
+        grams += g_
+        lines.append("    print  %-16s %5.0f g%s" % (o.Name, g_, ("   " + BUY_NOTE[o.Name]) if o.Name in BUY_NOTE else ""))
+lines += ["    buy    %-16s %s" % (n, BUY_NOTE.get(n, "")) for n in MATERIAL["buy"]]
+lines.append("    eva    " + ", ".join(MATERIAL["eva"]))
+unsorted = [o.Name for o in doc.Objects if o.TypeId == "Part::Feature" and o.Name not in mat_of]
+print("  parts by material (print at ~45 %% fill, valve 80 %%): ~%.0f g of filament%s\n%s"
+      % (grams, ("; NOT SORTED: " + ", ".join(unsorted)) if unsorted else "", "\n".join(lines)))
+
 if App.GuiUp:
     import FreeCADGui as Gui
     Gui.activeDocument().activeView().viewIsometric()

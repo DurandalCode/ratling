@@ -78,7 +78,14 @@ PIN_Y = PIN_R0 * math.cos(math.radians(ARM_A0))                     # slider pin
 HAMMER_PIVOT = V(-82.0, 0, -8.0)    # behind the v1.1 cap, above the grip
 HAMMER_ARM = PIN_Y * math.tan(math.radians(SECTOR_SWING / 2)) / math.sin(math.radians(HAMMER_SWING / 2))
 HAMMER_R = 10.0                     # its hub
-SPUR = (95.0, 36.0)                 # spur direction at rest (deg from +x, up = 90), length
+SPUR_AXIS = 95.0                    # the hammer's outline is drawn along this direction at rest (deg from +x)
+# Outline, (along the axis, back from it) in mm: a Colt-like neck sweeping back to a chequered comb, a claw
+# hooked forward over the top, a lightening hole in the neck.
+SPUR_OUTLINE = [(5, -8), (14, -8), (24, -6.5), (31, -5), (37, -6), (43, -9), (44, -6.5), (41, -2), (40.5, 2),
+                (41, 7), (40, 12), (37.5, 17), (33.5, 21), (29, 22), (27, 19), (24, 14), (17, 10.5), (9, 9.5), (4, 8)]
+SPUR_COMB = [(40.6, 3), (40.6, 7.5), (39.7, 12), (37.4, 16.3), (34, 19.8)]     # teeth along the comb
+SPUR_HOLE = (17.0, 1.5, 3.2)        # along, back, radius
+SPUR = (95.0 + math.degrees(math.atan2(12.0, 38.0)), math.hypot(38.0, 12.0))   # where the thumb sits: direction, radius
 CRANK_Y = (32.0, 35.0)              # the crank on the right, outside the valve body (y 31)
 BRACKET_Y = (35.2, 38.2)            # the slider's bracket, outside the crank
 SLIDER_REACH = 48.0                 # slider body: from its pin this far down (the cam slot)
@@ -128,8 +135,23 @@ def _rot_y(shape, centre, deg):
 H = HAMMER_PIVOT
 hub_h = Part.makeCylinder(HAMMER_R, 10, V(H.x, -5, H.z), YA)
 spur_tip = _at(H, SPUR[0], SPUR[1])
-spur = _rod(H, spur_tip, 9.0, -4.0, 8.0)
-spur = spur.fuse(_rod(_at(H, SPUR[0], SPUR[1] - 6), _at(H, SPUR[0] + 25, SPUR[1] - 2), 6.0, -5.0, 10.0))   # thumb piece
+_e1 = V(math.cos(math.radians(SPUR_AXIS)), 0, math.sin(math.radians(SPUR_AXIS)))
+_e2 = V(math.cos(math.radians(SPUR_AXIS + 90)), 0, math.sin(math.radians(SPUR_AXIS + 90)))   # back, at rest
+
+
+def _sp(a, b, y=0.0):
+    return V(H.x, y, H.z) + _e1 * a + _e2 * b
+
+
+spur = Part.Face(Part.makePolygon([_sp(a, b, -4.0) for a, b in SPUR_OUTLINE] + [_sp(*SPUR_OUTLINE[0], y=-4.0)])).extrude(V(0, 8, 0))
+spur = spur.cut(Part.makeCylinder(SPUR_HOLE[2], 10, _sp(SPUR_HOLE[0], SPUR_HOLE[1], -5.0), YA))
+for (a0, b0), (a1, b1) in zip(SPUR_COMB, SPUR_COMB[1:]):                      # chequering: grooves across the comb
+    c_ = _sp((a0 + a1) / 2, (b0 + b1) / 2, -6.0)
+    t_ = (_sp(a1, b1) - _sp(a0, b0)).normalize()                                  # along the comb
+    g = Part.makeBox(1.2, 12, 1.2, V(-0.6, 0, -0.6))
+    g.rotate(V(0, 0, 0), YA, -math.degrees(math.atan2(t_.z, t_.x)))
+    spur = spur.cut(g.translated(c_))
+spur = spur.fuse(Part.makeCylinder(4.0, 10, _sp(28.5, 19.5, -5.0), YA))          # a knuckle at the comb's heel, wider
 c_tip0 = _at(H, crank_angle(0.0), HAMMER_ARM)
 crank = _rod(H, c_tip0, 8.0, CRANK_Y[0], CRANK_Y[1] - CRANK_Y[0])
 crank_pin = Part.makeCylinder(1.5, BRACKET_Y[1] + 0.5 - CRANK_Y[0], V(c_tip0.x, CRANK_Y[0], c_tip0.z), YA)
