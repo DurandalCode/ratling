@@ -149,6 +149,14 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
                                  crystal(c_end + gd * 11 + V(0, -8, -3), gd + V(0.3, -0.7, -0.3), 24, 6)])
 hose = Part.makeCylinder(3, 70, c_end + gd * 20, gd)
 
+# ---------------------------------------------------------------- trigger guard: from the frame's foot round the trigger into the grip
+GUARD = [V(-24, 0, fz[0] + 3), V(-24, 0, -96), V(-36, 0, -108), V(-66, 0, -108), V(-95, 0, -87)]
+guard = None
+for p0, p1 in zip(GUARD, GUARD[1:]):
+    r_ = _rod(p0, p1, 5.0, -3.0, 6.0)
+    guard = r_ if guard is None else guard.fuse(r_)
+guard = guard.cut(inner).removeSplitter()
+
 # ---------------------------------------------------------------- detent housing
 detent_box = turned(box(HUB_X0 + BOLT_X0 - 2, HUB_X0 + BOLT_X0 + BOLT[0] + 2, -BOLT[1] / 2 - 2, BOLT[1] / 2 + 2,
                         -HUB_R - 24, -HUB_R - 1.5), DETENT_ANGLE + 90)
@@ -213,7 +221,7 @@ for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
     for tg in (0.0, 1.0):
         st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=tg))
         for n in moving:
-            for other_name, other in (("frame", frame), ("grip", grip), ("tang", pod), ("detent box", detent_box),
+            for other_name, other in (("frame", frame), ("grip", grip), ("tang", pod), ("detent box", detent_box), ("guard", guard),
                                       ("vent valve", valve_bodies), ("crest", crest)):
                 if n == "Bolt" and other_name == "detent box":
                     continue                     # it slides in it
@@ -227,6 +235,8 @@ report = [NAME, "  mechanism vs dress (worst over the hammer and trigger strokes
 report += ["    %-8s / %-11s %.1f" % (k[0], k[1], v_) for k, v_ in sorted(worst.items()) if v_ > 0.05] or ["    none"]
 report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
            "  vent valve inside grip/frame: %.0f %%" % (inside * 100),
+           "  trigger guard: finger room %.0f mm in front of the trigger, %.0f under it"
+           % (GUARD[0].x - 2.5 - trigger_h(0.0).BoundBox.XMax, trigger_h(0.0).BoundBox.ZMin - GUARD[2].z - 2.5),
            "  hammer outside the frame: %.0f mm3 forward, %.0f back" % (spur_out(0.0), spur_out(1.0)),
            "  overall: %.0f mm long (pommel to muzzle), %.0f mm high, block Ø%.0f"
            % (HUB_X0 + HUB_T + STUB + 30 - min((c_end + gd * 30).x, spur_c.x), max(fz[1], spur_tip.z) + 30 - (c_end + gd * 30).z, block_d),
@@ -259,7 +269,7 @@ for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve
 for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
 g_dress = doc.addObject("App::DocumentObjectGroup", "Dress")
-for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Tang", pod, IRON, 0),
+for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Tang", pod, IRON, 0), ("Trigger_guard", guard, IRON, 0),
                      ("Detent_housing", detent_box, IRON, 0), ("Grip", grip, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
                      ("Pommel", pommel, IRON, 0), ("Pommel_claws", Part.makeCompound(claws), DIRTY, 0),
                      ("Warpstone_pommel", warp_pommel, WARP, 0), ("Hose", hose, (0.08, 0.08, 0.08), 0),
