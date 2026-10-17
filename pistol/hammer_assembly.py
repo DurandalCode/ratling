@@ -231,7 +231,7 @@ guard = guard.cut(Part.makeCylinder(1.25, _gt["t"] + 1, V(sum(_gt["x"]) / 2, 0, 
 # ---------------------------------------------------------------- detent housing
 detent_box = turned(box(HUB_X0 + BOLT_X0 - 2, HUB_X0 + BOLT_X0 + BOLT[0] + 2, -BOLT[1] / 2 - 2, BOLT[1] / 2 + 2,
                         -HUB_R - 24, -HUB_R - 1.5), DETENT_ANGLE + 90)
-detent_box = detent_box.cut(Part.makeCompound([bolt_shape(0.0), bolt_shape(30.0)]))
+detent_box = detent_box.cut(Part.makeCompound([bolt_shape(0.0), bolt_shape(30.0)])).cut(detent_spring_pocket())
 _db = detent_box.BoundBox                       # a bracket from the cage's left side forward to it, clear of the block
 # Its bracket is part of it and bolts to the side plate's outer face (2 x M3 x 12 + nuts): the plate prints flat.
 detent_bracket = box(fx[1] - 8, _db.XMin + 0.9, _db.YMin + 2, -(fy[1] - EVA_T), _db.ZMax - 10, _db.ZMax)
@@ -340,9 +340,20 @@ top_strap = (box(STRAP["x0"], X_AXLE_END + s_t, -s_w, s_w, STRAP["z"][0], STRAP[
              .fuse(Part.makeCylinder(NOSE_OD / 2, s_t, V(X_AXLE_END, 0, 0), XA))
              .fuse(box(STRAP["x0"], HUB_X0 - 2.5, -s_w, s_w, fz[1] - 2, STRAP["z"][1])))   # its foot on the frame, short of the hub
 top_strap = top_strap.cut(Part.makeCylinder(3.2, 20, V(X_AXLE_END - 1, 0, 0), XA))                 # the stud
+STRAP_BOLTS = (-9.0, -5.0)          # x: 2 x M3 x 40 down through the foot into the cage's top, nuts inside
+strap_bolts = Part.makeCompound([Part.makeCylinder(1.7, STRAP["z"][1] - fz[1] + 12, V(x_, 0, fz[1] - 10), ZA) for x_ in STRAP_BOLTS])
+top_strap, frame, skin = top_strap.cut(strap_bolts), frame.cut(strap_bolts), skin.cut(strap_bolts)
 nose = cyl_x(NOSE_OD, X_MUZZLE + WASHER_T, X_AXLE_END, 0, 0).cut(cyl_x(BARREL_OD + 0.4, X_MUZZLE, X_AXLE_END + 1, 0, 0))
 washer = cyl_x(NOSE_OD, X_MUZZLE, X_MUZZLE + WASHER_T, 0, 0).cut(cyl_x(BARREL_OD + 0.4, X_MUZZLE - 1, X_MUZZLE + 2, 0, 0))
-axle_cap = Part.makeCylinder(3.0, 14, V(X_AXLE_END - 4, 0, 0), XA).fuse(        # M6 stud and a cap nut
+# The axle's front plug: glued flush into the tube (it closes the chamber), an M6 nut glued into a hex pocket in
+# its face, the stud's hole behind it blind, so no air leaks along the thread.
+PLUG_L, PLUG_HOLE = 20.0, 14.0
+axle_plug = cyl_x(23.8 - 0.3, X_AXLE_END - PLUG_L, X_AXLE_END, 0, 0)
+_hexr = 10.0 / 2 / math.cos(math.radians(30)) + 0.15                  # M6 nut, 10 across flats
+_hex = Part.Face(Part.makePolygon([V(X_AXLE_END - 5.2, _hexr * math.cos(math.radians(60 * k)), _hexr * math.sin(math.radians(60 * k)))
+                                   for k in range(7)])).extrude(V(5.3, 0, 0))
+axle_plug = axle_plug.cut(_hex).cut(cyl_x(6.5, X_AXLE_END - PLUG_HOLE, X_AXLE_END, 0, 0))
+axle_cap = Part.makeCylinder(3.0, PLUG_HOLE - 1 + s_t + 6, V(X_AXLE_END - PLUG_HOLE + 1, 0, 0), XA).fuse(   # M6 stud and a cap nut
     Part.makeCone(8, 5, 9, V(X_AXLE_END + s_t, 0, 0), XA))
 strap_rivets += [V(x_, 0, STRAP["z"][1] + 0.3) for x_ in range(int(STRAP["x0"]) + 8, int(X_AXLE_END), 24)]
 spikes += [spike(V(x_, 0, STRAP["z"][1] - 1), V(0.25, 0, 1), 14, 3.5) for x_ in (X_MUZZLE * 0.3, X_MUZZLE * 0.7)]
@@ -454,7 +465,7 @@ for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_side", side_plate, (0.3,
                      ("Vial_glass", vial, GLASS, 65), ("Vial_caps", vial_caps, BRASS, 0), ("Vial_cage", cage, IRON, 0),
                      ("Warpstone_vial", vial_stone, WARP, 0), ("Gauge", gauge, BRASS, 0), ("Gauge_glass", gauge_glass, (0.9, 0.9, 0.85), 0),
                      ("Gauge_needle", needle, (0.6, 0.05, 0.05), 0), ("Pilot_pipe", pilot_pipe, (0.15, 0.4, 0.8), 0),
-                     ("Axle_cap", axle_cap, IRON, 0), ("Top_strap", top_strap, IRON, 0), ("Nose_sleeve", nose, IRON, 0),
+                     ("Axle_cap", axle_cap, IRON, 0), ("Axle_plug", axle_plug, (0.5, 0.5, 0.55), 0), ("Top_strap", top_strap, IRON, 0), ("Nose_sleeve", nose, IRON, 0),
                      ("Thrust_washer", washer, (0.85, 0.85, 0.8), 0)):
     add(g_dress, n, s_, c, tr)
 doc.recompute()
@@ -463,7 +474,8 @@ doc.recompute()
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Frame", "Frame_side", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard", "Top_strap",
+              "Sleeve", "Pusher", "Trigger", "Frame", "Frame_side", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
+              "Top_strap", "Axle_plug",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
@@ -475,7 +487,9 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
             "Pilot_pipe": "PU tube 4/2.5: vent valve A -> cap G1/8 push-in, up the backstrap",
-            "Gauge_line": "PU tube 4/2.5, tee to the gauge", "Tee": "push-in tee for 4 mm tube", "Axle_cap": "M6 stud + cap nut",
+            "Gauge_line": "PU tube 4/2.5, tee to the gauge", "Tee": "push-in tee for 4 mm tube", "Axle_cap": "M6 x 25 stud (or a headless bolt) + cap nut; an M6 nut glued in the plug",
+            "Axle_plug": "glued flush into the axle's front end with epoxy: it closes the chamber",
+            "Top_strap": "2 x M3 x 40 + nuts down through its foot into the cage's top",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its tab, rear end glued in the grip",
             "Grip_left": "half, with the valve box: glued to the right on 3 x Ø3 x 12 dowels; 2 x ST2.9 x 13 down through the floor",

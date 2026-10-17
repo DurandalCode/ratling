@@ -63,6 +63,7 @@ PARTS = [
     ("trigger_guard", guard, Y_, "standard", "flat; ST2.9 x 13 into its tab through the floor"),
     ("top_strap", top_strap, Y_, "strong", "on its side; 2 x ST2.9 into the cage's top, the M6 stud through its foot"),
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),
+    ("axle_plug", axle_plug, -X_, "strong", "epoxied flush into the axle's front end; an M6 nut epoxied in its pocket"),
 ]
 REFERENCE = [("v1.1_body", "exports/stage3_qev/body.stl", "airtight", "Stage 3 v1.1 body (module/stage3_qev.py)"),
              ("v1.1_cap", "exports/stage3_qev/cap.stl", "airtight", "Stage 3 v1.1 cap")]

@@ -80,6 +80,31 @@ exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
 MECH_LIBRARY = False
 NAME = "pistol_hammer_layout"
 
+# ---------------------------------------------------------------- pawl and detent: their springs
+# The pawl is a plunger: it slides in a boss on the sector's back, a Ø3 pen spring behind it pushing it into the
+# notches; the boss swings over the lock housing's flat top. The detent bolt is 12 long, with a Ø4 pen spring
+# in a pocket behind it in its housing.
+PAWL_X0 = -6.5                      # the plunger's back at rest (its front in the notch, as mech_layout's tooth)
+PAWL_BOSS_X0 = -14.2                # the boss's back wall
+BOLT_LEN = 12.0
+_pw, _ph, _pr0 = NOTCH_W - 0.8, NOTCH_R[1] - SECTOR_R[1] - 0.5, SECTOR_R[1] - 0.5
+pawl_tooth = turned(Part.makeBox(HUB_X0 + 2.0 - PAWL_X0, _pw, _ph, V(PAWL_X0, -_pw / 2, _pr0)), PAWL_A0 - 90)
+_boss = Part.makeBox(SECTOR_X[0] + 0.01 - PAWL_BOSS_X0, _pw + 2.4, _ph + 2.4, V(PAWL_BOSS_X0, -_pw / 2 - 1.2, _pr0 - 1.2))
+_bore = Part.makeBox(SECTOR_X[1] + 1 - (PAWL_BOSS_X0 + 1.2), _pw + 0.3, _ph + 0.3, V(PAWL_BOSS_X0 + 1.2, -_pw / 2 - 0.15, _pr0 - 0.15))
+sector_base = sector_base.fuse(turned(_boss, PAWL_A0 - 90)).cut(turned(_bore, PAWL_A0 - 90)).removeSplitter()
+
+
+def bolt_shape(block_deg):
+    top = -HUB_R + bolt_depth(block_deg)
+    return turned(box(HUB_X0 + BOLT_X0, HUB_X0 + BOLT_X0 + BOLT[0], -BOLT[1] / 2, BOLT[1] / 2, top - BOLT_LEN, top),
+                  DETENT_ANGLE + 90)
+
+
+def detent_spring_pocket():
+    c = Part.makeCylinder(2.15, 10.5, V(HUB_X0 + BOLT_X0 + BOLT[0] / 2, 0, -HUB_R - BOLT_LEN - 10.5), ZA)
+    return turned(c, DETENT_ANGLE + 90)
+
+
 # ---------------------------------------------------------------- parameters
 PIN_Y = PIN_R0 * math.cos(math.radians(ARM_A0))                     # slider pin's y (24.5)
 HAMMER_PIVOT = V(-82.0, 0, -8.0)    # behind the v1.1 cap, above the grip
