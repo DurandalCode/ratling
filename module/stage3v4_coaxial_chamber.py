@@ -59,7 +59,9 @@ Parts, each exported in its print orientation (lowest point at z = 0):
                   the barrel with screws through the sleeve.
     diaphragm ... Ø31 disc of rubber sheet with one bleed hole (v4.1: no pin holes).
 
-Assembly (v4.2): dry-fit everything first. Diaphragm on the rear plug's face (the bead inside it), seat
+Assembly (v4.2): dry-fit everything first. The press (two plates, three M4 rods) holds the stack
+squeezed while the glue sets: rear plate on the rear plug's flange (fitting through its hole), muzzle plate on
+the barrel's end, nuts tightened evenly. Diaphragm on the rear plug's face (the bead inside it), seat
 ring on top (its stop lip round the diaphragm, on the plug's face). Barrel into the socket with glue on
 the socket band only, pushed home. Tube over the seat ring and barrel with the O-ring cone, glue on the
 rear plug's band, plug pressed in to its flange. Front plug onto the barrel and into the tube, glue on
@@ -174,6 +176,13 @@ BARREL_SCREW_FROM_END = 6.0
 BARREL_SCREW_HOLE = 3.2
 
 PACK_PITCH = 40.0
+
+# Assembly press (v4.2): while the glue sets, three M4 rods outside the tube pull a muzzle plate toward a foot
+# plate on the rear plug, so the barrel presses the seat ring onto the diaphragm and the rear plug (a bolt down
+# the bore would run into the diaphragm). Only for the bench: the rods stand outside the module's Ø38.
+PRESS_D, PRESS_T, PRESS_ROD_R, PRESS_ROD_HOLE, PRESS_FITTING_D = 60.0, 6.0, 24.0, 4.4, 20.0
+PRESS_RECESS = 1.5          # the rear foot sits on the plug flange
+PRESS_ROD_ANGLES = (0.0, 120.0, 240.0)
 
 # Drilling template: a disc of the diaphragm's own Ø with a guide for each
 # hole. Rubber on a scrap board, template on top, drill, cut round it.
@@ -307,6 +316,14 @@ oring_cone = revolve([(_cone_out / 2, 0), (CH_OD / 2 + 0.15, 0), (CH_OD / 2 + 0.
                       (CH_OD / 2 + 0.15 + CONE_WALL, -CONE_SLEEVE), (CH_OD / 2 + 0.15 + CONE_WALL, CONE_LEN),
                       (_cone_in / 2, CONE_LEN)])
 
+# assembly press
+_rods = [cyl(PRESS_ROD_HOLE, -1, PRESS_T + 1, *at(PRESS_ROD_R, a)[:2]) for a in PRESS_ROD_ANGLES]
+press_rear = cyl(PRESS_D, 0, PRESS_T).cut(G.fuse_all(
+    [cyl(PRESS_FITTING_D, -1, PRESS_T + 1), cyl(CH_OD + 0.4, PRESS_T - PRESS_RECESS, PRESS_T + 1)] + _rods)).removeSplitter()
+press_front = cyl(PRESS_D, 0, PRESS_T).cut(G.fuse_all(
+    [cyl(BARREL_ID - 3.0, -1, PRESS_T + 1), cyl(BARREL_OD + 0.3, PRESS_T - PRESS_RECESS, PRESS_T + 1)] + _rods)).removeSplitter()
+press_rod_len = (z_sh + BARREL_LEN - z_rp) + 2 * PRESS_T + 2 * 10.0      # between the plates, both plates, nut + washer each end
+
 # ---------------------------------------------------------------- diaphragm (clamped, in place)
 dcuts = [cyl(BLEED_D, -t_c - 1, 1, *at(BLEED_R, BLEED_ANGLE)[:2])]
 diaphragm = cyl(2 * DIA_R, -t_c, 0).cut(G.fuse_all(dcuts))
@@ -419,6 +436,10 @@ checks = [
      % (_cone_in, _o_free, _cone_out, CH_ID),
      G.single_solid(oring_cone) and _cone_in > _o_free and 2 * band_r + 0.05 <= _cone_out < CH_ID
      and math.degrees(math.atan2((_cone_in - _cone_out) / 2, CONE_LEN)) <= 10.0),
+    ("assembly press: rods clear of the tube, plates valid, barrel rim sits on the muzzle plate",
+     PRESS_ROD_R - PRESS_ROD_HOLE / 2 >= CH_OD / 2 + 1.0 and PRESS_ROD_R + PRESS_ROD_HOLE / 2 + 3.0 <= PRESS_D / 2
+     and G.single_solid(press_rear) and G.single_solid(press_front)
+     and BARREL_ID - 3.0 < BARREL_ID and BARREL_OD + 0.3 < 2 * PRESS_ROD_R - PRESS_ROD_HOLE),
     ("seat proud of the clamp face, < half the diaphragm", 0 < SEAT_PROUD < DIA_T / 2),
 ]
 
@@ -443,6 +464,8 @@ report = [
     "  glue                   : nothing is drilled through the tube. Bands (close fit %.2f per side, CA or thin epoxy):"
     " rear plug %.1f mm, front plug %.1f, socket on the barrel %.1f, sleeve on the barrel %.1f; a relief groove"
     " between each and its O-ring" % (GLUE_CLEAR, RP_BAND_L, FP_BAND_L, SOCKET_BAND_L, SLEEVE_BAND_L),
+    "  assembly press         : 2 plates Ø%.0f x %.0f (rear foot, muzzle plate) and 3 M4 rods at R%.0f, %.0f mm long"
+    " + 6 nuts + 6 washers; tighten evenly while the glue sets" % (PRESS_D, PRESS_T, PRESS_ROD_R, press_rod_len),
     "  O-rings                : 2 x %g x %g (chamber tube), 2 x %g x %g (barrel)" % (CH_ORING + BR_ORING),
     "  rear plug / seat ring / front plug: %.1f / %.1f / %.1f cm3" % (rp.Volume / 1000, sr.Volume / 1000, fp.Volume / 1000),
 ]
@@ -489,6 +512,8 @@ if not STAGE3V4_LIBRARY:
         ("ЗАДНЯЯ ПРОБКА: пилот G1/8 -> M3R110 A", (40, 0, z_rp)),
     ]:
         sc.label("Labels", text, pos)
+    sc.add("Jig", "Press_rear", press_rear, "stator", offset=V(-3 * CH_OD, 3 * CH_OD, z_rp))
+    sc.add("Jig", "Press_front", press_front, "stator", offset=V(0, 3 * CH_OD, z_rp))
     sc.add("Jig", "Jig_guide", jig_guide, "stator", offset=V(-3 * CH_OD, 0, z_rp))
     sc.label("Labels", "ШАБЛОН для сверления мембраны", (-3 * CH_OD, 0, z_rp + 15))
     sc.finish(hidden_groups=("Section",), opaque_groups=("Section",))
@@ -506,7 +531,7 @@ if not STAGE3V4_LIBRARY:
             os.path.join(OUT_DIR, name + ".stl"))
 
     for n, s, flip in (("rear_plug", rp, False), ("seat_ring", sr, False), ("front_plug", fp, True),
-                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False),
+                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("press_rear", press_rear, False), ("press_front", press_front, False),
                        ("oring_cone", oring_cone, True)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
