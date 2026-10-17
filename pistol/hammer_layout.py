@@ -28,8 +28,20 @@ harm; pull it again to the click.
 
 Lock: a ring behind the sleeve's flange, in its bore, with a lug out
 through the housing's right side and a pin into a cam slot in the
-slider's rear cheek. The shot itself pushes the sleeve forward, so the
-pusher only has to seat it.
+slider's rear cheek. The ring is glued to the flange (or printed with
+it), so the cam pulls the sleeve back as well as pushing it: no return
+spring, and the lug keeps the sleeve from turning. The shot itself pushes
+the sleeve forward, so the pusher only has to seat it.
+
+Springs (sized in the report):
+    mainspring .. two torsion springs on the hammer's shaft, one each
+                  side of its hub, one leg on the frame, one on the hammer;
+                  they bring the hammer forward and hold the lock shut
+    pawl ........ the tooth is a plunger in the sector, a pen spring
+                  behind it; it rides out of the notch over its sloped
+                  back wall on the way back
+    detent ...... a pen spring behind the V bolt
+    trigger ..... none: the vent valve's own spring returns it
 
 Plain masses at their sizes, as mech_layout.py. pose(st) for a state
 dict (cock 0 forward .. 1 back, block deg, pawl bend, trig 0..1); the
@@ -74,6 +86,8 @@ CHEEK_X = (-14.5, -7.0)             # slider's rear cheek with the cam slot
 PUSHER_T = 3.0
 CAM_RISE = 3.0                      # slider rise that opens the lock
 TRIGGER_TRAVEL = 22.0               # deg
+LOCK_SEAT_N = 20.0                  # sleeve onto the breech's O-ring before the shot (the shot adds ~41 N): bench it
+MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-18.2, -6.6), (5.8, 17.4)))   # music wire torsion springs, x2
 
 
 def hammer_rot(c):                  # rotation about +y: cocking turns the spur back (negative)
@@ -201,7 +215,11 @@ for k in ("Lever", "Wedge"):
 REST = dict(cock=0.0, block=0.0, bend=0.0, trig=0.0)
 
 # ---------------------------------------------------------------- checks
-FIXED = {"body": valve_body, "cap": valve_cap, "lock": lock_housing_h, "axle": axle, "vent": valve_bodies}
+mainsprings = Part.makeCompound([Part.makeCylinder(MAINSPRING["od"] / 2, y1 - y0, V(H.x, y0, H.z), YA).cut(
+    Part.makeCylinder(MAINSPRING["od"] / 2 - MAINSPRING["d"], y1 - y0 + 2, V(H.x, y0 - 1, H.z), YA))
+    for y0, y1 in MAINSPRING["y"]])
+FIXED = {"body": valve_body, "cap": valve_cap, "lock": lock_housing_h, "axle": axle, "vent": valve_bodies,
+         "mainsprings": mainsprings}
 report = [NAME]
 worst = {}
 for i in range(11):
@@ -234,13 +252,24 @@ report.append("  spur tip: forward (%.0f, %.0f), back (%.0f, %.0f): thumb travel
               % (spur_tip.x, spur_tip.z, spur_c.x, spur_c.z, (spur_c - spur_tip).Length))
 mu = 0.25
 cam_a = math.degrees(math.atan2(LOCK_STROKE, CAM_RISE))
-F_seat = 40.0
-F_sl = F_seat * math.tan(math.radians(cam_a) + math.atan(mu))
+F_sl = LOCK_SEAT_N * math.tan(math.radians(cam_a) + math.atan(mu))
 torque = F_sl * HAMMER_ARM * math.cos(math.radians(crank_angle(0.0))) / 1000
 report.append("  lock: cam %.0f deg, opens in the first %.1f deg of the cock; %0.f N on the flange needs %.0f N on the slider"
-              " = %.2f N*m from the mainspring (%.0f N at the spur)"
-              % (cam_a, next(HAMMER_SWING * i / 400 for i in range(401) if lock_h(i / 400) <= 0.0), F_seat, F_sl, torque,
-                 torque * 1000 / SPUR[1]))
+              " = %.2f N*m from the mainspring at rest"
+              % (cam_a, next(HAMMER_SWING * i / 400 for i in range(401) if lock_h(i / 400) <= 0.0), LOCK_SEAT_N, F_sl, torque))
+ms = MAINSPRING
+D_ms = ms["od"] - ms["d"]
+k_ms = 200000.0 * ms["d"] ** 4 / (64 * D_ms * ms["coils"]) * math.pi / 180       # N*mm per deg, each
+C_ms = D_ms / ms["d"]
+Ki = (4 * C_ms ** 2 - C_ms - 1) / (4 * C_ms * (C_ms - 1))
+pre = torque * 1000 / 2 / k_ms                                                     # preload angle, deg
+T_back = 2 * k_ms * (pre + HAMMER_SWING) / 1000
+stress = 32 * T_back * 1000 / 2 * Ki / (math.pi * ms["d"] ** 3)
+report.append("  mainspring: 2 x torsion, wire Ø%.1f, OD %.0f, %d coils: %.1f N*mm/deg each; wound %.0f deg at rest "
+              "(%.2f N*m), %.0f deg back (%.2f N*m); %.0f MPa (music wire < ~1400); thumb on the spur %.0f N"
+              % (ms["d"], ms["od"], ms["coils"], k_ms, pre, torque, pre + HAMMER_SWING, T_back, stress, T_back * 1000 / SPUR[1]))
+report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: pen spring Ø4, ~6 N on the V (holds the block, "
+              "clicks under the thumb)")
 report.append("  pawl idles %.1f deg of the hammer before it drives: the lock is open by then"
               % next(HAMMER_SWING * i / 400 for i in range(401) if block_drive(i / 400) > 0.0))
 print("\n".join(report))
@@ -264,7 +293,7 @@ def add(group, name, shape, col, transp=0):
 fixed = doc.addObject("App::DocumentObjectGroup", "Fixed")
 for n, s_, c_, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
                       ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 30), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 60),
-                      ("Vent_valve", valves, (0.3, 0.3, 0.8), 40)):
+                      ("Vent_valve", valves, (0.3, 0.3, 0.8), 40), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0)):
     add(fixed, n, s_, c_, tr)
 for gname, st in (("Rest", REST), ("Hammer_back", dict(cock=1.0, block=60.0, bend=0.0, trig=0.0))):
     g = doc.addObject("App::DocumentObjectGroup", gname)
