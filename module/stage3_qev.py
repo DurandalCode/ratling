@@ -211,8 +211,16 @@ PLUG_INSERT_LEN = 30.0  # chamber plug, inside the tube
 PLUG_FLANGE_T = 5.0
 PLUG_FLANGE_D = TUBE_OD + 2.0   # stays clear of the barrel tube beside it
 
+# Variants: set OVERRIDE = {"SEAT_D": 15.0, "NAME": "stage3_qev_d15", ...} before exec to replace any
+# parameter above (those derived from it below follow).
 OUT_DIR = os.path.join(REPO, "exports", "stage3_qev")
 NAME = "stage3_qev"
+try:
+    globals().update(OVERRIDE)
+except NameError:
+    pass
+if NAME != "stage3_qev":
+    OUT_DIR = os.path.join(REPO, "exports", NAME)
 
 # ---------------------------------------------------------------- derived
 seat_r = SEAT_D / 2
