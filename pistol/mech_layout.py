@@ -52,6 +52,15 @@ except NameError:
         REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     except NameError:
         REPO = os.path.expanduser("~/ratling")
+try:
+    VALVE                           # 'v11' (the valve as built) or 'v13' (module/stage3_v13.py: Ø16 seat), set before exec
+except NameError:
+    VALVE = "v11"
+if VALVE == "v13":
+    # No tube screws and no rod: the chamber plug rests on the front strap (hammer_assembly.py), which is tied to the
+    # cage and the valve body, so the tube only seals. Face ring 20 x 2 on the hub: 22 x 2.5 would not fit between barrels.
+    OVERRIDE = dict(TUBE_SCREWS=False, SEAT_D=16.0, ORING_ID=19.0, ORING_CS=2.5, FACE_ORING_ID=20.0, FACE_ORING_CS=2.0,
+                    GROOVE_WALL_MIN=1.5)
 STAGE3_LIBRARY = True
 exec(open(os.path.join(REPO, "module", "stage3_qev.py")).read())      # v1.1 body, cap
 STAGE3_LIBRARY = False
@@ -81,7 +90,7 @@ WEDGE_ANGLE = 15.0                  # front face slope: lift x tan -> sleeve str
 WEDGE_LIFT = LOCK_STROKE / math.tan(math.radians(WEDGE_ANGLE))
 WEDGE_SLOT = 4.9                    # wedge slot depth (x) in the housing, from its rear face
 SLEEVE_BORE = 23.5                  # 11/16 x 1/8 O-ring on the sleeve
-NOSE_D = 19.0
+NOSE_D = 19.0 if SEAT_D < 14.0 else 22.0     # the sleeve's nose must reach over the face ring (mid-ring Ø = 2 x (groove out + in) / 2)
 
 NOTCH_R = (14.5, 18.5)              # pawl notches in the hub's rear face, between barrels
 NOTCH_DEPTH = 3.0
@@ -252,8 +261,8 @@ for i in range(6):
 hub = hub.cut(cyl_x(BARREL_OD + 0.6, HUB_X0 - 1, HUB_X0 + HUB_T + 1))
 barrels = Part.makeCompound([cyl_x(BARREL_OD, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T + STUB, *polar(R_RING, -90 + 60 * i))
                              .cut(cyl_x(23.8, 0, 300, *polar(R_RING, -90 + 60 * i))) for i in range(6)])
-oring_faces = Part.makeCompound([cyl_x(23.8, HUB_X0 - 0.6, HUB_X0, *polar(R_RING, -90 + 60 * i))
-                                 .cut(cyl_x(16.2, -5, 5, *polar(R_RING, -90 + 60 * i))) for i in range(6)])
+oring_faces = Part.makeCompound([cyl_x(2 * face_groove_out, HUB_X0 - 0.6, HUB_X0, *polar(R_RING, -90 + 60 * i))
+                                 .cut(cyl_x(2 * face_groove_in, -5, 5, *polar(R_RING, -90 + 60 * i))) for i in range(6)])
 front_plate = cyl_x(2 * HUB_R - 6, HUB_X0 + HUB_T + STUB - FRONT_T, HUB_X0 + HUB_T + STUB).cut(
     cyl_x(BARREL_OD + 0.6, 0, 300))
 for i in range(6):

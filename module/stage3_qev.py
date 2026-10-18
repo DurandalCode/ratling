@@ -219,6 +219,13 @@ FACE_ORING_ID = None        # None: same ring as the spigots
 FACE_ORING_CS = None
 GROOVE_WALL_MIN = 2.0       # groove root -> bore
 FACE_WALL_MIN = 1.5         # face groove -> bore
+# Central tie rod (for the pistol, where nothing can run beside the tube): an M3 threaded rod down the chamber
+# tube's axis, a nut on a rubber washer under the body's floor (in a pocket in the cap's clamp face), a nut on a
+# rubber and a steel washer on the plug's outer face. The tube then only seals.
+PLUG_ROD = False
+ROD3_HOLE = 3.4
+ROD3_NUT_AF, ROD3_NUT_T = 5.5, 2.4
+ROD3_RUBBER, ROD3_STEEL = 0.8, 0.5
 YOKE_T = 8.0
 YOKE_EAR_R = 5.5
 YOKE_NUT_T = 3.2
@@ -340,6 +347,8 @@ cuts += screw_pilots(C, BODY_H + SCREW_FROM_TUBE_END, chamber_screw_angles)
 breech_bolts = [V(BREECH_BOLT_R * math.cos(math.radians(a)), BREECH_BOLT_R * math.sin(math.radians(a)))
                 for a in BREECH_BOLT_ANGLES]
 cuts += [cyl(BREECH_PILOT_D / 2, BODY_H - BREECH_PILOT_DEPTH, BODY_H + 1, p) for p in breech_bolts]
+if PLUG_ROD:
+    cuts.append(cyl(ROD3_HOLE / 2, -1, WINDOW_Z0 + 1, C))
 for c in cuts:
     body = body.cut(c)
 
@@ -367,6 +376,11 @@ for i in range(GROOVE_N):
     cuts.append(g)
 for p in rod_pts:
     cuts.append(cyl(ROD_HOLE_D / 2, -1, CAP_T + 1, p))
+hex3_r = (ROD3_NUT_AF + 0.4) / math.sqrt(3)
+nut3_depth = ROD3_NUT_T + ROD3_RUBBER + 0.3
+if PLUG_ROD:           # flats facing along x (the cap's edge side), corners along y
+    cuts.append(prism([(C.x + hex3_r * math.cos(math.radians(30 + 60 * k)), C.y + hex3_r * math.sin(math.radians(30 + 60 * k)))
+                       for k in range(6)], CAP_T - nut3_depth, CAP_T + 1))
 mark = prism([(recess_r + 0.8, 0), (BODY_R + 1, MARK_W / 2), (BODY_R + 1, -MARK_W / 2)],
              CAP_T - MARK_DEPTH, CAP_T + 1)
 mark.rotate(V(0, 0), Z, BLEED_ANGLE)
@@ -385,6 +399,8 @@ plug_spigot, pg0, _ = spigot(PLUG_FLANGE_T, PLUG_INSERT_LEN, V(0, 0))
 plug_print = plug_print.fuse(plug_spigot)
 for c in screw_pilots(V(0, 0), PLUG_FLANGE_T + SCREW_FROM_TUBE_END, chamber_screw_angles):
     plug_print = plug_print.cut(c)
+if PLUG_ROD:
+    plug_print = plug_print.cut(cyl(ROD3_HOLE / 2, -1, PLUG_FLANGE_T + PLUG_INSERT_LEN + 1))
 plug_print = plug_print.removeSplitter()
 
 # ---------------------------------------------------------------- barrel breech (print frame: face at z = 0)
@@ -492,13 +508,14 @@ plug.translate(V(C.x, C.y, tube_end + PLUG_FLANGE_T))
 clip_a = clip.translated(V(0, 0, tube_end - CLIP_FROM_PLUG - CLIP_H / 2))
 yoke_z = tube_end + PLUG_FLANGE_T
 yoke_a = yoke.translated(V(0, 0, yoke_z)) if PLUG_YOKE else None
+rod3_len = 5 * math.ceil((nut3_depth + tube_end + PLUG_FLANGE_T + ROD3_RUBBER + ROD3_STEEL + ROD3_NUT_T + 2.0) / 5)
 yoke_rod_len = 5 * math.ceil((WASHERS_UNDER_HEAD + CAP_T + yoke_z + YOKE_T + 1.1 + YOKE_NUT_T + 1.5) / 5)
 
 # ---------------------------------------------------------------- numbers
 A_seat_eff = area(SEAT_D + SEAT_LAND)          # to the middle of the land
 A_dia = area(2 * mouth_r)
 A_curtain = math.pi * SEAT_D * LIFT
-A_window = SEAT_D * (GALLERY_H - WINDOW_Z0) + SEAT_D * seat_r / 2
+A_window = SEAT_D * (GALLERY_H - WINDOW_Z0) + SEAT_D * seat_r / 2 - (3.0 * (GALLERY_H - WINDOW_Z0) if PLUG_ROD else 0.0)
 A_gallery = 2 * (GALLERY_R - seat_out_r) * GALLERY_H
 open_ratio = 1 - A_seat_eff / A_dia                # pilot/chamber (gauge) below which it opens
 F_cap = P_MAX_BAR * 0.1 * area(2 * mouth_r)
@@ -541,6 +558,11 @@ checks = {
     "yoke rods clear of the breech flange, the barrel tube and the chamber tube":
         not PLUG_YOKE or all(math.hypot(p.x, p.y) - ROD_HOLE_D / 2 - BREECH_FLANGE_D / 2 >= 0.5
                              and dist(C, p) - TUBE_OD / 2 - 2.0 >= 1.0 for p in yoke_pts),
+    "central rod: cap nut pocket keeps >= 0.7 mm to the diaphragm recess and to the rim":
+        not PLUG_ROD or (C.x - ROD3_NUT_AF / 2 - 0.2 - recess_r >= 0.7 and BODY_R - (C.x + ROD3_NUT_AF / 2 + 0.2) >= 0.7),
+    "central rod: nut pocket clear of the cap's mark (turn BLEED_ANGLE away from +x) and rod holes":
+        not PLUG_ROD or (all(dist(C, p) - hex3_r - ROD_HOLE_D / 2 >= 1.5 for p in rod_pts)
+                         and math.cos(math.radians(BLEED_ANGLE)) < 0.5),
     "tube clip valid single solid, clear of both tubes":
         G.single_solid(clip) and all(G.no_overlap(clip_a, t) for t in tubes),
     "rod reaches through the nut": -CAP_T - WASHERS_UNDER_HEAD + rod_len >= BODY_H - NUT_POCKET_DEPTH + 1.1 + NUT_T,
@@ -608,7 +630,8 @@ report = [
     "  barrel breech          : flange Ø%.0f, face O-ring %g x %g (%.2f proud), %d x M3 x 14 into the body"
     % (BREECH_FLANGE_D, FACE_ORING_ID, FACE_ORING_CS, FACE_ORING_CS - face_groove_depth, len(BREECH_BOLT_ANGLES)),
     "  tube retention         : %s" % ("2 long M4 rods x %d to a yoke on the plug, no screws" % yoke_rod_len
-                                        if PLUG_YOKE else ("%d x ST2.9 per tube end" % SCREW_N if TUBE_SCREWS else "none")),
+                                        if PLUG_YOKE else "one M3 rod x %d down the chamber axis, no screws" % rod3_len
+                                        if PLUG_ROD else ("%d x ST2.9 per tube end" % SCREW_N if TUBE_SCREWS else "none")),
     "  body / cap volume      : %.1f / %.1f cm3" % (body.Volume / 1000, cap.Volume / 1000),
 ]
 for k, v in checks.items():
@@ -666,6 +689,7 @@ orings = G.fuse_all([G.oring(2 * root_r, ORING_CS, ring_z(BREECH_FLANGE_T + BARR
                      G.oring(2 * root_r, ORING_CS, plug_ring_z, C.x, C.y)])
 
 
+rod3 = cyl(1.5, -nut3_depth, tube_end + PLUG_FLANGE_T + ROD3_RUBBER + ROD3_STEEL + ROD3_NUT_T + 2.0, C) if PLUG_ROD else None
 pilot_fitting = flipped(G.push_in_fitting(0, 0, 0), -CAP_T)
 pilot_hose = flipped(G.hose(0, 0, 0, 80), -CAP_T)
 ball = Part.makeSphere(BALL_D / 2, V(0, 0, z_barrel + BARREL_SPIGOT_LEN + BALL_D / 2))
@@ -683,6 +707,7 @@ if not STAGE3_LIBRARY:
     bought = [("Barrel_tube", tubes[0], "ghost"), ("Chamber_tube", tubes[1], "ghost"),
               ("Tie_rods", tie_rods(), "steel"),
               *([("Tube_screws", tube_screws(), "steel")] if TUBE_SCREWS else []),
+              *([("Central_rod", rod3, "steel")] if PLUG_ROD else []),
               ("ORings", orings, "oring"), ("Pilot_fitting", pilot_fitting, "steel"),
               ("Pilot_hose", pilot_hose, "hose"), ("Ball", ball, "flow")]
     for n, s, style in bought:

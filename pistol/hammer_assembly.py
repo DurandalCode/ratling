@@ -37,6 +37,10 @@ try:
     BARREL_TUBE                                 # or set before exec
 except NameError:
     BARREL_TUBE = 200.0                         # barrel tube as cut (13 mm of it in the hub)
+try:
+    VALVE                                       # 'v11' or 'v13', see mech_layout.py
+except NameError:
+    VALVE = "v13"
 HUB_T_HAMMER = 14.0                             # the block's rear disc (hammer_layout.py)
 STUB = BARREL_TUBE - (HUB_T_HAMMER - 9.0)       # the tube from the rear disc's seat (9 deep) to the muzzle
 exec(open(os.path.join(REPO, "pistol", "hammer_layout.py")).read())
