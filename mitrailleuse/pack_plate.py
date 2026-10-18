@@ -63,6 +63,8 @@ def outline_solid(pts, kind):
     if kind == "circle":
         R = max(shroud_r(pts) + WALL, max(math.hypot(x, y) for x, y in rods(pts)) + TIE_HOLE_R + 3.0)
         s = cyl(0, 0, R, H)
+        if 2 * R <= BED:                     # a full circle when it fits the bed
+            return s
         top = y1 + WALL                      # flats so the plate fits the bed in y
         if 2 * top > BED:
             top = BED / 2 - 1
