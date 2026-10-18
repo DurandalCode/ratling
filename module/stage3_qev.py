@@ -211,6 +211,18 @@ PLUG_INSERT_LEN = 30.0  # chamber plug, inside the tube
 PLUG_FLANGE_T = 5.0
 PLUG_FLANGE_D = TUBE_OD + 2.0   # stays clear of the barrel tube beside it
 
+# v1.3 switches (defaults = v1.1 as built): no screws through the tubes, a yoke on the chamber plug
+# held by two long rods, a bigger seat on a thinner O-ring. See PRESET_V13 in the docstring.
+TUBE_SCREWS = True
+PLUG_YOKE = False
+FACE_ORING_ID = None        # None: same ring as the spigots
+FACE_ORING_CS = None
+GROOVE_WALL_MIN = 2.0       # groove root -> bore
+FACE_WALL_MIN = 1.5         # face groove -> bore
+YOKE_T = 8.0
+YOKE_EAR_R = 5.5
+YOKE_NUT_T = 3.2
+
 # Variants: set OVERRIDE = {"SEAT_D": 15.0, "NAME": "stage3_qev_d15", ...} before exec to replace any
 # parameter above (those derived from it below follow).
 OUT_DIR = os.path.join(REPO, "exports", "stage3_qev")
@@ -221,6 +233,11 @@ except NameError:
     pass
 if NAME != "stage3_qev":
     OUT_DIR = os.path.join(REPO, "exports", NAME)
+TUBE_OD = TUBE_ID + 2 * TUBE_WALL          # re-derived: the override may have changed their inputs
+GROOVE_ROOT_W = 1.1 * ORING_CS
+PLUG_FLANGE_D = TUBE_OD + 2.0
+if FACE_ORING_ID is None:
+    FACE_ORING_ID, FACE_ORING_CS = ORING_ID, ORING_CS
 
 # ---------------------------------------------------------------- derived
 seat_r = SEAT_D / 2
@@ -275,6 +292,8 @@ def spigot(z0, length, at):
 
 def screw_pilots(at, z, angles):
     out = []
+    if not TUBE_SCREWS:
+        return out
     for a in angles:
         d = V(math.cos(math.radians(a)), math.sin(math.radians(a)), 0)
         start = V(at.x + d.x * (spigot_r + 1), at.y + d.y * (spigot_r + 1), z)
@@ -369,9 +388,9 @@ for c in screw_pilots(V(0, 0), PLUG_FLANGE_T + SCREW_FROM_TUBE_END, chamber_scre
 plug_print = plug_print.removeSplitter()
 
 # ---------------------------------------------------------------- barrel breech (print frame: face at z = 0)
-face_groove_depth = ORING_CS * (1 - FACE_SQUEEZE)
-face_groove_out = ORING_ID / 2 + ORING_CS        # pressure inside: the ring bears on the outer wall
-face_groove_in = face_groove_out - FACE_GROOVE_W * ORING_CS
+face_groove_depth = FACE_ORING_CS * (1 - FACE_SQUEEZE)
+face_groove_out = FACE_ORING_ID / 2 + FACE_ORING_CS        # pressure inside: the ring bears on the outer wall
+face_groove_in = face_groove_out - FACE_GROOVE_W * FACE_ORING_CS
 breech = cyl(BREECH_FLANGE_D / 2, 0, BREECH_FLANGE_T).common(
     Part.makeBox(BREECH_FLAT_X + BREECH_FLANGE_D / 2, BREECH_FLANGE_D, BREECH_FLANGE_T + 1,
                  V(-BREECH_FLANGE_D / 2, -BREECH_FLANGE_D / 2, -0.5)))
@@ -390,9 +409,40 @@ clip_r = TUBE_OD / 2 + CLIP_CLEAR
 clip = cyl(clip_r + CLIP_WALL, 0, CLIP_H).fuse(cyl(clip_r + CLIP_WALL, 0, CLIP_H, C)).fuse(
     Part.makeBox(chamber_x, 2 * (clip_r + CLIP_WALL) - 4, CLIP_H, V(0, -(clip_r + CLIP_WALL) + 2, 0)))
 ear_y = clip_r + CLIP_WALL + CLIP_EAR[0] / 2
-clip = clip.fuse(Part.makeBox(CLIP_EAR[0], CLIP_EAR[0] + 2, CLIP_H, V(chamber_x / 2 - CLIP_EAR[0] / 2, -ear_y - CLIP_EAR[0] / 2, 0)))
+if not PLUG_YOKE:       # with the yoke rods the ear would hit the rod at 315 deg
+    clip = clip.fuse(Part.makeBox(CLIP_EAR[0], CLIP_EAR[0] + 2, CLIP_H, V(chamber_x / 2 - CLIP_EAR[0] / 2, -ear_y - CLIP_EAR[0] / 2, 0)))
 clip = clip.cut(cyl(clip_r, -1, CLIP_H + 1)).cut(cyl(clip_r, -1, CLIP_H + 1, C))
-clip = clip.cut(cyl(CLIP_EAR[1] / 2, -1, CLIP_H + 1, V(chamber_x / 2, -ear_y))).removeSplitter()
+if not PLUG_YOKE:
+    clip = clip.cut(cyl(CLIP_EAR[1] / 2, -1, CLIP_H + 1, V(chamber_x / 2, -ear_y)))
+clip = clip.removeSplitter()
+
+# ---------------------------------------------------------------- plug yoke (print frame: bearing face on the bed)
+# Rods 0 and 3 (45 / 315 deg) run on past the body, along the chamber tube, to this plate on the plug's end:
+# chamber pressure pushes the plug onto it, the rods pull it back to the cap (the clamp gets that much tighter).
+yoke_rods = (0, 3)
+yoke_pts = [rod_pts[i] for i in yoke_rods]
+
+
+def hull2d(pts):
+    pts = sorted(set((round(x, 6), round(y, 6)) for x, y in pts))
+    def half(seq):
+        h = []
+        for q in seq:
+            while len(h) >= 2 and (h[-1][0] - h[-2][0]) * (q[1] - h[-2][1]) - (h[-1][1] - h[-2][1]) * (q[0] - h[-2][0]) <= 0:
+                h.pop()
+            h.append(q)
+        return h[:-1]
+    return half(pts) + half(pts[::-1])
+
+
+yoke = None
+if PLUG_YOKE:
+    ring = lambda c, r: [(c.x + r * math.cos(math.radians(a)), c.y + r * math.sin(math.radians(a))) for a in range(0, 360, 10)]
+    outline = hull2d(ring(C, PLUG_FLANGE_D / 2) + sum((ring(p, YOKE_EAR_R) for p in yoke_pts), []))
+    yoke = prism(outline, 0, YOKE_T)
+    for p in yoke_pts:
+        yoke = yoke.cut(cyl(ROD_HOLE_D / 2, -1, YOKE_T + 1, p))
+    yoke = yoke.removeSplitter()
 
 # ---------------------------------------------------------------- diaphragm
 bleed_at = V(BLEED_R * math.cos(math.radians(BLEED_ANGLE)), BLEED_R * math.sin(math.radians(BLEED_ANGLE)))
@@ -440,6 +490,9 @@ plug = plug_print.copy()                  # turned tip-down, stop face on the tu
 plug.rotate(V(0, 0), X, 180)
 plug.translate(V(C.x, C.y, tube_end + PLUG_FLANGE_T))
 clip_a = clip.translated(V(0, 0, tube_end - CLIP_FROM_PLUG - CLIP_H / 2))
+yoke_z = tube_end + PLUG_FLANGE_T
+yoke_a = yoke.translated(V(0, 0, yoke_z)) if PLUG_YOKE else None
+yoke_rod_len = 5 * math.ceil((WASHERS_UNDER_HEAD + CAP_T + yoke_z + YOKE_T + 1.1 + YOKE_NUT_T + 1.5) / 5)
 
 # ---------------------------------------------------------------- numbers
 A_seat_eff = area(SEAT_D + SEAT_LAND)          # to the middle of the land
@@ -466,22 +519,28 @@ checks = {
     "chamber plug/tube no interference": plug.common(tubes[1]).Volume < 1e-3,
     "chamber plug flange clears the barrel tube": chamber_x - PLUG_FLANGE_D / 2 - TUBE_OD / 2 >= 0.5,
     "chamber plug screws outboard of its O-ring":
-        PLUG_FLANGE_T + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < pg0 - 1.0,
+        not TUBE_SCREWS or PLUG_FLANGE_T + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < pg0 - 1.0,
     "body/tubes no interference (the root fillet meets the tube's deburred edge)":
         all(body.common(t).Volume < root_fillet.common(t).Volume + 1e-3 for t in tubes),
     "breech valid single solid; clear of the body, the chamber tube and the rod tips":
         G.single_solid(breech) and G.no_overlap(breech_a, body) and G.no_overlap(breech_a, tubes[1])
         and ROD_R - 2.0 - BREECH_FLANGE_D / 2 >= 0.5,
     "breech face groove clear of the bore and the bolts":
-        face_groove_in - seat_r >= 1.5 and BREECH_BOLT_R - BREECH_BOLT_HOLE / 2 - face_groove_out >= 1.5,
-    "breech face O-ring stands >= 0.5 mm proud (gap tests up to 0.3)": ORING_CS - face_groove_depth >= 0.5,
+        face_groove_in - seat_r >= FACE_WALL_MIN and BREECH_BOLT_R - BREECH_BOLT_HOLE / 2 - face_groove_out >= 1.5,
+    "breech face O-ring stands >= 0.5 mm proud (gap tests up to 0.3)": FACE_ORING_CS - face_groove_depth >= 0.5 - 1e-9,
     "breech face groove fill <= 85 %":
-        (math.pi * ORING_CS ** 2 / 4) / ((face_groove_out - face_groove_in) * face_groove_depth) <= 0.85,
+        (math.pi * FACE_ORING_CS ** 2 / 4) / ((face_groove_out - face_groove_in) * face_groove_depth) <= 0.85,
     "breech bolt pilots clear of the gallery roof (>= 2 mm)":
         BREECH_BOLT_R - BREECH_PILOT_D / 2 - (GALLERY_R - max(0.0, BODY_H - BREECH_PILOT_DEPTH - GALLERY_H)) >= 2.0,
     "breech bolts inside the flange, clear of the flat":
         BREECH_BOLT_R + BREECH_BOLT_HOLE / 2 + 1.0 <= BREECH_FLANGE_D / 2
         and all(p.x + BREECH_BOLT_HOLE / 2 + 1.0 <= BREECH_FLAT_X for p in breech_bolts),
+    "yoke: single solid, clear of the barrel tube (>= 0.5), plug flange bears on it":
+        not PLUG_YOKE or (G.single_solid(yoke) and all(
+            math.hypot(x, y) - TUBE_OD / 2 >= 0.5 for x, y in outline) and G.no_overlap(yoke_a, tubes[0])),
+    "yoke rods clear of the breech flange, the barrel tube and the chamber tube":
+        not PLUG_YOKE or all(math.hypot(p.x, p.y) - ROD_HOLE_D / 2 - BREECH_FLANGE_D / 2 >= 0.5
+                             and dist(C, p) - TUBE_OD / 2 - 2.0 >= 1.0 for p in yoke_pts),
     "tube clip valid single solid, clear of both tubes":
         G.single_solid(clip) and all(G.no_overlap(clip_a, t) for t in tubes),
     "rod reaches through the nut": -CAP_T - WASHERS_UNDER_HEAD + rod_len >= BODY_H - NUT_POCKET_DEPTH + 1.1 + NUT_T,
@@ -519,10 +578,10 @@ checks = {
         and ROD_R - TUBE_OD / 2 - hex_r >= 1.0,
     "wall nut pocket -> gallery mouth / chamber bore >= 2 mm":
         ROD_R - hex_r - mouth_r >= 2.0 and min(dist(C, p) for p in rod_pts) - hex_r - seat_r >= 2.0,
-    "wall groove root -> bore >= 2 mm": root_r - seat_r >= 2.0,
-    "screw tip inside its pilot": TUBE_OD / 2 - SCREW_L >= spigot_r - SCREW_DEPTH,
-    "wall screw pilot -> bore >= 1.4 mm": spigot_r - SCREW_DEPTH - seat_r >= 1.4 - 1e-9,
-    "screws outboard of the O-rings": BODY_H + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < cg0 - 1.0
+    "wall groove root -> bore >= GROOVE_WALL_MIN": root_r - seat_r >= GROOVE_WALL_MIN,
+    "screw tip inside its pilot": not TUBE_SCREWS or TUBE_OD / 2 - SCREW_L >= spigot_r - SCREW_DEPTH,
+    "wall screw pilot -> bore >= 1.4 mm": not TUBE_SCREWS or spigot_r - SCREW_DEPTH - seat_r >= 1.4 - 1e-9,
+    "screws outboard of the O-rings": not TUBE_SCREWS or BODY_H + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < cg0 - 1.0
         and BREECH_FLANGE_T + SCREW_FROM_TUBE_END + SCREW_PILOT_D / 2 < bg0 - 1.0,
     "O-ring stretch 0..6 %": 0 <= oring_stretch <= 0.06,
     "cone roof >= 2 mm under the body top": BODY_H - cone_top >= 2.0,
@@ -547,7 +606,9 @@ report = [
     "  tie rods               : %d x M4 x %d socket head + nut, rubber washer under each head and nut"
     % (ROD_N, rod_len),
     "  barrel breech          : flange Ø%.0f, face O-ring %g x %g (%.2f proud), %d x M3 x 14 into the body"
-    % (BREECH_FLANGE_D, ORING_ID, ORING_CS, ORING_CS - face_groove_depth, len(BREECH_BOLT_ANGLES)),
+    % (BREECH_FLANGE_D, FACE_ORING_ID, FACE_ORING_CS, FACE_ORING_CS - face_groove_depth, len(BREECH_BOLT_ANGLES)),
+    "  tube retention         : %s" % ("2 long M4 rods x %d to a yoke on the plug, no screws" % yoke_rod_len
+                                        if PLUG_YOKE else ("%d x ST2.9 per tube end" % SCREW_N if TUBE_SCREWS else "none")),
     "  body / cap volume      : %.1f / %.1f cm3" % (body.Volume / 1000, cap.Volume / 1000),
 ]
 for k, v in checks.items():
@@ -573,9 +634,11 @@ def flipped(shape, z):
 
 def tie_rods():
     rods = []
-    for p in rod_pts:
+    for i, p in enumerate(rod_pts):
+        long_rod = PLUG_YOKE and i in yoke_rods
         rods += [cyl(ROD_HEAD_D / 2, -CAP_T - ROD_HEAD_H, -CAP_T, p),
-                 cyl(2.0, -CAP_T, -CAP_T + rod_len, p),
+                 cyl(2.0, -CAP_T, -CAP_T + (yoke_rod_len if long_rod else rod_len), p),
+                 *([G.hex_prism(NUT_AF, yoke_z + YOKE_T, yoke_z + YOKE_T + YOKE_NUT_T, p.x, p.y)] if long_rod else []),
                  G.hex_prism(NUT_AF, BODY_H - NUT_POCKET_DEPTH, BODY_H - NUT_POCKET_DEPTH + NUT_T, p.x, p.y)]
     return G.fuse_all(rods)
 
@@ -597,7 +660,7 @@ plug_ring_z = tube_end - (30.0 - GROOVE_WALL_FROM_TIP + GROOVE_ROOT_W / 2)
 
 ring_z = lambda length: BODY_H + length - GROOVE_WALL_FROM_TIP + GROOVE_ROOT_W / 2
 orings = G.fuse_all([G.oring(2 * root_r, ORING_CS, ring_z(BREECH_FLANGE_T + BARREL_SPIGOT_LEN)),
-                     Part.makeTorus(face_groove_out - ORING_CS / 2, face_groove_depth / 2,
+                     Part.makeTorus(face_groove_out - FACE_ORING_CS / 2, face_groove_depth / 2,
                                     V(0, 0, BODY_H + face_groove_depth / 2), Z),          # squeezed
                      G.oring(2 * root_r, ORING_CS, ring_z(CHAMBER_SPIGOT_LEN), C.x, C.y),
                      G.oring(2 * root_r, ORING_CS, plug_ring_z, C.x, C.y)])
@@ -615,10 +678,11 @@ if not STAGE3_LIBRARY:
     doc = sc.doc
     for n, s, style in (("Body", body, "rotor"), ("Cap", cap_a, "stator"), ("Diaphragm", dia_a, "shoe"),
                         ("Chamber_plug", plug, "rotor"), ("Barrel_breech", breech_a, "stator"),
-                        ("Tube_clip", clip_a, "rotor")):
+                        ("Tube_clip", clip_a, "rotor"), *([("Plug_yoke", yoke_a, "stator")] if PLUG_YOKE else [])):
         sc.add("Printed", n, s, style)
     bought = [("Barrel_tube", tubes[0], "ghost"), ("Chamber_tube", tubes[1], "ghost"),
-              ("Tie_rods", tie_rods(), "steel"), ("Tube_screws", tube_screws(), "steel"),
+              ("Tie_rods", tie_rods(), "steel"),
+              *([("Tube_screws", tube_screws(), "steel")] if TUBE_SCREWS else []),
               ("ORings", orings, "oring"), ("Pilot_fitting", pilot_fitting, "steel"),
               ("Pilot_hose", pilot_hose, "hose"), ("Ball", ball, "flow")]
     for n, s, style in bought:
@@ -642,7 +706,9 @@ if not STAGE3_LIBRARY:
         ("МЕМБРАНА 1,5 мм, Ø%.0f" % DIA_D, (-BODY_R - 10, 0, 0)),
         ("КРЫШКА: пилот G1/8 -> M3R110 A", (-BODY_R - 10, 0, -CAP_T / 2)),
         ("ШПИЛЬКИ M4 x %d x4 + гайки" % rod_len, (rod_pts[1].x, rod_pts[1].y, BODY_H + 10)),
-        ("САМОРЕЗЫ ST2.9 x %.1f x9" % SCREW_L, (-TUBE_OD, 0, z_barrel + SCREW_FROM_TUBE_END)),
+        *([("САМОРЕЗЫ ST2.9 x %.1f x9" % SCREW_L, (-TUBE_OD, 0, z_barrel + SCREW_FROM_TUBE_END))] if TUBE_SCREWS else
+          [("ЯРМО заглушки: 2 шпильки M4 x %d (45/315°) + гайки" % yoke_rod_len, (C.x + 25, 0, yoke_z + YOKE_T + 10))]
+          if PLUG_YOKE else []),
     ]:
         sc.label("Labels", text, pos)
     JIG_AT = V(-BODY_R - jig_side, 0, -CAP_T)           # beside the module, stacked as used
@@ -657,7 +723,7 @@ if not STAGE3_LIBRARY:
 
     import MeshPart
     for n, s in (("body", body), ("cap", cap), ("chamber_plug", plug_print), ("diaphragm", diaphragm),
-                 ("barrel_breech", breech), ("tube_clip", clip),
+                 ("barrel_breech", breech), ("tube_clip", clip), *([("plug_yoke", yoke)] if PLUG_YOKE else []),
                  ("jig_base", jig_base), ("jig_ring", jig_ring), ("jig_puck", jig_puck)):
         s.exportStep(os.path.join(OUT_DIR, n + ".step"))
         MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(
