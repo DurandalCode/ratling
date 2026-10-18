@@ -56,7 +56,12 @@ Several copies of a part: `file.stl:COUNT`.
 (`plates`, and `minutes`/`grams` per plate from `sliced`). Project names: `<name>_<group>`. Run it
 (it can take a few minutes; use a long timeout).
 
-## 5. Commit and report
+## 5. Open in Bambu Studio
+
+Open the fresh projects for the user: `open -a /Applications/BambuStudio.app exports/print/<project>.3mf` (the app is `BambuStudio.app`, no space: `-a "Bambu Studio"` fails) (several files in one
+`open` call open as tabs/windows). Do this after slicing, without asking.
+
+## 6. Commit and report
 
 Commit only the script on main (exports are ignored; no push unless asked). Tell the user, in Russian, a table:
 project file, its parts, the profile, the time and grams, plus which parts are not printed (rubber, bought) and
