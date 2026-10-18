@@ -4,6 +4,8 @@ Negative of the pack layouts: a flat plate (outline = the layout's red contour
 + WALL) with a Ø25.4 hole per barrel (barrel Ø25 coaxial with the Ø38 tube), for 256 x 256 beds. A plate wider than the
 bed is cut at x = 0 into two halves, joined by straps: a bar with two Ø3.8 pegs
 that go into Ø4 holes drilled in the web between barrel holes on either side.
+For the v4.3 module (module/stage3v4_coaxial_chamber.py) each barrel also gets its two M3 tie-rod
+holes (R21.5 at 30 / 210 deg, all modules turned the same way); the outline grows to take them.
 Run inside FreeCAD (the layouts come from pack_layouts.py; LAYERS = 0.2 mm layers, default 8):
     REPO = '/Users/<you>/ratling'
     LAYERS = 5
@@ -35,6 +37,8 @@ BED = 256.0
 WALL = 4.0
 HOLE_R = 12.7        # barrel Ø25 + 0.4, coaxial with the Ø38 module
 PEG_HOLE_R = 2.0
+TIE_R, TIE_ANGLES, TIE_HOLE_R = 21.5, (30.0, 210.0), 1.7   # v4.3: M3 rods, hole Ø3.4
+TARGETS = ("g_hex_19", "h_hex_37", "i_square_5x5_round")
 PEG_R = 1.85
 STRAP_W = 8.0
 STRAP_T = 1.0
@@ -49,10 +53,15 @@ def box(x0, y0, x1, y1, h):
     return Part.makeBox(x1 - x0, y1 - y0, h, V(x0, y0, 0))
 
 
+def rods(pts):
+    return [(x + TIE_R * math.cos(math.radians(a)), y + TIE_R * math.sin(math.radians(a)))
+            for x, y in pts for a in TIE_ANGLES]
+
+
 def outline_solid(pts, kind):
     x0, x1, y0, y1 = bbox(pts)
     if kind == "circle":
-        R = shroud_r(pts) + WALL
+        R = max(shroud_r(pts) + WALL, max(math.hypot(x, y) for x, y in rods(pts)) + TIE_HOLE_R + 3.0)
         s = cyl(0, 0, R, H)
         top = y1 + WALL                      # flats so the plate fits the bed in y
         if 2 * top > BED:
@@ -65,10 +74,15 @@ def outline_solid(pts, kind):
 
 def free_pairs(pts, plate_solid, a_min=12, a_max=40):
     """Mirror pairs of peg-hole sites (-a, y), (a, y) in the web away from every hole."""
+    rd = rods(pts)
+
     def inside(x, y):
         return all(plate_solid.isInside(V(x + dx, y + dy, H / 2), 0.01, True)
                    for dx, dy in ((0, 0), (5, 0), (-5, 0), (0, 5), (0, -5)))
-    ok = lambda x, y: inside(x, y) and all(math.hypot(x - px, y - py) >= HOLE_R + PEG_HOLE_R + 1.5 for px, py in pts)
+    def ok(x, y):
+        return (all(math.hypot(x - px, y - py) >= HOLE_R + PEG_HOLE_R + 1.5 for px, py in pts)
+                and all(math.hypot(x - rx, y - ry) >= TIE_HOLE_R + PEG_HOLE_R + 1.5 for rx, ry in rd)
+                and inside(x, y))
     found = []
     for y in range(-130, 131):
         for a in range(a_min, a_max):
@@ -96,6 +110,8 @@ def plate(key, pts, kind):
     s = outline_solid(pts, kind)
     for x, y in pts:
         s = s.cut(cyl(x, y, HOLE_R, H))
+    for x, y in rods(pts):
+        s = s.cut(cyl(x, y, TIE_HOLE_R, H))
     x0, x1, y0, y1 = s.BoundBox.XMin, s.BoundBox.XMax, s.BoundBox.YMin, s.BoundBox.YMax
     if x1 - x0 <= BED:
         export(s, "plate_" + key)
@@ -119,4 +135,5 @@ def plate(key, pts, kind):
 
 os.makedirs(OUT, exist_ok=True)
 for key, name, n, pts, outline in LAYOUTS:
-    print(plate(key, pts, outline))
+    if key in TARGETS:
+        print(plate(key, pts, outline))

@@ -5,7 +5,7 @@
 set -e
 cd "$(dirname "$0")/.."
 S=exports/pack_layouts/stl
-for n in a_square_5x5 b_rows_5x5 c_circle_25 d_circle_24 e_rows_6x4_tall g_hex_19 f_rows_4x6_wide h_hex_37 i_square_5x5_round; do
+for n in g_hex_19 h_hex_37 i_square_5x5_round; do
   set -- $S/plate_$n.stl
   [ -f "$1" ] || set -- $S/plate_${n}_left.stl $S/plate_${n}_right.stl $S/plate_${n}_straps.stl
   python3 tools/print_plate.py plate_$n "$@" --filament "Bambu PLA Basic @BBL P2S" --plate "Textured PEI Plate" |
