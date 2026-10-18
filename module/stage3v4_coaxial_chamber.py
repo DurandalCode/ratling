@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Ratling Stage 3 v4.3: the chamber is a bought tube round the barrel.
+Ratling Stage 3 v4.4: the chamber is a bought tube round the barrel.
+
+v4.4 (lighter): the chamber tube is aluminium 38 x 1.5 (was steel 38 x 1.2): bore Ø35.0, so the chamber
+O-rings go 30 x 3 -> 29 x 3 and the chamber grows to ~270 mm for the same 100 cm3. The narrower bore left
+only ~169 mm2 of chamber air round the seat ring's socket (its 24 x 2.5 O-ring groove and wall sat in the
+way), 1.16 x the curtain. So the barrel no longer seals in the socket: a short spigot on the shoulder goes
+into the barrel's bore and seals there on a 20 x 2 O-ring (bore through it Ø18, still over the Ø16 seat).
+The barrel's end bottoms on the flat shoulder round the spigot as before. The socket is a plain locating
+sleeve now, 2.2 mm thinner. (A face O-ring under the barrel's end was tried and dropped: a 0.6 wall cannot
+both press the ring and land on a stop, so the nuts would set the squeeze and the edge would cut the ring.)
+The cut end need not be very square any more; deburr its inside edge. The front plug keeps its 24 x 2.5.
 
 v4.3 (in v4.2 the glue held the pressure): no glue and no screws. Two M3 threaded rods outside the tube, at
 30 / 210 deg, hold the stack. A rear yoke behind the rear plug, a front yoke on the front plug's flange, and a muzzle
@@ -64,8 +74,9 @@ Parts, each exported in its print orientation (lowest point at z = 0):
                   front face with floor grooves and a sealing bead (v4.1: no stop pins),
                   G1/8 pilot port from the bed side.
     seat ring ... seat face on the bed: clamp ring, Ø16 seat, struts, 45 deg
-                  flare out to the barrel socket (24 x 2.5 O-ring in it), a
-                  stop lip round the diaphragm that sets the squeeze.
+                  flare out to the barrel socket (v4.4: a spigot in the barrel's
+                  bore with a 20 x 2 O-ring on it), a stop lip round the
+                  diaphragm that sets the squeeze.
     O-ring cone . a funnel slipped over either end of the chamber tube: the
                   30 x 3 rings close down its taper and come off it a little
                   under the tube's bore, clear of the cut edge. Grease them.
@@ -78,9 +89,10 @@ Parts, each exported in its print orientation (lowest point at z = 0):
     muzzle ring . on the barrel's front end (in a counterbore), with the two rod ears.
     diaphragm ... Ø31 disc of rubber sheet with one bleed hole (v4.1: no pin holes).
 
-Assembly (v4.3): no glue. Pilot fitting into the rear plug. Diaphragm on the rear plug's face (the bead
-inside it), seat ring on top (its stop lip round the diaphragm, on the plug's face). Barrel into the socket,
-pushed home on the shoulder. Tube over the seat ring and barrel with the O-ring cone onto the rear plug, in to
+Assembly (v4.4): no glue. Deburr the barrel's rear end inside. Pilot fitting into the rear plug. Diaphragm
+on the rear plug's face (the bead inside it), seat ring on top (its stop lip round the diaphragm, on the
+plug's face). 20 x 2 O-ring on the spigot (grease), barrel into the socket over it, pushed home on the
+shoulder. Tube over the seat ring and barrel with the O-ring cone onto the rear plug, in to
 its flange. Front plug onto the barrel and into the tube (cone again), in to its flange. Rear yoke over the
 fitting, front yoke over the sleeve, muzzle ring on the barrel's end, the rods through all three ears. Nuts
 snug at the rear and on the front yoke, then the muzzle nuts until the seat ring's stop lip sits on the rear
@@ -127,12 +139,13 @@ CHAMBER_V = 100.0           # cm3 target
 BARREL_ID, BARREL_WALL = 23.8, 0.59
 BARREL_OD = BARREL_ID + 2 * BARREL_WALL
 BARREL_LEN = 300.0
-CH_OD, CH_WALL = 38.0, 1.2  # bought chamber tube
+CH_OD, CH_WALL = 38.0, 1.5  # bought chamber tube, v4.4: aluminium (v4-v4.3: steel 38 x 1.2)
 CH_ID = CH_OD - 2 * CH_WALL
 
 RADIAL_CLEAR = 0.20
-CH_ORING = (30.0, 3.0)      # ID x CS, in the chamber tube (rear and front plug)
-BR_ORING = (24.0, 2.5)      # ID x CS, on the barrel (seat ring socket, front plug)
+CH_ORING = (29.0, 3.0)      # ID x CS, in the chamber tube (rear and front plug); v4.4: 30 x 3 would sit slack in Ø35
+BR_ORING = (24.0, 2.5)      # ID x CS, on the barrel (front plug; v4.4: no longer in the seat ring's socket)
+SP_ORING = (20.0, 2.0)      # ID x CS, v4.4: on the seat ring's spigot, inside the barrel's bore
 ORING_SQUEEZE = 0.15
 BR_SQUEEZE = 0.12           # v4.1: the barrel's 24 x 2 a little easier, it was cut by the barrel's edge going in
 GROOVE_W = 1.3              # x CS
@@ -176,9 +189,13 @@ SEAT_PROUD = 0.3            # the seat stands this far above the clamp face, int
 CONE_LEN, CONE_SLEEVE, CONE_WALL, CONE_STEP = 25.0, 10.0, 2.0, 0.05   # step: under the bore, over the plugs' spigots
 SEAT_TUBE_H = 6.0           # straight seat tube before the 45 deg flare
 STRUT_N, STRUT_W, STRUT_H = 4, 2.5, 11.5
-SOCKET_WALL = 1.2           # outside the barrel O-ring groove
+SOCKET_WALL = 1.2           # v4.4: a plain locating sleeve round the barrel
 SOCKET_LEN = 20.0
 SHOULDER_WALL = 1.5
+# v4.4: spigot into the barrel's bore, from the shoulder: land, 45 deg (prints as a floor), root, square wall
+# on the bore side (the low-pressure side: chamber air comes round the barrel's end), land, lead-in.
+SP_BORE = 18.0              # through the spigot (seat Ø16)
+SP_LAND0, SP_LAND1 = 1.0, 2.5
 
 # Rear plug
 RP_SPIGOT = 24.0            # inside the chamber tube
@@ -189,7 +206,8 @@ PILOT_D = 4.0
 
 # Front plug
 FP_SPIGOT = 20.0
-FP_GROOVE_WALL = 8.0        # groove's front (square) wall ahead of the spigot tip
+FP_GROOVE_WALL = 8.0        # barrel groove's front (square) wall ahead of the spigot tip
+FP_CH_GROOVE_WALL = 16.0    # v4.4: the chamber groove ahead of it (side by side the 29 x 3 left a 0.3 mm wall between)
 FP_FLANGE_T = 2.0
 FP_SLEEVE = 12.0
 
@@ -210,7 +228,11 @@ ch_stretch = 2 * ch_root_r / CH_ORING[0] - 1
 sock_r = BARREL_OD / 2 + RADIAL_CLEAR
 br_root_r = BARREL_OD / 2 + BR_ORING[1] * (1 - BR_SQUEEZE)      # housing groove: outer root
 br_stretch = BARREL_OD / BR_ORING[0] - 1
-sock_out_r = br_root_r + SOCKET_WALL
+sock_out_r = sock_r + SOCKET_WALL
+fp_out_r = br_root_r + SOCKET_WALL                       # front plug's sleeve, round its barrel O-ring
+sp_r = BARREL_ID / 2 - RADIAL_CLEAR                     # spigot in the barrel's bore
+sp_root_r = BARREL_ID / 2 - SP_ORING[1] * (1 - ORING_SQUEEZE)
+sp_stretch = 2 * sp_root_r / SP_ORING[0] - 1
 seat_r = SEAT_D / 2
 seat_out_r = seat_r + SEAT_LAND
 ring_out_r = CH_ID / 2 - 0.5
@@ -218,6 +240,10 @@ z_flare = SEAT_TUBE_H
 z_flare_end = z_flare + (sock_out_r - seat_out_r)
 z_sh = z_flare + (sock_r + SHOULDER_WALL - seat_out_r)    # barrel stop: shoulder in the seat ring
 z_sock = z_sh + SOCKET_LEN
+z_spg0 = z_sh + SP_LAND0                                 # spigot groove: 45 deg from the OD down to the root
+z_spg1 = z_spg0 + (sp_r - sp_root_r)
+z_spg2 = z_spg1 + GROOVE_W * SP_ORING[1]                 # square wall
+z_sp = z_spg2 + SP_LAND1 + LEAD_CHAMFER                  # spigot tip
 z_f = -t_c                                   # rear plug front face
 z_te = z_f - RP_SPIGOT                       # chamber tube rear end
 z_rp = z_te - RP_FLANGE_T                    # rear plug back face
@@ -317,11 +343,12 @@ for i in range(STRUT_N):
     s.rotate(V(0, 0, 0), Z, 360.0 / STRUT_N * (i + 0.5))
     sr = sr.fuse(s)
 sr = sr.fuse(revolve([(STOP_LIP_R0, -t_c), (ring_out_r, -t_c), (ring_out_r, 0.01), (STOP_LIP_R0, 0.01)]))   # stop lip
-sr_groove, sr_groove_z = bore_groove(z_sh + 3.0, +1)                # barrel side behind: rear wall square
-sr_cuts = [revolve([(0, -1), (seat_r, -1), (seat_r, z_sh), (sock_r, z_sh),
-                    (sock_r, z_sock - LEAD_CHAMFER), (sock_r + LEAD_CHAMFER, z_sock + 0.01),
-                    (sock_r + LEAD_CHAMFER, z_sock + 1), (0, z_sock + 1)]),
-           sr_groove]
+# v4.4: the socket round the barrel, and inside it the spigot (O-ring groove) that goes into the barrel's bore
+sr_cuts = [revolve([(0, -1), (seat_r, -1), (seat_r, z_sh), (SP_BORE / 2, z_sh), (SP_BORE / 2, z_sock + 1), (0, z_sock + 1)]),
+           revolve([(sp_r, z_sh), (sock_r, z_sh), (sock_r, z_sock - LEAD_CHAMFER), (sock_r + LEAD_CHAMFER, z_sock + 0.01),
+                    (sock_r + LEAD_CHAMFER, z_sock + 1), (SP_BORE / 2 - 0.01, z_sock + 1), (SP_BORE / 2 - 0.01, z_sp),
+                    (sp_r - LEAD_CHAMFER, z_sp), (sp_r, z_sp - LEAD_CHAMFER), (sp_r, z_spg2), (sp_root_r, z_spg2),
+                    (sp_root_r, z_spg1), (sp_r, z_spg0)])]
 sr = sr.cut(G.fuse_all(sr_cuts)).removeSplitter()
 # O-ring cone: sleeve over the tube's end, its face on the tube's end, taper in front (printed taper up)
 _o_free = 2 * ch_root_r + 2 * CH_ORING[1]           # the ring's OD as it sits in its groove, unsqueezed
@@ -349,12 +376,12 @@ z_fp_tip = probe_end + (CHAMBER_V * 1000 - v_probe) / A_annulus        # front p
 z_tf = z_fp_tip + FP_SPIGOT                  # chamber tube front end
 chamber_len = z_tf - z_te
 z_fs = z_tf + FP_FLANGE_T                    # flange front -> 45 deg -> sleeve
-z_fp_end = z_fs + (CH_OD / 2 - sock_out_r) + FP_SLEEVE
+z_fp_end = z_fs + (CH_OD / 2 - fp_out_r) + FP_SLEEVE
 
 fp = revolve([(sock_r, z_fp_tip), (spigot_r - LEAD_CHAMFER, z_fp_tip), (spigot_r, z_fp_tip + LEAD_CHAMFER),
-              (spigot_r, z_tf), (CH_OD / 2, z_tf), (CH_OD / 2, z_fs), (sock_out_r, z_fs + (CH_OD / 2 - sock_out_r)),
-              (sock_out_r, z_fp_end), (sock_r, z_fp_end)])
-fp_groove, fp_groove_z = shaft_groove(z_fp_tip + FP_GROOVE_WALL, -1)  # chamber behind: front wall square
+              (spigot_r, z_tf), (CH_OD / 2, z_tf), (CH_OD / 2, z_fs), (fp_out_r, z_fs + (CH_OD / 2 - fp_out_r)),
+              (fp_out_r, z_fp_end), (sock_r, z_fp_end)])
+fp_groove, fp_groove_z = shaft_groove(z_fp_tip + FP_CH_GROOVE_WALL, -1)  # chamber behind: front wall square
 fp_bgroove, fp_bgroove_z = bore_groove(z_fp_tip + FP_GROOVE_WALL, -1)
 fp = fp.cut(G.fuse_all([fp_groove, fp_bgroove])).removeSplitter()
 
@@ -366,8 +393,8 @@ _r0 = CH_OD / 2 + 0.3
 z_fy1 = z_fs + YOKE_T
 front_yoke = tie_plate(CH_OD / 2, z_fs, z_fy1).cut(revolve(
     [(0, z_fs - 1), (_r0, z_fs - 1), (_r0, z_fs + _dz - 0.3),
-     (sock_out_r + YOKE_CLEAR, z_fs + _dz + CH_OD / 2 - sock_out_r - YOKE_CLEAR),
-     (sock_out_r + YOKE_CLEAR, z_fy1 + 1), (0, z_fy1 + 1)])).removeSplitter()
+     (fp_out_r + YOKE_CLEAR, z_fs + _dz + CH_OD / 2 - fp_out_r - YOKE_CLEAR),
+     (fp_out_r + YOKE_CLEAR, z_fy1 + 1), (0, z_fy1 + 1)])).removeSplitter()
 z_m0 = z_sh + BARREL_LEN - MUZZLE_CB         # muzzle ring: the barrel's end in its counterbore
 z_m1 = z_m0 + MUZZLE_T
 muzzle_ring = tie_plate(BARREL_OD / 2 + YOKE_CLEAR + 2.0, z_m0, z_m1).cut(G.fuse_all([
@@ -415,7 +442,7 @@ open_ratio = 1 - A_seat_eff / A_dia
 annulus_w = MOUTH_R - (seat_r + SEAT_LAND / 2)
 dia_strain = math.hypot(annulus_w, LIFT) / annulus_w - 1
 pocket_v = (A_dia * LIFT + area(PILOT_D) * (z_floor - z_rp - G18_TAP_DEPTH)) / 1000
-dead_v = A_seat * z_sh / 1000
+dead_v = (A_seat * z_sh + area(SP_BORE) * (z_sp - z_sh)) / 1000
 F_rp = P_MAX_BAR * 0.1 * area(CH_ID)
 F_ring = P_MAX_BAR * 0.1 * A_dia                            # pilot up at the top pressure, chamber empty
 F_open = P_WORK_BAR * 0.1 * A_dia                            # pilot up, chamber empty: on the seat ring / barrel
@@ -445,10 +472,11 @@ checks = [
     ("bleed hole over the gallery, clear of seat and mouth", seat_out_r + 1.0 <= BLEED_R <= MOUTH_R - 1.0),
     ("seat ring clear of the chamber tube", ring_out_r <= CH_ID / 2 - 0.3 and sock_out_r <= CH_ID / 2 - 1.0),
     ("socket wall >= 1.2 mm, shoulder wall >= 1.5 mm", SOCKET_WALL >= 1.2 and SHOULDER_WALL >= 1.5),
-    ("socket groove ahead of the shoulder", sr_groove_z[0] >= z_sh + 2.0),
+    ("spigot: wall under its groove >= 1.2 mm, its bore over the seat", sp_root_r - SP_BORE / 2 >= 1.2 and SP_BORE >= SEAT_D),
     ("pilot pocket floor grooves above the G1/8 tap", z_floor - GROOVE_DEPTH - (z_rp + G18_TAP_DEPTH + 2.4) >= 2.0),
     ("rear plug groove behind the pocket, ahead of the flange", rp_groove_z[1] <= z_floor - 2.0 and rp_groove_z[0] >= z_te + 2.0),
-    ("socket groove behind the socket's lead-in", sr_groove_z[1] + 1.0 <= z_sock - LEAD_CHAMFER),
+    ("spigot inside the socket, clear of its lead-in", z_sp + 2.0 <= z_sock - LEAD_CHAMFER),
+    ("barrel on the shoulder, clear of the spigot and the socket", G.no_overlap(sr, barrel) and z_spg0 > z_sh),
     ("tie rods: M3 at %.0f MPa with rear plug and seat ring pushing at once (%.0f + %.0f N at %.0f bar)"
      % (TIE_SIGMA, F_rp, F_ring, P_MAX_BAR), TIE_SIGMA <= 150.0),
     ("rear yoke bends at <= 20 MPa at %.0f bar (%.0f)" % (P_MAX_BAR, YOKE_SIGMA), YOKE_SIGMA <= 20.0),
@@ -463,6 +491,9 @@ checks = [
      min(pack_gap.values()) >= PACK_CLEAR),
     ("chamber O-ring stretch 0..6 %% (%.1f %%)" % (ch_stretch * 100), 0 <= ch_stretch <= 0.06),
     ("barrel O-ring stretch 0..6 %% (%.1f %%)" % (br_stretch * 100), 0 <= br_stretch <= 0.06),
+    ("front plug: >= 1.2 mm between its two grooves, chamber groove inside the spigot",
+     fp_groove_z[0] >= fp_bgroove_z[1] + 1.2 and fp_groove_z[1] <= z_tf - 2.0),
+    ("spigot O-ring stretch 0..6 %% (%.1f %%)" % (sp_stretch * 100), 0 <= sp_stretch <= 0.06),
     ("chamber %.0f cm3 within 3 %% of target" % chamber_v, abs(chamber_v - CHAMBER_V) <= 0.03 * CHAMBER_V),
     ("barrel longer than the chamber", z_sh + BARREL_LEN >= z_fp_end + 20),
     ("plugs no wider than the chamber tube (the O-ring cone goes over them)",
@@ -488,7 +519,8 @@ report = [
     "  opens when pilot < %.0f %% of chamber pressure (gauge)" % (open_ratio * 100),
     "  pilot volume           : %.1f cm3, G1/8 axial in the rear plug" % pocket_v,
     "  dead volume behind ball: %.1f cm3" % dead_v,
-    "  chamber                : %.0f cm3, tube %.0f x %.1f, %.0f mm long" % (chamber_v, CH_OD, CH_WALL, chamber_len),
+    "  chamber                : %.0f cm3, tube %.0f x %.1f aluminium, %.0f mm long, %.0f g"
+    % (chamber_v, CH_OD, CH_WALL, chamber_len, (area(CH_OD) - area(CH_ID)) * chamber_len * 2.70e-3),
     "  module                 : Ø%.0f (ears %.0f across), %.0f mm long with a %.0f mm barrel, yoke to muzzle ring"
     % (CH_OD, 2 * (TIE_R + EAR_R), z_m1 - z_ry, BARREL_LEN),
     "  @ %.0f bar               : rear plug %.0f N back, front plug %.0f N forward, both on the rods; pilot pushes the"
@@ -502,7 +534,8 @@ report = [
     "  pack                   : pitch %.0f unchanged, each rod alone in its gap of a hex pack; %.1f mm to the"
     " neighbours (hex), %.1f (square); the ears stand %.1f mm out of the Ø%.0f on the pack's edge"
     % (PACK_PITCH, pack_gap["hex"], pack_gap["square"], pack_grow, CH_OD),
-    "  O-rings                : 2 x %g x %g (chamber tube), 2 x %g x %g (barrel)" % (CH_ORING + BR_ORING),
+    "  O-rings                : 2 x %g x %g (chamber tube), 1 x %g x %g (barrel, front plug), 1 x %g x %g (seat ring's"
+    " spigot in the barrel's bore)" % (CH_ORING + BR_ORING + SP_ORING),
     "  rear plug / seat ring / front plug: %.1f / %.1f / %.1f cm3" % (rp.Volume / 1000, sr.Volume / 1000, fp.Volume / 1000),
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
@@ -514,13 +547,13 @@ torus = lambda rc, cs, z: Part.makeTorus(rc, cs / 2, V(0, 0, z), Z)
 orings = G.fuse_all([
     torus(ch_root_r + CH_ORING[1] / 2, CH_ORING[1], rp_groove_z[0] + GROOVE_W * CH_ORING[1] / 2),
     torus(ch_root_r + CH_ORING[1] / 2, CH_ORING[1], fp_groove_z[1] - GROOVE_W * CH_ORING[1] / 2),
-    torus(br_root_r - BR_ORING[1] / 2, BR_ORING[1], sr_groove_z[0] + GROOVE_W * BR_ORING[1] / 2),
+    torus(sp_root_r + SP_ORING[1] / 2, SP_ORING[1], z_spg2 - GROOVE_W * SP_ORING[1] / 2),
     torus(br_root_r - BR_ORING[1] / 2, BR_ORING[1], fp_bgroove_z[1] - GROOVE_W * BR_ORING[1] / 2),
 ])
 fitting = G.push_in_fitting(0, 0, 0)
 fitting.rotate(V(0, 0, 0), X, 180)
 fitting.translate(V(0, 0, z_rp))
-ball = Part.makeSphere(BARREL_ID / 2, V(0, 0, z_sh + math.sqrt((BARREL_ID / 2) ** 2 - seat_r ** 2) - 0.0))
+ball = Part.makeSphere(BARREL_ID / 2, V(0, 0, z_sp + math.sqrt((BARREL_ID / 2) ** 2 - (SP_BORE / 2) ** 2)))   # on the spigot's tip
 
 # ---------------------------------------------------------------- document
 if not STAGE3V4_LIBRARY:

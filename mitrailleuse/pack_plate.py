@@ -4,7 +4,7 @@ Negative of the pack layouts: a flat plate (outline = the layout's red contour
 + WALL) with a Ø25.4 hole per barrel (barrel Ø25 coaxial with the Ø38 tube), for 256 x 256 beds. A plate wider than the
 bed is cut at x = 0 into two halves, joined by straps: a bar with two Ø3.8 pegs
 that go into Ø4 holes drilled in the web between barrel holes on either side.
-For the v4.3 module (module/stage3v4_coaxial_chamber.py) each barrel also gets its two M3 tie-rod
+For the v4.3+ module (module/stage3v4_coaxial_chamber.py) each barrel also gets its two M3 tie-rod
 holes (R21.5 at 30 / 210 deg, all modules turned the same way); the outline grows to take them.
 Run inside FreeCAD (the layouts come from pack_layouts.py; LAYERS = 0.2 mm layers, default 8):
     REPO = '/Users/<you>/ratling'
