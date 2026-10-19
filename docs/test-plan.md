@@ -165,3 +165,25 @@ same rest. Measure:
 The sleeve's safe length (215 mm) assumes 0.1 mm play in its 25 mm socket,
 0.2 mm of bow, and up to 5 mrad of sideways scatter as the ball leaves the
 barrel; that last figure is a guess, and this test is what checks it.
+
+---
+
+## Stage 3 v4.4 — charge time and the quiet dump
+
+*Test article: `module/stage3v4_coaxial_chamber.py`* (bleed Ø1.0, as v1.1) — the
+mitrailleuse's distributor (`mitrailleuse/mitrailleuse_concepts.py`, concept A)
+charges a module only shortly before it fires, and its dump valve empties the
+charged ones without firing them. Both rest on numbers to check:
+
+1. **Charge time.** Pilot from 0 to 2 bar through a valve, no ball; time how
+   long until a shot is as strong as a fully charged one (a gauge on the
+   chamber if one fits, otherwise velocity or penetration against the delay
+   between charging and venting: 0.2, 0.3, 0.5, 1 s). The sketch takes 0.5 s
+   (the v1.1 bench); its rate (~3.5 shots/s, two barrels charged ahead)
+   scales with it.
+2. **Quiet dump.** Charge the module, shut the supply, then vent the pilot
+   line through a Ø0.5 jet instead of opening it. The module must not fire:
+   the chamber should empty back through the bleed in ~5 s with no pop at the
+   muzzle (ball in place, pointed safely). Repeat with Ø0.7 and Ø1.0 to find
+   where it starts to fire; the model says Ø1.0 still holds with two modules
+   on the jet but not with one, so the jet in the sketch is Ø0.5.

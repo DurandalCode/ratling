@@ -87,7 +87,8 @@ for tag, group, _, _ in VARIANTS[:2]:
                                                    "_Modules_barrel", "_Carry_handle", "_Carry_posts")])
     snap("%s_rear_open" % tag, (0.55, 0.70, -0.45))
     keep = ("Port_stator", "Rotor", "Rotor_shaft", "Reduction_gears", "Layshaft", "Clutch", "Crank_shaft",
-            "Crank_arm", "Crank_knob", "Trigger", "Trigger_rod", "Rear_grip", "Flex_shaft_input", "Pilot_hoses")
+            "Crank_arm", "Crank_knob", "Trigger", "Trigger_rod", "Rear_grip", "Flex_shaft_input", "Pilot_hoses",
+            "Detent_wheel", "Detent_plunger", "Dump_valve", "Dump_key", "Supply_hose")
     sc.show_only([group], hide=[o.Name for o in sc.groups[group].Group
                                 if o.Name[len(tag) + 1:] not in keep])
     snap("%s_drive" % tag, (0.55, 0.70, -0.45), 900)

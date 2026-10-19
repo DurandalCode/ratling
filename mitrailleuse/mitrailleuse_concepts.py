@@ -21,19 +21,27 @@ A. "Montigny": the pack stands still between a front and a rear plate on
    fixed stator with one port per barrel on one circle (a hose from each
    module's pilot fitting to its port) and a rotor turning on its rear face.
    The rotor carries a vent port, through to the air, and a charge slot fed
-   with supply from the centre, one pitch ahead: a module's pilot (and so
-   its chamber, through the bleed) is fed only while it is the next to
+   with supply from the centre, ahead of it: a module's pilot (and so its
+   chamber, through the bleed) is fed only while it is among the next to
    fire, then held sealed, then vented, and it fires. A charged chamber can
-   only be emptied by firing it, so at most one barrel (CHARGE_AHEAD) is
-   charged at any time, also when the gun stops. The ports are evenly
+   only be emptied by firing it, so at most CHARGE_AHEAD barrels (2) are
+   charged at any time, also when the gun stops; the charge slot spans
+   them. The ports are evenly
    spaced, so the shots are; the rotor and stator are per pack (16 or 19).
    Drive: side crank -> 1:1 bevel -> layshaft -> 5:1 spur pair -> dog
    clutch -> rotor shaft: a crank turn fires 1/5 of the volley (3.2 or 3.8
    shots). The trigger on the rear grip pushes the clutch in; let go, a
    spring parts it and the crank turns idle, so it fires only with the
-   crank turning and the trigger held. The rate is set by the chamber's
-   charge through the module's Ø0.8 bleed (~1 s to 90 %), printed in the
-   report. Carried at its centre of
+   crank turning and the trigger held. A detent wheel on the rotor shaft
+   parks the rotor with a port under the vent, so every charged barrel sits
+   under the charge slot. A dump valve with a key on the inlet shuts the
+   supply and vents the head through a Ø0.5 jet: the charged chambers empty
+   back through their bleeds without firing, since the pilot never falls
+   far enough below the chamber to lift the diaphragm (checked in the
+   report; to be confirmed on the bench). The rate is set by the chamber's
+   charge through the module's Ø1.0 bleed (~0.5 s on the v1.1 bench) and by
+   how many barrels charge at once (CHARGE_AHEAD, 2: ~3.5 shots/s), printed
+   in the report. Carried at its centre of
    gravity (mid-pack, ~280 mm ahead of the rear grip): the top handle sits
    over it, with sling eyes either side on a band round the rails and a
    tripod pad under it, so longer barrels move the supports, not a
@@ -224,12 +232,16 @@ PORT_D, PORT_SEAL_D = 3.0, 7.0              # stator port, its face O-ring 4 x 1
 VENT_D = 4.0                                # rotor's vent port, through to the back
 GEAR = 5.0                                  # crank turns per rotor turn: 1/5 of the volley per crank turn
 GEAR_C = 45.0                               # layshaft (crank side) above the rotor shaft
-CHARGE_AHEAD = 1                            # barrels charged ahead of the one firing
-BLEED_D = 0.8                               # module v4.4's bleed hole (stage3v4_coaxial_chamber.py)
+CHARGE_AHEAD = 2                            # barrels charged ahead of the one firing (and left charged when it stops)
+BLEED_D = 1.0                               # module v4.4's bleed hole (stage3v4_coaxial_chamber.py), as v1.1's
+T_FILL = 0.5                                # s, chamber charged on the v1.1 bench (Ø1.0, 100 cm3); None: the model's
 CHAMBER_CM3, P_WORK = 100.0, 2.0            # module chamber, working pressure (bar gauge)
+POCKET_D, SEAT_D = 31.0, 16.0               # module v4.4: pilot acts on the diaphragm, chamber outside the seat
+DUMP_JET = 0.5                              # the dump valve vents the head through this: slow enough not to fire
 COMMON_A = ("Rails", "Head_body", "Head_spider", "Rotor_shaft", "Reduction_gears", "Layshaft", "Clutch",
             "Gear_plate", "Bevel_box", "Crank_shaft", "Crank_arm", "Crank_knob", "Rear_frame", "Rear_grip",
-            "Supply_hose", "Flex_shaft_input", "Trigger", "Trigger_rod", "Rear_casing")
+            "Supply_hose", "Flex_shaft_input", "Trigger", "Trigger_rod", "Rear_casing", "Dump_valve", "Dump_key",
+            "Detent_plunger")
 FV.STYLES["swap"] = ((0.85, 0.30, 0.50), 30)
 
 
@@ -250,9 +262,11 @@ def distributor(n, z_s0, z_s1, z_r0, z_r1, ahead=None):
     slot_len = pitch * ahead - PORT_SEAL_D                   # along the circle
     a_mid = pitch_a * (1 + ahead) / 2
     a0, a1 = (a_mid + sx * math.degrees(slot_len / 2 / CORE_R_A) for sx in (-1, 1))
-    steps = max(int((a1 - a0) / 1.0), 1)
-    slot = G.fuse_all([cyl(PORT_D, z_r1 - 2, z_r1 + 0.01, *polar(CORE_R_A, a0 + (a1 - a0) * i / steps))
-                       for i in range(steps + 1)])
+    h, r0, r1 = 2.01, CORE_R_A - PORT_D / 2, CORE_R_A + PORT_D / 2
+    slot = Part.makeCylinder(r1, h, V(0, 0, z_r1 - 2), Z, a1 - a0).cut(
+        Part.makeCylinder(r0, h + 2, V(0, 0, z_r1 - 3), Z, a1 - a0))
+    slot.rotate(V(0, 0, 0), Z, a0)
+    slot = slot.fuse([cyl(PORT_D, z_r1 - 2, z_r1 + 0.01, *polar(CORE_R_A, a)) for a in (a0, a1)])
     feed = rod(PORT_D, (0, 0, z_r1 - 1), polar(CORE_R_A, (a0 + a1) / 2) + (z_r1 - 1,))
     return stator, rotor.cut(slot).cut(feed), slot_len, pitch
 
@@ -271,6 +285,33 @@ def fill_time(frac=0.9, d=BLEED_D, v=CHAMBER_CM3, pg=P_WORK, cd=0.65):
         p += m * R * T / V * dt
         t += dt
     return t
+
+
+def orifice(p0, p1, d, cd=0.65):
+    """kg/s of air through an orifice of d mm, p0 -> p1 Pa absolute."""
+    R, T, k = 287.0, 293.0, 1.4
+    A, r = math.pi * (d / 1000) ** 2 / 4, p1 / p0
+    if r <= (2 / (k + 1)) ** (k / (k - 1)):
+        return cd * A * p0 * math.sqrt(k / (R * T)) * (2 / (k + 1)) ** ((k + 1) / (2 * (k - 1)))
+    return cd * A * p0 * math.sqrt(2 * k / ((k - 1) * R * T) * (r ** (2 / k) - r ** ((k + 1) / k)))
+
+
+def drain(k, d_jet=DUMP_JET):
+    """k charged chambers emptied through their bleeds into the head, vented through d_jet (quasi-steady).
+
+    Returns (s to 0.05 bar, the lowest pilot / chamber gauge ratio): the valve stays shut while that ratio
+    stays over 1 - (seat / pocket)^2.
+    """
+    pa, pc, t, worst, V = 1.013e5, 1.013e5 + P_WORK * 1e5, 0.0, 1.0, CHAMBER_CM3 * 1e-6
+    while pc - pa > 0.05e5:
+        lo, hi = pa, pc
+        for _ in range(40):
+            mid = (lo + hi) / 2
+            lo, hi = (mid, hi) if k * orifice(pc, mid, BLEED_D) > orifice(mid, pa, d_jet) else (lo, mid)
+        worst = min(worst, (lo - pa) / (pc - pa))
+        pc -= orifice(pc, lo, BLEED_D) * 287.0 * 293.0 / V * 0.02
+        t += 0.02
+    return t, worst
 
 
 def concept_a(key):
@@ -320,7 +361,19 @@ def concept_a(key):
     p["Rear_frame"] = (box(-r_rail * 0.72, r_rail * 0.72, y_low - 6, y_low + 6, -215, z_h0)
                        .fuse(box(-14, 14, y_low, -30, -192, -188)), "frame")
     p["Rear_grip"] = (rear_grip(y_low, -200), "printed")
-    p["Supply_hose"] = (rod(8, (HEAD[1] + 12, 0, z_h0 + 15), (HEAD[1] + 87, -60, z_h0 - 60)), "hose")
+    # dump valve on the inlet, turned by a key: shuts the supply and vents the head through DUMP_JET, so the
+    # charged chambers (all under the charge slot, see the detent) empty back through their bleeds, unfired
+    xv = HEAD[1] + 12
+    p["Dump_valve"] = (box(xv, xv + 24, -9, 9, z_h0 + 6, z_h0 + 24), "steel")          # a small brass ball valve
+    p["Dump_key"] = (cyl(8, z_h0 - 12, z_h0 + 6, xv + 12, 0).fuse(box(xv + 2, xv + 22, -3, 3, z_h0 - 22, z_h0 - 12)),
+                     "oring")
+    p["Supply_hose"] = (rod(8, (xv + 24, 0, z_h0 + 15), (xv + 89, -60, z_h0 - 60)), "hose")
+    # detent: the rotor parks with a port under the vent, so every charged barrel is under the charge slot
+    wheel = cyl(50, -162, -156)
+    for k in range(n):
+        wheel = wheel.cut(cyl(6, -163, -155, *polar(25, 90 + 360.0 / n * k)))
+    p["Detent_wheel"] = (wheel, "swap")
+    p["Detent_plunger"] = (cyl(6, -162, -156, 0, 31).fuse(cyl(10, -163, -155, 0, 40)), "steel")
     z_tip = 310.7 + SLEEVE[2]
     p["Muzzle_sleeves"] = (G.fuse_all([tube(SLEEVE[0], SLEEVE[1], 314.7, z_tip, x, y) for x, y in pts]), "sleeve")
     p["Sleeve_band"] = (plate(key, 2 * R + 4, SLEEVE[0] + 0.4, z_tip - 30, z_tip - 26), "swap")
@@ -363,9 +416,16 @@ def rear_report(built):
     check(len(same) == len(COMMON_A), "A rear block: %d of %d parts the same at 16 and 19 (%s), %.0f g"
           % (len(same), len(COMMON_A), ", ".join(sorted(set(COMMON_A) - set(same))) or "all", rear_g))
     cut = math.ceil((max(max(L) for L in HOSES.values()) + HOSE_SLACK) / 10.0) * 10.0
-    t90 = fill_time(0.9)
-    print("      chamber %.0f cm3 to 90 %% of %.0f bar through the Ø%.1f bleed: %.2f s (Ø1.0: %.2f s, Ø1.5: %.2f s)"
-          % (CHAMBER_CM3, P_WORK, BLEED_D, t90, fill_time(0.9, 1.0), fill_time(0.9, 1.5)))
+    t_model = fill_time(0.9)
+    t90 = T_FILL or t_model
+    print("      chamber %.0f cm3 charged in %.2f s (%s); the orifice model, to 90 %% of %.0f bar through Ø%.1f: %.2f s"
+          " (Ø0.8: %.2f s; isothermal, Cd 0.65, so on the slow side)"
+          % (CHAMBER_CM3, t90, "bench" if T_FILL else "model", P_WORK, BLEED_D, t_model, fill_time(0.9, 0.8)))
+    shut = 1 - (SEAT_D / POCKET_D) ** 2
+    for k in range(1, CHARGE_AHEAD + 1):
+        t, worst = drain(k)
+        check(worst >= shut + 0.1, "dump through Ø%.1f, %d chamber(s) charged: pilot keeps >= %.2f of the chamber's"
+              " pressure (opens below %.2f), empty in %.0f s" % (DUMP_JET, k, worst, shut, t))
     for tag, key in (("A16", "j_rings_4_12"), ("A19", "g_hex_19")):
         n = len(LAYOUT[key])
         L = HOSES[key]
@@ -379,9 +439,9 @@ def rear_report(built):
         check(slot_len > 0 and open_frac > 0.5, "%s: charge slot %.1f mm, %d barrel(s) ahead, each charging for"
               " %.2f of a shot's interval" % (tag, slot_len, CHARGE_AHEAD, open_frac))
         shot = t90 / open_frac
-        print("      %s: <= %.1f shots/s (90 %% charge), %.1f s a volley; %.1f shots a crank turn, crank <= %.2f turns/s"
+        print("      %s: <= %.1f shots/s, %.1f s a volley; %.1f shots a crank turn, crank <= %.2f turns/s"
               % (tag, 1 / shot, n * shot, n / GEAR, 1 / shot / (n / GEAR)))
-        for k in (2, 3):
+        for k in sorted({1, 2, 3} - {CHARGE_AHEAD}):
             sl = pitch * k - PORT_SEAL_D
             print("      %s with %d ahead: <= %.1f shots/s, %.1f s a volley" % (tag, k, (sl + PORT_D) / pitch / t90,
                                                                          n * t90 / ((sl + PORT_D) / pitch)))
