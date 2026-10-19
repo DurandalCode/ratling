@@ -142,8 +142,9 @@ three ways, to choose how the mitrailleuse gets its length
 2. the same barrel with the muzzle sleeve (`muzzle_sleeve.stl`) in place of
    the muzzle ring: Ø30 bore 215 mm ahead of the barrel, four vents at its
    root, same rods and nuts;
-3. a 535 mm barrel: `OVERRIDE = {"BARREL_LEN": 535.0, "NAME": "stage3v4_long_barrel"}`,
-   muzzle ring on its end, rods 597 mm (the report gives the length).
+3. a 535 mm barrel: `OVERRIDE = {"BARREL_LEN": 535.0, "MUZZLE_CLAMP": True, "NAME": "stage3v4_long_barrel"}`,
+   held by the muzzle clamp (a collar on two M3 screws, over a wrap of tape)
+   300 mm from the shoulder; the rods stay 358 mm.
 
 Same pressure, same balls, at least 10 shots each, the module clamped in the
 same rest. Measure:
@@ -154,8 +155,9 @@ same rest. Measure:
 - the sleeve's bore after the shots: a marker line drawn along it shows any
   ball touching it;
 - the vents: no ball rubbing at their edges, no cracks at the slots;
-- the rods and nuts after the long barrel's shots: the barrel stays seated
-  on the muzzle ring's lip.
+- the clamp after the long barrel's shots: a mark on the barrel at the
+  clamp's face shows any slip; then slide the clamp off and check the bore
+  under it with a ball (it must pass as freely as elsewhere).
 
 The sleeve's safe length (215 mm) assumes 0.1 mm play in its 25 mm socket,
 0.2 mm of bow, and up to 5 mrad of sideways scatter as the ball leaves the

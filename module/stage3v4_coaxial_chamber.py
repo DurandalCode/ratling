@@ -109,8 +109,12 @@ Run inside FreeCAD:
     exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
 Bench test of the length (docs/test-plan.md, Stage 3 v4.4 length): the same module three ways, bare
 300 mm barrel, the muzzle sleeve on it, and a long barrel. The long barrel is a variant:
-    OVERRIDE = {"BARREL_LEN": 535.0, "NAME": "stage3v4_long_barrel"}
-before exec; the muzzle ring stays on its end and the rods grow with it (the report gives their length).
+    OVERRIDE = {"BARREL_LEN": 535.0, "MUZZLE_CLAMP": True, "NAME": "stage3v4_long_barrel"}
+before exec: the muzzle clamp stays 300 mm from the shoulder, so the rods are the same 358 mm for any barrel
+(the clamp's own rods; without MUZZLE_CLAMP the muzzle ring goes on the long barrel's end and the rods grow).
+    muzzle clamp (option, MUZZLE_CLAMP, in place of the muzzle ring): a collar squeezed on the barrel by two
+                  M3 x 12 across a split through its ear, over a wrap of tape. Wrap the tape, slide it on,
+                  rods and nuts as for the ring (the nuts set the seat ring's lip), then tighten the two screws.
 """
 
 import importlib
@@ -170,6 +174,17 @@ YOKE_T = 8.0                # rear and front yoke (the rear one spans the fittin
 YOKE_CLEAR = 0.2
 FITTING_HOLE_D = 16.5       # rear yoke, over the pilot fitting's hex (13 AF)
 MUZZLE_T, MUZZLE_CB = 8.0, 4.0                     # muzzle ring, its counterbore over the barrel's end
+# muzzle clamp (option, MUZZLE_CLAMP): the muzzle ring as a collar squeezed on the barrel by its own two M3
+# screws, CLAMP_AT from the barrel's shoulder whatever the barrel's length, so the rods stay the same and a
+# longer barrel runs through it. In a hex pack every gap holds a rod, so there is no room for a lug: the collar
+# is split through its ear at TIE_ANGLES[0] (that ear runs the collar's length) and the screws cross the split
+# tangentially between the bore and the rod. A wrap of tape (or thin rubber) lines it: grip, and an even
+# squeeze, so the 0.6 wall is not pinched oval (the ball fits the bore tight).
+MUZZLE_CLAMP = False
+CLAMP_AT, CLAMP_W = 300.0, 20.0
+CLAMP_LINER = 0.5           # tape round the barrel
+CLAMP_SCREW_R = 16.6        # the screws' axis off the barrel's axis
+CLAMP_SCREW_T, CLAMP_MU = 300.0, 0.4               # N per M3 screw in PETG (snug, not cranked), tape on steel
 # muzzle sleeve (option): bore, and how far ahead of the barrel's end; the socket locates it on the barrel
 SLEEVE_OD, SLEEVE_BORE, SLEEVE_LEN = 32.0, 30.0, 215.0
 SLEEVE_SOCKET, SLEEVE_CLEAR = 25.0, 0.1
@@ -423,23 +438,48 @@ front_yoke = tie_plate(CH_OD / 2, z_fs, z_fy1).cut(revolve(
      (fp_out_r + YOKE_CLEAR, z_fy1 + 1), (0, z_fy1 + 1)])).removeSplitter()
 z_m0 = z_sh + BARREL_LEN - MUZZLE_CB         # muzzle ring: the barrel's end in its counterbore
 z_m1 = z_m0 + MUZZLE_T
+z_c1 = z_sh + CLAMP_AT                       # muzzle clamp: its front face, the ears along it
+z_c0 = z_c1 - CLAMP_W
 muzzle_ring = tie_plate(BARREL_OD / 2 + YOKE_CLEAR + 2.0, z_m0, z_m1).cut(G.fuse_all([
     cyl(BARREL_OD + 2 * YOKE_CLEAR, z_m0 - 1, z_m0 + MUZZLE_CB),
     revolve([(0, z_m0), (BARREL_ID / 2 + 0.2, z_m0), (BARREL_ID / 2 + 0.2, z_m1 - 1.0), (BARREL_ID / 2 + 1.2, z_m1 + 0.01),
              (BARREL_ID / 2 + 1.2, z_m1 + 1), (0, z_m1 + 1)])])).removeSplitter()
 _stick = WASHER_T + NUT_T + 2.0              # washer, nut and a couple of threads past it
-z_rod0, z_rod1 = z_ry - _stick, z_m1 + _stick
+z_front = z_c1 if MUZZLE_CLAMP else z_m1     # the rods' front ear
+z_rod0, z_rod1 = z_ry - _stick, z_front + _stick
 tie_len = z_rod1 - z_rod0
 hardware = []
 for a in TIE_ANGLES:
     x, y = at(TIE_R, a)[:2]
     hardware.append(cyl(TIE_D, z_rod0, z_rod1, x, y))
-    for zf, sgn in ((z_ry, -1), (z_fy1, +1), (z_m1, +1)):          # washer on the ear, nut beyond it
+    for zf, sgn in ((z_ry, -1), (z_fy1, +1), (z_front, +1)):          # washer on the ear, nut beyond it
         zw = zf + sgn * WASHER_T
         hardware.append(cyl(WASHER_D, min(zf, zw), max(zf, zw), x, y).cut(cyl(TIE_HOLE, zf - 2, zf + 2, x, y)))
         zn = zw + sgn * NUT_T
         hardware.append(G.hex_prism(NUT_AF, min(zw, zn), max(zw, zn), x, y).cut(cyl(TIE_D, zw - 4, zw + 4, x, y)))
 hardware = G.fuse_all(hardware)
+
+# ---------------------------------------------------------------- muzzle clamp (option, in place of the muzzle ring)
+_cb_r = BARREL_OD / 2 + CLAMP_LINER + YOKE_CLEAR     # bore over the lined barrel
+_co_r = EAR_ROOT_R + 3.0
+_sa = TIE_ANGLES[0]
+_ear_long = hull_prism([(0, 0, EAR_ROOT_R), (*at(TIE_R, _sa)[:2], EAR_R)], z_c0, z_c1)
+_cuts = [Part.makeBox(TIE_R + EAR_R + 2, 1.2, CLAMP_W + 2, V(_cb_r - 1, -0.6, z_c0 - 1))]          # the split
+for zs in (z_c0 + 5, z_c1 - 5):
+    _cuts += [Part.makeCylinder(1.7, 30, V(CLAMP_SCREW_R, -15, zs), Y),                              # M3 x 12
+              Part.makeCylinder(3.1, 10, V(CLAMP_SCREW_R, -16, zs), Y),                              # head
+              Part.makeCylinder(3.4, 10, V(CLAMP_SCREW_R, 6, zs), Y)]                                # nut
+for c in _cuts:
+    c.rotate(V(0, 0, 0), Z, _sa)
+muzzle_clamp = G.fuse_all([tie_plate(_co_r, z_c1 - MUZZLE_T, z_c1), cyl(2 * _co_r, z_c0, z_c1), _ear_long]).cut(
+    G.fuse_all([cyl(2 * _cb_r, z_c0 - 1, z_c1 + 1)] + _cuts
+               + [cyl(TIE_HOLE, z_c0 - 1, z_c1 + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES])).removeSplitter()
+cl_walls = (CLAMP_SCREW_R - 1.7 - _cb_r, TIE_R - TIE_HOLE / 2 - CLAMP_SCREW_R - 1.7)   # screw hole to bore, to rod
+cl_liner = cyl(2 * (_cb_r - YOKE_CLEAR), z_c0, z_c1).cut(cyl(BARREL_OD, z_c0 - 1, z_c1 + 1))
+cl_hold = CLAMP_MU * 2 * math.pi * 2 * CLAMP_SCREW_T            # a split collar: normal force = 2 pi x screw tension
+cl_p = 2 * CLAMP_SCREW_T / ((BARREL_OD / 2) * CLAMP_W)          # MPa on the barrel, evened by the liner
+cl_hoop = cl_p * (BARREL_OD / 2) / BARREL_WALL
+_clfp = G.fuse_all([cyl(2 * _co_r, 0, 1)] + ears(0, 1) + [cyl(WASHER_D, 0, 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES])
 
 # ---------------------------------------------------------------- muzzle sleeve (option, in place of the muzzle ring)
 z_end = z_sh + BARREL_LEN
@@ -471,6 +511,7 @@ _nbrs = {"hex": [at(PACK_PITCH, 60 * k) for k in range(6)],
          "square": [at(PACK_PITCH * (math.sqrt(2) if k % 2 else 1), 45 * k) for k in range(8)]}
 pack_gap = {k: min(_fp2d.distToShape(_fp2d.translated(c))[0] for c in cs) for k, cs in _nbrs.items()}
 pack_grow = TIE_R + EAR_R - CH_OD / 2
+clamp_gap = min(_clfp.distToShape(_clfp.translated(c))[0] for c in _nbrs["hex"])
 
 # ---------------------------------------------------------------- tubes
 tube = lambda od, idd, z0, z1: cyl(od, z0, z1).cut(cyl(idd, z0 - 1, z1 + 1))
@@ -546,6 +587,18 @@ checks = [
     ("spigot O-ring stretch 0..6 %% (%.1f %%)" % (sp_stretch * 100), 0 <= sp_stretch <= 0.06),
     ("chamber %.0f cm3 within 3 %% of target" % chamber_v, abs(chamber_v - CHAMBER_V) <= 0.03 * CHAMBER_V),
     ("barrel longer than the chamber", z_sh + BARREL_LEN >= z_fp_end + 20),
+    ("muzzle clamp: screw holes %.1f mm off the bore, %.1f off the rod hole" % cl_walls, min(cl_walls) >= 1.0),
+    ("muzzle clamp valid single solid, clear of the barrel's liner, the rods and the nuts",
+     G.single_solid(muzzle_clamp) and G.no_overlap(muzzle_clamp, cl_liner)
+     and (G.no_overlap(muzzle_clamp, hardware) if MUZZLE_CLAMP else True)),
+    ("muzzle clamp holds >= 3 x the seat ring's push (%.0f N vs %.0f N at %.0f bar; 2 x M3 at %.0f N, mu %.1f)"
+     % (cl_hold, F_ring, P_MAX_BAR, CLAMP_SCREW_T, CLAMP_MU), cl_hold >= 3 * F_ring),
+    ("muzzle clamp squeezes the barrel at %.1f MPa: hoop %.0f MPa << yield, under the long-tube collapse %.1f MPa"
+     % (cl_p, cl_hoop, 2 * 200e3 / 0.91 * (BARREL_WALL / BARREL_OD) ** 3),
+     cl_hoop <= 60 and cl_p <= 0.5 * 2 * 200e3 / 0.91 * (BARREL_WALL / BARREL_OD) ** 3),
+    ("muzzle clamp: on the barrel%s, >= %.1f mm off its neighbours' in a hex pack (%.1f)"
+     % (" (runs %.0f mm past it)" % (BARREL_LEN - CLAMP_AT) if BARREL_LEN > CLAMP_AT else "", PACK_CLEAR, clamp_gap),
+     CLAMP_AT <= BARREL_LEN and z_c0 >= z_fy1 + WASHER_T + NUT_T + 2.0 and clamp_gap >= PACK_CLEAR),
     ("muzzle sleeve valid single solid, clear of the barrel, the rods and the nuts",
      G.single_solid(muzzle_sleeve) and G.no_overlap(muzzle_sleeve, barrel) and G.no_overlap(muzzle_sleeve, hardware)),
     ("muzzle sleeve: ball %.1f mm off its bore, %.0f mm ahead of the barrel <= safe %.0f (socket %.0f mrad, exit %.0f mrad)"
@@ -589,6 +642,10 @@ report = [
     "  yokes, muzzle ring     : rear yoke %.0f thick behind the rear plug (hole Ø%.1f for the fitting), front yoke %.0f"
     " on the front plug's flange, muzzle ring %.0f (counterbore %.0f over the barrel's end)"
     % (YOKE_T, FITTING_HOLE_D, YOKE_T, MUZZLE_T, MUZZLE_CB - 0),
+    "  muzzle clamp (option)  : collar %.0f long at %.0f from the shoulder, Ø%.1f bore over %.1f mm of tape, split"
+    " through its ear at %.0f deg, 2 x M3 x 12 across it; holds %.0f N, squeezes %.1f MPa%s"
+    % (CLAMP_W, CLAMP_AT, 2 * _cb_r, CLAMP_LINER, _sa, cl_hold, cl_p,
+       ", in the model" if MUZZLE_CLAMP else ""),
     "  muzzle sleeve (option) : Ø%.0f, bore Ø%.0f, %.0f mm ahead of the barrel (overall %.0f), socket %.0f over the"
     " barrel, %d vents %.0f x %.0f; %.1f cm3; the same rods"
     % (SLEEVE_OD, SLEEVE_BORE, SLEEVE_LEN, z_sl1 - z_sl0, SLEEVE_SOCKET, SLEEVE_VENTS[0], SLEEVE_VENTS[1],
@@ -624,7 +681,8 @@ if not STAGE3V4_LIBRARY:
     doc = sc.doc
     for n, s, style in (("Rear_plug", rp, "stator"), ("Seat_ring", sr, "rotor"), ("Diaphragm", diaphragm, "shoe"),
                         ("Front_plug", fp, "stator"), ("Rear_yoke", rear_yoke, "stator"),
-                        ("Front_yoke", front_yoke, "stator"), ("Muzzle_ring", muzzle_ring, "stator")):
+                        ("Front_yoke", front_yoke, "stator"),
+                        ("Muzzle_ring", muzzle_clamp if MUZZLE_CLAMP else muzzle_ring, "stator")):
         sc.add("Printed", n, s, style)
     for n, s, style in (("Barrel_tube", barrel, "ghost"), ("Chamber_tube", chamber, "ghost"),
                         ("ORings", orings, "oring"), ("Pilot_fitting", fitting, "steel"), ("Ball", ball, "flow"),
@@ -649,10 +707,15 @@ if not STAGE3V4_LIBRARY:
     ]:
         sc.label("Labels", text, pos)
     sc.add("Sleeve_option", "Muzzle_sleeve", muzzle_sleeve, "stator")
+    if MUZZLE_CLAMP:
+        sc.add("Bought", "Clamp_liner", cl_liner, "shoe")
+    else:
+        sc.add("Clamp_option", "Muzzle_clamp", muzzle_clamp, "stator")
+        sc.add("Clamp_option", "Clamp_liner", cl_liner, "shoe")
     sc.label("Labels", "ДУЛЬНАЯ НАСАДКА (вместо кольца, скрыта)", (40, 0, z_sl1))
     sc.add("Jig", "Jig_guide", jig_guide, "stator", offset=V(-3 * CH_OD, 0, z_rp))
     sc.label("Labels", "ШАБЛОН для сверления мембраны", (-3 * CH_OD, 0, z_rp + 15))
-    sc.finish(hidden_groups=("Section", "Sleeve_option"), opaque_groups=("Section",))
+    sc.finish(hidden_groups=("Section", "Sleeve_option", "Clamp_option"), opaque_groups=("Section",))
     doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
     import MeshPart
@@ -669,6 +732,7 @@ if not STAGE3V4_LIBRARY:
     for n, s, flip in (("rear_plug", rp, False), ("seat_ring", sr, False), ("front_plug", fp, True),
                        ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("rear_yoke", rear_yoke, False), ("front_yoke", front_yoke, False),
                        ("muzzle_ring", muzzle_ring, True), ("muzzle_sleeve", muzzle_sleeve, False),
+                       ("muzzle_clamp", muzzle_clamp, True),
                        ("oring_cone", oring_cone, True)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
