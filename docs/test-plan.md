@@ -179,7 +179,7 @@ charged ones without firing them. Both rest on numbers to check:
    long until a shot is as strong as a fully charged one (a gauge on the
    chamber if one fits, otherwise velocity or penetration against the delay
    between charging and venting: 0.2, 0.3, 0.5, 1 s). The sketch takes 0.5 s
-   (the v1.1 bench); its rate (~3.5 shots/s, two barrels charged ahead)
+   (the v1.1 bench); its rate (~3.1 shots/s, two barrels charged ahead)
    scales with it.
 2. **Quiet dump.** Charge the module through a tyre valve core (pressed),
    let the core go, shut the supply, then vent the supply line through a
@@ -189,3 +189,37 @@ charged ones without firing them. Both rest on numbers to check:
    muzzle (ball in place, pointed safely). Repeat with Ø0.7 and Ø1.0 to find
    where it starts to fire; the model says Ø1.0 still holds with two modules
    on the jet but not with one, so the jet in the sketch is Ø0.5.
+
+## Mitrailleuse head, bench B — one barrel on a hand slider
+
+*Test article: `mitrailleuse/head_bench.py`* with a v4.4 module: one port of
+concept A's firing head (two tyre valve cores, pushers with return springs,
+the printed channels) and the rotor's cam laid flat on a slider that clicks
+into six stops. Supply on the block's side through a tee with the dump valve
+(G1/8 ball valve into a plug drilled Ø0.5), pilot from the top to the
+module's pilot port (4 mm hose, ~110 mm as in the gun), gauge on the end.
+
+0. **Set the pins.** Slider at "ждёт", no air: slide each pin up to the
+   core's pin, back off 0.5 mm (a feeler), tighten the grub screw. Push the
+   slider by hand to where each core starts to hiss (supply on, module off)
+   and note the pin travel: the cam gives 1.5 mm, the cores open at ~1.2
+   (typical) and must not bottom before 1.8.
+1. **Hold.** 2 bar, slider at "ждёт": the gauge stays at 0 (the charge core
+   holds the supply). At "зарядка": the gauge rises to the supply; soap
+   round the charge pin (its O-ring) and the block's faces.
+2. **Charge time.** Hold the slider at a "зарядка" stop for 0.2, 0.3, 0.5,
+   1 s, then push straight through to "сброс": compare the shots (velocity
+   or penetration). The rotor charges each barrel ~1.55 shot intervals.
+3. **Both shut.** Charge, stop at "оба закрыты" for 10 s: the gauge holds
+   and the module does not fire; then "сброс" fires it.
+4. **Snap.** From "оба закрыты" to "сброс": the module must fire as
+   cleanly as from a 2/2 valve on the bench (v1.1). If it is soft, the
+   vent core or the Ø4 exhaust is too small, or the pilot volume (block
+   0.4 cm3 + hose 0.5 cm3) too large.
+5. **Quiet dump.** Charge, stop at "оба закрыты", shut the supply and open
+   the dump valve: the gauge falls over ~5 s and the module does not fire
+   (as above, now through the real head).
+6. **Pressure.** 1-5 repeated at 3 and 4 bar (the rotor's limit is 4 bar
+   working).
+7. **Life.** 500 strokes "ждёт" -> "выстрелил" and back with a module
+   on, then 1 again: no leak at the cores or the O-ring.

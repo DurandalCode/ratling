@@ -36,14 +36,15 @@ A. "Montigny": the pack stands still between a front and a rear plate on
    shots). The trigger on the rear grip pushes the clutch in; let go, a
    spring parts it and the crank turns idle, so it fires only with the
    crank turning and the trigger held. A ratchet detent on the rotor shaft
-   parks the rotor with the band's edges between ports, so every charged
-   barrel sits under the slot, and lets it turn forward only. A dump valve
+   parks the rotor with every pusher off the ramps and lets it turn forward
+   only (it is too weak to finish a step against the pushers: the clutch has
+   to let go only at a step, to be drawn; docs/rotor.md). A dump valve
    with a key on the inlet shuts the supply and vents the head through a Ø0.5 jet: the charged chambers empty
    back through their bleeds without firing, since the pilot never falls
    far enough below the chamber to lift the diaphragm (checked in the
    report; to be confirmed on the bench). The rate is set by the chamber's
    charge through the module's Ø1.0 bleed (~0.5 s on the v1.1 bench) and by
-   how many barrels charge at once (CHARGE_AHEAD, 2: ~3.9 shots/s), printed
+   how many barrels charge at once (CHARGE_AHEAD, 2: ~3.1 shots/s), printed
    in the report. Carried at its centre of
    gravity (mid-pack, ~280 mm ahead of the rear grip): the top handle sits
    over it, with sling eyes either side on a band round the rails and a
@@ -59,7 +60,7 @@ A. "Montigny": the pack stands still between a front and a rear plate on
    box, crank, flexible shaft input, rear frame, grip, trigger, supply and
    casing are the same parts. Per pack only its plates (front, rear, sleeve
    band), the hoses, and the distributor's stator and rotor change; both
-   sit in the head body's bore on the same R 45 port circle. All hoses are
+   sit in the head body's bore, the cores on the same R 42 / R 60 circles. All hoses are
    cut to one length (the longest + 20, ~110 mm). Prints [OK ] / [FAIL]
    checks for this.
 
@@ -407,13 +408,13 @@ def concept_a(key):
                        .fuse(box(-14, 14, y_low, -30, -192, -188)), "frame")
     p["Rear_grip"] = (rear_grip(y_low, -200), "printed")
     # dump valve on the inlet, turned by a key: shuts the supply and vents the head through DUMP_JET, so the
-    # charged chambers (all under the charge slot, see the detent) empty back through their bleeds, unfired
+    # charged chambers (the AHEAD ones under the charge arc) empty back through their bleeds, unfired
     xv = HEAD[1] + 12
     p["Dump_valve"] = (box(xv, xv + 24, -9, 9, z_h0 + 6, z_h0 + 24), "steel")          # a small brass ball valve
     p["Dump_key"] = (cyl(8, z_h0 - 12, z_h0 + 6, xv + 12, 0).fuse(box(xv + 2, xv + 22, -3, 3, z_h0 - 22, z_h0 - 12)),
                      "oring")
     p["Supply_hose"] = (rod(8, (xv + 24, 0, z_h0 + 15), (xv + 89, -60, z_h0 - 60)), "hose")
-    # ratchet detent (in distributor()): parks the rotor with the band's edges between ports, forward only
+    # ratchet detent (in distributor()): parks the rotor with the pushers off the ramps, forward only
     p["Detent_plunger"] = (cyl(6, z_face - 28, z_face - 22, 0, 31).fuse(cyl(10, z_face - 29, z_face - 21, 0, 40)),
                            "steel")
     z_tip = 310.7 + SLEEVE[2]
