@@ -127,6 +127,10 @@ MODULE_PARTS = ((106.5, 160.7), (122.3, 106.5), (31.8, 138.8), (31.9, -15.0), (9
 TIE_R = 21.5
 TURNS = {"j_rings_4_12": ((4, 0.0), (12, 40.0))}    # rods per ring, off the module's radius (docs/pack.md)
 RAIL = (12.0, 1.0)                  # aluminium tube
+# A's frame, drawn for real in pack_frame.py: rails on R 104 (clear of every yoke ear at 16 and 19), the rear
+# plate round the rear plugs (the rear yokes' ears on its back), the front plate round the front plugs' flanges
+A_RAIL_R = 104.0
+A_PLATES = ((-29.2, -19.2), (230.2, 240.2))
 CRANK_R = 70.0
 X_OFF = 420.0                       # variants side by side along x
 
@@ -361,11 +365,11 @@ def concept_a(key):
     pts, m = modules(key)
     n = len(pts)
     R = REAR_R
-    r_rail = R + 10
+    r_rail = A_RAIL_R
     p = {}
-    p["Front_plate"] = (plate(key, 2 * R + 12, 25.4, 268, 276), "swap")
-    p["Rear_plate"] = (plate(key, 2 * R + 12, 38.4, 2, 10), "swap")
-    p["Rails"] = (rails(r_rail, -150, 290), "alu")
+    p["Front_plate"] = (plate(key, 2 * R + 12, 38.6, *A_PLATES[1]), "swap")
+    p["Rear_plate"] = (plate(key, 2 * R + 12, 38.6, *A_PLATES[0]), "swap")
+    p["Rails"] = (rails(r_rail, -150, A_PLATES[1][1]), "alu")
     z_face, z_h1 = -143.0, -112.0
     z_h0 = z_face
     # head: a fixed body (inlet, mounts) round the distributor; the supply comes in through the body and a
