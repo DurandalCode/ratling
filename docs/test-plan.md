@@ -223,3 +223,32 @@ module's pilot port (4 mm hose, ~110 mm as in the gun), gauge on the end.
    working).
 7. **Life.** 500 strokes "ждёт" -> "выстрелил" and back with a module
    on, then 1 again: no leak at the cores or the O-ring.
+
+## Mitrailleuse head, bench C — the rotor on three ports, by crank
+
+*Test article: `mitrailleuse/rotor_bench.py`*: the 16-barrel rotor turning
+under a three-port sector of the core block, cranked through 5:1. The
+trigger's lever holds a Ø4 steel pin in the stop disc's notches; the
+pinion slips on the layshaft between rubber washers while the rotor is
+stopped. Do bench B first: the pushers and cores are set the same way.
+
+0. **Slip.** No cores. Trigger held, crank: the rotor turns. Let go: it
+   stops and the crank slips. Set the nut so it does not slip while
+   turning, and read the slipping force at the knob with a spring scale
+   (the model: 6 N; turning a full 16-port head takes up to 4.6 N).
+1. **Stop on a step.** Let the trigger go at random points, 50 times, slow
+   and fast: the rotor must stop with every pusher either fully up or
+   fully down (mark the pins), never on a ramp. Note if the pin ever
+   fails to drop in at full crank speed (~1 turn/s).
+2. **Pushers.** Cores in, gaps set as on bench B, 2 bar, plugs or gauges
+   on the three pilots. Step the crank: each pilot rises two steps ahead
+   and drops on its vent step, in order 0, 1, 2.
+3. **Crank force.** Spring scale on the knob while turning, at 2 and 4
+   bar: the most it takes, against the model's (three ports here, scale to
+   16).
+4. **Thrust.** Nothing rubs or tilts: the rotor stays clear of the posts
+   and the block does not lift on its four screws.
+5. **Firing.** A v4.4 module on port 0: hold the trigger, crank, it fires
+   on its step; let go before it, it does not.
+6. **Life.** 1000 steps by crank with stops in between; then 1 and 2
+   again.
