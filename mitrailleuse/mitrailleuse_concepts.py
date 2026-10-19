@@ -28,8 +28,9 @@ A. "Montigny": the pack stands still between a front and a rear plate on
    counterweight. The rear grip carries the trigger and only aims; a printed
    casing covers the head and the hoses. The crank may go to the second crew
    member through a flexible shaft into the back of the bevel box. Printed
-   sleeves on the muzzles (Ø28 x 0.8, bore Ø26.4 over the Ø23.8 ball), tied
-   by a thin band near their tips, bring it to OVERALL_A for the look.
+   sleeves on the muzzles (Ø32, bore Ø30, 215 mm ahead of the barrels; the
+   module's muzzle sleeve option), tied by a thin band near their tips,
+   bring it to ~780 mm for the look.
 
 B. "Gatling": the pack itself turns. Front and rear rotor plates; the rear
    one is the breech disc: each pilot goes straight into it (no hoses), with
@@ -86,9 +87,8 @@ MODULE_G = 350.0                    # v4.4 with a steel barrel, docs/weights.md
 DENSITY = {"printed": 0.6, "frame": 0.6, "rotor": 0.6, "stator": 0.6, "printed_solid": 1.27,
            "alu": 2.70, "steel": 7.85, "hose": 0.73, "oring": 1.3,
            "casing": 1.0, "sleeve": 1.27}   # g/cm3; hose: 4/2.5 PU as a solid Ø4; casing: a 2 mm printed shell
-# A: printed sleeves on the muzzles bring the gun to OVERALL_A for the look (no steel)
-OVERALL_A = 800.0
-SLEEVE = (28.0, 0.8)                # OD, wall: two perimeters, solid; bore Ø26.4 clears the Ø23.8 ball
+# A: printed muzzle sleeves for the look (no steel), as in the module (stage3v4_coaxial_chamber.py's option)
+SLEEVE = (32.0, 1.0, 215.0)         # OD, wall, length ahead of the barrel's end (310.7): bore Ø30, 3.1 mm round the ball
 # one v4.4 module along z (docs/weights.md): (g, z of its centre)
 MODULE_PARTS = ((106.5, 160.7), (122.3, 106.5), (31.8, 138.8), (31.9, -15.0), (9.0, 15.0), (17.2, 236.7),
                 (8.4, -33.2), (3.5, 244.2), (4.1, 310.7), (8.0, -38.2), (3.1, 140.0), (4.2, 100.0))
@@ -225,8 +225,7 @@ def concept_a(key):
                        .fuse(box(-14, 14, -r_rail * 0.72, -20, -205, -195)), "frame")
     p["Rear_grip"] = (rear_grip(-r_rail * 0.72, -190), "printed")
     p["Supply_hose"] = (rod(8, (CORE_R_A + 15, 0, z_h0 + 15), (CORE_R_A + 90, -60, z_h0 - 60)), "hose")
-    z_back = -250.0                                       # the flexible shaft's coupling, below
-    z_tip = z_back + OVERALL_A
+    z_tip = 310.7 + SLEEVE[2]
     p["Muzzle_sleeves"] = (G.fuse_all([tube(SLEEVE[0], SLEEVE[1], 314.7, z_tip, x, y) for x, y in pts]), "sleeve")
     p["Sleeve_band"] = (plate(key, 2 * R + 4, SLEEVE[0] + 0.4, z_tip - 30, z_tip - 26), "frame")
     # the second crew member may crank it instead, through a flexible shaft into the back of the bevel box
