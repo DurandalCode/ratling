@@ -38,7 +38,10 @@ WALL = 4.0
 HOLE_R = 12.7        # barrel Ø25 + 0.4, coaxial with the Ø38 module
 PEG_HOLE_R = 2.0
 TIE_R, TIE_ANGLES, TIE_HOLE_R = 21.5, (30.0, 210.0), 1.7   # v4.3: M3 rods, hole Ø3.4
-TARGETS = ("g_hex_19", "h_hex_37", "i_square_5x5_round")
+# ring layouts turn each module's rods off its own radius, one turn per ring (docs/pack.md):
+# key -> ((modules in ring, turn in deg), ...) in the layout's point order
+TIE_TURNS = {"j_rings_4_12": ((4, 0.0), (12, 40.0))}
+TARGETS = ("g_hex_19", "h_hex_37", "i_square_5x5_round", "j_rings_4_12")
 PEG_R = 1.85
 STRAP_W = 8.0
 STRAP_T = 1.0
@@ -53,15 +56,28 @@ def box(x0, y0, x1, y1, h):
     return Part.makeBox(x1 - x0, y1 - y0, h, V(x0, y0, 0))
 
 
-def rods(pts):
+def rod_angles(key, pts):
+    """Rod directions (deg) per module: fixed TIE_ANGLES, or the ring turn off the module's radius."""
+    if key not in TIE_TURNS:
+        return [TIE_ANGLES] * len(pts)
+    turns = [t for n, t in TIE_TURNS[key] for _ in range(n)]
+    assert len(turns) == len(pts), key
+    out = []
+    for (x, y), t in zip(pts, turns):
+        a = math.degrees(math.atan2(y, x)) + t
+        out.append((a, a + 180.0))
+    return out
+
+
+def rods(pts, key=None):
     return [(x + TIE_R * math.cos(math.radians(a)), y + TIE_R * math.sin(math.radians(a)))
-            for x, y in pts for a in TIE_ANGLES]
+            for (x, y), angs in zip(pts, rod_angles(key, pts)) for a in angs]
 
 
-def outline_solid(pts, kind):
+def outline_solid(key, pts, kind):
     x0, x1, y0, y1 = bbox(pts)
     if kind == "circle":
-        R = max(shroud_r(pts) + WALL, max(math.hypot(x, y) for x, y in rods(pts)) + TIE_HOLE_R + 3.0)
+        R = max(shroud_r(pts) + WALL, max(math.hypot(x, y) for x, y in rods(pts, key)) + TIE_HOLE_R + 3.0)
         s = cyl(0, 0, R, H)
         if 2 * R <= BED:                     # a full circle when it fits the bed
             return s
@@ -74,9 +90,9 @@ def outline_solid(pts, kind):
     return box(x0 - WALL, y0 - WALL, x1 + WALL, y1 + WALL, H)
 
 
-def free_pairs(pts, plate_solid, a_min=12, a_max=40):
+def free_pairs(key, pts, plate_solid, a_min=12, a_max=40):
     """Mirror pairs of peg-hole sites (-a, y), (a, y) in the web away from every hole."""
-    rd = rods(pts)
+    rd = rods(pts, key)
 
     def inside(x, y):
         return all(plate_solid.isInside(V(x + dx, y + dy, H / 2), 0.01, True)
@@ -109,16 +125,16 @@ def export(shape, name):
 
 
 def plate(key, pts, kind):
-    s = outline_solid(pts, kind)
+    s = outline_solid(key, pts, kind)
     for x, y in pts:
         s = s.cut(cyl(x, y, HOLE_R, H))
-    for x, y in rods(pts):
+    for x, y in rods(pts, key):
         s = s.cut(cyl(x, y, TIE_HOLE_R, H))
     x0, x1, y0, y1 = s.BoundBox.XMin, s.BoundBox.XMax, s.BoundBox.YMin, s.BoundBox.YMax
     if x1 - x0 <= BED:
         export(s, "plate_" + key)
         return "%s  %.0f x %.0f  one piece" % (key, x1 - x0, y1 - y0)
-    pairs = free_pairs(pts, s)
+    pairs = free_pairs(key, pts, s)
     picks = [pairs[0], pairs[len(pairs) // 2], pairs[-1]]
     for a, y in picks:
         for sx in (-a, a):
