@@ -129,3 +129,34 @@ Validate:
 - behavior over repeated selection cycles.
 
 Only after Stage 3 succeeds should the design be scaled toward the 25-channel target.
+
+---
+
+## Stage 3 v4.4 — barrel length and the muzzle sleeve
+
+*Test article: `module/stage3v4_coaxial_chamber.py`* — one v4.4 module, shot
+three ways, to choose how the mitrailleuse gets its length
+(`mitrailleuse/mitrailleuse_concepts.py`, concept A):
+
+1. bare 300 mm barrel, the muzzle ring as drawn (the reference);
+2. the same barrel with the muzzle sleeve (`muzzle_sleeve.stl`) in place of
+   the muzzle ring: Ø30 bore 215 mm ahead of the barrel, four vents at its
+   root, same rods and nuts;
+3. a 535 mm barrel: `OVERRIDE = {"BARREL_LEN": 535.0, "NAME": "stage3v4_long_barrel"}`,
+   muzzle ring on its end, rods 597 mm (the report gives the length).
+
+Same pressure, same balls, at least 10 shots each, the module clamped in the
+same rest. Measure:
+
+- the group at 5 m and at 10 m (centre and spread), against the bare barrel;
+- velocity, if a chronograph is at hand (otherwise penetration into a
+  repeatable target);
+- the sleeve's bore after the shots: a marker line drawn along it shows any
+  ball touching it;
+- the vents: no ball rubbing at their edges, no cracks at the slots;
+- the rods and nuts after the long barrel's shots: the barrel stays seated
+  on the muzzle ring's lip.
+
+The sleeve's safe length (215 mm) assumes 0.1 mm play in its 25 mm socket,
+0.2 mm of bow, and up to 5 mrad of sideways scatter as the ball leaves the
+barrel; that last figure is a guess, and this test is what checks it.

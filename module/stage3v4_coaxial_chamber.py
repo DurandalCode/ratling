@@ -87,6 +87,12 @@ Parts, each exported in its print orientation (lowest point at z = 0):
     front yoke .. a plate over the front plug's sleeve, seated on its 45 deg
                   flange, with the two rod ears.
     muzzle ring . on the barrel's front end (in a counterbore), with the two rod ears.
+    muzzle sleeve (option, in place of the muzzle ring; not in the module, a bench test for the
+                  mitrailleuse's length): the muzzle ring with a Ø32 sleeve SLEEVE_LEN ahead of the barrel,
+                  bore Ø30 (3.1 mm round the ball), the barrel's end on the same lip as in the ring, located
+                  in a SLEEVE_SOCKET socket behind it; four slots at its root let the air out, so it does
+                  not push the ball down the sleeve. Same rods and nuts. Socket end on the bed, a 45 deg
+                  skirt under the ears.
     diaphragm ... Ø31 disc of rubber sheet with one bleed hole (v4.1: no pin holes).
 
 Assembly (v4.4): no glue. Deburr the barrel's rear end inside. Pilot fitting into the rear plug. Diaphragm
@@ -101,6 +107,10 @@ plug (it does not take much: the lip sets the squeeze, the nuts only hold it the
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
     exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
+Bench test of the length (docs/test-plan.md, Stage 3 v4.4 length): the same module three ways, bare
+300 mm barrel, the muzzle sleeve on it, and a long barrel. The long barrel is a variant:
+    OVERRIDE = {"BARREL_LEN": 535.0, "NAME": "stage3v4_long_barrel"}
+before exec; the muzzle ring stays on its end and the rods grow with it (the report gives their length).
 """
 
 import importlib
@@ -160,6 +170,13 @@ YOKE_T = 8.0                # rear and front yoke (the rear one spans the fittin
 YOKE_CLEAR = 0.2
 FITTING_HOLE_D = 16.5       # rear yoke, over the pilot fitting's hex (13 AF)
 MUZZLE_T, MUZZLE_CB = 8.0, 4.0                     # muzzle ring, its counterbore over the barrel's end
+# muzzle sleeve (option): bore, and how far ahead of the barrel's end; the socket locates it on the barrel
+SLEEVE_OD, SLEEVE_BORE, SLEEVE_LEN = 32.0, 30.0, 215.0
+SLEEVE_SOCKET, SLEEVE_CLEAR = 25.0, 0.1
+SLEEVE_VENTS = (4, 6.0, 24.0, 75.0)                 # slots: count, width, length, first angle (between the rods)
+SLEEVE_BOW = 0.2                                    # a printed tube's own bow over its length
+BALL_EXIT_MRAD = 5.0                                # sideways scatter of the ball leaving the barrel: assumed, not measured
+BED_H = 256.0
 PACK_CLEAR = 0.5            # footprint to neighbours' footprints in a hex / square pack at PACK_PITCH
 
 # Valve
@@ -217,6 +234,15 @@ PACK_PITCH = 40.0
 # hole. Rubber on a scrap board, template on top, drill, cut round it.
 JIG_GUIDE_CLEAR = 0.15
 JIG_GUIDE_T = 3.0
+
+# Variants: set OVERRIDE = {"BARREL_LEN": 535.0, "NAME": "stage3v4_long_barrel"} before exec to replace any
+# parameter above (those derived from it below follow).
+try:
+    globals().update(OVERRIDE)
+except NameError:
+    pass
+if NAME != "stage3v4_coaxial_chamber":
+    OUT_DIR = os.path.join(REPO, "exports", NAME)
 
 # ---------------------------------------------------------------- derived
 X, Y, Z = App.Vector(1, 0, 0), App.Vector(0, 1, 0), App.Vector(0, 0, 1)
@@ -415,6 +441,30 @@ for a in TIE_ANGLES:
         hardware.append(G.hex_prism(NUT_AF, min(zw, zn), max(zw, zn), x, y).cut(cyl(TIE_D, zw - 4, zw + 4, x, y)))
 hardware = G.fuse_all(hardware)
 
+# ---------------------------------------------------------------- muzzle sleeve (option, in place of the muzzle ring)
+z_end = z_sh + BARREL_LEN
+z_sl0, z_sl1 = z_end - SLEEVE_SOCKET, z_end + SLEEVE_LEN
+_ear_out = TIE_R + EAR_R
+_skirt_h = _ear_out - SLEEVE_OD / 2                   # 45 deg under the ears, socket end down on the bed
+_skirt = Part.makeCone(SLEEVE_OD / 2, _ear_out, _skirt_h, V(0, 0, z_m0 - _skirt_h)).common(
+    G.fuse_all(ears(z_m0 - _skirt_h - 1, z_m0)))
+_lip_r = BARREL_ID / 2 + 0.2                          # the barrel's end lands on it, as in the muzzle ring
+_flare_end = z_end + 1.5 + (SLEEVE_BORE / 2 - _lip_r)
+_vents = []
+for k in range(SLEEVE_VENTS[0]):
+    v = Part.makeBox(SLEEVE_OD, SLEEVE_VENTS[1], SLEEVE_VENTS[2], V(0, -SLEEVE_VENTS[1] / 2, z_m1 + 1.0))
+    v.rotate(V(0, 0, 0), Z, SLEEVE_VENTS[3] + 360.0 / SLEEVE_VENTS[0] * k)
+    _vents.append(v)
+muzzle_sleeve = G.fuse_all([cyl(SLEEVE_OD, z_sl0, z_sl1), tie_plate(SLEEVE_OD / 2, z_m0, z_m1), _skirt]).cut(G.fuse_all(
+    [cyl(BARREL_OD + 2 * SLEEVE_CLEAR, z_sl0 - 1, z_end),
+     revolve([(0, z_end - 0.01), (_lip_r, z_end - 0.01), (_lip_r, z_end + 1.5), (SLEEVE_BORE / 2, _flare_end),
+               (SLEEVE_BORE / 2, z_sl1 + 1), (0, z_sl1 + 1)])]
+    + [cyl(TIE_HOLE, z_m0 - _skirt_h - 2, z_m1 + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES] + _vents)).removeSplitter()
+sl_gap = (SLEEVE_BORE - BARREL_ID) / 2
+sl_tilt = 2 * SLEEVE_CLEAR / SLEEVE_SOCKET * 1000     # mrad, the socket's play
+sl_safe = (sl_gap - SLEEVE_CLEAR - SLEEVE_BOW) / ((sl_tilt + BALL_EXIT_MRAD) / 1000)
+sl_vent_a = SLEEVE_VENTS[0] * SLEEVE_VENTS[1] * SLEEVE_VENTS[2]
+
 # pack footprint: tube, ears, washers and nuts, against the neighbours' in a hex and a square pack
 _fp2d = G.fuse_all([cyl(CH_OD, 0, 1)] + ears(0, 1) + [cyl(WASHER_D, 0, 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES])
 _nbrs = {"hex": [at(PACK_PITCH, 60 * k) for k in range(6)],
@@ -496,6 +546,14 @@ checks = [
     ("spigot O-ring stretch 0..6 %% (%.1f %%)" % (sp_stretch * 100), 0 <= sp_stretch <= 0.06),
     ("chamber %.0f cm3 within 3 %% of target" % chamber_v, abs(chamber_v - CHAMBER_V) <= 0.03 * CHAMBER_V),
     ("barrel longer than the chamber", z_sh + BARREL_LEN >= z_fp_end + 20),
+    ("muzzle sleeve valid single solid, clear of the barrel, the rods and the nuts",
+     G.single_solid(muzzle_sleeve) and G.no_overlap(muzzle_sleeve, barrel) and G.no_overlap(muzzle_sleeve, hardware)),
+    ("muzzle sleeve: ball %.1f mm off its bore, %.0f mm ahead of the barrel <= safe %.0f (socket %.0f mrad, exit %.0f mrad)"
+     % (sl_gap, SLEEVE_LEN, sl_safe, sl_tilt, BALL_EXIT_MRAD), sl_gap >= 3.0 and SLEEVE_LEN <= sl_safe),
+    ("muzzle sleeve: vents %.0f mm2 >= the bore %.0f" % (sl_vent_a, area(BARREL_ID)), sl_vent_a >= area(BARREL_ID)),
+    ("muzzle sleeve prints standing, %.0f mm on a %.0f bed" % (z_sl1 - z_sl0, BED_H), z_sl1 - z_sl0 <= BED_H - 6),
+    ("muzzle sleeve clear of the front yoke's nuts, Ø%.0f in a pack at pitch %.0f" % (SLEEVE_OD, PACK_PITCH),
+     z_m0 - _skirt_h >= z_fy1 + WASHER_T + NUT_T + 2.0 and SLEEVE_OD <= PACK_PITCH - 4.0),
     ("plugs no wider than the chamber tube (the O-ring cone goes over them)",
      max(rp.BoundBox.XMax, fp.BoundBox.XMax) <= CH_OD / 2 + 1e-6),
     ("drilling template valid single solid", G.single_solid(jig_guide)),
@@ -531,6 +589,10 @@ report = [
     "  yokes, muzzle ring     : rear yoke %.0f thick behind the rear plug (hole Ø%.1f for the fitting), front yoke %.0f"
     " on the front plug's flange, muzzle ring %.0f (counterbore %.0f over the barrel's end)"
     % (YOKE_T, FITTING_HOLE_D, YOKE_T, MUZZLE_T, MUZZLE_CB - 0),
+    "  muzzle sleeve (option) : Ø%.0f, bore Ø%.0f, %.0f mm ahead of the barrel (overall %.0f), socket %.0f over the"
+    " barrel, %d vents %.0f x %.0f; %.1f cm3; the same rods"
+    % (SLEEVE_OD, SLEEVE_BORE, SLEEVE_LEN, z_sl1 - z_sl0, SLEEVE_SOCKET, SLEEVE_VENTS[0], SLEEVE_VENTS[1],
+       SLEEVE_VENTS[2], muzzle_sleeve.Volume / 1000),
     "  pack                   : pitch %.0f unchanged, each rod alone in its gap of a hex pack; %.1f mm to the"
     " neighbours (hex), %.1f (square); the ears stand %.1f mm out of the Ø%.0f on the pack's edge"
     % (PACK_PITCH, pack_gap["hex"], pack_gap["square"], pack_grow, CH_OD),
@@ -586,9 +648,11 @@ if not STAGE3V4_LIBRARY:
         ("ДУЛЬНОЕ КОЛЬЦО", (40, 0, z_m1 + 5)),
     ]:
         sc.label("Labels", text, pos)
+    sc.add("Sleeve_option", "Muzzle_sleeve", muzzle_sleeve, "stator")
+    sc.label("Labels", "ДУЛЬНАЯ НАСАДКА (вместо кольца, скрыта)", (40, 0, z_sl1))
     sc.add("Jig", "Jig_guide", jig_guide, "stator", offset=V(-3 * CH_OD, 0, z_rp))
     sc.label("Labels", "ШАБЛОН для сверления мембраны", (-3 * CH_OD, 0, z_rp + 15))
-    sc.finish(hidden_groups=("Section",), opaque_groups=("Section",))
+    sc.finish(hidden_groups=("Section", "Sleeve_option"), opaque_groups=("Section",))
     doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
     import MeshPart
@@ -604,7 +668,7 @@ if not STAGE3V4_LIBRARY:
 
     for n, s, flip in (("rear_plug", rp, False), ("seat_ring", sr, False), ("front_plug", fp, True),
                        ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("rear_yoke", rear_yoke, False), ("front_yoke", front_yoke, False),
-                       ("muzzle_ring", muzzle_ring, True),
+                       ("muzzle_ring", muzzle_ring, True), ("muzzle_sleeve", muzzle_sleeve, False),
                        ("oring_cone", oring_cone, True)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
