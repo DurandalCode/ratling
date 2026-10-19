@@ -48,19 +48,29 @@ Agreed decisions and numbers: [docs/requirements.md](docs/requirements.md).
 
 ## Repository layout
 
-- `ratling/params.py` — all dimensions and the design checks; plain Python:
-  `python3 -m ratling.params`.
-- `ratling/geom.py`, `ratling/gears.py`, `ratling/fcview.py` — shared FreeCAD
-  geometry, bevel gears, and the way parts are shown.
-- `selector/stage1_interface.py`, `selector/stage2_rotary.py` — one generator
-  per test article; `connectors/` — hose and tube connectors.
-- `exports/` — generated STEP / STL / FCStd and reports; not in git.
+Which files are current, waiting for a test, frozen or superseded:
+[docs/status.md](docs/status.md) (in Russian). Notes for AI agents: [AGENTS.md](AGENTS.md).
+
+- `module/` — barrel modules with a quick-exhaust valve ("Stage 3" in file
+  names): `stage3v4_coaxial_chamber.py` (v4.4) is the mitrailleuse module,
+  `stage3_qev.py` (v1.1) the bench valve that the pistol uses.
+- `mitrailleuse/` — barrel pack layouts and pack plates (16 and 19 barrels).
+- `pistol/` — the six-barrel pistol; `pistol/build/` has its print and build
+  guide.
+- `selector/` — the rotary selector test articles (Stage 1, Stage 2);
+  `connectors/` — hose and tube connectors.
+- `ratling/params.py` — selector dimensions and design checks; plain Python:
+  `python3 -m ratling.params`. `ratling/geom.py`, `ratling/gears.py`,
+  `ratling/fcview.py` — shared FreeCAD geometry, bevel gears, and the way
+  parts are shown.
+- `tools/print_plate.py` — lays exported STLs on Bambu plates and slices them.
+- `exports/` — generated STEP / STL / FCStd / 3MF and reports; not in git.
 
 Generators run inside FreeCAD:
 
 ```python
 REPO = '/path/to/ratling'
-exec(open(REPO + '/selector/stage2_rotary.py').read())
+exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
 ```
 
 Each prints its report with the checks, opens the model (parts, bought
