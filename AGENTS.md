@@ -9,6 +9,9 @@
 какие заморожены или выброшены. В репо много версий одного и того же (`stage3_qev`, `stage3v2`,
 `stage3v3`, `stage3v4` …), и правка не того файла — самая частая потеря времени.
 
+**Задача трогает геометрию, STL или картинки модели?** Тогда понадобится FreeCAD 1.0.2. На
+облачной ВМ его нет: `sh tools/install_freecad.sh`, подробности в разделе «FreeCAD на облачной ВМ».
+
 ## Куда смотреть по теме
 
 | Тема | Живые файлы | Документ |
@@ -30,9 +33,8 @@
   exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
   ```
   Без FreeCAD работают: `python3 -m ratling.params`, `python3 mitrailleuse/pack_layouts.py`,
-  `tools/print_plate.py` (ему нужен Bambu Studio на macOS).
-  В облачной сессии FreeCAD обычно не стоит: геометрию проверяй отдельным расчётом на чистом
-  Python и честно пиши, что модель не собиралась.
+  `tools/print_plate.py` (ему нужен Bambu Studio на macOS). На облачной ВМ FreeCAD надо поставить: раздел
+  «FreeCAD на облачной ВМ» ниже.
 - Генератор печатает отчёт с проверками `[OK ]` / `[FAIL]`, открывает модель (группы: печать,
   покупное, справка, разрез) и пишет `exports/<NAME>/` (STEP, STL, FCStd). Есть `[FAIL]` —
   не печатать и не слайсить.
@@ -51,6 +53,32 @@
   `pack_layouts.py`. Меняешь шпильки или трубу камеры в v4.4 — поправь и их, и `docs/pack.md`.
 - Новая версия модуля обычно правит живой файл, а прошлые версии остаются абзацами в его
   докстринге («vX (kept below for history)»). Действует только верхняя версия.
+
+## FreeCAD на облачной ВМ
+
+На ВМ FreeCAD заранее не стоит, но ставится за минуту. Нужен он, если задача меняет геометрию
+(любой `.py` в `module/`, `mitrailleuse/pack_plate.py`, `pistol/`, `selector/`, `connectors/`),
+выгружает STL или рисует картинку. Для правок документов, `pack_layouts.py` и расчётов на
+бумаге он не нужен — не ставь его зря.
+
+```sh
+sh tools/install_freecad.sh          # FreeCAD 1.0.2 AppImage → /opt/freecad, ссылки в /usr/local/bin
+export LANG=C.UTF-8 LC_ALL=C.UTF-8    # обязательно: без UTF-8 падает на первом «Ø» в отчёте
+freecadcmd -c "REPO='$PWD'; exec(open('module/stage3v4_coaxial_chamber.py').read())"
+```
+
+- `freecadcmd` — без экрана: отчёт с проверками и `exports/<NAME>/` (STEP, STL, FCStd).
+  Модуль v4.4 собирается за ~5 с.
+- Картинка: генератору нужен GUI, на ВМ — через `xvfb-run` (стоит) и `tools/render_view.py`:
+  ```sh
+  xvfb-run -a -s "-screen 0 2560x1600x24" env LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+      SCRIPT=pistol/hammer_assembly.py OUT=exports/pistol.png VIEW=iso freecad tools/render_view.py
+  ```
+  Ошибки пишутся в `OUT.log`. Получившийся PNG смотри сам (инструмент Read показывает картинки),
+  прежде чем показывать пользователю.
+- Слайсинга на ВМ нет (Bambu Studio только у владельца на Mac): STL выгрузить можно, `.3mf` — нет.
+- Если FreeCAD не ставится (нет сети до github.com), проверяй геометрию отдельным расчётом на
+  чистом Python и прямо пиши, что модель не собиралась.
 
 ## Правила
 

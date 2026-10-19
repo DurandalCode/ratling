@@ -93,6 +93,7 @@
 | `selector/stage1_interface.py`, `selector/stage2_rotary.py` | заморожено | Поворотный селектор 1 → 25 (исходная тема репо, `README.md`, `docs/requirements.md`, `docs/concepts.md`, `docs/test-plan.md`). Не трогали с первого коммита; как он будет стрелять пилотами модулей v4.4 — не решено. |
 | `ratling/params.py`, `geom.py`, `gears.py`, `fcview.py` | библиотека | Общие функции FreeCAD. `params.py` — числа и проверки только для селектора; модули и пистолет держат свои числа у себя в начале файла. |
 | `connectors/tube_plug_v1.py` | заморожено | Пробка 6 мм шланг → трубка 25 мм. Посадка в PLA подтверждена; её сальник взят в `stage3_qev.py`. |
+| `tools/install_freecad.sh`, `tools/render_view.py` | **живое** | Установка FreeCAD 1.0.2 на облачную ВМ и рендер модели в PNG без экрана (`AGENTS.md`). |
 | `tools/print_plate.py` | **живое** | Раскладка STL по столам Bambu P2S и слайсинг. Используется всеми `*_plates.sh` и скиллом `/plates`. |
 
 ## Документы (`docs/`)

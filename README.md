@@ -1,103 +1,84 @@
 # Ratling
 
-Ratling is an experimental low-pressure pneumatic routing project.
+Многоствольная пневматика низкого давления: печатные детали на 3D-принтере плюс покупные трубы,
+уплотнения и фитинги. Все модели — параметрические скрипты FreeCAD на Python, с проверками
+геометрии и выгрузкой деталей сразу в ориентации для печати.
 
-The core idea is a mechanically indexed rotary selector that connects one common pneumatic input to exactly one of 25 stationary output channels at a time.
+![Шестиствольный пистолет, курковый вариант](docs/img/pistol.png)
 
-## Scope
+## Что сейчас делается
 
-This repository is intentionally focused only on the routing mechanism itself.
+Оба изделия стоят на одном стволе: стальная трубка 25 × 0.6 (внутри Ø23.8). Рабочее давление
+2 бар, детали считаются на 5 бар.
 
-It does **not** define or document an end application for the selector.
+**Митральеза** — пакет одинаковых модулей, у каждого своя камера и свой клапан. Делается в двух
+вариантах: 16 стволов кольцами 4 + 12 (около 5.6 кг) и 19 стволов сотами (около 6.7 кг).
+Модуль у них один и тот же, различается только плита, которая держит пакет. Сейчас идут эскизы
+компоновки.
 
-The project explores:
+![Плиты пакета: 16 стволов кольцами 4 + 12 и 19 стволов сотами](docs/img/pack_plates.png)
 
-- a stationary stator with 25 output channels;
-- a mechanically driven rotor;
-- one common pneumatic input;
-- indexed selection of exactly one output at a time;
-- low-pressure operation;
-- 3D-printable structural parts;
-- replaceable seals and standard pneumatic fittings;
-- mechanical crank-driven indexing;
-- compact channel packing;
-- comparison against an electronic valve-manifold architecture.
+**Модуль ствола v4.4** — ствол проходит внутри трубы камеры 38 × 1.5. Сзади стоит клапан с
+резиновой диафрагмой: пока на пилоте есть давление, диафрагма закрывает седло, а камера
+заряжается через дренажное отверстие. Стоит сбросить пилот, и камера одним рывком уходит в ствол.
+Модуль стянут двумя шпильками M3, клея и саморезов нет.
 
-## Design principles
+![Модуль v4.4, труба камеры прозрачная: дульное кольцо, передняя пробка, клапан сзади](docs/img/module_v44.png)
 
-1. Any pressure reservoir, regulator, safety device, hose, fitting, or other pressure-rated supply component should be an off-the-shelf rated part.
-2. Printed parts are used for geometry, support, indexing, and flow routing rather than stored-energy pressure vessels.
-3. The first prototype should be small and simple before scaling to 25 outputs.
-4. The mechanism should remain inspectable and serviceable.
-5. Seals, shafts, bearings, and fittings should be replaceable commodity parts where practical.
+**Пистолет «Наган»** — блок из шести стволов вращается вокруг камеры. Под большим пальцем
+курок-рычаг: он поворачивает блок и запирает ствол, а спуск сбрасывает пилот клапана v1.1.
+Есть полный гайд по печати и сборке: [pistol/build/README.md](pistol/build/README.md).
 
-## Current baseline concept
+### Чего ждём
 
-The simplest candidate is a single-track rotary selector:
+- Стендового теста клапана v1.1 вместе с плавающим уплотнением и вент-головкой. От него зависят
+  пистолет и следующая версия клапана, v1.3.
+- Трубок для v4.4, после них печать и тест модуля.
 
-- 25 stator ports arranged around one circular track;
-- one rotor passage aligned with one stator port at a time;
-- a rotor shaft driven by a side crank through a 1:1 bevel pair;
-- a detent/indexer providing 25 discrete angular positions;
-- a pulse valve opened by a cam on the rotor only while a port is aligned;
-- all hoses and output fittings remain stationary.
+Что из файлов живое, а что заморожено или осталось историей: [docs/status.md](docs/status.md).
 
-This design is intentionally geometry-inefficient but mechanically simple.
+## Как собрать модель
 
-Agreed decisions and numbers: [docs/requirements.md](docs/requirements.md).
-
-## Repository layout
-
-Which files are current, waiting for a test, frozen or superseded:
-[docs/status.md](docs/status.md) (in Russian). Notes for AI agents: [AGENTS.md](AGENTS.md).
-
-- `module/` — barrel modules with a quick-exhaust valve ("Stage 3" in file
-  names): `stage3v4_coaxial_chamber.py` (v4.4) is the mitrailleuse module,
-  `stage3_qev.py` (v1.1) the bench valve that the pistol uses.
-- `mitrailleuse/` — barrel pack layouts and pack plates (16 and 19 barrels).
-- `pistol/` — the six-barrel pistol; `pistol/build/` has its print and build
-  guide.
-- `selector/` — the rotary selector test articles (Stage 1, Stage 2);
-  `connectors/` — hose and tube connectors.
-- `ratling/params.py` — selector dimensions and design checks; plain Python:
-  `python3 -m ratling.params`. `ratling/geom.py`, `ratling/gears.py`,
-  `ratling/fcview.py` — shared FreeCAD geometry, bevel gears, and the way
-  parts are shown.
-- `tools/print_plate.py` — lays exported STLs on Bambu plates and slices them.
-- `exports/` — generated STEP / STL / FCStd / 3MF and reports; not in git.
-
-Generators run inside FreeCAD:
+Нужен FreeCAD 1.0. Генератор запускается из консоли FreeCAD:
 
 ```python
 REPO = '/path/to/ratling'
 exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
 ```
 
-Each prints its report with the checks, opens the model (parts, bought
-parts, references, section, labels as groups) and writes `exports/<name>/`.
-Printed parts are exported in their print orientation.
+Он печатает отчёт с проверками (`[OK ]` / `[FAIL]`), открывает модель и пишет STEP, STL и FCStd
+в `exports/<имя>/`. Без окна то же самое делает `freecadcmd -c "..."`. Папка `exports/` в git
+не хранится, её всегда можно собрать заново.
 
-## Alternatives
+Столы для Bambu P2S собирают скрипты `*_plates.sh` через `tools/print_plate.py`. Для этого нужен
+Bambu Studio на macOS. На Linux-машине без FreeCAD его ставит `sh tools/install_freecad.sh`,
+а картинку модели рисует `tools/render_view.py` (см. [AGENTS.md](AGENTS.md)).
 
-See [docs/concepts.md](docs/concepts.md) for the concepts currently under consideration.
+## Что где лежит
 
-## Prototype plan
+| Папка | Что там |
+|---|---|
+| `module/` | Модули ствола с клапаном быстрого сброса. Живые: `stage3v4_coaxial_chamber.py` (v4.4, митральеза) и `stage3_qev.py` (v1.1, стенд и пистолет). В именах файлов исторически стоит «stage3». |
+| `mitrailleuse/` | Раскладки пакета (`pack_layouts.py`) и плиты пакета (`pack_plate.py`). |
+| `pistol/` | Пистолет: механизм, облик, анимации; в `pistol/build/` печать и сборка. |
+| `selector/`, `ratling/`, `connectors/` | Поворотный селектор 1 → 25, с которого начинался проект (сейчас заморожен), общие функции FreeCAD, пробка для трубки 25 мм. |
+| `tools/` | Слайсинг столов, установка FreeCAD, рендер картинок. |
+| `docs/` | Статус модулей, раскладки пакета, вес, требования и концепты селектора. |
 
-Initial prototype target:
+## Документы
 
-- 4-6 outputs;
-- manual crank;
-- replaceable sealing interface;
-- standard fittings;
-- no downstream load required for initial routing/leak testing.
+- [docs/status.md](docs/status.md): что живое, что ждёт теста, что выброшено, и принятые решения.
+- [docs/pack.md](docs/pack.md): раскладки на 15–19 стволов и разворот шпилек.
+- [docs/weights.md](docs/weights.md): вес митральезы и пистолета, стальные и алюминиевые стволы.
+- [docs/requirements.md](docs/requirements.md), [docs/concepts.md](docs/concepts.md),
+  [docs/test-plan.md](docs/test-plan.md): требования, концепты и план испытаний селектора.
+- [AGENTS.md](AGENTS.md): заметки для ИИ-агентов.
 
-The prototype should validate:
+## Принципы
 
-- indexing repeatability;
-- sealing behavior;
-- friction and required crank torque;
-- leakage between adjacent channels;
-- wear over repeated cycles;
-- ease of assembly and maintenance.
-
-Once the basic mechanism is validated, the selector can be scaled and packing efficiency can be revisited.
+1. Всё, что держит давление «на складе» (ресивер, регулятор, предохранительный клапан, шланги,
+   фитинги), — покупное и рассчитано на своё давление.
+2. Печатные детали задают геометрию и каналы и держат только малые объёмы; стенки толстые,
+   заполнение 100 %.
+3. Уплотнения, оси, подшипники и фитинги — стандартные и заменяемые.
+4. Сначала маленький стенд, потом масштаб.
