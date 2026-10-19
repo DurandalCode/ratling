@@ -5,7 +5,8 @@ Ratling mitrailleuse concepts: pictures of mitrailleuse_concepts.py.
 Builds the four variants, then saves for each one a view from behind on the
 right (firing head or breech disc, crank), one from the front on the left,
 one from the muzzle and one from the right, plus all four side by side; for A
-also its rear block with the casing off (from behind, and the rear half alone). Writes
+also its rear block with the casing off (from behind, and the rear half alone)
+and its drive alone (distributor, gears, clutch, trigger). Writes
 exports/mitrailleuse_concepts/<tag>_<view>.jpg.
 
 Run inside FreeCAD (GUI):
@@ -85,6 +86,11 @@ for tag, group, _, _ in VARIANTS[:2]:
     sc.show_only([group], hide=[tag + n for n in ("_Rear_casing", "_Muzzle_sleeves", "_Sleeve_band", "_Front_plate",
                                                    "_Modules_barrel", "_Carry_handle", "_Carry_posts")])
     snap("%s_rear_open" % tag, (0.55, 0.70, -0.45))
+    keep = ("Port_stator", "Rotor", "Rotor_shaft", "Reduction_gears", "Layshaft", "Clutch", "Crank_shaft",
+            "Crank_arm", "Crank_knob", "Trigger", "Trigger_rod", "Rear_grip", "Flex_shaft_input", "Pilot_hoses")
+    sc.show_only([group], hide=[o.Name for o in sc.groups[group].Group
+                                if o.Name[len(tag) + 1:] not in keep])
+    snap("%s_drive" % tag, (0.55, 0.70, -0.45), 900)
 sc.show_only([g for _, g, _, _ in VARIANTS])
 snap("all_rear", VIEWS["rear"], 1600)
 print("renders written to", OUT)

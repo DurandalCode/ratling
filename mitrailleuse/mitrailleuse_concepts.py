@@ -17,11 +17,23 @@ Each module fires when its pilot is vented; the pilots are fed all the time
 through jets (as in stage4v2_schrader.py).
 
 A. "Montigny": the pack stands still between a front and a rear plate on
-   four aluminium rails. Behind it a firing head, a disc with one valve core
-   per barrel on one circle; a hose from each module's pilot fitting to its
-   core. A striker arm turns behind the head (side crank, 1:1 bevel): one
-   crank turn = one round of N shots. The supply goes into the head's ring
-   manifold, so nothing turns under pressure. Carried at its centre of
+   four aluminium rails. Behind it a firing head: a rotary distributor, a
+   fixed stator with one port per barrel on one circle (a hose from each
+   module's pilot fitting to its port) and a rotor turning on its rear face.
+   The rotor carries a vent port, through to the air, and a charge slot fed
+   with supply from the centre, one pitch ahead: a module's pilot (and so
+   its chamber, through the bleed) is fed only while it is the next to
+   fire, then held sealed, then vented, and it fires. A charged chamber can
+   only be emptied by firing it, so at most one barrel (CHARGE_AHEAD) is
+   charged at any time, also when the gun stops. The ports are evenly
+   spaced, so the shots are; the rotor and stator are per pack (16 or 19).
+   Drive: side crank -> 1:1 bevel -> layshaft -> 5:1 spur pair -> dog
+   clutch -> rotor shaft: a crank turn fires 1/5 of the volley (3.2 or 3.8
+   shots). The trigger on the rear grip pushes the clutch in; let go, a
+   spring parts it and the crank turns idle, so it fires only with the
+   crank turning and the trigger held. The rate is set by the chamber's
+   charge through the module's Ø0.8 bleed (~1 s to 90 %), printed in the
+   report. Carried at its centre of
    gravity (mid-pack, ~280 mm ahead of the rear grip): the top handle sits
    over it, with sling eyes either side on a band round the rails and a
    tripod pad under it, so longer barrels move the supports, not a
@@ -32,15 +44,13 @@ A. "Montigny": the pack stands still between a front and a rear plate on
    module's muzzle sleeve option), tied by a thin band near their tips,
    bring it to ~780 mm for the look.
    One rear block for 16 and 19: the frame is drawn round the larger pack
-   (19, R 99; 16 is R 96.3), so the rails, head body, striker, bevel box,
-   crank, flexible shaft input, rear frame, grip, trigger, supply and casing
-   are the same parts. Per pack only its plates (front, rear, sleeve band),
-   the hoses and a core cartridge change: a disc with N cores and N push-in
-   fittings that slides into the head body's bore on two O-rings, each core
-   fed by a radial jet from the body's ring channel. The striker runs on
-   the same circle (R 45) either way: 16 or 19 shots per crank turn. All
-   hoses are cut to one length (the longest + 20, ~110 mm). Prints [OK ] /
-   [FAIL] checks for this.
+   (19, R 99; 16 is R 96.3), so the rails, head body, gears, clutch, bevel
+   box, crank, flexible shaft input, rear frame, grip, trigger, supply and
+   casing are the same parts. Per pack only its plates (front, rear, sleeve
+   band), the hoses, and the distributor's stator and rotor change; both
+   sit in the head body's bore on the same R 45 port circle. All hoses are
+   cut to one length (the longest + 20, ~110 mm). Prints [OK ] / [FAIL]
+   checks for this.
 
 B. "Gatling": the pack itself turns. Front and rear rotor plates; the rear
    one is the breech disc: each pilot goes straight into it (no hoses), with
@@ -105,7 +115,7 @@ MODULE_PARTS = ((106.5, 160.7), (122.3, 106.5), (31.8, 138.8), (31.9, -15.0), (9
 TIE_R = 21.5
 TURNS = {"j_rings_4_12": ((4, 0.0), (12, 40.0))}    # rods per ring, off the module's radius (docs/pack.md)
 RAIL = (12.0, 1.0)                  # aluminium tube
-CORE_R_A = 45.0                     # A: cores on one circle in the firing head
+CORE_R_A = 45.0                     # A: distributor ports on one circle in the firing head
 CRANK_R = 70.0
 X_OFF = 420.0                       # variants side by side along x
 
@@ -202,21 +212,70 @@ def bevel_box(z0, z1, half):
 
 # ---------------------------------------------------------------- A: Montigny
 # One rear block for both packs: the frame is drawn round the larger pack (19, R 99; 16 is R 96.3),
-# so the rails, rear plate's rim, head, casing, grip and crank are the same parts at 16 and 19.
-# Only the pack's own plates, the hoses and the core cartridge in the head change (style "swap").
+# so the rails, head body, gears, clutch, crank, grip, trigger and casing are the same parts at 16 and 19.
+# Per pack (style "swap"): its plates, the hoses, and the distributor's stator and rotor, so that the
+# shots stay evenly spaced at either count.
 A_KEYS = ("j_rings_4_12", "g_hex_19")
 REAR_R = max(_ns["shroud_r"](LAYOUT[k]) for k in A_KEYS)
-HEAD = (CORE_R_A + 12.0, CORE_R_A + 22.0)   # head body: bore (the cartridge's rim), outside
+HEAD = (CORE_R_A + 12.0, CORE_R_A + 22.0)   # head body: bore (the stator's rim), outside
 HOSE_SLACK = 20.0                           # one hose length for every barrel at 16 and 19: the longest + this
-FITTING_D = 10.0                            # push-in fitting for the 4 mm hose on the cartridge's face
-COMMON_A = ("Rails", "Head_body", "Head_spider", "Striker_arm", "Striker_shaft", "Bevel_box", "Crank_shaft",
-            "Crank_arm", "Crank_knob", "Rear_frame", "Rear_grip", "Supply_hose", "Flex_shaft_input", "Trigger",
-            "Rear_casing")
+FITTING_D = 10.0                            # push-in fitting for the 4 mm hose on the stator's face
+PORT_D, PORT_SEAL_D = 3.0, 7.0              # stator port, its face O-ring 4 x 1.5 (OD) against the rotor
+VENT_D = 4.0                                # rotor's vent port, through to the back
+GEAR = 5.0                                  # crank turns per rotor turn: 1/5 of the volley per crank turn
+GEAR_C = 45.0                               # layshaft (crank side) above the rotor shaft
+CHARGE_AHEAD = 1                            # barrels charged ahead of the one firing
+BLEED_D = 0.8                               # module v4.4's bleed hole (stage3v4_coaxial_chamber.py)
+CHAMBER_CM3, P_WORK = 100.0, 2.0            # module chamber, working pressure (bar gauge)
+COMMON_A = ("Rails", "Head_body", "Head_spider", "Rotor_shaft", "Reduction_gears", "Layshaft", "Clutch",
+            "Gear_plate", "Bevel_box", "Crank_shaft", "Crank_arm", "Crank_knob", "Rear_frame", "Rear_grip",
+            "Supply_hose", "Flex_shaft_input", "Trigger", "Trigger_rod", "Rear_casing")
 FV.STYLES["swap"] = ((0.85, 0.30, 0.50), 30)
+
+
+def distributor(n, z_s0, z_s1, z_r0, z_r1, ahead=None):
+    """Stator (ports on CORE_R_A, at 0 deg first) and rotor for n barrels.
+
+    The rotor is drawn at the moment barrel 0 fires: its vent port over port 0, and its charge slot,
+    fed from the centre, over the next CHARGE_AHEAD ports in the turning direction (+angle). The slot
+    is as long as it can be without bridging two ports, so each barrel charges for most of a pitch.
+    """
+    pitch_a = 360.0 / n
+    pitch = 2 * CORE_R_A * math.sin(math.pi / n)
+    stator = cyl(2 * HEAD[0] - 0.4, z_s0, z_s1)
+    for k in range(n):
+        stator = stator.cut(cyl(PORT_D, z_s0 - 1, z_s1 + 1, *polar(CORE_R_A, pitch_a * k)))
+    rotor = cyl(2 * HEAD[0] - 8, z_r0, z_r1).cut(cyl(VENT_D, z_r0 - 1, z_r1 + 1, CORE_R_A, 0))
+    ahead = CHARGE_AHEAD if ahead is None else ahead
+    slot_len = pitch * ahead - PORT_SEAL_D                   # along the circle
+    a_mid = pitch_a * (1 + ahead) / 2
+    a0, a1 = (a_mid + sx * math.degrees(slot_len / 2 / CORE_R_A) for sx in (-1, 1))
+    steps = max(int((a1 - a0) / 1.0), 1)
+    slot = G.fuse_all([cyl(PORT_D, z_r1 - 2, z_r1 + 0.01, *polar(CORE_R_A, a0 + (a1 - a0) * i / steps))
+                       for i in range(steps + 1)])
+    feed = rod(PORT_D, (0, 0, z_r1 - 1), polar(CORE_R_A, (a0 + a1) / 2) + (z_r1 - 1,))
+    return stator, rotor.cut(slot).cut(feed), slot_len, pitch
+
+
+def fill_time(frac=0.9, d=BLEED_D, v=CHAMBER_CM3, pg=P_WORK, cd=0.65):
+    """s to fill a module's chamber to frac of pg through its bleed hole (isothermal, orifice flow)."""
+    R, T, k = 287.0, 293.0, 1.4
+    A, V, p0, p = math.pi * (d / 1000) ** 2 / 4, v * 1e-6, 1.013e5 + pg * 1e5, 1.013e5
+    t, dt = 0.0, 1e-4
+    while p < 1.013e5 + frac * pg * 1e5:
+        r = p / p0
+        if r <= (2 / (k + 1)) ** (k / (k - 1)):
+            m = cd * A * p0 * math.sqrt(k / (R * T)) * (2 / (k + 1)) ** ((k + 1) / (2 * (k - 1)))
+        else:
+            m = cd * A * p0 * math.sqrt(2 * k / ((k - 1) * R * T) * (r ** (2 / k) - r ** ((k + 1) / k)))
+        p += m * R * T / V * dt
+        t += dt
+    return t
 
 
 def concept_a(key):
     pts, m = modules(key)
+    n = len(pts)
     R = REAR_R
     r_rail = R + 10
     p = {}
@@ -224,45 +283,53 @@ def concept_a(key):
     p["Rear_plate"] = (plate(key, 2 * R + 12, 38.4, 2, 10), "swap")
     p["Rails"] = (rails(r_rail, -150, 290), "alu")
     z_h0, z_h1 = -150.0, -120.0
-    # head: a fixed body (supply ring channel, inlet, mounts) round a core cartridge, one per pack, that
-    # slides into its bore on two O-rings; each core's jet is a radial hole from the body's ring channel
+    # head: a fixed body (inlet, mounts) round the distributor; the supply comes in through the body and a
+    # radial hole in the stator to its centre, where the rotor's charge slot picks it up
     p["Head_body"] = (tube(2 * HEAD[1], HEAD[1] - HEAD[0], z_h0, z_h1)
                       .fuse(rod(16, (HEAD[1] - 2, 0, z_h0 + 15), (HEAD[1] + 12, 0, z_h0 + 15))), "rotor")
     spider = G.fuse_all([rod(14, polar(HEAD[1] - 2, a) + (z_h0 + 12,), polar(r_rail, a) + (z_h0 + 12,))
                          for a in (45, 135, 225, 315)])
     p["Head_spider"] = (spider, "frame")
-    # cores on one circle, in the modules' angular order
+    # stator ports in the modules' angular order, one hose each to its pilot fitting
+    stator, rotor, _, _ = distributor(n, -140.0, z_h1, -149.0, -141.0)
     ang = [math.degrees(math.atan2(y, x)) % 360.0 for x, y in pts]
-    order = sorted(range(len(pts)), key=lambda i: (ang[i], math.hypot(*pts[i])))
-    cores, fittings, hoses, lengths = [], [], [], []
+    order = sorted(range(n), key=lambda i: (ang[i], math.hypot(*pts[i])))
+    a_first = ang[order[0]]
+    fittings, hoses, lengths = [], [], []
     for k, i in enumerate(order):
-        cx, cy = polar(CORE_R_A, ang[order[0]] + 360.0 / len(pts) * k)
-        cores.append(cyl(6, z_h0 - 6, z_h0, cx, cy))
+        cx, cy = polar(CORE_R_A, a_first + 360.0 / n * k)
         fittings.append(cyl(FITTING_D, z_h1, z_h1 + 8, cx, cy))
         a, b = V(pts[i][0], pts[i][1], -47.2), V(cx, cy, z_h1 + 8)
         hoses.append(rod(4, a, b))
         lengths.append((a - b).Length)
-    p["Core_cartridge"] = (cyl(2 * HEAD[0] - 0.4, z_h0, z_h1).fuse(G.fuse_all(fittings)), "swap")
-    p["Valve_cores"] = (G.fuse_all(cores), "steel")
+    for s in (stator, rotor):
+        s.rotate(V(0, 0, 0), Z, a_first)
+    p["Port_stator"] = (stator.fuse(G.fuse_all(fittings)), "swap")
+    p["Rotor"] = (rotor, "swap")
     p["Pilot_hoses"] = (G.fuse_all(hoses), "hose")
-    arm = box(-6, 6, 0, CORE_R_A + 8, z_h0 - 16, z_h0 - 8).fuse(cyl(10, z_h0 - 16, z_h0 - 8, 0, CORE_R_A))
-    p["Striker_arm"] = (arm, "steel")
-    p["Striker_shaft"] = (cyl(8, -200, z_h0), "steel")
-    p["Bevel_box"] = (bevel_box(-205, -170, 22), "frame")
-    sh, ca, kn = crank(-188, 42)
+    # drive: crank -> 1:1 bevel -> layshaft -> 5:1 spur pair -> dog clutch (trigger) -> rotor shaft
+    p["Rotor_shaft"] = (cyl(10, -200, -149), "steel")
+    p["Reduction_gears"] = (cyl(75, -186, -180).fuse(cyl(15, -186, -180, 0, GEAR_C)), "printed")
+    p["Layshaft"] = (cyl(10, -215, -176, 0, GEAR_C), "steel")
+    p["Clutch"] = (cyl(26, -177, -167), "steel")
+    p["Gear_plate"] = (box(-50, 50, -30, GEAR_C + 15, -192, -188), "frame")
+    p["Bevel_box"] = (box(-42, 22, GEAR_C - 22, GEAR_C + 22, -225, -195), "frame")
+    sh, ca, kn = crank(-210, 42, GEAR_C)
     p["Crank_shaft"], p["Crank_arm"], p["Crank_knob"] = (sh, "steel"), (ca, "steel"), (kn, "printed")
-    p["Rear_frame"] = (box(-r_rail * 0.72, r_rail * 0.72, -r_rail * 0.72 - 6, -r_rail * 0.72 + 6, -205, z_h0)
-                       .fuse(box(-14, 14, -r_rail * 0.72, -20, -205, -195)), "frame")
-    p["Rear_grip"] = (rear_grip(-r_rail * 0.72, -190), "printed")
+    y_low = -r_rail * 0.72
+    p["Rear_frame"] = (box(-r_rail * 0.72, r_rail * 0.72, y_low - 6, y_low + 6, -215, z_h0)
+                       .fuse(box(-14, 14, y_low, -30, -192, -188)), "frame")
+    p["Rear_grip"] = (rear_grip(y_low, -200), "printed")
     p["Supply_hose"] = (rod(8, (HEAD[1] + 12, 0, z_h0 + 15), (HEAD[1] + 87, -60, z_h0 - 60)), "hose")
     z_tip = 310.7 + SLEEVE[2]
     p["Muzzle_sleeves"] = (G.fuse_all([tube(SLEEVE[0], SLEEVE[1], 314.7, z_tip, x, y) for x, y in pts]), "sleeve")
     p["Sleeve_band"] = (plate(key, 2 * R + 4, SLEEVE[0] + 0.4, z_tip - 30, z_tip - 26), "swap")
     # the second crew member may crank it instead, through a flexible shaft into the back of the bevel box
-    p["Flex_shaft_input"] = (cyl(12, -235, -205).fuse(cyl(22, -250, -235)), "steel")
-    y_low = -r_rail * 0.72
-    p["Trigger"] = (box(-3, 3, y_low - 30, y_low - 8, -168, -160), "steel")
-    p["Rear_casing"] = (tube(2 * r_rail + 20, 2.0, -215, -45), "casing")
+    p["Flex_shaft_input"] = (cyl(12, -245, -225, 0, GEAR_C).fuse(cyl(22, -260, -245, 0, GEAR_C)), "steel")
+    # trigger: pulled, it pushes the clutch's dogs into the big gear; released, a spring parts them
+    p["Trigger"] = (box(-3, 3, y_low - 30, y_low - 8, -176, -168), "steel")
+    p["Trigger_rod"] = (box(-2, 2, y_low - 8, -13, -174, -170).fuse(box(-15, 15, -17, -13, -174, -170)), "steel")
+    p["Rear_casing"] = (tube(2 * r_rail + 20, 2.0, -230, -45), "casing")
     # carried at the centre of gravity: top handle over it, sling eyes either side, tripod pad under it
     zc = cog(pts, p)
     pc, hg = carry_handle(r_rail * 0.72, zc - 80, zc + 80)
@@ -287,7 +354,7 @@ def check(ok, text):
 
 
 def rear_report(built):
-    """The A rear block is one set of parts for 16 and 19; what changes is listed."""
+    """The A rear block is one set of parts for 16 and 19; what changes is listed; the firing rate."""
     a16, a19 = built["A16"], built["A19"]
     same = [n for n in COMMON_A if abs(a16[n][0].Volume - a19[n][0].Volume) < 1e-3
             and (a16[n][0].BoundBox.Center - a19[n][0].BoundBox.Center).Length < 1e-3]
@@ -296,12 +363,28 @@ def rear_report(built):
     check(len(same) == len(COMMON_A), "A rear block: %d of %d parts the same at 16 and 19 (%s), %.0f g"
           % (len(same), len(COMMON_A), ", ".join(sorted(set(COMMON_A) - set(same))) or "all", rear_g))
     cut = math.ceil((max(max(L) for L in HOSES.values()) + HOSE_SLACK) / 10.0) * 10.0
+    t90 = fill_time(0.9)
+    print("      chamber %.0f cm3 to 90 %% of %.0f bar through the Ø%.1f bleed: %.2f s (Ø1.0: %.2f s, Ø1.5: %.2f s)"
+          % (CHAMBER_CM3, P_WORK, BLEED_D, t90, fill_time(0.9, 1.0), fill_time(0.9, 1.5)))
     for tag, key in (("A16", "j_rings_4_12"), ("A19", "g_hex_19")):
         n = len(LAYOUT[key])
         L = HOSES[key]
         pitch = 2 * CORE_R_A * math.sin(math.pi / n)
-        check(pitch >= FITTING_D + 2.0, "%s: %d cores on R %.0f, pitch %.1f mm (push-in fitting Ø%.0f + 2)"
+        slot_len = pitch * CHARGE_AHEAD - PORT_SEAL_D
+        check(pitch >= FITTING_D + 2.0, "%s: %d stator ports on R %.0f, pitch %.1f mm (push-in fitting Ø%.0f + 2)"
               % (tag, n, CORE_R_A, pitch, FITTING_D))
+        check(VENT_D + PORT_SEAL_D <= pitch - 2.0, "%s: vent Ø%.0f never bridges two port seals (Ø%.0f)"
+              % (tag, VENT_D, PORT_SEAL_D))
+        open_frac = (slot_len + PORT_D) / pitch                # shot intervals each barrel spends charging
+        check(slot_len > 0 and open_frac > 0.5, "%s: charge slot %.1f mm, %d barrel(s) ahead, each charging for"
+              " %.2f of a shot's interval" % (tag, slot_len, CHARGE_AHEAD, open_frac))
+        shot = t90 / open_frac
+        print("      %s: <= %.1f shots/s (90 %% charge), %.1f s a volley; %.1f shots a crank turn, crank <= %.2f turns/s"
+              % (tag, 1 / shot, n * shot, n / GEAR, 1 / shot / (n / GEAR)))
+        for k in (2, 3):
+            sl = pitch * k - PORT_SEAL_D
+            print("      %s with %d ahead: <= %.1f shots/s, %.1f s a volley" % (tag, k, (sl + PORT_D) / pitch / t90,
+                                                                         n * t90 / ((sl + PORT_D) / pitch)))
         print("      %s: hoses %.0f-%.0f mm straight, all cut to %.0f mm (%.1f m of 4 mm hose)"
               % (tag, min(L), max(L), cut, n * cut / 1000))
         r_out = _ns["shroud_r"](LAYOUT[key])
