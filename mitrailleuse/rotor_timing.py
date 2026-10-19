@@ -61,7 +61,8 @@ TOL = 0.4                       # +- in the chain rotor - pusher - core seat (pr
 NOSE = (12.0, 10.0, 1.0)        # sprung nose: preload N (> the core's force), rate N/mm, free stroke mm
 CORE_SPRING = 3.0               # N, a core's spring (typical)
 CORE_SEAL_D = 3.4               # its seat bore: pressure on it adds to the button force
-BUTTON_ORING_N = 2.0            # drag of the charge button's O-ring
+BUTTON_ORING_N = 2.0            # drag of the charge pusher's O-ring
+STEM_SEAL_D = STEM_D            # it seals on the stem: the pilot pushes the pusher back on this area
 MU_RAIL = 0.2                   # printed rail on a printed button dome, greased
 DETENT = (25.0, 10.0, 15.0)     # ratchet radius, plunger force N, ramp angle deg
 GEAR = 5.0                      # crank turns per rotor turn
@@ -83,15 +84,18 @@ def height(x, top):
     return 0.0
 
 
-def cams(n, ahead=AHEAD):
-    """The rotor for n barrels: pitches, rail lengths, ramp angles, timing, torque, rate."""
+def cams(n, ahead=AHEAD, p_bar=None):
+    """The rotor for n barrels: pitches, rail lengths, ramp angles, timing, torque, rate (at p_bar, MPa)."""
+    p_mpa = P_DESIGN if p_bar is None else p_bar / 10.0
     top_c = (CHARGE_TOP[0], ahead - CHARGE_TOP[0])
     pc, pv = 2 * math.pi * CHARGE_R / n, 2 * math.pi * VENT_R / n     # pitch along each circle, mm
-    f_core = CORE_SPRING + P_DESIGN * math.pi * CORE_SEAL_D ** 2 / 4
+    f_core = CORE_SPRING + p_mpa * math.pi * CORE_SEAL_D ** 2 / 4
+    f_seal = p_mpa * math.pi * STEM_SEAL_D ** 2 / 4           # pilot on the charge pusher's stem seal
     short = TRAVEL - CLEAR - TOL                            # the least the pin is pressed
     over = max(0.0, TRAVEL - CLEAR + TOL - PIN_MAX)         # the most the nose has to give
     f_ret = RETURN[0] + RETURN[1] * (TRAVEL - CLEAR)        # return spring, pusher fully in
     f_top = max(f_core, NOSE[0] + NOSE[1] * over) if over else f_core
+    nose_ok = NOSE[0] > f_core
     # torque over one pitch of turning: buttons climbing the ramps, and rail friction on those held down
     worst, steps = 0.0, 200
     for s in range(steps + 1):
@@ -99,15 +103,15 @@ def cams(n, ahead=AHEAD):
         tq = DETENT[1] * math.tan(math.radians(DETENT[2])) * DETENT[0]
         for j in range(-3, ahead + 3):
             x = j + 0.5 - t
-            for top, r, p, extra in ((top_c, CHARGE_R, pc, BUTTON_ORING_N), (VENT_TOP, VENT_R, pv, 0.0)):
+            for top, r, p, extra, seal in ((top_c, CHARGE_R, pc, BUTTON_ORING_N, f_seal), (VENT_TOP, VENT_R, pv, 0.0, 0.0)):
                 h = height(x, top)
                 slope = (height(x + 1e-3, top) - height(x - 1e-3, top)) / 2e-3 * TRAVEL / p   # dh/ds
                 if h <= 0.0:
                     continue                                # on its stop, off the cam
-                f = f_core * h + f_ret * h + extra
+                f = (f_core + f_ret + seal) * h + extra
                 # up a ramp: the cam pushes core, return spring and O-ring; down: the spring pushes the rotor
                 # on (taken as nothing); friction under every head on the cam
-                tq += r * (f * max(slope, 0.0) + MU_RAIL * (f_top * h + f_ret * h + extra))
+                tq += r * (f * max(slope, 0.0) + MU_RAIL * ((f_top + f_ret + seal) * h + extra))
         worst = max(worst, tq)
     charge = (top_c[1] - top_c[0]) + RAMP                   # intervals: top plus half of each ramp
     shut = (top_c[0] - RAMP) - (VENT_TOP[1] + RAMP)          # pitches with both cores shut
@@ -118,7 +122,7 @@ def cams(n, ahead=AHEAD):
                 + 2 * RAMP) * pv, ramp_c=math.degrees(math.atan(TRAVEL / (RAMP * pc))),
                 ramp_v=math.degrees(math.atan(TRAVEL / (RAMP * pv))), clear_v=pv - BUTTON_D,
                 clear_c=pc - BUTTON_D, charge=charge, shut=shut, shut_mm=shut * pv, on_ramp=on_ramp,
-                f_core=f_core, f_top=f_top, f_ret=f_ret, short=short, over=over, t_rotor=worst / 1000, f_crank=worst / 1000 / GEAR / CRANK_R * 1000,
+                f_core=f_core, f_top=f_top, f_ret=f_ret, f_seal=f_seal, nose_ok=nose_ok, short=short, over=over, t_rotor=worst / 1000, f_crank=worst / 1000 / GEAR / CRANK_R * 1000,
                 shot=shot, rate=1 / shot, volley=n * shot, per_turn=n / GEAR, crank_rate=1 / shot / (n / GEAR),
                 top_c=top_c)
 
@@ -213,6 +217,17 @@ def economics(n):
     return dict(cores=cores, bought=bought, rub=rub, extra=extra, per_volley=cores)
 
 
+def pressures(bars=(2, 3, 5, 7, 10)):
+    """What grows with the supply pressure: core force, the nose's margin, rotor torque, crank force."""
+    print("pressure: core force (nose preload %.0f N), charge pusher's stem seal, rotor torque / crank force"
+          % NOSE[0])
+    for b in bars:
+        k16, k19 = cams(16, p_bar=b), cams(19, p_bar=b)
+        print("  %4.1f bar: core %.1f N%s, seal %.1f N; 16: %.2f N m / %.1f N, 19: %.2f N m / %.1f N"
+              % (b, k16["f_core"], "" if k16["nose_ok"] else " (OVER the nose's preload)", k16["f_seal"],
+                 k16["t_rotor"], k16["f_crank"], k19["t_rotor"], k19["f_crank"]))
+
+
 def report():
     print("rotor: vent cores on R%.0f, charge cores on R%.0f, %d ahead, gear %.0f:1, charge %.2f s (bench)"
           % (VENT_R, CHARGE_R, AHEAD, GEAR, T_FILL))
@@ -238,6 +253,7 @@ def report():
 
 if __name__ == "__main__":
     report()
+    pressures()
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     svg(os.path.join(here, "docs", "img", "rotor_timing.svg"))
     print("docs/img/rotor_timing.svg written")
