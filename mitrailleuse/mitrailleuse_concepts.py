@@ -21,7 +21,13 @@ A. "Montigny": the pack stands still between a front and a rear plate on
    per barrel on one circle; a hose from each module's pilot fitting to its
    core. A striker arm turns behind the head (side crank, 1:1 bevel): one
    crank turn = one round of N shots. The supply goes into the head's ring
-   manifold, so nothing turns under pressure.
+   manifold, so nothing turns under pressure. Carried at its centre of
+   gravity (mid-pack, ~280 mm ahead of the rear grip): the top handle sits
+   over it, with sling eyes either side on a band round the rails and a
+   tripod pad under it, so longer barrels move the supports, not a
+   counterweight. The rear grip carries the trigger and only aims; a printed
+   casing covers the head and the hoses. The crank may go to the second crew
+   member through a flexible shaft into the back of the bevel box.
 
 B. "Gatling": the pack itself turns. Front and rear rotor plates; the rear
    one is the breech disc: each pilot goes straight into it (no hoses), with
@@ -71,11 +77,15 @@ NAME = "mitrailleuse_concepts"
 V = App.Vector
 Z = V(0, 0, 1)
 FV.STYLES.update({"alu": ((0.80, 0.82, 0.86), 0), "barrel": ((0.45, 0.46, 0.50), 0),
-                  "chamber": ((0.80, 0.82, 0.86), 45)})
+                  "chamber": ((0.80, 0.82, 0.86), 45), "casing": ((0.55, 0.45, 0.35), 70)})
 
 MODULE_G = 350.0                    # v4.4 with a steel barrel, docs/weights.md
 DENSITY = {"printed": 0.6, "frame": 0.6, "rotor": 0.6, "stator": 0.6, "printed_solid": 1.27,
-           "alu": 2.70, "steel": 7.85, "hose": 0.73, "oring": 1.3}   # g/cm3; hose: 4/2.5 PU as a solid Ø4
+           "alu": 2.70, "steel": 7.85, "hose": 0.73, "oring": 1.3,
+           "casing": 1.0}                   # g/cm3; hose: 4/2.5 PU as a solid Ø4; casing: a 2 mm printed shell
+# one v4.4 module along z (docs/weights.md): (g, z of its centre)
+MODULE_PARTS = ((106.5, 160.7), (122.3, 106.5), (31.8, 138.8), (31.9, -15.0), (9.0, 15.0), (17.2, 236.7),
+                (8.4, -33.2), (3.5, 244.2), (4.1, 310.7), (8.0, -38.2), (3.1, 140.0), (4.2, 100.0))
 TIE_R = 21.5
 TURNS = {"j_rings_4_12": ((4, 0.0), (12, 40.0))}    # rods per ring, off the module's radius (docs/pack.md)
 RAIL = (12.0, 1.0)                  # aluminium tube
@@ -207,11 +217,34 @@ def concept_a(key):
     p["Crank_shaft"], p["Crank_arm"], p["Crank_knob"] = (sh, "steel"), (ca, "steel"), (kn, "printed")
     p["Rear_frame"] = (box(-r_rail * 0.72, r_rail * 0.72, -r_rail * 0.72 - 6, -r_rail * 0.72 + 6, -205, z_h0)
                        .fuse(box(-14, 14, -r_rail * 0.72, -20, -205, -195)), "frame")
-    pc, hg = carry_handle(r_rail * 0.72, 30, 190)
-    p["Carry_posts"], p["Carry_handle"] = (pc, "frame"), (hg, "printed")
     p["Rear_grip"] = (rear_grip(-r_rail * 0.72, -190), "printed")
     p["Supply_hose"] = (rod(8, (CORE_R_A + 15, 0, z_h0 + 15), (CORE_R_A + 90, -60, z_h0 - 60)), "hose")
+    # the second crew member may crank it instead, through a flexible shaft into the back of the bevel box
+    p["Flex_shaft_input"] = (cyl(12, -235, -205).fuse(cyl(22, -250, -235)), "steel")
+    y_low = -r_rail * 0.72
+    p["Trigger"] = (box(-3, 3, y_low - 30, y_low - 8, -168, -160), "steel")
+    p["Rear_casing"] = (tube(2 * r_rail + 20, 2.0, -215, -45), "casing")
+    # carried at the centre of gravity: top handle over it, sling eyes either side, tripod pad under it
+    zc = cog(pts, p)
+    pc, hg = carry_handle(r_rail * 0.72, zc - 80, zc + 80)
+    p["Carry_posts"], p["Carry_handle"] = (pc, "frame"), (hg, "printed")
+    xe = r_rail + 20                                                   # eyes outside a band on the rails
+    p["Sling_eyes"] = (G.fuse_all([Part.makeTorus(9, 2.5, V(sx * xe, 0, zc), Z) for sx in (-1, 1)]), "steel")
+    p["Eye_band"] = (tube(2 * r_rail + 12, 6.0, zc - 6, zc + 6).fuse(G.fuse_all(
+        [box(min(sx * (r_rail + 2), sx * (xe - 9)), max(sx * (r_rail + 2), sx * (xe - 9)), -5, 5, zc - 6, zc + 6)
+         for sx in (-1, 1)])), "frame")
+    p["Tripod_pad"] = (box(-r_rail * 0.72, r_rail * 0.72, y_low - 12, y_low, zc - 40, zc + 40)
+                       .fuse(rod(20, (0, y_low - 12, zc), (0, y_low - 42, zc))), "frame")
     return pts, m, p, R
+
+
+def cog(pts, p):
+    """z of the centre of gravity: modules from MODULE_PARTS, the rest from the masses drawn."""
+    items = [(len(pts) * g, z) for g, z in MODULE_PARTS]
+    for n, (s, style) in p.items():
+        d = DENSITY["alu"] if n == "Rails" else DENSITY.get(style, 0.6)
+        items += [(so.Volume / 1000 * d, so.CenterOfMass.z) for so in s.Solids]
+    return sum(g * z for g, z in items) / sum(g for g, _ in items)
 
 
 # ---------------------------------------------------------------- B: Gatling
@@ -272,16 +305,16 @@ def concept_b(key):
 def mass_report(tag, pts, p):
     rest = {}
     for n, (s, style) in p.items():
-        mat = "alu" if style == "alu" else ("steel" if style == "steel" else
-                                           ("hose" if style == "hose" else "printed"))
+        mat = style if style in ("alu", "steel", "hose", "casing") else "printed"
         if n == "Rails":                      # tubes, already hollow
             mat = "alu"
         rest[mat] = rest.get(mat, 0.0) + s.Volume / 1000 * DENSITY[mat]
     mods = len(pts) * MODULE_G
     other = sum(rest.values())
-    print("%-14s modules %2d x %.0f = %5.0f g | printed %4.0f, alu %3.0f, steel %4.0f, hoses %3.0f | total %.2f kg"
-          % (tag, len(pts), MODULE_G, mods, rest.get("printed", 0), rest.get("alu", 0), rest.get("steel", 0),
-             rest.get("hose", 0), (mods + other) / 1000))
+    print("%-6s modules %2d x %.0f = %5.0f g | printed %4.0f, casing %3.0f, alu %3.0f, steel %4.0f, hoses %3.0f"
+          " | total %.2f kg, CoG at z %.0f"
+          % (tag, len(pts), MODULE_G, mods, rest.get("printed", 0), rest.get("casing", 0), rest.get("alu", 0),
+             rest.get("steel", 0), rest.get("hose", 0), (mods + other) / 1000, cog(pts, p)))
     return mods, rest
 
 
