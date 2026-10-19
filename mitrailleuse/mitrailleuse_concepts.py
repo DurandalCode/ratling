@@ -21,10 +21,11 @@ A. "Montigny": the pack stands still between a front and a rear plate on
    (worked out in rotor_timing.py and docs/rotor.md). Per barrel the pilot
    line (a hose from the module's pilot fitting) meets two cores in a fixed
    core block: a charge core from the supply ring and a vent core to the
-   air, both pressed from behind through printed buttons. The rotor is a cam
-   disc with two arc rails: a long one holds the charge buttons of the next
-   AHEAD (2) barrels down, a short one behind it presses the vent button of
-   the barrel to fire. So two barrels charge at once and nothing else is
+   air, both pressed from behind by printed pushers, each with a return
+   spring. The rotor is a face cam with two raised arcs: a long one holds
+   the charge pushers of the next AHEAD (2) barrels in, a short one behind
+   it presses the vent pusher of the barrel to fire; off an arc the spring
+   takes the pusher back and the core shuts itself. So two barrels charge at once and nothing else is
    ever charged; between the two, both cores are shut. A charged chamber can
    only be emptied by firing it, or slowly back through the bleed and its
    charge core (a check valve that way) by the dump valve (below). The cores
@@ -255,36 +256,52 @@ def arc_stadium(r, width, arc_len, z0, z1, a_mid):
     return body.fuse(ends)
 
 
+def sector(r0, r1, z0, z1, a0, a1):
+    """An annular sector r0..r1 from angle a0 to a1 (deg)."""
+    s = Part.makeCylinder(r1, z1 - z0, V(0, 0, z0), Z, a1 - a0).cut(
+        Part.makeCylinder(r0, z1 - z0 + 2, V(0, 0, z0 - 1), Z, a1 - a0))
+    s.rotate(V(0, 0, 0), Z, a0)
+    return s
+
+
 def firing_head(n, z_face):
-    """Core block and cam rotor for n barrels (rotor_timing.py), barrel 0 at 0 deg, the block's rear face z_face.
+    """Core block, pushers and cam rotor for n barrels (rotor_timing.py), barrel 0 at 0 deg; z_face is the
+    block's rear face.
 
     Core block: a printed disc, per barrel a vent core on VENT_R and a charge core on CHARGE_R on the same
-    radius line, both pin-out to the rear under a printed button; the pilot fitting in front, on CHARGE_R.
-    Rotor: a cam disc behind it with a long rail on CHARGE_R (AHEAD charge buttons) and a short one on
-    VENT_R, drawn parked at a detent (ports at x = j + 0.5, the rotor turning towards +angle).
+    radius line, pin to the rear; behind each core a pusher (sprung nose, stem in a guide bore, domed head)
+    with a return spring between the block and the head. Rotor: a face cam with a raised arc on each core
+    circle, TRAVEL high, over the charge arc (AHEAD pushers) and the vent arc; off the arcs the heads stand
+    CLEAR off the cam on their stops. Ramps are left out of the drawing. Parked at a detent (ports at
+    x = j + 0.5, the rotor turning towards +angle).
     """
     k = _rt["cams"](n)
     pitch_a = 360.0 / n
+    T, hd, sd, clear = _rt["TRAVEL"], _rt["HEAD_D"], _rt["STEM_D"], _rt["CLEAR"]
     out = {}
-    block = cyl(2 * HEAD[0] - 0.4, z_face, z_face + 23)
-    cores, buttons = [], []
+    block = cyl(2 * HEAD[0] - 0.4, z_face, z_face + 31)
+    cores, pushers, springs = [], [], []
+    z_head = z_face - 6.0                          # the head's front face, the pusher on its stop
     for i in range(n):
         for r in (VENT_R, CHARGE_R):
             xy = polar(r, pitch_a * i)
-            block = block.cut(cyl(_rt["CORE_CB"], z_face - 1, z_face + 5, *xy))
-            cores.append(cyl(5.2, z_face + 4, z_face + 9, *xy).fuse(cyl(3.0, z_face + 9, z_face + 18, *xy)))
-            buttons.append(cyl(_rt["CORE_CB"] - 0.4, z_face - 0.5, z_face + 4, *xy)
-                           .fuse(cyl(_rt["BUTTON_D"], z_face - 3, z_face - 0.5, *xy)))
-    out["Port_stator"], out["Valve_cores"], out["Core_buttons"] = block, G.fuse_all(cores), G.fuse_all(buttons)
+            block = block.cut(cyl(sd + 0.2, z_face - 1, z_face + 6, *xy)).cut(
+                cyl(_rt["CORE_CB"], z_face + 5, z_face + 10, *xy))
+            cores.append(cyl(5.2, z_face + 9, z_face + 14, *xy).fuse(cyl(3.0, z_face + 14, z_face + 23, *xy)))
+            # stop: the nose's collar on the counterbore's floor
+            pushers.append(cyl(hd, z_head - 2.4, z_head, *xy).fuse(cyl(sd, z_head, z_face + 5, *xy))
+                           .fuse(cyl(5.0, z_face + 5, z_face + 7.5, *xy)))
+            springs.append(cyl(6.4, z_head, z_face, *xy).cut(cyl(4.4, z_head - 1, z_face + 1, *xy)))
+    out["Port_stator"], out["Valve_cores"], out["Core_pushers"] = block, G.fuse_all(cores), G.fuse_all(pushers)
+    out["Return_springs"] = G.fuse_all(springs)
     # x (pitches) -> angle: a port at x sits x pitches ahead (+angle) of the zero point; port 0 parks at 0.5
     ang = lambda x: (x - 0.5) * pitch_a
-    disc = cyl(2 * CHARGE_R + 20, z_face - 14, z_face - 8).fuse(cyl(30, z_face - 20, z_face - 8))
-    rails = []
+    z_cam = z_head - 2.4 - clear                   # the cam's base
+    parts = [cyl(2 * CHARGE_R + 20, z_face - 14, z_cam), cyl(30, z_face - 20, z_face - 14)]
     for (a0, a1), r in ((k["top_c"], CHARGE_R), (_rt["VENT_TOP"], VENT_R)):
-        r0, r1 = a0 - _rt["RAMP"], a1 + _rt["RAMP"]
-        arc = (r1 - r0) * 2 * math.pi * r / n
-        rails.append(arc_stadium(r, 6.0, arc - 6.0, z_face - 8, z_face - 3 - _rt["TRAVEL"] + 0.5, ang((r0 + r1) / 2)))
-    out["Rotor"] = disc.fuse(rails)
+        p0, p1 = ang(a0 - _rt["RAMP"] / 2), ang(a1 + _rt["RAMP"] / 2)        # raised arc, mid-ramp to mid-ramp
+        parts.append(sector(r - hd / 2 - 1.0, r + hd / 2 + 1.0, z_cam - 1, z_cam + T, p0, p1))
+    out["Rotor"] = G.fuse_all(parts)
     # ratchet detent: n saw teeth, the steep face backwards
     r_o, r_i, pts = 25.0, 21.0, []
     for i in range(n):
@@ -348,7 +365,7 @@ def concept_a(key):
     p["Front_plate"] = (plate(key, 2 * R + 12, 25.4, 268, 276), "swap")
     p["Rear_plate"] = (plate(key, 2 * R + 12, 38.4, 2, 10), "swap")
     p["Rails"] = (rails(r_rail, -150, 290), "alu")
-    z_face, z_h1 = -143.0, -120.0
+    z_face, z_h1 = -143.0, -112.0
     z_h0 = z_face
     # head: a fixed body (inlet, mounts) round the distributor; the supply comes in through the body and a
     # radial hole in the stator to its centre, where the rotor's spigot picks it up
@@ -374,7 +391,7 @@ def concept_a(key):
     DETAIL[key] = {nm: s.copy() for nm, s in dist.items()}
     dist["Port_stator"] = dist["Port_stator"].fuse(G.fuse_all(fittings))
     for nm, s in dist.items():
-        p[nm] = (s, {"Valve_cores": "steel", "Core_buttons": "printed"}.get(nm, "swap"))
+        p[nm] = (s, {"Valve_cores": "steel", "Core_pushers": "printed", "Return_springs": "steel"}.get(nm, "swap"))
     p["Pilot_hoses"] = (G.fuse_all(hoses), "hose")
     # drive: crank -> 1:1 bevel -> layshaft -> 5:1 spur pair -> dog clutch (trigger) -> rotor shaft
     p["Rotor_shaft"] = (cyl(10, -200, z_face - 20), "steel")
@@ -464,12 +481,22 @@ def rear_report(built):
               % (tag, k["ramp_c"], k["ramp_v"]))
         check(k["shut"] > 0 and not k["on_ramp"], "%s: both cores shut %.2f pitch between charge and vent; parked"
               " off the ramps" % (tag, k["shut"]))
+        check(k["short"] >= _rt["PIN_OPEN"] and k["over"] <= _rt["NOSE"][2] and _rt["NOSE"][0] > k["f_core"],
+              "%s: pushers press the pin %.1f mm at least (opens at %.1f); the nose gives <= %.1f of its %.1f mm,"
+              " preload %.0f N over the core's %.1f N" % (tag, k["short"], _rt["PIN_OPEN"], k["over"], _rt["NOSE"][2],
+                                                       _rt["NOSE"][0], k["f_core"]))
+        check(_rt["RETURN"][0] >= 2 * _rt["BUTTON_ORING_N"] and k["pv"] >= 6.4 + 2.0,
+              "%s: return springs %.0f-%.0f N, over twice the O-ring's %.0f N drag; springs Ø6.4 %.1f mm apart on"
+              " the vent circle" % (tag, _rt["RETURN"][0], k["f_ret"], _rt["BUTTON_ORING_N"], k["pv"] - 6.4))
         check(k["charge"] >= CHARGE_AHEAD - 0.5, "%s: %d ahead: each barrel charges %.2f shot intervals"
               % (tag, CHARGE_AHEAD, k["charge"]))
         print("      %s: rails %.0f / %.0f mm; button %.1f N at 5 bar; rotor torque <= %.2f N m, %.1f N on the"
               " crank knob" % (tag, k["rail_c"], k["rail_v"], k["f_core"], k["t_rotor"], k["f_crank"]))
         print("      %s: <= %.1f shots/s, %.1f s a volley; %.1f shots a crank turn, crank <= %.2f turns/s"
               % (tag, k["rate"], k["volley"], k["per_turn"], k["crank_rate"]))
+        e = _rt["economics"](n)
+        print("      %s: %d cores, buy %d (%.0f-%.0f rub), springs and O-rings ~%.0f rub"
+              % (tag, e["cores"], e["bought"], e["rub"][0], e["rub"][1], e["extra"]))
         for a in sorted({1, 2, 3} - {CHARGE_AHEAD}):
             ka = _rt["cams"](n, a)
             print("      %s with %d ahead: <= %.1f shots/s, %.1f s a volley" % (tag, a, ka["rate"], ka["volley"]))
@@ -586,11 +613,12 @@ for i, (tag, group, fn, key) in enumerate(VARIANTS):
         sc.add(group, "%s_%s" % (tag, n), to_view(s), style, offset=off)
     MASSES[tag] = mass_report(tag, pts, p)
     if key in DETAIL:                              # the distributor pulled apart along its axis, behind the gun
-        for j, nm in enumerate(("Port_stator", "Valve_cores", "Core_buttons", "Rotor", "Detent_wheel")):
+        for j, nm in enumerate(("Port_stator", "Valve_cores", "Core_pushers", "Return_springs", "Rotor", "Detent_wheel")):
             s = DETAIL[key][nm].copy()
             s.translate(V(0, 0, -400 - 25 * j))
             sc.add(tag + "_rotor", "%s_rotor_%s" % (tag, nm), to_view(s),
-                   {"Valve_cores": "steel", "Core_buttons": "printed"}.get(nm, "swap"), offset=off)
+                   {"Valve_cores": "steel", "Core_pushers": "printed", "Return_springs": "steel"}.get(nm, "swap"),
+                   offset=off)
 rear_report(BUILT)
 labels = [
     ("A16: МОНТИНЬИ, 4+12 — пакет стоит, головка-распределитель, шланги", 0),
