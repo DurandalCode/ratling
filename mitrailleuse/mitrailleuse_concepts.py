@@ -31,6 +31,16 @@ A. "Montigny": the pack stands still between a front and a rear plate on
    sleeves on the muzzles (Ø32, bore Ø30, 215 mm ahead of the barrels; the
    module's muzzle sleeve option), tied by a thin band near their tips,
    bring it to ~780 mm for the look.
+   One rear block for 16 and 19: the frame is drawn round the larger pack
+   (19, R 99; 16 is R 96.3), so the rails, head body, striker, bevel box,
+   crank, flexible shaft input, rear frame, grip, trigger, supply and casing
+   are the same parts. Per pack only its plates (front, rear, sleeve band),
+   the hoses and a core cartridge change: a disc with N cores and N push-in
+   fittings that slides into the head body's bore on two O-rings, each core
+   fed by a radial jet from the body's ring channel. The striker runs on
+   the same circle (R 45) either way: 16 or 19 shots per crank turn. All
+   hoses are cut to one length (the longest + 20, ~110 mm). Prints [OK ] /
+   [FAIL] checks for this.
 
 B. "Gatling": the pack itself turns. Front and rear rotor plates; the rear
    one is the breech disc: each pilot goes straight into it (no hoses), with
@@ -191,28 +201,48 @@ def bevel_box(z0, z1, half):
 
 
 # ---------------------------------------------------------------- A: Montigny
+# One rear block for both packs: the frame is drawn round the larger pack (19, R 99; 16 is R 96.3),
+# so the rails, rear plate's rim, head, casing, grip and crank are the same parts at 16 and 19.
+# Only the pack's own plates, the hoses and the core cartridge in the head change (style "swap").
+A_KEYS = ("j_rings_4_12", "g_hex_19")
+REAR_R = max(_ns["shroud_r"](LAYOUT[k]) for k in A_KEYS)
+HEAD = (CORE_R_A + 12.0, CORE_R_A + 22.0)   # head body: bore (the cartridge's rim), outside
+HOSE_SLACK = 20.0                           # one hose length for every barrel at 16 and 19: the longest + this
+FITTING_D = 10.0                            # push-in fitting for the 4 mm hose on the cartridge's face
+COMMON_A = ("Rails", "Head_body", "Head_spider", "Striker_arm", "Striker_shaft", "Bevel_box", "Crank_shaft",
+            "Crank_arm", "Crank_knob", "Rear_frame", "Rear_grip", "Supply_hose", "Flex_shaft_input", "Trigger",
+            "Rear_casing")
+FV.STYLES["swap"] = ((0.85, 0.30, 0.50), 30)
+
+
 def concept_a(key):
     pts, m = modules(key)
-    R = _ns["shroud_r"](pts)
+    R = REAR_R
     r_rail = R + 10
     p = {}
-    p["Front_plate"] = (plate(key, 2 * R + 12, 25.4, 268, 276), "frame")
-    p["Rear_plate"] = (plate(key, 2 * R + 12, 38.4, 2, 10), "frame")
+    p["Front_plate"] = (plate(key, 2 * R + 12, 25.4, 268, 276), "swap")
+    p["Rear_plate"] = (plate(key, 2 * R + 12, 38.4, 2, 10), "swap")
     p["Rails"] = (rails(r_rail, -150, 290), "alu")
     z_h0, z_h1 = -150.0, -120.0
-    head = cyl(2 * CORE_R_A + 30, z_h0, z_h1)
-    p["Firing_head"] = (head, "rotor")
-    spider = G.fuse_all([rod(14, polar(CORE_R_A + 10, a) + (z_h0 + 12,), polar(r_rail, a) + (z_h0 + 12,))
+    # head: a fixed body (supply ring channel, inlet, mounts) round a core cartridge, one per pack, that
+    # slides into its bore on two O-rings; each core's jet is a radial hole from the body's ring channel
+    p["Head_body"] = (tube(2 * HEAD[1], HEAD[1] - HEAD[0], z_h0, z_h1)
+                      .fuse(rod(16, (HEAD[1] - 2, 0, z_h0 + 15), (HEAD[1] + 12, 0, z_h0 + 15))), "rotor")
+    spider = G.fuse_all([rod(14, polar(HEAD[1] - 2, a) + (z_h0 + 12,), polar(r_rail, a) + (z_h0 + 12,))
                          for a in (45, 135, 225, 315)])
     p["Head_spider"] = (spider, "frame")
     # cores on one circle, in the modules' angular order
     ang = [math.degrees(math.atan2(y, x)) % 360.0 for x, y in pts]
     order = sorted(range(len(pts)), key=lambda i: (ang[i], math.hypot(*pts[i])))
-    cores, hoses = [], []
+    cores, fittings, hoses, lengths = [], [], [], []
     for k, i in enumerate(order):
         cx, cy = polar(CORE_R_A, ang[order[0]] + 360.0 / len(pts) * k)
         cores.append(cyl(6, z_h0 - 6, z_h0, cx, cy))
-        hoses.append(rod(4, (pts[i][0], pts[i][1], -47.2), (cx, cy, z_h1)))
+        fittings.append(cyl(FITTING_D, z_h1, z_h1 + 8, cx, cy))
+        a, b = V(pts[i][0], pts[i][1], -47.2), V(cx, cy, z_h1 + 8)
+        hoses.append(rod(4, a, b))
+        lengths.append((a - b).Length)
+    p["Core_cartridge"] = (cyl(2 * HEAD[0] - 0.4, z_h0, z_h1).fuse(G.fuse_all(fittings)), "swap")
     p["Valve_cores"] = (G.fuse_all(cores), "steel")
     p["Pilot_hoses"] = (G.fuse_all(hoses), "hose")
     arm = box(-6, 6, 0, CORE_R_A + 8, z_h0 - 16, z_h0 - 8).fuse(cyl(10, z_h0 - 16, z_h0 - 8, 0, CORE_R_A))
@@ -224,10 +254,10 @@ def concept_a(key):
     p["Rear_frame"] = (box(-r_rail * 0.72, r_rail * 0.72, -r_rail * 0.72 - 6, -r_rail * 0.72 + 6, -205, z_h0)
                        .fuse(box(-14, 14, -r_rail * 0.72, -20, -205, -195)), "frame")
     p["Rear_grip"] = (rear_grip(-r_rail * 0.72, -190), "printed")
-    p["Supply_hose"] = (rod(8, (CORE_R_A + 15, 0, z_h0 + 15), (CORE_R_A + 90, -60, z_h0 - 60)), "hose")
+    p["Supply_hose"] = (rod(8, (HEAD[1] + 12, 0, z_h0 + 15), (HEAD[1] + 87, -60, z_h0 - 60)), "hose")
     z_tip = 310.7 + SLEEVE[2]
     p["Muzzle_sleeves"] = (G.fuse_all([tube(SLEEVE[0], SLEEVE[1], 314.7, z_tip, x, y) for x, y in pts]), "sleeve")
-    p["Sleeve_band"] = (plate(key, 2 * R + 4, SLEEVE[0] + 0.4, z_tip - 30, z_tip - 26), "frame")
+    p["Sleeve_band"] = (plate(key, 2 * R + 4, SLEEVE[0] + 0.4, z_tip - 30, z_tip - 26), "swap")
     # the second crew member may crank it instead, through a flexible shaft into the back of the bevel box
     p["Flex_shaft_input"] = (cyl(12, -235, -205).fuse(cyl(22, -250, -235)), "steel")
     y_low = -r_rail * 0.72
@@ -244,7 +274,38 @@ def concept_a(key):
          for sx in (-1, 1)])), "frame")
     p["Tripod_pad"] = (box(-r_rail * 0.72, r_rail * 0.72, y_low - 12, y_low, zc - 40, zc + 40)
                        .fuse(rod(20, (0, y_low - 12, zc), (0, y_low - 42, zc))), "frame")
+    HOSES[key] = lengths
     return pts, m, p, R
+
+
+HOSES = {}
+
+
+def check(ok, text):
+    print("[%s] %s" % ("OK " if ok else "FAIL", text))
+    return ok
+
+
+def rear_report(built):
+    """The A rear block is one set of parts for 16 and 19; what changes is listed."""
+    a16, a19 = built["A16"], built["A19"]
+    same = [n for n in COMMON_A if abs(a16[n][0].Volume - a19[n][0].Volume) < 1e-3
+            and (a16[n][0].BoundBox.Center - a19[n][0].BoundBox.Center).Length < 1e-3]
+    rear_g = sum(a16[n][0].Volume / 1000 * (DENSITY["alu"] if n == "Rails" else DENSITY.get(a16[n][1], 0.6))
+                 for n in COMMON_A)
+    check(len(same) == len(COMMON_A), "A rear block: %d of %d parts the same at 16 and 19 (%s), %.0f g"
+          % (len(same), len(COMMON_A), ", ".join(sorted(set(COMMON_A) - set(same))) or "all", rear_g))
+    cut = math.ceil((max(max(L) for L in HOSES.values()) + HOSE_SLACK) / 10.0) * 10.0
+    for tag, key in (("A16", "j_rings_4_12"), ("A19", "g_hex_19")):
+        n = len(LAYOUT[key])
+        L = HOSES[key]
+        pitch = 2 * CORE_R_A * math.sin(math.pi / n)
+        check(pitch >= FITTING_D + 2.0, "%s: %d cores on R %.0f, pitch %.1f mm (push-in fitting Ø%.0f + 2)"
+              % (tag, n, CORE_R_A, pitch, FITTING_D))
+        print("      %s: hoses %.0f-%.0f mm straight, all cut to %.0f mm (%.1f m of 4 mm hose)"
+              % (tag, min(L), max(L), cut, n * cut / 1000))
+        r_out = _ns["shroud_r"](LAYOUT[key])
+        check(r_out <= REAR_R, "%s: pack R %.1f inside the common frame's R %.1f" % (tag, r_out, REAR_R))
 
 
 def cog(pts, p):
@@ -342,8 +403,10 @@ VARIANTS = [("A16", "A_Montigny_16", concept_a, "j_rings_4_12"),
 sc = FV.Scene(NAME)
 doc = sc.doc
 MASSES = {}
+BUILT = {}
 for i, (tag, group, fn, key) in enumerate(VARIANTS):
     pts, m, p, R = fn(key)
+    BUILT[tag] = p
     off = V(0, -X_OFF * i, 0)                      # sketch +x is the view's -y
     for n, s in m.items():
         sc.add(group, "%s_Modules_%s" % (tag, n), to_view(s), n if n in ("barrel", "chamber") else
@@ -351,6 +414,7 @@ for i, (tag, group, fn, key) in enumerate(VARIANTS):
     for n, (s, style) in p.items():
         sc.add(group, "%s_%s" % (tag, n), to_view(s), style, offset=off)
     MASSES[tag] = mass_report(tag, pts, p)
+rear_report(BUILT)
 labels = [
     ("A16: МОНТИНЬИ, 4+12 — пакет стоит, головка с 16 ниппелями, шланги", 0),
     ("A19: МОНТИНЬИ, соты 19", 1),
