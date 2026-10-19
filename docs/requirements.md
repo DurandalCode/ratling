@@ -97,11 +97,15 @@ is current and this page needs updating.
   pressurized volumes. Thin-epoxy impregnation is an option; lacquer is not
   relied upon.
 
-## Output connector: 6 mm hose → ~25 mm metal tube
+## Output connector: 6 mm hose → ~25 mm steel tube
 
 The tube is installed once (permanent).
 
-- Tube: metal, ID **23.8 mm**, wall **0.59 mm** (OD ~25.0), measured.
+- Tube: steel, ID **23.8 mm**, wall **0.59 mm**
+  (OD ~25.0), measured. Also the barrel tube of the mitrailleuse module and
+  the pistol. Steel over aluminium: the bore is fitted to the Ø23.8 ball and
+  the v4.4 O-rings, a 0.6 mm aluminium wall dents and does not hold
+  self-tapping screws. Mass: 355 g/m (aluminium would be 122 g/m).
 - Printed plug inserted into the tube; the tube is supported from inside.
 - Seal: O-ring on the plug.
   - O-ring in hand: 11/16″ × 1/8″, i.e. 17.46 × 3.18 mm (fits, third PLA
