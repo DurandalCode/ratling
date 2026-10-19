@@ -42,10 +42,30 @@ def hexagon(side):
             if abs(q) <= n and abs(r) <= n and abs(q + r) <= n]
 
 
+def rings(*specs):
+    """Concentric rings, each (count, radius, phase in degrees)."""
+    return [(r * math.cos(math.radians(ph) + 2 * math.pi * i / n), r * math.sin(math.radians(ph) + 2 * math.pi * i / n))
+            for n, r, ph in specs for i in range(n)]
+
+
 def circle_opt(n):
     data = json.load(open(os.path.join(REPO, "mitrailleuse", "circle_opt.json")))
     return [(x * P, y * P) for x, y in data[str(n)][1]]
 
+
+def ring_r(n):
+    """Smallest radius of a ring of n at pitch P."""
+    return P / 2 / math.sin(math.pi / n)
+
+
+def outer_r(r1, n, dphi):
+    """Outer ring of n turned dphi degrees off the inner ring at r1: pitch P inside it and to the inner ring."""
+    c = math.cos(math.radians(dphi))
+    return max(ring_r(n), r1 * c + math.sqrt(P * P - (r1 * math.sin(math.radians(dphi))) ** 2))
+
+
+R4, R5, R12 = ring_r(4), ring_r(5), ring_r(12)
+R10 = outer_r(R5, 10, 18)
 
 LAYOUTS = [
     ("a_square_5x5", "A. Квадрат 5x5, 25", 25, square(5, 5), None),
@@ -57,6 +77,12 @@ LAYOUTS = [
     ("g_hex_19", "G. Соты 19", 19, hexagon(3), "circle"),
     ("h_hex_37", "H. Соты 37 (Монтиньи)", 37, hexagon(4), "circle"),
     ("i_square_5x5_round", "I. Квадрат 5x5, 25, кожух", 25, square(5, 5), "circle"),
+    # symmetric rings at pitch P, see docs/pack.md (ring radii, tie-rod turns)
+    ("j_rings_4_12", "J. Кольца 4+12, 16", 16, rings((4, R4, 45), (12, R12, 0)), "circle"),
+    ("k_rings_5_10", "K. Кольца 5+10, 15", 15, rings((5, R5, 0), (10, R10, 18)), "circle"),
+    ("l_rings_1_4_12", "L. Кольца 1+4+12, 17", 17, rings((1, 0, 0), (4, P, 0), (12, R12, 15)), "circle"),
+    ("m_rings_6_12", "M. Кольца 6+12, 18", 18, rings((6, P, 0), (12, R12, 15)), "circle"),
+    ("n_rings_1_6_12", "N. Кольца 1+6+12, 19", 19, rings((1, 0, 0), (6, P, 0), (12, R12, 15)), "circle"),
 ]
 
 
