@@ -92,8 +92,8 @@ GRUB = (3.4, 8.0)           # M3 grub screw: hole, length
 NUT_AF, NUT_T = 5.5, 2.4
 WEB_MIN = 1.2               # thinnest web between two cuts in a plate
 BED = 256.0
-# rails: carried by the handle between the plates (the next node; mitrailleuse_concepts.py has it at the
-# centre of gravity, on the rails)
+# rails: a side load at mid-span between the plates, shared by all four (the handle itself goes on plates of
+# its own into the modules, carry_mount.py)
 GUN_KG, G_LOAD = 10.0, 3.0  # the gun without the receiver (mitrailleuse_concepts.py: 9.0 kg at 19), 3 g
 RAIL_YIELD = 150.0          # MPa, 6060 / АД31 T5-T6 tube, the usual hardware-store aluminium
 DENSITY = {"solid": 1.27, "printed": 0.6, "alu": 2.70}   # PETG solid; concept's printed average; aluminium
@@ -158,15 +158,16 @@ def module_cut(x, y, a, z):
     return cut
 
 
-def plate(key, side):
+def plate(key, side, extra=(), extra_holes=()):
+    """A plate at PLATES[side]; extra: solids added to its outline (tabs), extra_holes: faces at z0 cut through."""
     z0, z1, up = PLATES[side]
     pts = LAYOUT[key]
     r_disc = max(max(math.hypot(x, y) for x, y in pts) + HOLE_D / 2,
                  max(math.hypot(*p) for m in rods_xy(key) for p in m) + ROD_HOLE / 2) + RIM
     outline = G.fuse_all([cyl(2 * r_disc, z0, z1)] + [M["hull_prism"](                  # rail lugs, necked in
-        [(*polar(RAIL_R, a), LUG_R), (*polar(r_disc - 12, a), LUG_R + 4)], z0, z1) for a in RAIL_ANGLES]).removeSplitter()
+        [(*polar(RAIL_R, a), LUG_R), (*polar(r_disc - 12, a), LUG_R + 4)], z0, z1) for a in RAIL_ANGLES] + list(extra)).removeSplitter()
     face = bottom(outline, z0)
-    holes = [disc(RAIL_HOLE / 2, *polar(RAIL_R, a), z=z0) for a in RAIL_ANGLES]
+    holes = [disc(RAIL_HOLE / 2, *polar(RAIL_R, a), z=z0) for a in RAIL_ANGLES] + list(extra_holes)
     for (x, y), a in zip(pts, rod_angles(key, pts)):
         holes += module_cut(x, y, a, z0)
     s = face.cut(holes).extrude(V(0, 0, z1 - z0))
@@ -217,8 +218,7 @@ rail_area = math.pi / 4 * (RAIL[0] ** 2 - (RAIL[0] - 2 * RAIL[1]) ** 2)
 rail_w = math.pi / 32 * (RAIL[0] ** 4 - (RAIL[0] - 2 * RAIL[1]) ** 4) / RAIL[0]
 span = (z_fs - PLATE_T) - (z_rp + PLATE_T)
 f_load = GUN_KG * 9.81 * G_LOAD
-sigma4 = (f_load / 4) * span / 4 / rail_w        # a band round all four rails, load at mid-span
-sigma2 = (f_load / 2) * span / 4 / rail_w        # posts on the top two only
+sigma4 = (f_load / 4) * span / 4 / rail_w        # shared by all four rails, load at mid-span
 lines = []
 for tag, (key, mods, plates) in built.items():
     n = len(mods)
@@ -257,7 +257,7 @@ for tag, (key, mods, plates) in built.items():
                 d_rail = min(d_rail, r.distToShape(m[p])[0])
     check(d_rail >= RAIL_CLEAR, "%s: rails %.1f mm clear of every yoke ear, nut, plug and fitting" % (tag, d_rail))
     lines.append("  %s: %d modules, play between plates = spread of the chamber tubes' length" % (tag, n))
-check(sigma4 <= RAIL_YIELD / 2, "rails 12 x 1 over %.0f mm, %.0f kg at %.0f g at mid-span on a band round all four:"
+check(sigma4 <= RAIL_YIELD / 2, "rails 12 x 1 over %.0f mm, %.0f kg at %.0f g at mid-span, shared by all four:"
       " %.0f MPa (<= half of %.0f)" % (span, GUN_KG, G_LOAD, sigma4, RAIL_YIELD))
 rail_len = z_fs - RAIL_Z0
 report = [
@@ -269,7 +269,6 @@ report = [
                4 * rail_area * rail_len / 1000 * DENSITY["alu"])),
     "  holes Ø%.1f round the tube, rod notches Ø%.1f; set by 8 M3 x %.0f grub screws and nuts (4 a plate)"
     % (HOLE_D, ROD_HOLE, GRUB[1]),
-    "  rails if the handle sits on the top two only: %.0f MPa (the handle's node decides)" % sigma2,
 ] + lines + ["  [%s] %s" % ("OK " if ok else "FAIL", t) for t, ok in checks]
 if not PACK_FRAME_LIBRARY:
     print("\n".join(report))
