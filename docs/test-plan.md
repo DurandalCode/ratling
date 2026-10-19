@@ -181,8 +181,10 @@ charged ones without firing them. Both rest on numbers to check:
    between charging and venting: 0.2, 0.3, 0.5, 1 s). The sketch takes 0.5 s
    (the v1.1 bench); its rate (~3.5 shots/s, two barrels charged ahead)
    scales with it.
-2. **Quiet dump.** Charge the module, shut the supply, then vent the pilot
-   line through a Ø0.5 jet instead of opening it. The module must not fire:
+2. **Quiet dump.** Charge the module through a tyre valve core (pressed),
+   let the core go, shut the supply, then vent the supply line through a
+   Ø0.5 jet: the pilot must flow back through the core (a check valve that
+   way) and out through the jet. The module must not fire:
    the chamber should empty back through the bleed in ~5 s with no pop at the
    muzzle (ball in place, pointed safely). Repeat with Ø0.7 and Ø1.0 to find
    where it starts to fire; the model says Ø1.0 still holds with two modules

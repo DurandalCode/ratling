@@ -1,87 +1,115 @@
 # -*- coding: utf-8 -*-
 """
-Ratling mitrailleuse concept A: the distributor's rotor, worked out on paper (plain Python, no FreeCAD).
+Ratling mitrailleuse concept A: the firing head's rotor, worked out on paper (plain Python, no FreeCAD).
 
-The firing head is a face distributor (as the selector's Stage 1/2, selector/stage1_interface.py):
+Valve cores only (tyre valve cores, 5V1, as in stage4v2_schrader.py): each barrel's pilot line meets two
+cores in the fixed head, both pressed through printed buttons from behind.
 
-    stator ... a printed body (one push-in fitting per barrel on its front) with a flat wear plate on
-               its rear face (3 mm PMMA or aluminium), N ports Ø PORT_D on R_PORT.
-    rotor .... an arm on the rotor shaft; a spigot in the stator's centre, sealed by a radial O-ring,
-               takes the supply into a channel along the arm to a floating shoe at R_PORT.
-    shoe ..... a piston (Ø from BALANCE, radial O-ring in the arm) with a flat head on the wear plate.
-               The head's face has an arc slot SLOT_W wide, ringed by a raised sealing band BAND wide;
-               the rest of the head is relieved. Supply pressure behind the piston holds it on the plate,
-               a light spring seals it at no pressure; the reaction goes into the shaft's bearings.
+    charge core (CHARGE_R) .. supply ring on its inner (tyre) side, the pilot line on its pin side, under
+                              the button, which seals on an O-ring. Pressed: the pilot (and through the
+                              bleed the chamber) charges. Let go: the supply holds it shut.
+    vent core (VENT_R) ...... the pilot line on its inner side, open air at the pin. Pressed: the pilot
+                              vents and the module fires. Let go: the pilot holds it shut.
 
-Everything outside the band is open air, so a port is in one of three states: under the slot (its pilot,
-and through the bleed its chamber, charges), under the band (shut: PORT_D < BAND, so a port is never
-open to the slot and the air at once), or outside (its pilot vents and the module fires). There is no
-separate vent port: the band's trailing edge is the hammer. The slot spans AHEAD pitches, so AHEAD barrels
-charge at once and each charges for ~AHEAD shot intervals: the rate is AHEAD / T_FILL shots/s.
+The rotor is a cam disc behind the head with two arc rails: a long one on CHARGE_R that holds AHEAD
+charge buttons down, and a short one on VENT_R just behind it. A barrel's port meets them in turn, in
+shot intervals: its charge button is held for ~AHEAD intervals, let go, both cores shut for a moment,
+then its vent button is pressed and it fires. Nothing but the AHEAD barrels under the long rail is ever
+charged. The rails' edges sit between ports when the rotor is parked (a ratchet detent), so no button is
+left on a ramp, and it turns forward only.
 
-A ratchet detent (N teeth on the rotor shaft, a spring plunger) parks the rotor with the band's edges
-half-way between ports: then exactly AHEAD barrels are charged, none sits under the band, and the dump
-valve (through the slot) reaches every charged one. The teeth only let it turn forward; let go between
-teeth (trigger released mid-step), it snaps on to the next one, firing at most that one shot.
+A charge core is a check valve the other way: if the supply is vented (the dump valve, through a small
+jet), the charged pilots and chambers flow back through their charge cores into the ring and out
+through the jet, slowly, without firing: the rotor's position does not matter.
 
+Cam profiles are in pitches along the core circles: x is how far a port is ahead of the point half-way
+between the two rails (CHARGE_TOP and VENT_TOP are the rails' flat tops in x); the rotor turns so that x
+falls, and at the detent the ports sit at x = j + 0.5.
+
+Core numbers are typical, not measured (as in stage4v2_schrader.py): check them on the cores.
 Run:  python3 mitrailleuse/rotor_timing.py      -> the numbers, and docs/img/rotor_timing.svg
-mitrailleuse_concepts.py reads shoe() and the constants from here.
+mitrailleuse_concepts.py reads the constants and cams() from here.
 """
 
 import math
 import os
 
-R_PORT = 45.0               # port circle
-PORT_D = 2.5                # = the 4/2.5 hose's bore
-BAND = 3.0                  # sealing band round the slot; > PORT_D, so a port is never open both ways
-SLOT_W = 3.0                # slot width (radial)
-AHEAD = 2                   # barrels charging at once
-BALANCE = 1.3               # piston area / the head's pressed area
-SPRING_N = 8.0              # light spring behind the shoe
-MU_SHOE = 0.15              # POM head on PMMA / aluminium, greased
-SPIGOT = (10.0, 5.0)        # centre spigot Ø, its O-ring's drag N (radial, 8 x 1.5)
-DETENT = (25.0, 10.0, 15.0)  # ratchet radius, plunger force N, ramp angle deg
-GEAR = 5.0                  # crank turns per rotor turn
+VENT_R, CHARGE_R = 42.0, 60.0   # core circles; vent inside, charge outside (the supply ring is there)
+CORE_CB = 6.6                   # core counterbore Ø (stage4v2), the button's collar fits it
+BUTTON_D = 9.0                  # button head, with its O-ring land for the charge cores
+AHEAD = 2                       # barrels charging at once
+CHARGE_TOP = (0.3, AHEAD - 0.3)    # x range where the long rail holds a charge button fully down
+VENT_TOP = (-0.7, -0.3)             # and the short rail a vent button
+RAMP = 0.2                      # pitches of ramp at each rail end
+TRAVEL = 1.6                    # button stroke: pin 1.2 down + 0.4 play
+CORE_SPRING = 3.0               # N, a core's spring (typical)
+CORE_SEAL_D = 3.4               # its seat bore: pressure on it adds to the button force
+BUTTON_ORING_N = 2.0            # drag of the charge button's O-ring
+MU_RAIL = 0.2                   # printed rail on a printed button dome, greased
+DETENT = (25.0, 10.0, 15.0)     # ratchet radius, plunger force N, ramp angle deg
+GEAR = 5.0                      # crank turns per rotor turn
 CRANK_R = 70.0
-T_FILL = 0.5                # s, a chamber charged on the v1.1 bench (Ø1.0 bleed, 100 cm3, 2 bar)
-P_WORK, P_DESIGN = 0.2, 0.5  # MPa gauge
+T_FILL = 0.5                    # s, a chamber charged on the v1.1 bench (Ø1.0 bleed, 100 cm3, 2 bar)
+P_DESIGN = 0.5                  # MPa gauge
 PACKS = ((16, "16 стволов (кольца 4 + 12)"), (19, "19 стволов (соты)"))
 
 
-def shoe(n, ahead=AHEAD):
-    """The shoe for n barrels: slot, pressed area, piston, forces, drag and the rate."""
-    pa = 2 * math.pi * R_PORT / n                     # pitch along the port circle
-    S = ahead * pa - BAND                             # slot, end to end: the band's centre lines sit on
-    A_slot = (S - SLOT_W) * SLOT_W + math.pi * SLOT_W ** 2 / 4        # the mid-points at the detent
-    perim = 2 * (S - SLOT_W) + math.pi * SLOT_W
-    A_sep = A_slot + perim * BAND / 2                 # pressure falls across the band
-    A_p = BALANCE * A_sep
-    D_p = math.sqrt(4 * A_p / math.pi)
-    hold = {p: p * (A_p - A_sep) + SPRING_N for p in (P_WORK, P_DESIGN)}
-    t_rotor = (MU_SHOE * hold[P_DESIGN] * R_PORT + SPIGOT[1] * SPIGOT[0] / 2
-               + DETENT[1] * math.tan(math.radians(DETENT[2])) * DETENT[0]) / 1000      # N m
-    t_crank = t_rotor / GEAR
-    rp = PORT_D / 2
-    charge = (ahead * pa - BAND + 2 * rp) / pa        # shot intervals a barrel spends under the slot
-    dwell = BAND - PORT_D                             # mm of travel shut, between slot and air
-    park = (pa - PORT_D - BAND) / 2                   # port edge to band edge at the detent
+def height(x, top):
+    """Rail height (0..1 of TRAVEL) under a port at x pitches; ramps of RAMP outside top."""
+    a, b = top
+    if a <= x <= b:
+        return 1.0
+    if a - RAMP < x < a:
+        return (x - (a - RAMP)) / RAMP
+    if b < x < b + RAMP:
+        return ((b + RAMP) - x) / RAMP
+    return 0.0
+
+
+def cams(n, ahead=AHEAD):
+    """The rotor for n barrels: pitches, rail lengths, ramp angles, timing, torque, rate."""
+    top_c = (CHARGE_TOP[0], ahead - CHARGE_TOP[0])
+    pc, pv = 2 * math.pi * CHARGE_R / n, 2 * math.pi * VENT_R / n     # pitch along each circle, mm
+    f_core = CORE_SPRING + P_DESIGN * math.pi * CORE_SEAL_D ** 2 / 4
+    # torque over one pitch of turning: buttons climbing the ramps, and rail friction on those held down
+    worst, steps = 0.0, 200
+    for s in range(steps + 1):
+        t = s / steps
+        tq = DETENT[1] * math.tan(math.radians(DETENT[2])) * DETENT[0]
+        for j in range(-3, ahead + 3):
+            x = j + 0.5 - t
+            for top, r, p, extra in ((top_c, CHARGE_R, pc, BUTTON_ORING_N), (VENT_TOP, VENT_R, pv, 0.0)):
+                h = height(x, top)
+                slope = (height(x + 1e-3, top) - height(x - 1e-3, top)) / 2e-3 * TRAVEL / p   # dh/ds
+                f = f_core * h + extra
+                tq += r * (f * max(slope, 0.0) + MU_RAIL * f_core * h)
+        worst = max(worst, tq)
+    charge = (top_c[1] - top_c[0]) + RAMP                   # intervals: top plus half of each ramp
+    shut = (top_c[0] - RAMP) - (VENT_TOP[1] + RAMP)          # pitches with both cores shut
     shot = T_FILL / charge
-    return dict(n=n, pa=pa, S=S, A_sep=A_sep, D_p=D_p, head=(S + 2 * BAND, SLOT_W + 2 * BAND),
-                hold=hold, axial=P_DESIGN * A_p, t_rotor=t_rotor, t_crank=t_crank,
-                f_crank=t_crank / CRANK_R * 1000, charge=charge, dwell=dwell, park=park, shot=shot,
-                rate=1 / shot, volley=n * shot, per_turn=n / GEAR, crank_rate=1 / shot / (n / GEAR),
-                ring=(perim + 2 * math.pi * BAND / 2) / math.pi)
+    parked = [j + 0.5 for j in range(-3, ahead + 3)]
+    on_ramp = any(0.0 < height(x, tp) < 1.0 for x in parked for tp in (top_c, VENT_TOP))
+    return dict(n=n, pc=pc, pv=pv, rail_c=(top_c[1] - top_c[0] + 2 * RAMP) * pc, rail_v=(VENT_TOP[1] - VENT_TOP[0]
+                + 2 * RAMP) * pv, ramp_c=math.degrees(math.atan(TRAVEL / (RAMP * pc))),
+                ramp_v=math.degrees(math.atan(TRAVEL / (RAMP * pv))), clear_v=pv - BUTTON_D,
+                clear_c=pc - BUTTON_D, charge=charge, shut=shut, shut_mm=shut * pv, on_ramp=on_ramp,
+                f_core=f_core, t_rotor=worst / 1000, f_crank=worst / 1000 / GEAR / CRANK_R * 1000,
+                shot=shot, rate=1 / shot, volley=n * shot, per_turn=n / GEAR, crank_rate=1 / shot / (n / GEAR),
+                top_c=top_c)
 
 
-def events(n, ahead=AHEAD, t_max=None):
-    """(barrel, charge from, fires at) in shot intervals: barrel j fires j-th; t = 0 is a detent."""
-    pa, rp, b = 2 * math.pi * R_PORT / n, PORT_D / 2, BAND
+def events(n, ahead=AHEAD):
+    """(barrel, charge from, charge to, fires at) in shot intervals: barrel j fires j-th; t = 0 a detent.
+
+    A port at x = j + 0.5 - t; charged while the charge button is past half its ramp, fires when the
+    vent button is half way down its ramp.
+    """
+    k = cams(n, ahead)
+    a, b = k["top_c"]
     out = []
     for j in range(-ahead, n + ahead):
-        x0 = (j + 0.5) * pa                           # its port's place ahead of the trailing band edge
-        t_in = (x0 - (ahead * pa - b / 2 + rp)) / pa
-        t_fire = (x0 - (rp - b / 2)) / pa
-        out.append((j, t_in, t_fire))
+        x0 = j + 0.5
+        out.append((j, x0 - (b + RAMP / 2), x0 - (a - RAMP / 2), x0 - (VENT_TOP[1] + RAMP / 2)))
     return out
 
 
@@ -99,16 +127,16 @@ def svg(path):
     o = ['<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" '
          'font-family="Helvetica, Arial, sans-serif" font-size="12">' % (W, H, W, H),
          '<rect width="100%%" height="100%%" fill="%s"/>' % surf,
-         '<text x="%d" y="26" font-size="16" fill="%s">Ротор митральезы: зарядка на %d ствола вперёд, '
+         '<text x="%d" y="26" font-size="16" fill="%s">Ротор на ниппелях: зарядка на %d ствола вперёд, '
          '%.0f оборотов ручки = залп</text>' % (left, ink, AHEAD, GEAR),
          '<rect x="%d" y="38" width="22" height="8" rx="2" fill="%s"/>' % (left, blue),
-         '<text x="%d" y="46" fill="%s">заряжается (под пазом башмака)</text>' % (left + 28, ink2),
-         '<circle cx="%d" cy="42" r="5" fill="%s" stroke="%s" stroke-width="2"/>' % (left + 260, orange, surf),
-         '<text x="%d" y="46" fill="%s">выстрел (порт вышел из-под пояска)</text>' % (left + 272, ink2),
-         '<line x1="%d" y1="36" x2="%d" y2="48" stroke="%s" stroke-width="1"/>' % (left + 520, left + 520, ink2),
-         '<text x="%d" y="46" fill="%s">остановка фиксатора</text>' % (left + 528, ink2)]
+         '<text x="%d" y="46" fill="%s">заряжается (зарядный ниппель нажат)</text>' % (left + 28, ink2),
+         '<circle cx="%d" cy="42" r="5" fill="%s" stroke="%s" stroke-width="2"/>' % (left + 290, orange, surf),
+         '<text x="%d" y="46" fill="%s">выстрел (нажат ниппель сброса)</text>' % (left + 302, ink2),
+         '<line x1="%d" y1="36" x2="%d" y2="48" stroke="%s" stroke-width="1"/>' % (left + 530, left + 530, ink2),
+         '<text x="%d" y="46" fill="%s">остановка храповика</text>' % (left + 538, ink2)]
     for n, title, y0 in panels:
-        k = shoe(n)
+        k = cams(n)
         step = GEAR / n                              # crank turns per shot interval
         o.append('<text x="%d" y="%d" font-size="14" fill="%s">%s: %.1f выстрела за оборот ручки; '
                  'каждый ствол заряжается %.2f интервала</text>' % (left, y0 + 18, ink, title, n / GEAR, k["charge"]))
@@ -127,37 +155,37 @@ def svg(path):
         for j in range(n):
             y = yb + j * row + row / 2
             o.append('<text x="%d" y="%.1f" text-anchor="end" fill="%s">ствол %d</text>' % (left - 8, y + 4, ink2, j + 1))
-        for j, t_in, t_fire in events(n, t_max=turns / step):
+        for j, t_in, t_out, t_fire in events(n):
             for rep in range(-1, 3):                   # the next rotor turns: the same barrels again
-                a, b = (t_in + rep * n) * step, (t_fire + rep * n) * step
-                if b < 0 or a > turns:
+                a, b, f = ((t + rep * n) * step for t in (t_in, t_out, t_fire))
+                if f < 0 or a > turns:
                     continue
-                row_i = j % n
-                y = yb + row_i * row + row / 2
+                y = yb + (j % n) * row + row / 2
                 xa, xb = sx(max(a, 0)), sx(min(b, turns))
-                o.append('<rect x="%.1f" y="%.1f" width="%.1f" height="6" rx="2" fill="%s"/>'
-                         % (xa, y - 3, max(xb - xa - 2, 1), blue))
-                if 0 <= b <= turns:
+                if xb > xa:
+                    o.append('<rect x="%.1f" y="%.1f" width="%.1f" height="6" rx="2" fill="%s"/>'
+                             % (xa, y - 3, max(xb - xa, 1), blue))
+                if 0 <= f <= turns:
                     o.append('<circle cx="%.1f" cy="%.1f" r="4.5" fill="%s" stroke="%s" stroke-width="2"/>'
-                             % (sx(b), y, orange, surf))
+                             % (sx(f), y, orange, surf))
     o.append('</svg>')
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(o))
 
 
 def report():
-    print("rotor: ports Ø%.1f on R%.0f, band %.1f, slot %.1f wide, %d ahead, gear %.0f:1, charge %.2f s (bench)"
-          % (PORT_D, R_PORT, BAND, SLOT_W, AHEAD, GEAR, T_FILL))
+    print("rotor: vent cores on R%.0f, charge cores on R%.0f, %d ahead, gear %.0f:1, charge %.2f s (bench)"
+          % (VENT_R, CHARGE_R, AHEAD, GEAR, T_FILL))
     for n, _ in PACKS:
-        k = shoe(n)
-        print("  %d barrels: pitch %.1f mm, slot %.1f mm, head %.0f x %.0f,"
-              " piston Ø%.1f" % (n, k["pa"], k["S"], k["head"][0], k["head"][1], k["D_p"]))
-        print("     shoe held by %.0f N at 2 bar, %.0f N at 5 bar; %.0f N into the bearings at 5 bar"
-              % (k["hold"][P_WORK], k["hold"][P_DESIGN], k["axial"]))
-        print("     drag %.2f N m at the rotor, %.3f N m at the crank = %.1f N on the knob (R%.0f), before gear losses"
-              % (k["t_rotor"], k["t_crank"], k["f_crank"], CRANK_R))
-        print("     each barrel charges %.2f intervals; shut %.1f mm between slot and air; %.1f mm port to band at the"
-              " detent" % (k["charge"], k["dwell"], k["park"]))
+        k = cams(n)
+        print("  %d barrels: pitch %.1f (vent) / %.1f (charge) mm, %.1f / %.1f mm between buttons Ø%.0f"
+              % (n, k["pv"], k["pc"], k["clear_v"], k["clear_c"], BUTTON_D))
+        print("     rails: charge %.1f mm, vent %.1f mm; ramps %.0f / %.0f deg for a %.1f mm stroke"
+              % (k["rail_c"], k["rail_v"], k["ramp_c"], k["ramp_v"], TRAVEL))
+        print("     each barrel charges %.2f intervals; both cores shut %.2f pitch (%.1f mm at the vent rail);"
+              " parked on a ramp: %s" % (k["charge"], k["shut"], k["shut_mm"], k["on_ramp"]))
+        print("     button %.1f N at 5 bar; rotor torque <= %.2f N m, %.1f N on the crank knob (R%.0f), before gear"
+              " losses" % (k["f_core"], k["t_rotor"], k["f_crank"], CRANK_R))
         print("     <= %.1f shots/s, volley %.1f s, %.1f shots a crank turn, crank <= %.2f turns/s"
               % (k["rate"], k["volley"], k["per_turn"], k["crank_rate"]))
 

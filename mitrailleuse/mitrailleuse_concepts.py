@@ -17,19 +17,19 @@ Each module fires when its pilot is vented; the pilots are fed all the time
 through jets (as in stage4v2_schrader.py).
 
 A. "Montigny": the pack stands still between a front and a rear plate on
-   four aluminium rails. Behind it a firing head: a face distributor (worked
-   out in rotor_timing.py and docs/rotor.md). A fixed stator, a wear plate
-   with one port per barrel on one circle (a hose from each module's pilot
-   fitting to its port), and a rotor arm with a floating shoe on the plate:
-   an arc slot fed with supply from the centre, ringed by a sealing band.
-   Everything outside the band is open air. A port under the slot charges
-   its module's pilot (and so its chamber, through the bleed); when it
-   leaves the band's trailing edge the pilot vents and the module fires.
-   The slot spans AHEAD (2) pitches, so two barrels charge at once, and
-   nothing else is ever charged. A charged chamber can only be emptied by
-   firing it, or slowly back through the bleed by the dump valve (below).
-   The ports are evenly spaced, so the shots are; the stator, rotor and
-   detent are per pack (16 or 19).
+   four aluminium rails. Behind it a firing head on tyre valve cores only
+   (worked out in rotor_timing.py and docs/rotor.md). Per barrel the pilot
+   line (a hose from the module's pilot fitting) meets two cores in a fixed
+   core block: a charge core from the supply ring and a vent core to the
+   air, both pressed from behind through printed buttons. The rotor is a cam
+   disc with two arc rails: a long one holds the charge buttons of the next
+   AHEAD (2) barrels down, a short one behind it presses the vent button of
+   the barrel to fire. So two barrels charge at once and nothing else is
+   ever charged; between the two, both cores are shut. A charged chamber can
+   only be emptied by firing it, or slowly back through the bleed and its
+   charge core (a check valve that way) by the dump valve (below). The cores
+   are evenly spaced, so the shots are; the core block, rotor and detent are
+   per pack (16 or 19).
    Drive: side crank -> 1:1 bevel -> layshaft -> 5:1 spur pair -> dog
    clutch -> rotor shaft: a crank turn fires 1/5 of the volley (3.2 or 3.8
    shots). The trigger on the rear grip pushes the clutch in; let go, a
@@ -125,7 +125,6 @@ MODULE_PARTS = ((106.5, 160.7), (122.3, 106.5), (31.8, 138.8), (31.9, -15.0), (9
 TIE_R = 21.5
 TURNS = {"j_rings_4_12": ((4, 0.0), (12, 40.0))}    # rods per ring, off the module's radius (docs/pack.md)
 RAIL = (12.0, 1.0)                  # aluminium tube
-CORE_R_A = 45.0                     # A: distributor ports on one circle in the firing head
 CRANK_R = 70.0
 X_OFF = 420.0                       # variants side by side along x
 
@@ -227,17 +226,15 @@ def bevel_box(z0, z1, half):
 # shots stay evenly spaced at either count.
 A_KEYS = ("j_rings_4_12", "g_hex_19")
 REAR_R = max(_ns["shroud_r"](LAYOUT[k]) for k in A_KEYS)
-HEAD = (CORE_R_A + 12.0, CORE_R_A + 22.0)   # head body: bore (the stator's rim), outside
+HEAD = (68.0, 78.0)                         # head body: bore (the core block's rim), outside
 HOSE_SLACK = 20.0                           # one hose length for every barrel at 16 and 19: the longest + this
 FITTING_D = 10.0                            # push-in fitting for the 4 mm hose on the stator's face
 GEAR_C = 45.0                               # layshaft (crank side) above the rotor shaft
 BLEED_D = 1.0                               # module v4.4's bleed hole (stage3v4_coaxial_chamber.py), as v1.1's
-# the rotor, worked out in rotor_timing.py (plain Python): ports, shoe, ahead, gear, charge time
+# the rotor, worked out in rotor_timing.py (plain Python): core circles, cams, ahead, gear, charge time
 _rt = {"__file__": os.path.join(REPO, "mitrailleuse", "rotor_timing.py")}
 exec(open(_rt["__file__"], encoding="utf-8").read().rsplit("\nif __name__", 1)[0], _rt)
-PORT_D, BAND, SLOT_W, GEAR, CHARGE_AHEAD, T_FILL = (_rt[k] for k in ("PORT_D", "BAND", "SLOT_W", "GEAR", "AHEAD",
-                                                                     "T_FILL"))
-assert _rt["R_PORT"] == CORE_R_A
+VENT_R, CHARGE_R, GEAR, CHARGE_AHEAD, T_FILL = (_rt[k] for k in ("VENT_R", "CHARGE_R", "GEAR", "AHEAD", "T_FILL"))
 CHAMBER_CM3, P_WORK = 100.0, 2.0            # module chamber, working pressure (bar gauge)
 POCKET_D, SEAT_D = 31.0, 16.0               # module v4.4: pilot acts on the diaphragm, chamber outside the seat
 DUMP_JET = 0.5                              # the dump valve vents the head through this: slow enough not to fire
@@ -258,40 +255,42 @@ def arc_stadium(r, width, arc_len, z0, z1, a_mid):
     return body.fuse(ends)
 
 
-def distributor(n, z_face):
-    """The face distributor for n barrels (rotor_timing.py), port 0 at 0 deg, the stator's rear face at z_face.
+def firing_head(n, z_face):
+    """Core block and cam rotor for n barrels (rotor_timing.py), barrel 0 at 0 deg, the block's rear face z_face.
 
-    Stator: printed body in front of a 3 mm wear plate with the ports. Rotor: hub, spigot into the stator's
-    centre, an arm out to the shoe's piston boss; shoe: a piston and a head with the slot ringed by the band.
-    Drawn parked at a detent: the band's trailing centre line half-way between port -1 and port 0, so
-    ports 0 .. AHEAD-1 sit under the slot (charging) and the rotor turns towards +angle.
+    Core block: a printed disc, per barrel a vent core on VENT_R and a charge core on CHARGE_R on the same
+    radius line, both pin-out to the rear under a printed button; the pilot fitting in front, on CHARGE_R.
+    Rotor: a cam disc behind it with a long rail on CHARGE_R (AHEAD charge buttons) and a short one on
+    VENT_R, drawn parked at a detent (ports at x = j + 0.5, the rotor turning towards +angle).
     """
-    k = _rt["shoe"](n)
+    k = _rt["cams"](n)
     pitch_a = 360.0 / n
     out = {}
-    plate = cyl(2 * HEAD[0] - 0.4, z_face, z_face + 3)
-    body = cyl(2 * HEAD[0] - 0.4, z_face + 3, z_face + 23)
+    block = cyl(2 * HEAD[0] - 0.4, z_face, z_face + 23)
+    cores, buttons = [], []
     for i in range(n):
-        xy = polar(CORE_R_A, pitch_a * i)
-        plate = plate.cut(cyl(PORT_D, z_face - 1, z_face + 4, *xy))
-        body = body.cut(cyl(PORT_D, z_face + 2, z_face + 24, *xy))
-    out["Wear_plate"], out["Port_stator"] = plate, body
-    a_mid = -pitch_a / 2 + math.degrees(CHARGE_AHEAD * k["pa"] / 2 / CORE_R_A)
-    head = arc_stadium(CORE_R_A, SLOT_W + 2 * BAND, k["S"] - SLOT_W, z_face - 3, z_face, a_mid)
-    head = head.cut(arc_stadium(CORE_R_A, SLOT_W, k["S"] - SLOT_W, z_face - 1, z_face + 1, a_mid))
-    sx, sy = polar(CORE_R_A, a_mid)
-    out["Shoe"] = head.fuse(cyl(k["D_p"], z_face - 15, z_face - 3, sx, sy))
-    boss = cyl(k["D_p"] + 8, z_face - 18, z_face - 6, sx, sy).cut(cyl(k["D_p"], z_face - 16, z_face - 5, sx, sy))
-    arm = rod(16, (0, 0, z_face - 12), (sx, sy, z_face - 12))
-    hub = cyl(30, z_face - 20, z_face - 4).fuse(cyl(10, z_face - 4, z_face + 13))     # + the spigot
-    out["Rotor"] = boss.fuse([arm, hub]).cut(cyl(k["D_p"], z_face - 16, z_face - 5, sx, sy))
+        for r in (VENT_R, CHARGE_R):
+            xy = polar(r, pitch_a * i)
+            block = block.cut(cyl(_rt["CORE_CB"], z_face - 1, z_face + 5, *xy))
+            cores.append(cyl(5.2, z_face + 4, z_face + 9, *xy).fuse(cyl(3.0, z_face + 9, z_face + 18, *xy)))
+            buttons.append(cyl(_rt["CORE_CB"] - 0.4, z_face - 0.5, z_face + 4, *xy)
+                           .fuse(cyl(_rt["BUTTON_D"], z_face - 3, z_face - 0.5, *xy)))
+    out["Port_stator"], out["Valve_cores"], out["Core_buttons"] = block, G.fuse_all(cores), G.fuse_all(buttons)
+    # x (pitches) -> angle: a port at x sits x pitches ahead (+angle) of the zero point; port 0 parks at 0.5
+    ang = lambda x: (x - 0.5) * pitch_a
+    disc = cyl(2 * CHARGE_R + 20, z_face - 14, z_face - 8).fuse(cyl(30, z_face - 20, z_face - 8))
+    rails = []
+    for (a0, a1), r in ((k["top_c"], CHARGE_R), (_rt["VENT_TOP"], VENT_R)):
+        r0, r1 = a0 - _rt["RAMP"], a1 + _rt["RAMP"]
+        arc = (r1 - r0) * 2 * math.pi * r / n
+        rails.append(arc_stadium(r, 6.0, arc - 6.0, z_face - 8, z_face - 3 - _rt["TRAVEL"] + 0.5, ang((r0 + r1) / 2)))
+    out["Rotor"] = disc.fuse(rails)
     # ratchet detent: n saw teeth, the steep face backwards
     r_o, r_i, pts = 25.0, 21.0, []
     for i in range(n):
         a0 = pitch_a * i
         pts += [V(*polar(r_o, a0), 0), V(*polar(r_i, a0 + 0.12 * pitch_a), 0)]
-    wire = Part.makePolygon(pts + [pts[0]])
-    wheel = Part.Face(wire).extrude(V(0, 0, 6))
+    wheel = Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(0, 0, 6))
     wheel.translate(V(0, 0, z_face - 28))
     out["Detent_wheel"] = wheel.cut(cyl(10, z_face - 29, z_face - 21))
     return out, k
@@ -359,13 +358,13 @@ def concept_a(key):
                          for a in (45, 135, 225, 315)])
     p["Head_spider"] = (spider, "frame")
     # stator ports in the modules' angular order, one hose each to its pilot fitting
-    dist, _ = distributor(n, z_face)
+    dist, _ = firing_head(n, z_face)
     ang = [math.degrees(math.atan2(y, x)) % 360.0 for x, y in pts]
     order = sorted(range(n), key=lambda i: (ang[i], math.hypot(*pts[i])))
     a_first = ang[order[0]]
     fittings, hoses, lengths = [], [], []
     for k, i in enumerate(order):
-        cx, cy = polar(CORE_R_A, a_first + 360.0 / n * k)
+        cx, cy = polar(CHARGE_R, a_first + 360.0 / n * k)
         fittings.append(cyl(FITTING_D, z_h1, z_h1 + 8, cx, cy))
         a, b = V(pts[i][0], pts[i][1], -47.2), V(cx, cy, z_h1 + 8)
         hoses.append(rod(4, a, b))
@@ -375,7 +374,7 @@ def concept_a(key):
     DETAIL[key] = {nm: s.copy() for nm, s in dist.items()}
     dist["Port_stator"] = dist["Port_stator"].fuse(G.fuse_all(fittings))
     for nm, s in dist.items():
-        p[nm] = (s, "plate" if nm == "Wear_plate" else "swap")
+        p[nm] = (s, {"Valve_cores": "steel", "Core_buttons": "printed"}.get(nm, "swap"))
     p["Pilot_hoses"] = (G.fuse_all(hoses), "hose")
     # drive: crank -> 1:1 bevel -> layshaft -> 5:1 spur pair -> dog clutch (trigger) -> rotor shaft
     p["Rotor_shaft"] = (cyl(10, -200, z_face - 20), "steel")
@@ -456,22 +455,23 @@ def rear_report(built):
     for tag, key in (("A16", "j_rings_4_12"), ("A19", "g_hex_19")):
         n = len(LAYOUT[key])
         L = HOSES[key]
-        k = _rt["shoe"](n)
-        pitch = 2 * CORE_R_A * math.sin(math.pi / n)
-        check(pitch >= FITTING_D + 2.0, "%s: %d stator ports on R %.0f, pitch %.1f mm (push-in fitting Ø%.0f + 2)"
-              % (tag, n, CORE_R_A, pitch, FITTING_D))
-        check(k["dwell"] > 0, "%s: port Ø%.1f under the band %.1f: shut %.1f mm between slot and air, never both"
-              % (tag, PORT_D, BAND, k["dwell"]))
-        check(k["park"] >= 2.0, "%s: parked, %.1f mm from each port's edge to the band's" % (tag, k["park"]))
-        check(k["charge"] >= CHARGE_AHEAD - 0.1, "%s: slot %.1f mm, %d ahead: each barrel charges %.2f shot intervals"
-              % (tag, k["S"], CHARGE_AHEAD, k["charge"]))
-        print("      %s: shoe head %.0f x %.0f, piston Ø%.1f; held %.0f / %.0f N at 2 / 5 bar; drag %.2f N m at the"
-              " rotor, %.1f N on the crank knob" % (tag, k["head"][0], k["head"][1], k["D_p"], k["hold"][0.2],
-                                                   k["hold"][0.5], k["t_rotor"], k["f_crank"]))
+        k = _rt["cams"](n)
+        check(k["pc"] >= FITTING_D + 2.0, "%s: %d pilot fittings on R %.0f, pitch %.1f mm (push-in Ø%.0f + 2)"
+              % (tag, n, CHARGE_R, k["pc"], FITTING_D))
+        check(k["clear_v"] >= 3.0, "%s: buttons Ø%.0f, %.1f mm apart on the vent circle (%.1f on the charge one)"
+              % (tag, _rt["BUTTON_D"], k["clear_v"], k["clear_c"]))
+        check(max(k["ramp_c"], k["ramp_v"]) <= 32.0, "%s: rail ramps %.0f / %.0f deg (charge / vent)"
+              % (tag, k["ramp_c"], k["ramp_v"]))
+        check(k["shut"] > 0 and not k["on_ramp"], "%s: both cores shut %.2f pitch between charge and vent; parked"
+              " off the ramps" % (tag, k["shut"]))
+        check(k["charge"] >= CHARGE_AHEAD - 0.5, "%s: %d ahead: each barrel charges %.2f shot intervals"
+              % (tag, CHARGE_AHEAD, k["charge"]))
+        print("      %s: rails %.0f / %.0f mm; button %.1f N at 5 bar; rotor torque <= %.2f N m, %.1f N on the"
+              " crank knob" % (tag, k["rail_c"], k["rail_v"], k["f_core"], k["t_rotor"], k["f_crank"]))
         print("      %s: <= %.1f shots/s, %.1f s a volley; %.1f shots a crank turn, crank <= %.2f turns/s"
               % (tag, k["rate"], k["volley"], k["per_turn"], k["crank_rate"]))
         for a in sorted({1, 2, 3} - {CHARGE_AHEAD}):
-            ka = _rt["shoe"](n, a)
+            ka = _rt["cams"](n, a)
             print("      %s with %d ahead: <= %.1f shots/s, %.1f s a volley" % (tag, a, ka["rate"], ka["volley"]))
         print("      %s: hoses %.0f-%.0f mm straight, all cut to %.0f mm (%.1f m of 4 mm hose)"
               % (tag, min(L), max(L), cut, n * cut / 1000))
@@ -586,11 +586,11 @@ for i, (tag, group, fn, key) in enumerate(VARIANTS):
         sc.add(group, "%s_%s" % (tag, n), to_view(s), style, offset=off)
     MASSES[tag] = mass_report(tag, pts, p)
     if key in DETAIL:                              # the distributor pulled apart along its axis, behind the gun
-        for j, nm in enumerate(("Port_stator", "Wear_plate", "Shoe", "Rotor", "Detent_wheel")):
+        for j, nm in enumerate(("Port_stator", "Valve_cores", "Core_buttons", "Rotor", "Detent_wheel")):
             s = DETAIL[key][nm].copy()
             s.translate(V(0, 0, -400 - 25 * j))
-            sc.add(tag + "_rotor", "%s_rotor_%s" % (tag, nm), to_view(s), "plate" if nm == "Wear_plate" else "swap",
-                   offset=off)
+            sc.add(tag + "_rotor", "%s_rotor_%s" % (tag, nm), to_view(s),
+                   {"Valve_cores": "steel", "Core_buttons": "printed"}.get(nm, "swap"), offset=off)
 rear_report(BUILT)
 labels = [
     ("A16: МОНТИНЬИ, 4+12 — пакет стоит, головка-распределитель, шланги", 0),
