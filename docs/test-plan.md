@@ -165,3 +165,93 @@ same rest. Measure:
 The sleeve's safe length (215 mm) assumes 0.1 mm play in its 25 mm socket,
 0.2 mm of bow, and up to 5 mrad of sideways scatter as the ball leaves the
 barrel; that last figure is a guess, and this test is what checks it.
+
+---
+
+## Stage 3 v4.4 — charge time and the quiet dump
+
+*Test article: `module/stage3v4_coaxial_chamber.py`* (bleed Ø1.0, as v1.1) — the
+mitrailleuse's distributor (`mitrailleuse/mitrailleuse_concepts.py`, concept A)
+charges a module only shortly before it fires, and its dump valve empties the
+charged ones without firing them. Both rest on numbers to check:
+
+1. **Charge time.** Pilot from 0 to 2 bar through a valve, no ball; time how
+   long until a shot is as strong as a fully charged one (a gauge on the
+   chamber if one fits, otherwise velocity or penetration against the delay
+   between charging and venting: 0.2, 0.3, 0.5, 1 s). The sketch takes 0.5 s
+   (the v1.1 bench); its rate (~3.1 shots/s, two barrels charged ahead)
+   scales with it.
+2. **Quiet dump.** Charge the module through a tyre valve core (pressed),
+   let the core go, shut the supply, then vent the supply line through a
+   Ø0.5 jet: the pilot must flow back through the core (a check valve that
+   way) and out through the jet. The module must not fire:
+   the chamber should empty back through the bleed in ~5 s with no pop at the
+   muzzle (ball in place, pointed safely). Repeat with Ø0.7 and Ø1.0 to find
+   where it starts to fire; the model says Ø1.0 still holds with two modules
+   on the jet but not with one, so the jet in the sketch is Ø0.5.
+
+## Mitrailleuse head, bench B — one barrel on a hand slider
+
+*Test article: `mitrailleuse/head_bench.py`* with a v4.4 module: one port of
+concept A's firing head (two tyre valve cores, pushers with return springs,
+the printed channels) and the rotor's cam laid flat on a slider that clicks
+into six stops. Supply on the block's side through a tee with the dump valve
+(G1/8 ball valve into a plug drilled Ø0.5), pilot from the top to the
+module's pilot port (4 mm hose, ~110 mm as in the gun), gauge on the end.
+
+0. **Set the pins.** Slider at "ждёт", no air: slide each pin up to the
+   core's pin, back off 0.5 mm (a feeler), tighten the grub screw. Push the
+   slider by hand to where each core starts to hiss (supply on, module off)
+   and note the pin travel: the cam gives 1.5 mm, the cores open at ~1.2
+   (typical) and must not bottom before 1.8.
+1. **Hold.** 2 bar, slider at "ждёт": the gauge stays at 0 (the charge core
+   holds the supply). At "зарядка": the gauge rises to the supply; soap
+   round the charge pin (its O-ring) and the block's faces.
+2. **Charge time.** Hold the slider at a "зарядка" stop for 0.2, 0.3, 0.5,
+   1 s, then push straight through to "сброс": compare the shots (velocity
+   or penetration). The rotor charges each barrel ~1.55 shot intervals.
+3. **Both shut.** Charge, stop at "оба закрыты" for 10 s: the gauge holds
+   and the module does not fire; then "сброс" fires it.
+4. **Snap.** From "оба закрыты" to "сброс": the module must fire as
+   cleanly as from a 2/2 valve on the bench (v1.1). If it is soft, the
+   vent core or the Ø4 exhaust is too small, or the pilot volume (block
+   0.4 cm3 + hose 0.5 cm3) too large.
+5. **Quiet dump.** Charge, stop at "оба закрыты", shut the supply and open
+   the dump valve: the gauge falls over ~5 s and the module does not fire
+   (as above, now through the real head).
+6. **Pressure.** 1-5 repeated at 3 and 4 bar (the rotor's limit is 4 bar
+   working).
+7. **Life.** 500 strokes "ждёт" -> "выстрелил" and back with a module
+   on, then 1 again: no leak at the cores or the O-ring.
+
+## Mitrailleuse head, bench C — the rotor under a quarter of the head, by crank
+
+*Test article: `mitrailleuse/rotor_bench.py`*: the 16-barrel rotor turning
+under one quarter of the core block (four ports), cranked through a 1:1
+bevel pair and 5:1 spur gears. The trigger's lever holds a Ø4 steel pin in
+the stop disc's notches; the pinion slips on the layshaft between rubber
+washers while the rotor is stopped. All but the base, the lever and the
+bevel box are the final head's parts. Do bench B first: the pushers and
+cores are set the same way.
+
+0. **Slip.** No cores. Trigger held, crank: the rotor turns. Let go: it
+   stops and the crank slips. Set the nut so it does not slip while
+   turning, and read the slipping force at the knob with a spring scale
+   (the model: 6 N; turning a full 16-port head takes up to 4.6 N).
+1. **Stop on a step.** Let the trigger go at random points, 50 times, slow
+   and fast: the rotor must stop with every pusher either fully up or
+   fully down (mark the pins), never on a ramp. Note if the pin ever
+   fails to drop in at full crank speed (~1 turn/s).
+2. **Pushers.** Cores in, gaps set as on bench B, 2 bar, plugs or gauges
+   on the four pilots. Step the crank: each pilot rises two steps ahead
+   and drops on its vent step, in order 0, 1, 2, 3.
+3. **Crank force.** Spring scale on the knob while turning, at 2 and 4
+   bar: the most it takes, against the model's (four ports here, scale to
+   16).
+4. **Thrust.** Nothing rubs or tilts: the rotor stays clear of the posts,
+   the block does not lift on its three screws, the stack runs true on the
+   housing's upper 608, the bevels do not climb out of mesh.
+5. **Firing.** A v4.4 module on port 0: hold the trigger, crank, it fires
+   on its step; let go before it, it does not.
+6. **Life.** 1000 steps by crank with stops in between; then 1 and 2
+   again.

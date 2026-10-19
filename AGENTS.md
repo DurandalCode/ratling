@@ -18,6 +18,7 @@
 |---|---|---|
 | Модуль ствола митральезы | `module/stage3v4_coaxial_chamber.py` (v4.4), `module/stage3v4_plates.sh` | докстринг файла |
 | Пакет и плита митральезы | `mitrailleuse/pack_layouts.py`, `mitrailleuse/pack_plate.py`, `mitrailleuse/make_plates.sh` | `docs/pack.md` |
+| Эскиз митральезы, ротор | `mitrailleuse/mitrailleuse_concepts.py`, `mitrailleuse/rotor_timing.py`, стенды `mitrailleuse/head_bench.py`, `mitrailleuse/rotor_bench.py` | `docs/rotor.md` |
 | Вес | — | `docs/weights.md` |
 | Клапан v1.1 и стенд | `module/stage3_qev.py`, `stage3_floating_seal.py`, `stage3_vent_head.py`, `stage3_v13.py` | докстринги |
 | Пистолет | `pistol/hammer_assembly.py`, `pistol/hammer_layout.py`, `pistol/build/` | `pistol/build/README.md` |
@@ -33,6 +34,7 @@
   exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
   ```
   Без FreeCAD работают: `python3 -m ratling.params`, `python3 mitrailleuse/pack_layouts.py`,
+  `python3 mitrailleuse/rotor_timing.py`, `python3 mitrailleuse/rotor_cycle_gif.py` (нужен Pillow),
   `tools/print_plate.py` (ему нужен Bambu Studio на macOS). На облачной ВМ FreeCAD надо поставить: раздел
   «FreeCAD на облачной ВМ» ниже.
 - Генератор печатает отчёт с проверками `[OK ]` / `[FAIL]`, открывает модель (группы: печать,

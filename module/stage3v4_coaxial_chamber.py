@@ -210,7 +210,7 @@ BEAD_H = 0.4
 # the squeeze all round; it also centres the diaphragm. (On a v4 rear plug, cut the four pins off.)
 STOP_LIP_R0 = DIA_R + 0.3
 STRUT_RELIEF = 0.6          # struts stand this far off the clamp face over the free diaphragm: the bleed may sit anywhere
-BLEED_D, BLEED_R, BLEED_ANGLE = 0.8, 10.9, 0.0
+BLEED_D, BLEED_R, BLEED_ANGLE = 1.0, 10.9, 0.0     # was 0.8: as v1.1's, ~0.5 s to charge on the bench
 GROOVE_N, GROOVE_WIDTH, GROOVE_DEPTH = 4, 2.0, 0.6     # pocket floor
 
 # Seat ring
