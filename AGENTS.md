@@ -34,7 +34,7 @@
   exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
   ```
   Без FreeCAD работают: `python3 -m ratling.params`, `python3 mitrailleuse/pack_layouts.py`,
-  `python3 mitrailleuse/rotor_timing.py`,
+  `python3 mitrailleuse/rotor_timing.py`, `python3 mitrailleuse/rotor_cycle_gif.py` (нужен Pillow),
   `tools/print_plate.py` (ему нужен Bambu Studio на macOS). На облачной ВМ FreeCAD надо поставить: раздел
   «FreeCAD на облачной ВМ» ниже.
 - Генератор печатает отчёт с проверками `[OK ]` / `[FAIL]`, открывает модель (группы: печать,
