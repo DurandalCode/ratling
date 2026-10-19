@@ -17,3 +17,6 @@ __pycache__/
 
 # Local agent/tool state
 .claude/settings.local.json
+
+# render_view.py logs
+*.png.log

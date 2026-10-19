@@ -1,5 +1,8 @@
 # Prototype Test Plan
 
+> Selector test plan; the selector is frozen for now (see [status.md](status.md)).
+> The `module/stage3*` files are barrel modules, not the Stage 3 selector below.
+
 The project should validate the pneumatic routing concept incrementally, beginning with the smallest possible test article.
 
 ## Stage 0 — Single-channel flow fixture
