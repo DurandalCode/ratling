@@ -7,7 +7,7 @@ iron, brass and copper, and adds decor round it as masses: nothing here is a par
 cuts a part of the concept. Choose before exec (or as environment variables of the same names):
 
     BARRELS = 16 | 19                                       pack: A16 (rings 4 + 12) or A19 (hex)
-    TOP     = "concept" | "post" | "arch" | "triangle" | "tiller" | "loop"   the carry handle over the CoG
+    TOP     = "concept" | "post" | "arch" | "triangle" | "tiller" | "loop" | "cross"   the carry handle over the CoG
     GRIP    = "concept" | "butt" | "spades" | "down" | "side"       the control grip with the trigger
     INLET   = "concept" | "back" | "left" | "right" | "bottom"  where the supply hose and flexible shaft come in
     DRIVE   = "flex" | "crank" | "both"                      the flexible shaft to the second crew member, or a crank
@@ -38,7 +38,8 @@ Always there (the skin itself):
 TOP (handles()): post, an upright grip with a knob; arch, a riveted strap from hoop to hoop with the grip
 over the CoG; triangle, an inverted spiked triangle whose top bar is the grip; tiller, a bar off the drum's
 left side with an upright grip, the concept's top handle kept; loop, the big pointed-oval loop of the art
-(Ratling_Guns), 210 x 140 mm, standing over the CoG, its top wrapped in leather as the grip. Grips Ø32 x 115, 30 mm or more clear (checked).
+(Ratling_Guns), 210 x 140 mm, standing over the CoG, its top wrapped in leather as the grip; cross, the
+concept's handle turned across the gun, a bar over the eye band on two posts standing on it. Grips Ø32 x 115, 30 mm or more clear (checked).
 
 GRIP (rear_grips()): butt, a flintlock pistol's butt out of the cap's lower half, lofted through oval
 sections along a curve from 12 to 62 deg down, swelling from a 34 x 28 wrist into a brass-capped pommel,
@@ -102,12 +103,13 @@ INLET = _param("INLET", "back")
 DRIVE = _param("DRIVE", "flex")
 GRIP_ROLL = _param("GRIP_ROLL", 0.0, float)
 TOP_ROLL = _param("TOP_ROLL", 0.0, float)
+CROSS_Y = 157.0                                    # cross handle's grip axis: 30 mm for the fingers over the eye band
 SIGHT = _param("SIGHT", "none")
 SIGHTS = ("none", "iron", "ring", "warp", "scope")
 assert SIGHT in SIGHTS, "SIGHT: one of %s" % (SIGHTS,)
 SCALE = _param("SCALE", True, lambda v: str(v).lower() in ("1", "true", "yes"))
 SHEETS = _param("SHEETS", False, lambda v: str(v).lower() in ("1", "true", "yes"))
-TOPS = ("concept", "post", "arch", "triangle", "tiller", "loop")
+TOPS = ("concept", "post", "arch", "triangle", "tiller", "loop", "cross")
 GRIP_KINDS = ("concept", "butt", "spades", "down", "side")
 INLETS = ("concept", "back", "left", "right", "bottom")
 assert INLET in INLETS, "INLET: one of %s" % (INLETS,)
@@ -359,6 +361,15 @@ def handles(p):
                  "Rivets": (compound([Part.makeSphere(RIVET / 2, V(6, ym_ + dy, zc + sz * (wl / 2 - bar / 2 - 2)))
                                       for dy in (-30, 0, 30) for sz in (-1, 1)]), "brass")}
     h["concept"] = {"Grip": (p["Carry_handle"][0].copy(), "leather"), "Posts": (p["Carry_posts"][0].copy(), "iron")}
+    # cross: the concept's handle turned across the gun, a bar over the eye band on two posts standing on it
+    yx, xp = CROSS_Y, GRIP[1] / 2
+    g, rg = leather_grip((-xp, yx, zc), (xp, yx, zc))
+    h["cross"] = {"Grip": (g, "leather"), "Grip_rings": (rg, "copper"),
+                  "Posts": (compound([box(sx * xp, sx * (xp + 12), 70, yx + 8, zc - 6, zc + 6).cut(
+                      cyl(2 * A_RAIL_R + 11, zc - 7, zc + 7)) if sx > 0 else
+                      box(sx * (xp + 12), sx * xp, 70, yx + 8, zc - 6, zc + 6).cut(cyl(2 * A_RAIL_R + 11, zc - 7, zc + 7))
+                      for sx in (-1, 1)]), "iron"),
+                  "Caps": (compound([Part.makeSphere(9, V(sx * (xp + 6), yx + 10, zc)) for sx in (-1, 1)]), "brass")}
     return h
 
 
