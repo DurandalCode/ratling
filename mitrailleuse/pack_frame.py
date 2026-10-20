@@ -16,8 +16,8 @@ Frame as in mitrailleuse_concepts.py: z along the barrels (+z to the muzzle), y 
                   Per module a Ø38 + 2 HOLE_CLEAR hole with a notch at each rod (the rod is 0.5 mm off the
                   tube's hole, so the two are one cut), turned as the pack turns its rods (docs/pack.md). A
                   lug round each rail.
-    rails ....... 4 aluminium tubes 12 x 1 at RAIL_R, 45 deg off the axes, from the head (RAIL_Z0, as in
-                  the concept) to the front plate's face. Clear of every yoke ear, nut and fitting at 16 and 19.
+    rails ....... 4 aluminium tubes 12 x 1 at RAIL_R, 45 deg off the axes, from the head plate's
+                  back face (RAIL_Z0, rear_frame.py) to the front plate's face. Clear of every yoke ear, nut and fitting at 16 and 19.
     set screws .. one M3 x 8 grub screw per lug, radial onto the rail through a nut dropped into a pocket on
                   the plate's top face: the plates slide on the rails until they are set.
 
@@ -85,7 +85,7 @@ RAIL = (12.0, 1.0)          # aluminium tube, OD x wall
 RAIL_R = 104.0              # rail axes off the pack's axis, the same at 16 and 19 (J is the tighter: 4.7 mm)
 RAIL_ANGLES = (45.0, 135.0, 225.0, 315.0)
 RAIL_HOLE = 12.3
-RAIL_Z0 = -150.0            # rear end: the head's spider (mitrailleuse_concepts.py)
+RAIL_Z0 = -238.0            # rear end: the head plate's back face (rear_frame.py, Z0 - HP_T)
 LUG_R = 12.5                # round the rail
 RAIL_CLEAR = 1.0            # rail to any module part, along its whole length
 GRUB = (3.4, 8.0)           # M3 grub screw: hole, length
