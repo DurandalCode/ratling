@@ -7,8 +7,12 @@ iron, brass and copper, and adds decor round it as masses: nothing here is a par
 cuts a part of the concept. Choose before exec (or as environment variables of the same names):
 
     BARRELS = 16 | 19                                       pack: A16 (rings 4 + 12) or A19 (hex)
-    TOP     = "concept" | "post" | "arch" | "triangle" | "tiller"   the carry handle over the CoG
+    TOP     = "concept" | "post" | "arch" | "triangle" | "tiller" | "loop"   the carry handle over the CoG
     GRIP    = "concept" | "butt" | "spades" | "down" | "side"       the control grip with the trigger
+    INLET   = "concept" | "back" | "left" | "right" | "bottom"  where the supply hose and flexible shaft come in
+    DRIVE   = "flex" | "crank" | "both"                      the flexible shaft to the second crew member, or a crank
+                                                            on the drum, or both
+    SHIELD  = "none" | "round" | "gear" | "spiked" | "kite" | "triangle"   a shield between the drum and the pack
     DEPTH   = 70.0                                          mm the drum is drawn deeper than the concept's casing
     SHEETS  = False                                         also render every TOP and every GRIP side by side
 
@@ -27,7 +31,8 @@ Always there (the skin itself):
 
 TOP (handles()): post, an upright grip with a knob; arch, a riveted strap from hoop to hoop with the grip
 over the CoG; triangle, an inverted spiked triangle whose top bar is the grip; tiller, a bar off the drum's
-left side with an upright grip, the concept's top handle kept. Grips Ø32 x 115, 30 mm or more clear (checked).
+left side with an upright grip, the concept's top handle kept; loop, the big pointed-oval loop of the art
+(Ratling_Guns), 210 x 140 mm, standing over the CoG, its top wrapped in leather as the grip. Grips Ø32 x 115, 30 mm or more clear (checked).
 
 GRIP (rear_grips()): butt, a flintlock pistol's butt out of the cap's lower half, lofted through oval
 sections along a curve from 12 to 62 deg down, swelling from a 34 x 28 wrist into a brass-capped pommel,
@@ -36,8 +41,25 @@ trigger (Maxim); down, a straight grip under the drum in a riveted D-bow, on the
 where it leaves the drum (the concept's trigger sits under the drum); side, a grip along the drum's upper
 left flank with a thumb lever. Each with 20 mm or more for the fingers, outside the drum (checked).
 
-Prints [OK ] / [FAIL]. Writes exports/ratling_skin/A<n>_<top>_<grip>/<view>.jpg, and with SHEETS
-exports/ratling_skin/sheets/A<n>_tops.jpg, A<n>_grips.jpg and each variant's views.
+INLET (inlet()): a riveted brass boss on the drum with the hose's union and the shaft's collar side by side,
+both lines leaving it down and back for 240 mm, the hose corrugated, the shaft in a ribbed sheath: on the
+cap (back), low on either flank (left, clear of the claws; right, ahead of the crank's sweep) or under the
+drum (bottom); concept keeps the concept's hose and input. Checked 10 mm off the chosen handle and grip,
+the crank's sweep and the decor: some pairs clash (bottom with down), the check says so.
+
+SHIELD (shield()): a 5 mm plate round the drum's front end, ahead of its strap and behind the rear hoop
+(z -46.5 to -41.5), on the drum (bore R 114.5, so nothing inside passes it): round (R 165, rolled rim,
+rivets), gear (14 teeth, R 150 to 172), spiked (R 150 and eight spikes out to R 205), kite (a heater
+shield, 340 wide, its point 230 down) and triangle (380 wide, point down, three claw slots). Checked 3 mm
+off the handle, the grip, the inlet's lines and the crank's sweep.
+
+DRIVE (body_crank()): with crank the flexible shaft goes and a crank comes out of the drum's right side on
+the layshaft's axis: a riveted boss, a forged 82 mm arm turning 14 mm off the drum, a wooden knob with a brass
+cap. The concept's own crank (its arm inside the casing) is hidden either way. The knob's sweep is checked
+off the drum, the handle, the grip and the inlet.
+
+Prints [OK ] / [FAIL]. Writes exports/ratling_skin/A<n>_<top>_<grip>_<inlet>_<drive>/<view>.jpg, and with SHEETS
+exports/ratling_skin/sheets/A<n>_tops.jpg, A<n>_grips.jpg, A<n>_inlets.jpg and each variant's views.
 
 Run inside FreeCAD (GUI):
     REPO = '/Users/<you>/ratling'
@@ -70,9 +92,19 @@ BARRELS = _param("BARRELS", 16, int)
 TOP = _param("TOP", "arch")
 GRIP_KIND = _param("GRIP", "butt")
 DEPTH = _param("DEPTH", 70.0, float)
+INLET = _param("INLET", "back")
+DRIVE = _param("DRIVE", "flex")
 SHEETS = _param("SHEETS", False, lambda v: str(v).lower() in ("1", "true", "yes"))
-TOPS = ("concept", "post", "arch", "triangle", "tiller")
+TOPS = ("concept", "post", "arch", "triangle", "tiller", "loop")
 GRIP_KINDS = ("concept", "butt", "spades", "down", "side")
+INLETS = ("concept", "back", "left", "right", "bottom")
+assert INLET in INLETS, "INLET: one of %s" % (INLETS,)
+DRIVES = ("flex", "crank", "both")
+assert DRIVE in DRIVES, "DRIVE: one of %s" % (DRIVES,)
+FLEX = DRIVE in ("flex", "both")
+SHIELD = _param("SHIELD", "none")
+SHIELDS = ("none", "round", "gear", "spiked", "kite", "triangle")
+assert SHIELD in SHIELDS, "SHIELD: one of %s" % (SHIELDS,)
 assert BARRELS in (16, 19), "BARRELS: 16 or 19"
 assert TOP in TOPS, "TOP: one of %s" % (TOPS,)
 assert GRIP_KIND in GRIP_KINDS, "GRIP: one of %s" % (GRIP_KINDS,)
@@ -84,7 +116,7 @@ TAG = "A%d" % BARRELS
 VI = [t for t, _, _, _ in VARIANTS].index(TAG)
 _, GROUP, _, KEY = VARIANTS[VI]
 OFF = V(0, -X_OFF * VI, 0)
-OUT = os.path.join(REPO, "exports", SKIN, "%s_%s_%s" % (TAG, TOP, GRIP_KIND))
+OUT = os.path.join(REPO, "exports", SKIN, "%s_%s_%s_%s_%s_%s" % (TAG, TOP, GRIP_KIND, INLET, DRIVE, SHIELD))
 OUT_SHEETS = os.path.join(REPO, "exports", SKIN, "sheets")
 os.makedirs(OUT, exist_ok=True)
 
@@ -146,11 +178,13 @@ def chain(dia, *pts):
                       [Part.makeSphere(dia / 2, V(*q)) for q in pts[1:-1]])
 
 
-def bent_wire(dia, pts, n=24):
+def bent_wire(dia, pts, n=24, sweep=True):
     """A round bar swept along a smooth curve through pts (a B-spline); short rods and balls if the sweep fails."""
     c = Part.BSplineCurve()
     c.interpolate([V(*q) for q in pts])
     try:
+        if not sweep:
+            raise ValueError
         p0, t0 = c.value(c.FirstParameter), c.tangent(c.FirstParameter)[0]
         prof = Part.Wire(Part.makeCircle(dia / 2, p0, t0))
         bar = Part.Wire(c.toShape()).makePipeShell([prof], True, True)
@@ -207,11 +241,10 @@ def skin(key, p):
     s["Rivets"] = (compound(rv), "brass")
     # the drum: DEPTH deeper, capped; straps at its ends and on the joint, a seam on top, spikes on the rear rim
     s["Casing_extension"] = (tube(2 * CASE[0], 2.0, BACK, CASE[1] + 1), "iron")
-    cap = cyl(2 * CASE[0] + 8, BACK - 5, BACK).fuse(cyl(70, BACK - 12, BACK - 5)).cut(cyl(24, BACK - 13, BACK + 1,
-                                                                                           0, GEAR_C))
+    cap = cyl(2 * CASE[0] + 8, BACK - 5, BACK).fuse(cyl(70, BACK - 12, BACK - 5))
+    if FLEX and INLET in ("concept", "back"):       # the flexible shaft's input through the cap
+        cap = cap.cut(cyl(24, BACK - 13, BACK + 1, 0, GEAR_C))
     s["End_cap"] = (cap, "iron")
-    s["Flex_collar"] = (tube(32, 5, BACK - 16, BACK - 5, 0, GEAR_C), "brass")
-    s["Flex_extension"] = (cyl(12, BACK - 16, -260, 0, GEAR_C), "iron")       # the input brought out through the cap
     rv = [compound([Part.makeSphere(RIVET / 2, V(*polar(CASE[0] - 2, 15 * i), BACK - 5)) for i in range(24)])]
     straps = [tube(2 * CASE[0] + 8, 4, z, z + 12) for z in (BACK + 2, CASE[1] - 6, CASE[2] - 14)]
     for z in (BACK + 8, CASE[1], CASE[2] - 8):
@@ -239,11 +272,6 @@ def skin(key, p):
                       .fuse(Part.makeSphere(11, V(0, yv, -260))), "warp")
     clamps = [tube(30, 4, z, z + 10, 0, yv).fuse(box(-5, 5, CASE[0] - 2, yv - 12, z, z + 10)) for z in (-245, -105)]
     s["Vial_clamps"] = (compound(clamps), "brass")
-    xv = HEAD[1] + 12                               # the supply hose, as concept_a draws it
-    a, b = V(xv + 24, 0, -143.0 + 15), V(xv + 89, -60, -143.0 + 15 - 60)
-    d = b - a
-    s["Hose_ribs"] = (compound([Part.makeTorus(4.6, 1.3, a + d * (i * 7 / d.Length), d)
-                                for i in range(1, int(d.Length / 7))]), "brass")
     return s
 
 
@@ -295,6 +323,26 @@ def handles(p):
                    "Grip": (g, "leather"), "Grip_rings": (rg, "copper"),
                    "Knob": (Part.makeSphere(19, V(xt, 20 - 12 - GRIP[1] - 10, zt)), "brass"),
                    "Trigger_lever": (box(xt - 4, xt + 4, -20, -2, zt + 14, zt + 30), "brass")}
+    # loop: the art's big pointed oval, standing over the CoG on a saddle, its top wrapped as the grip
+    hl, wl, bar = 210.0, 140.0, 14.0
+    rv_ = (hl * hl / 4 + wl * wl / 4) / wl                 # the arcs' radius
+    off_ = rv_ - wl / 2
+    yb_ = yt + 8
+    ym_ = yb_ + hl / 2
+
+    def lens(shrink, x0, x1):
+        a_ = rod(2 * (rv_ - shrink), (x0, ym_, zc + off_), (x1, ym_, zc + off_))
+        b_ = rod(2 * (rv_ - shrink), (x0, ym_, zc - off_), (x1, ym_, zc - off_))
+        return a_.common(b_)
+
+    ring = lens(0, -6, 6).cut(lens(bar, -7, 7))
+    wrap = lens(-3, -9, 9).cut(lens(bar + 3, -10, 10)).common(box(-12, 12, ym_ + 55, yb_ + hl + 5, zc - 90, zc + 90))
+    h["loop"] = {"Loop": (ring, "iron"), "Grip": (wrap, "leather"),
+                 "Saddle": (box(-10, 10, yt - 4, yt + 8, zc - 80, zc + 80), "iron"),
+                 "Foot": (rod(34, (0, yt + 2, zc), (0, yb_ + 10, zc)), "brass"),
+                 "Tip_spike": (cone_from((0, yb_ + hl - 6, zc), (0, yb_ + hl + 34, zc), 14), "iron_dark"),
+                 "Rivets": (compound([Part.makeSphere(RIVET / 2, V(6, ym_ + dy, zc + sz * (wl / 2 - bar / 2 - 2)))
+                                      for dy in (-30, 0, 30) for sz in (-1, 1)]), "brass")}
     return h
 
 
@@ -402,6 +450,159 @@ def rear_grips():
     return g, (o, d, n)
 
 
+# ---------------------------------------------------------------- INLET: where the supply hose and the flexible shaft come in
+def ribbed(dia, pts, rib_style_pitch, n=40):
+    """A tube swept along a curve through pts, with rings round it every pitch mm, and a ferrule at its end."""
+    c = Part.BSplineCurve()
+    c.interpolate([V(*q) for q in pts])
+    body = bent_wire(dia, pts, n, sweep=False)            # the sweep leaves gaps on these long bends
+    rings, L, u0, u1 = [], c.length(), c.FirstParameter, c.LastParameter
+    k = int(L / rib_style_pitch)
+    for i in range(1, k):
+        u = c.parameterAtDistance(i * rib_style_pitch, u0)
+        rings.append(Part.makeTorus(dia / 2, 1.4, c.value(u), c.tangent(u)[0]))
+    tip, tt = c.value(u1), c.tangent(u1)[0]
+    ferrule = Part.makeCylinder(dia / 2 + 2.5, 14, tip - tt * 12, tt)
+    return body, compound(rings), ferrule
+
+
+MOUNTS = {
+    # side: mount centre, outward normal, the axis the two inputs sit along, the way the lines leave
+    "back": (V(20, GEAR_C, BACK - 5), V(0, 0, -1), V(1, 0, 0), V(0.5, -0.7, -0.5)),
+    "left": (V(*polar(CASE[0], -25), -250), V(*polar(1, -25), 0), V(0, 0, 1), V(0.3, -0.7, -0.65)),
+    "right": (V(*polar(CASE[0], 225), -95), V(*polar(1, 225), 0), V(0, 0, 1), V(-0.3, -0.75, -0.55)),
+    "bottom": (V(0, -CASE[0], -120), V(0, -1, 0), V(1, 0, 0), V(0, -0.5, -0.85)),
+}
+
+
+def inlet(side):
+    """A riveted brass boss on the drum with the supply hose's union and the flexible shaft's collar side by
+    side, both lines leaving it down and back for 240 mm: the hose corrugated, the shaft in a ribbed sheath."""
+    if side == "concept":
+        xv = HEAD[1] + 12                           # the supply hose, as concept_a draws it
+        a, b = V(xv + 24, 0, -143.0 + 15), V(xv + 89, -60, -143.0 + 15 - 60)
+        d = b - a
+        parts = {"Hose_ribs": (compound([Part.makeTorus(4.6, 1.3, a + d * (i * 7 / d.Length), d)
+                                         for i in range(1, int(d.Length / 7))]), "brass")}
+        if FLEX:
+            parts["Flex_collar"] = (tube(32, 5, BACK - 16, BACK - 5, 0, GEAR_C), "brass")
+            parts["Flex_extension"] = (cyl(12, BACK - 16, -260, 0, GEAR_C), "iron")
+        return parts
+    c, nrm, a, out = MOUNTS[side]
+    out = out.normalize()
+    b = nrm.cross(a)
+    parts = {"Boss": (rod(84, tuple(c - nrm * 4), tuple(c + nrm * 7)), "brass"),
+             "Boss_rivets": (compound([Part.makeSphere(RIVET / 2, c + nrm * 7 + (a * math.cos(t) + b * math.sin(t)) * 36)
+                                       for t in [i * math.pi / 4 for i in range(8)]]), "brass")}
+    hose_p, flex_p = (c + a * 20, c - a * 20) if FLEX else (c, None)
+    union = rod(26, tuple(hose_p + nrm * 7), tuple(hose_p + nrm * 17)).fuse(
+        rod(18, tuple(hose_p + nrm * 17), tuple(hose_p + nrm * 28)))
+    parts["Hose_union"] = (union, "brass")
+    if FLEX:
+        parts["Flex_collar"] = (rod(34, tuple(flex_p + nrm * 7), tuple(flex_p + nrm * 20)).fuse(
+            rod(24, tuple(flex_p + nrm * 20), tuple(flex_p + nrm * 28))), "brass")
+    lines = {}
+    for nm, p, dia, pitch in (("Hose", hose_p, 16.0, 10.0), ("Flex", flex_p, 18.0, 6.0)):
+        if p is None:
+            continue
+        s0 = p + nrm * 28
+        pts = [s0, s0 + nrm * 30, s0 + nrm * 55 + out * 70, s0 + nrm * 70 + out * 240]
+        body, rings, ferrule = ribbed(dia, [tuple(q) for q in pts], pitch)
+        lines[nm] = (body, rings, ferrule)
+    parts["Hose"] = (lines["Hose"][0], "rubber")
+    parts["Hose_ribs"] = (lines["Hose"][1], "brass")
+    if FLEX:
+        parts["Flex_sheath"] = (lines["Flex"][0], "iron")
+        parts["Flex_ribs"] = (lines["Flex"][1], "copper")
+    parts["Ferrules"] = (compound([ln[2] for ln in lines.values()]), "brass")
+    if FLEX and side == "back":                              # the concept's input is behind the bevel box: bring it to the cap
+        parts["Flex_extension"] = (cyl(12, BACK - 5, -260, 0, GEAR_C), "iron")
+    return parts
+
+
+# ---------------------------------------------------------------- SHIELD: between the drum and the pack
+SH_Z = (CASE[2] - 1.5, CASE[2] + 3.5)           # ahead of the drum's front strap, behind the rear hoop
+
+
+def outline_rivets(pts, inset, step=36.0, z=None):
+    """Rivets along a closed polygon, inset towards its centroid."""
+    cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+    out = []
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+        L = math.hypot(x1 - x0, y1 - y0)
+        for i in range(max(1, int(L / step))):
+            t = (i + 0.5) / max(1, int(L / step))
+            x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+            k = inset / max(math.hypot(x - cx, y - cy), 1.0)
+            out.append(Part.makeSphere(RIVET / 2, V(x - (x - cx) * k, y - (y - cy) * k, z)))
+    return compound(out)
+
+
+def shield(kind):
+    z0, z1 = SH_Z
+    hole = cyl(2 * CASE[0] + 1, z0 - 1, z1 + 1)
+    zf = z0                                      # rivets on the back face, seen by the gunner
+    if kind in ("round", "spiked"):
+        R = 165.0 if kind == "round" else 150.0
+        plate = cyl(2 * R, z0, z1)
+        rim = Part.makeTorus(R - 1, 3.5, V(0, 0, (z0 + z1) / 2), Z)
+        rv = rivets_round(R - 14, zf, 15.0)
+        parts = {"Shield": (plate.fuse(rim).cut(hole), "iron"), "Shield_rivets": (rv, "brass")}
+        if kind == "spiked":
+            parts["Shield_spikes"] = (compound([cone_from(polar(R - 4, a) + ((z0 + z1) / 2,),
+                                                          polar(205, a) + ((z0 + z1) / 2,), 18)
+                                                for a in (22.5 + 45 * k for k in range(8))]), "iron_dark")
+            parts["Shield"] = (parts["Shield"][0], "copper")
+        return parts
+    if kind == "gear":
+        n, r0, r1, pts = 14, 150.0, 172.0, []
+        for i in range(n):
+            a = 360.0 / n * i
+            for da, rr in ((-0.30, r0), (-0.18, r1), (0.18, r1), (0.30, r0)):
+                pts.append(polar(rr, a + da * 360.0 / n))
+        plate = Part.Face(Part.makePolygon([V(x, y, z0) for x, y in pts + pts[:1]])).extrude(V(0, 0, z1 - z0))
+        return {"Shield": (plate.cut(hole), "brass"), "Shield_rivets": (rivets_round(136, zf, 360.0 / n), "iron_dark")}
+    if kind == "kite":
+        pts = [(-170, 150), (170, 150), (160, 20), (100, -130), (0, -230), (-100, -130), (-160, 20)]
+    else:
+        pts = [(-190, 150), (190, 150), (0, -230)]
+    plate = Part.Face(Part.makePolygon([V(x, y, z0) for x, y in pts + pts[:1]])).extrude(V(0, 0, z1 - z0)).cut(hole)
+    if kind == "triangle":
+        for k in (-1, 0, 1):                       # three claw slots in the upper corners and the point
+            for cxy in ((-120, 105), (120, 105), (0, -170)):
+                slot = Part.makeBox(5, 34, z1 - z0 + 2, V(-2.5, -17, z0 - 1))
+                slot.rotate(V(0, 0, 0), Z, 20)
+                slot.translate(V(cxy[0] + 11 * k, cxy[1], 0))
+                plate = plate.cut(slot)
+    return {"Shield": (plate, "rust" if kind == "kite" else "brass"),
+            "Shield_rivets": (outline_rivets(pts, 12.0, z=zf), "brass")}
+
+
+# ---------------------------------------------------------------- DRIVE: the flexible shaft, or a crank on the drum
+CRANK = (82.0, 14.0)                           # skin crank: arm (axis to knob), how far out of the drum its arm turns
+
+
+def body_crank():
+    """The crank brought out of the drum's right side on the concept's layshaft axis (y GEAR_C, z -210): a riveted
+    boss, the shaft through the wall, a forged arm turning CRANK[1] mm off the drum, a wooden knob with a brass
+    cap; drawn pointing down. Replaces the concept's crank, whose arm turns inside the casing."""
+    zc_, yc_ = -210.0, GEAR_C
+    x0 = -(CASE[0] - 6)
+    xa = -(CASE[0] + CRANK[1])                     # the arm's inner face
+    b = rod(64, (x0, yc_, zc_), (-(CASE[0] + 6), yc_, zc_))
+    rv = compound([Part.makeSphere(RIVET / 2, V(-(CASE[0] + 6), yc_ + 26 * math.cos(t), zc_ + 26 * math.sin(t)))
+                   for t in [i * math.pi / 3 for i in range(6)]])
+    shaft = rod(14, (x0, yc_, zc_), (xa - 12, yc_, zc_))
+    hub = rod(30, (xa, yc_, zc_), (xa - 12, yc_, zc_))
+    yk = yc_ - CRANK[0]
+    arm = box(xa - 10, xa, yk, yc_, zc_ - 8, zc_ + 8).fuse(rod(22, (xa, yk, zc_), (xa - 10, yk, zc_)))
+    knob = rod(26, (xa - 10, yk, zc_), (xa - 90, yk, zc_))
+    cap = Part.makeSphere(15, V(xa - 92, yk, zc_))
+    sweep = rod(2 * (CRANK[0] + 16), (xa + 2, yc_, zc_), (xa - 108, yc_, zc_))
+    return {"Crank_boss": (b, "brass"), "Crank_rivets": (rv, "brass"), "Crank_shaft": (shaft.fuse(hub), "iron"),
+            "Crank_arm": (arm, "iron"), "Crank_knob": (knob, "wood"), "Crank_cap": (cap, "brass")}, sweep
+
+
 # ---------------------------------------------------------------- build and check
 P_A = BUILT[TAG]
 SK = skin(KEY, P_A)
@@ -429,17 +630,30 @@ print("      %s: skin reaches z %.0f (sleeve tips %.0f), the drum to z %.0f; %.0
       % (TAG, max(s_[0].BoundBox.ZMax for s_ in SK.values()), Z_TIP, BACK - 5,
          sum(s_[0].Volume for s_ in SK.values()) / 1000 * 1.27))
 
+INLET_PARTS = {side: inlet(side) for side in INLETS if side == INLET or SHEETS}
+for side, parts in INLET_PARTS.items():
+    add_all("%s_i_%s" % (TAG, side), "%s_i_%s" % (TAG, side), parts)
+IN_A = compound([sh for sh, _ in INLET_PARTS[INLET].values()] +
+                ([P_A["Supply_hose"][0], P_A["Flex_shaft_input"][0]] if INLET == "concept" else []))
+CRANK_SWEEP = None
+if DRIVE != "flex":
+    CRANK_PARTS, CRANK_SWEEP = body_crank()
+    add_all(TAG + "_drive", TAG + "_drive", CRANK_PARTS)
+    c = clear(CRANK_SWEEP, cyl(2 * CASE[0] + 8, BACK - 5, CASE[2]))      # the drum over its straps
+    check(c >= 2.0, "%s crank on the drum: arm %.0f mm, its sweep %.0f mm off the drum's straps, the knob's circle"
+          " from y %.0f to %.0f" % (TAG, CRANK[0], c, GEAR_C - CRANK[0], GEAR_C + CRANK[0]))
+
 HANDLES = handles(P_A)
-others = compound([P_A[n][0] for n in ("Eye_band", "Rails", "Sling_eyes", "Rear_casing", "Supply_hose")] +
+others = compound([P_A[n][0] for n in ("Eye_band", "Rails", "Sling_eyes", "Rear_casing")] + [IN_A] +
                   [SK[n][0] for n in ("Hoops", "Warp_vial", "Vial_clamps", "Casing_extension", "End_cap", "Spikes",
-                                      "Claw_plate", "Warp_gauge", "Flex_collar")])
+                                      "Claw_plate", "Warp_gauge")])
 for hn, parts in HANDLES.items():
     if hn != TOP and not SHEETS:
         continue
     add_all("%s_h_%s" % (TAG, hn), "%s_h_%s" % (TAG, hn), parts)
     c = clear(parts["Grip"][0], others)
-    check(c >= 30.0, "%s top %s: grip Ø%.0f x %.0f, %.0f mm from the nearest part for the fingers"
-          % (TAG, hn, GRIP[0], GRIP[1], c))
+    size = "loop 210 x 140, bar 14" if hn == "loop" else "grip Ø%.0f x %.0f" % GRIP
+    check(c >= 30.0, "%s top %s: %s, %.0f mm from the nearest part for the fingers" % (TAG, hn, size, c))
 
 GRIPS, (G_O, G_D, G_N) = rear_grips()
 drum = cyl(2 * CASE[0], BACK, CASE[2])
@@ -460,10 +674,37 @@ for gn, parts in GRIPS.items():
         mid = G_O + G_D * 60
         room = clear(rod(1, tuple(mid), tuple(mid + G_N * 57)), parts["Bow"][0]) + 57 - GRIP[0] / 2
     else:                                          # under the grip: drum, claw plate, supply hose
-        room = clear(parts["Grip"][0], compound([drum, SK["Claw_plate"][0], SK["Warp_gauge"][0],
-                                                 P_A["Supply_hose"][0]]))
+        room = clear(parts["Grip"][0], compound([drum, SK["Claw_plate"][0], SK["Warp_gauge"][0], IN_A]))
     check(inside < 1.0 and room >= 20.0, "%s grip %s: grip and trigger outside the drum (%.0f mm3 in), %.0f mm"
           " for the fingers" % (TAG, gn, inside, room))
+# the inlet against the chosen handle and grip, the crank's sweep and the decor
+near = {"claw plate": SK["Claw_plate"][0], "warp gauge": SK["Warp_gauge"][0],
+        "spikes": SK["Spikes"][0], "tripod pad": P_A["Tripod_pad"][0]}
+if TOP != "concept":
+    near["top " + TOP] = compound([sh for sh, _ in HANDLES[TOP].values()])
+if CRANK_SWEEP is not None:
+    near["crank's sweep"] = CRANK_SWEEP
+near["grip " + GRIP_KIND] = compound([sh for sh, _ in GRIPS[GRIP_KIND].values()]) if GRIP_KIND != "concept" else \
+    compound([P_A[n][0] for n in ("Rear_grip", "Trigger")])
+if CRANK_SWEEP is not None:
+    for nm in [n for n in near if n.startswith(("top", "grip"))]:
+        c = clear(CRANK_SWEEP, near[nm])
+        check(c >= 10.0, "%s crank: the knob's sweep %.0f mm from the %s" % (TAG, c, nm))
+for side, parts in INLET_PARTS.items():
+    if side == "concept":
+        continue
+    lines = compound([sh for sh, _ in parts.values()])
+    worst = min((clear(lines, sh), nm) for nm, sh in near.items())
+    check(worst[0] >= 10.0, "%s inlet %s: hose and shaft %.0f mm from the nearest (%s)" % (TAG, side, worst[0], worst[1]))
+SHIELD_PARTS = {k: shield(k) for k in SHIELDS[1:] if k == SHIELD or SHEETS}
+for k, parts in SHIELD_PARTS.items():
+    add_all("%s_s_%s" % (TAG, k), "%s_s_%s" % (TAG, k), parts)
+    sh_ = compound([p_ for p_, _ in parts.values()])
+    worst = min([(clear(sh_, near[nm]), nm) for nm in near if nm.startswith(("top", "grip", "crank"))] +
+                [(clear(sh_, IN_A), "inlet " + INLET)])
+    bb = sh_.BoundBox
+    check(worst[0] >= 3.0, "%s shield %s: %.0f x %.0f mm, %.0f mm from the nearest (%s)"
+          % (TAG, k, bb.XLength, bb.YLength, worst[0], worst[1]))
 print("      note: the concept's rear grip leaves the drum %.0f mm down its axis, and its trigger (y %.0f to %.0f) is"
       " under the drum (R %.0f)" % ((G_O - V(0, -A_RAIL_R * 0.72, -200)).Length, P_A["Trigger"][0].BoundBox.YMin,
                                     P_A["Trigger"][0].BoundBox.YMax, CASE[0]))
@@ -527,10 +768,19 @@ if App.GuiUp:
         os.remove(tmp)
         return path + ".jpg"
 
-    def show(top, grip, close=False):
-        groups = [GROUP, TAG + "_skin"] + (["%s_h_%s" % (TAG, top)] if top != "concept" and not close else []) + \
+    def show(top, grip, close=False, side=None, shield_=None):
+        side = side or INLET
+        groups = [GROUP, TAG + "_skin", "%s_i_%s" % (TAG, side)] + \
+                 (["%s_h_%s" % (TAG, top)] if top != "concept" and not close else []) + \
                  (["%s_g_%s" % (TAG, grip)] if grip != "concept" else [])
-        hide = ([] if top in ("concept", "tiller") else CONCEPT_TOP) + ([] if grip == "concept" else CONCEPT_GRIP)
+        hide = ([] if top in ("concept", "tiller") else CONCEPT_TOP) + ([] if grip == "concept" else CONCEPT_GRIP) + \
+               ([] if side == "concept" else [TAG + "_Supply_hose", TAG + "_Flex_shaft_input"]) + \
+               [TAG + "_Crank_shaft", TAG + "_Crank_arm", TAG + "_Crank_knob"] + \
+               ([] if FLEX else [TAG + "_Flex_shaft_input"])
+        if DRIVE != "flex":
+            groups.append(TAG + "_drive")
+        if (shield_ or SHIELD) != "none":
+            groups.append("%s_s_%s" % (TAG, shield_ or SHIELD))
         sc.show_only(groups, hide=hide + (FRONT + CONCEPT_TOP if close else []))
 
     def sheet(files, path):
@@ -568,4 +818,21 @@ if App.GuiUp:
                 if vn == ("closeback" if gn == "side" else "close"):
                     files.append(f)
         sheet(files, os.path.join(OUT_SHEETS, "%s_grips.jpg" % TAG))
+        files = []
+        for i, side in enumerate(INLETS[1:]):
+            show(TOP, GRIP_KIND, close=True, side=side)
+            seen = (0.85, -0.35, -0.2) if side == "left" else VIEWS["rear"]       # the left flank from its side
+            for vn, dv in (("rear", seen), ("low", (0.45, 0.60, 0.30))):
+                f = snap(os.path.join(OUT_SHEETS, "%s_inlet%d_%s_%s" % (TAG, i + 1, side, vn)), dv, 1000)
+                if vn == "rear":
+                    files.append(f)
+        sheet(files, os.path.join(OUT_SHEETS, "%s_inlets.jpg" % TAG))
+        files = []
+        for i, k in enumerate(SHIELDS[1:]):
+            show(TOP, GRIP_KIND, shield_=k)
+            for vn in ("rear", "front"):
+                f = snap(os.path.join(OUT_SHEETS, "%s_shield%d_%s_%s" % (TAG, i + 1, k, vn)), VIEWS[vn])
+                if vn == "rear":
+                    files.append(f)
+        sheet(files, os.path.join(OUT_SHEETS, "%s_shields.jpg" % TAG))
     print("renders written to", OUT)
