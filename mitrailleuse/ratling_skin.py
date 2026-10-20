@@ -16,9 +16,14 @@ cuts a part of the concept. What is added, and where:
   round green "warp" lens on a brass gauge ahead of the supply hose;
 - a green glass vial in two brass clamps along the top of the casing;
 - a forged spike under the muzzles, on a lug from the sleeve band, 40 mm past the tips;
-- brass ribs on the supply hose, as a corrugated hose.
+- brass ribs on the supply hose, as a corrugated hose;
+- the drum DEPTH (70 mm) deeper than the concept's casing, to z -300, under a riveted cap; the flexible
+  shaft's input brought out through it (the rear block is not final, this only sets the look);
+- four handles for A16 to choose from, after the miniature (handles(), each in its own group): an upright
+  post with a knob, a riveted arch from hoop to hoop, an inverted spiked triangle, and a tiller off the
+  drum's left side; the grips Ø32 x 115 with 30 mm or more for the fingers (checked).
 
-Prints [OK ] / [FAIL] for the clearances it relies on. Writes exports/ratling_skin/<tag>_<view>.jpg.
+Prints [OK ] / [FAIL] for the clearances it relies on. Writes exports/ratling_skin/<tag>_<view>.jpg, A16_handle<n>_<name>_<view>.jpg and A16_handles_side.jpg.
 
 Run inside FreeCAD (GUI):
     REPO = '/Users/<you>/ratling'
@@ -59,6 +64,8 @@ RESTYLE = {"Modules_barrel": "iron", "Modules_chamber": "brass", "Modules_printe
 
 Z_TIP = 310.7 + SLEEVE[2]
 CASE = (A_RAIL_R + 10.0, -230.0, -45.0)         # the rear casing's outer radius and ends, as drawn in concept_a
+DEPTH = 70.0                                    # the drum drawn this much deeper than the concept's casing, capped
+BACK = CASE[1] - DEPTH
 BAND = (36.0, 10.0, (335.0, 415.0))             # sleeve bands: OD, length, z
 CROWN = (36.0, 14.0)
 HOOP = (222.0, 238.0, 18.0)                     # ID, OD, width
@@ -126,12 +133,19 @@ def skin(tag, key, p):
     zc = p["Eye_band"][0].BoundBox.Center.z
     rv.append(rivets_round(A_RAIL_R + 6, zc, 15.0, skip=(0, 90, 180) + tuple(range(225, 316, 15))))
     s["Hoops"] = (compound(hoops), "brass")
-    # casing: straps at its ends, a seam on top, spikes on the rear rim at the top
-    straps = [tube(2 * CASE[0] + 8, 4, z, z + 12) for z in (CASE[1] + 2, CASE[2] - 14)]
-    for z in (CASE[1] + 8, CASE[2] - 8):
+    # casing: DEPTH deeper, capped; straps at its ends and on the joint, a seam on top, spikes on the rear rim
+    s["Casing_extension"] = (tube(2 * CASE[0], 2.0, BACK, CASE[1] + 1), "iron")
+    cap = cyl(2 * CASE[0] + 8, BACK - 5, BACK).fuse(cyl(70, BACK - 12, BACK - 5)).cut(cyl(24, BACK - 13, BACK + 1,
+                                                                                           0, GEAR_C))
+    s["End_cap"] = (cap, "iron")
+    s["Flex_collar"] = (tube(32, 5, BACK - 16, BACK - 5, 0, GEAR_C), "brass")
+    s["Flex_extension"] = (cyl(12, BACK - 16, -260, 0, GEAR_C), "iron")       # the input brought out through the cap
+    rv.append(compound([Part.makeSphere(RIVET / 2, V(*polar(CASE[0] - 2, 15 * i), BACK - 5)) for i in range(24)]))
+    straps = [tube(2 * CASE[0] + 8, 4, z, z + 12) for z in (BACK + 2, CASE[1] - 6, CASE[2] - 14)]
+    for z in (BACK + 8, CASE[1], CASE[2] - 8):
         rv.append(rivets_round(CASE[0] + 4, z, 12.0))
-    for i in range(14):
-        z = CASE[1] + 20 + i * 11.5
+    for i in range(int((CASE[2] - BACK - 40) / 11.5) + 1):
+        z = BACK + 20 + i * 11.5
         rv.append(compound([Part.makeSphere(RIVET / 2, V(*polar(CASE[0], a), z)) for a in (78, 102)]))
     s["Casing_straps"] = (compound(straps), "copper")
     s["Rivets"] = (compound(rv), "brass")
@@ -139,7 +153,7 @@ def skin(tag, key, p):
     for a in (55, 75, 90, 105, 125):
         x, y = polar(CASE[0] + 2, a)
         tx, ty = polar(CASE[0] + 30, a)
-        spikes.append(cone_from((x, y, CASE[1] + 6), (tx, ty, CASE[1] - 34), 16))
+        spikes.append(cone_from((x, y, BACK + 6), (tx, ty, BACK - 34), 16))
     # under the muzzles: a lug from the sleeve band and a forged spike
     y_s = -(_ns["shroud_r"](LAYOUT[key]) + 2.0 + 9.0)
     lug = box(-7, 7, y_s, y_s + 12, Z_TIP - 34, Z_TIP - 22)
@@ -153,9 +167,9 @@ def skin(tag, key, p):
     s["Warp_gauge"] = (gauge, "brass")
     s["Warp_lens"] = (radial(30, CASE[0] + 10, CASE[0] + 13, ag, zg), "warp")
     yv = CASE[0] + 16
-    s["Warp_vial"] = (cyl(22, -200, -80, 0, yv).fuse(Part.makeSphere(11, V(0, yv, -80)))
-                      .fuse(Part.makeSphere(11, V(0, yv, -200))), "warp")
-    clamps = [tube(30, 4, z, z + 10, 0, yv).fuse(box(-5, 5, CASE[0] - 2, yv - 12, z, z + 10)) for z in (-185, -105)]
+    s["Warp_vial"] = (cyl(22, -260, -80, 0, yv).fuse(Part.makeSphere(11, V(0, yv, -80)))
+                      .fuse(Part.makeSphere(11, V(0, yv, -260))), "warp")
+    clamps = [tube(30, 4, z, z + 10, 0, yv).fuse(box(-5, 5, CASE[0] - 2, yv - 12, z, z + 10)) for z in (-245, -105)]
     s["Vial_clamps"] = (compound(clamps), "brass")
     # supply hose ribs
     xv = HEAD[1] + 12
@@ -196,6 +210,97 @@ for i, (tag, group, fn, key) in enumerate(VARIANTS[:2]):
     reach = max(s[n][0].BoundBox.ZMax for n in s)
     print("      %s: decor reaches z %.0f (sleeve tips %.0f), %.0f g if printed solid in PLA"
           % (tag, reach, Z_TIP, sum(sh.Volume for sh, _ in s.values()) / 1000 * 1.27))
+# ---------------------------------------------------------------- handle variants (A16), after the miniature
+GRIP = (32.0, 115.0)                            # leather grip: Ø, length (a gloved hand: 30-34 x 110+)
+
+
+def leather_grip(p, q):
+    g = rod(GRIP[0], p, q)
+    d = V(*q) - V(*p)
+    rings = compound([Part.makeTorus(GRIP[0] / 2, 1.6, V(*p) + d * t, d) for t in (0.04, 0.96)])
+    return g, rings
+
+
+def handles(p):
+    """Four ways to hold A16 from the top, each in its own group; the concept's carry handle hidden for 1-3.
+
+    post:     an upright grip with a knob, on a bar over the concept's posts (miniature: the hand on a post)
+    arch:     a riveted strap from the front hoop to the rear one, a grip on it over the CoG
+    triangle: an inverted riveted triangle on the sling-eye band, its top bar the grip, spikes at the corners
+    tiller:   a bar off the drum's left side, back past the cap, with an upright grip and a trigger lever
+              (miniature: the crew's bar at the back); the concept's top handle stays
+    """
+    zc = p["Eye_band"][0].BoundBox.Center.z
+    yt = p["Carry_posts"][0].BoundBox.YMax
+    h = {}
+    # 1. post
+    g, rg = leather_grip((0, yt + 22, zc), (0, yt + 22 + GRIP[1], zc))
+    bar = box(-10, 10, yt - 4, yt + 8, zc - 80, zc + 80)
+    h["post"] = {"Grip": (g, "leather"), "Grip_rings": (rg, "copper"), "Saddle": (bar, "iron"),
+                 "Collar": (rod(44, (0, yt + 8, zc), (0, yt + 22, zc)), "brass"),
+                 "Knob": (Part.makeSphere(23, V(0, yt + 22 + GRIP[1] + 14, zc)), "brass"),
+                 "Knob_spike": (cone_from((0, yt + 22 + GRIP[1] + 30, zc), (0, yt + 22 + GRIP[1] + 62, zc), 14),
+                                "iron_dark"),
+                 "Rivets": (compound([Part.makeSphere(RIVET / 2, V(0, yt + 8, z)) for z in
+                                      (zc - 70, zc - 50, zc + 50, zc + 70)]), "brass")}
+    # 2. arch: legs on the hoops' tops, a strap over them, the grip on the strap at the CoG
+    zf, zr = A_PLATES[1][0] - 4, A_PLATES[0][0] - 10           # the hoops' front faces, as in skin()
+    y0, ys = HOOP[1] / 2 - 2, 172.0
+    legs = [box(-14, 14, y0, ys, z, z + 14) for z in (zf + 2, zr + 2)]
+    strap = box(-14, 14, ys - 9, ys, zr + 2, zf + 16)
+    g, rg = leather_grip((0, ys - 4.5, zc - GRIP[1] / 2), (0, ys - 4.5, zc + GRIP[1] / 2))
+    rvs = [Part.makeSphere(RIVET / 2, V(sx * 8, ys, z)) for sx in (-1, 1)
+           for z in range(int(zr + 10), int(zf + 10), 20) if abs(z - zc) > GRIP[1] / 2 + 6]
+    h["arch"] = {"Strap": (compound(legs + [strap]), "iron"), "Grip": (g, "leather"), "Grip_rings": (rg, "copper"),
+                 "Rivets": (compound(rvs), "brass")}
+    # 3. triangle, apex down on the eye band, the top bar is the grip
+    yb, ytop, half, t = A_RAIL_R + 6, 238.0, 92.0, 14.0
+    outer = [V(0, yb, zc), V(0, ytop, zc - half), V(0, ytop, zc + half), V(0, yb, zc)]
+    tri = Part.Face(Part.makePolygon(outer)).extrude(V(10, 0, 0))
+    tri.translate(V(-5, 0, 0))
+    k = 1 - t * 2.6 / (ytop - yb)                      # the opening, a smaller triangle round the same centroid
+    cy, cz = (yb + 2 * ytop) / 3, zc
+    inner = [V(0, cy + (y - cy) * k, cz + (z - cz) * k) for y, z in ((yb, zc), (ytop, zc - half), (ytop, zc + half))]
+    hole = Part.Face(Part.makePolygon(inner + [inner[0]])).extrude(V(12, 0, 0))
+    hole.translate(V(-6, 0, 0))
+    frame = tri.cut(hole).fuse(box(-12, 12, yb - 2, yb + 10, zc - 22, zc + 22))
+    yg = ytop - GRIP[0] / 2 + 2
+    g, rg = leather_grip((0, yg, zc - GRIP[1] / 2), (0, yg, zc + GRIP[1] / 2))
+    corner = [cone_from((0, ytop - 6, zc + sz * (half - 8)), (0, ytop + 22, zc + sz * (half + 26)), 16) for sz in (-1, 1)]
+    rvt = [Part.makeSphere(RIVET / 2, V(5, cy + (y - cy) * (1 + k) / 2, cz + (z - cz) * (1 + k) / 2))
+           for y, z in ((yb, zc), (ytop, zc - half), (ytop, zc + half))]
+    h["triangle"] = {"Frame": (frame, "iron"), "Grip": (g, "leather"), "Grip_rings": (rg, "copper"),
+                     "Spikes": (compound(corner), "iron_dark"), "Rivets": (compound(rvt), "brass")}
+    # 4. tiller off the drum's left side, behind the cap
+    xt, zb, zt = CASE[0] + 40, -270.0, BACK - 60
+    arm = rod(22, (CASE[0] - 4, 20, zb), (xt, 20, zb)).fuse(rod(22, (xt, 20, zb), (xt, 20, zt)))
+    foot = box(CASE[0] - 6, CASE[0] + 6, 0, 40, zb - 20, zb + 20)
+    g, rg = leather_grip((xt, 20 - 12, zt), (xt, 20 - 12 - GRIP[1], zt))
+    lever = box(xt - 4, xt + 4, -20, -2, zt + 14, zt + 30)
+    h["tiller"] = {"Arm": (arm, "iron"), "Foot": (foot, "brass"), "Grip": (g, "leather"), "Grip_rings": (rg, "copper"),
+                   "Knob": (Part.makeSphere(19, V(xt, 20 - 12 - GRIP[1] - 10, zt)), "brass"),
+                   "Trigger_lever": (lever, "brass")}
+    return h
+
+
+HANDLES = handles(BUILT["A16"])
+p16, s16 = BUILT["A16"], SKINS["A16"]
+others = compound([p16[n][0] for n in ("Eye_band", "Rails", "Sling_eyes", "Rear_casing", "Supply_hose")] +
+                  [s16[n][0] for n in ("Hoops", "Warp_vial", "Vial_clamps", "Casing_extension", "End_cap", "Spikes",
+                                       "Claw_plate", "Warp_gauge", "Flex_collar")])
+for hn, parts in HANDLES.items():
+    for n, (shape, style) in parts.items():
+        nm = "A16_h_%s_%s" % (hn, n)
+        SKIN_NAMES.add(nm)
+        sc.add("A16_h_" + hn, nm, to_view(shape), style)
+    g = parts["Grip"][0]
+    c = clear(g, others)
+    check(c >= 30.0, "handle %s: grip Ø%.0f x %.0f, %.0f mm from the nearest part for the fingers"
+          % (hn, GRIP[0], GRIP[1], c))
+    print("      handle %s: top at y %.0f (the pack's top rails at %.0f), %.0f g if printed solid in PLA"
+          % (hn, max(sh.BoundBox.YMax for sh, _ in parts.values()), A_RAIL_R * 0.72,
+             sum(sh.Volume for sh, _ in parts.values()) / 1000 * 1.27))
+
 # crank: the concept draws its arm inside the casing, the knob through its wall
 p16 = BUILT["A16"]
 k = p16["Crank_knob"][0].BoundBox
@@ -263,4 +368,22 @@ if App.GuiUp:
             snap("%s_%s" % (tag, vn), VIEWS[vn])
     sc.show_only(["A_Montigny_16", "A16_skin", "A_Montigny_19", "A19_skin"])
     snap("both_front", VIEWS["front"], 1800)
+    sheet = []
+    for i, hn in enumerate(HANDLES):
+        keep = ["A16_Carry_handle", "A16_Carry_posts"] if hn == "tiller" else []
+        sc.show_only(["A_Montigny_16", "A16_skin", "A16_h_" + hn],
+                     hide=[n for n in ("A16_Carry_handle", "A16_Carry_posts") if n not in keep])
+        for vn in ("front", "side", "rear"):
+            snap("A16_handle%d_%s_%s" % (i + 1, hn, vn), VIEWS[vn])
+        sheet.append(os.path.join(OUT, "A16_handle%d_%s_side.jpg" % (i + 1, hn)))
+    # the four side views on one sheet, numbered
+    from PIL import ImageDraw
+    ims = [Image.open(f) for f in sheet]
+    w, hh = max(i.width for i in ims), max(i.height for i in ims)
+    out = Image.new("RGB", (2 * w, 2 * hh), "white")
+    for i, im in enumerate(ims):
+        x, y = (i % 2) * w, (i // 2) * hh
+        out.paste(im, (x, y))
+        ImageDraw.Draw(out).text((x + 20, y + 14), "%d" % (i + 1), fill=(0, 0, 0))
+    out.save(os.path.join(OUT, "A16_handles_side.jpg"), quality=88)
     print("renders written to", OUT)
