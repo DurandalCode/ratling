@@ -731,7 +731,8 @@ if App.GuiUp:
             o.Shape = sh
     doc.recompute()
     VIEWS = {"front": (-0.62, -0.62, -0.42), "rear": (0.62, 0.62, -0.48), "side": (0.0, 1.0, 0.0),
-             "left": (0.0, -1.0, 0.0), "low": (-0.55, 0.75, 0.30)}
+             "left": (0.0, -1.0, 0.0), "low": (-0.55, 0.75, 0.30), "top": (0.0, 0.0, -1.0),
+             "back": (1.0, 0.0, 0.0), "front_low": (-0.70, 0.55, 0.30), "rear_left": (0.62, -0.62, -0.40)}
     CLOSE = {"close": (0.50, 0.72, -0.10), "closeside": (0.0, 1.0, 0.0), "closeback": (0.85, -0.35, -0.2)}
     CONCEPT_TOP = [TAG + "_Carry_handle", TAG + "_Carry_posts"]
     CONCEPT_GRIP = [TAG + "_Rear_grip", TAG + "_Trigger", TAG + "_Trigger_rod"]
