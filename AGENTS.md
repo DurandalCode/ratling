@@ -17,7 +17,7 @@
 | Тема | Живые файлы | Документ |
 |---|---|---|
 | Модуль ствола митральезы | `module/stage3v4_coaxial_chamber.py` (v4.4), `module/stage3v4_plates.sh` | докстринг файла |
-| Пакет, плита и каркас митральезы | `mitrailleuse/pack_layouts.py`, `mitrailleuse/pack_plate.py`, `mitrailleuse/make_plates.sh`, `mitrailleuse/pack_frame.py`, `mitrailleuse/carry_mount.py`, `mitrailleuse/rear_frame.py` | `docs/pack.md` |
+| Пакет, плита и каркас митральезы | `mitrailleuse/pack_layouts.py`, `mitrailleuse/pack_plate.py`, `mitrailleuse/make_plates.sh`, `mitrailleuse/pack_frame.py`, `mitrailleuse/carry_mount.py`, `mitrailleuse/rear_frame.py`, `mitrailleuse/pilot_hoses.py` | `docs/pack.md` |
 | Эскиз митральезы, ротор | `mitrailleuse/mitrailleuse_concepts.py`, `mitrailleuse/rotor_timing.py`, стенды `mitrailleuse/head_bench.py`, `mitrailleuse/rotor_bench.py` | `docs/rotor.md` |
 | Скин «ратлинг» (внешний вид, не детали) | `mitrailleuse/skin/ratling_skin.py`, `mitrailleuse/skin/run_skin.py` | `docs/skin.md` |
 | Вес | `tools/print_mass.py` | `docs/weights.md` |
@@ -55,6 +55,7 @@
   - `mitrailleuse/rear_frame.py` → `pack_frame.py` до `# --- build` и `rotor_bench.py` с `ROTOR_BENCH_LIBRARY = True`
     (берёт головку стенда как есть). `RAIL_Z0` в `pack_frame.py` — задний торец плиты головки, `Z0 - HP_T` в
     `rear_frame.py`: меняешь одно — поправь другое.
+  - `mitrailleuse/pilot_hoses.py` → `rear_frame.py` до `# --- checks` (берёт головку, её фитинги, модули в пакете).
 - Параметры — константы в начале каждого генератора, а не в `ratling/params.py` (тот только для
   селектора). Некоторые переменные можно задать до `exec` (`VALVE`, `BARREL_TUBE`, `LAYERS`,
   `OVERRIDE`): смотри `try: X / except NameError` в начале файла.
