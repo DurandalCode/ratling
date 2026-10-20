@@ -16,6 +16,8 @@ cuts a part of the concept. Choose before exec (or as environment variables of t
     DEPTH   = 70.0                                          mm the drum is drawn deeper than the concept's casing
     GRIP_ROLL = 0.0                                         deg the grip is turned round the gun's axis (+ towards the
                                                             gunner's left, - towards the right), e.g. for firing from the hip
+    TOP_ROLL = 0.0                                          deg the carry handle is turned round the gun's axis (+ towards
+                                                            the gunner's left), e.g. 90 to carry it on the hip
     SIGHT   = "none" | "iron" | "ring" | "warp" | "scope"   sights over the drum and the sleeve band
     SCALE   = True                                          a 0.5 l beer bottle and a 1 m ruler on the ground beside it
     SHEETS  = False                                         also render every TOP and every GRIP side by side
@@ -99,6 +101,7 @@ DEPTH = _param("DEPTH", 70.0, float)
 INLET = _param("INLET", "back")
 DRIVE = _param("DRIVE", "flex")
 GRIP_ROLL = _param("GRIP_ROLL", 0.0, float)
+TOP_ROLL = _param("TOP_ROLL", 0.0, float)
 SIGHT = _param("SIGHT", "none")
 SIGHTS = ("none", "iron", "ring", "warp", "scope")
 assert SIGHT in SIGHTS, "SIGHT: one of %s" % (SIGHTS,)
@@ -125,8 +128,8 @@ TAG = "A%d" % BARRELS
 VI = [t for t, _, _, _ in VARIANTS].index(TAG)
 _, GROUP, _, KEY = VARIANTS[VI]
 OFF = V(0, -X_OFF * VI, 0)
-OUT = os.path.join(REPO, "exports", SKIN, "%s_%s_%s%s_%s_%s_%s%s" % (
-    TAG, TOP, GRIP_KIND, "" if not GRIP_ROLL else "%+.0f" % GRIP_ROLL, INLET, DRIVE, SHIELD,
+OUT = os.path.join(REPO, "exports", SKIN, "%s_%s%s_%s%s_%s_%s_%s%s" % (
+    TAG, TOP, "" if not TOP_ROLL else "%+.0f" % TOP_ROLL, GRIP_KIND, "" if not GRIP_ROLL else "%+.0f" % GRIP_ROLL, INLET, DRIVE, SHIELD,
     "" if SIGHT == "none" else "_" + SIGHT))
 OUT_SHEETS = os.path.join(REPO, "exports", SKIN, "sheets")
 os.makedirs(OUT, exist_ok=True)
@@ -355,6 +358,7 @@ def handles(p):
                  "Tip_spike": (cone_from((0, yb_ + hl - 6, zc), (0, yb_ + hl + 34, zc), 14), "iron_dark"),
                  "Rivets": (compound([Part.makeSphere(RIVET / 2, V(6, ym_ + dy, zc + sz * (wl / 2 - bar / 2 - 2)))
                                       for dy in (-30, 0, 30) for sz in (-1, 1)]), "brass")}
+    h["concept"] = {"Grip": (p["Carry_handle"][0].copy(), "leather"), "Posts": (p["Carry_posts"][0].copy(), "iron")}
     return h
 
 
@@ -727,14 +731,28 @@ if DRIVE != "flex":
           " from y %.0f to %.0f" % (TAG, CRANK[0], c, GEAR_C - CRANK[0], GEAR_C + CRANK[0]))
 
 HANDLES = handles(P_A)
-others = compound([P_A[n][0] for n in ("Eye_band", "Rails", "Sling_eyes", "Rear_casing")] + [IN_A] +
+# a handle rolled onto the side takes that side's sling eye's place (the sling hooks on its posts): keep the other eye
+EYES, EYE_SIDE = P_A["Sling_eyes"][0], 0
+if abs(math.sin(math.radians(TOP_ROLL))) > 0.5 and TOP != "tiller":
+    EYE_SIDE = 1 if TOP_ROLL > 0 else -1
+    EYES = EYES.common(box(-1000, 0, -1000, 1000, -2000, 2000) if EYE_SIDE > 0 else box(0, 1000, -1000, 1000, -2000, 2000))
+    add_all(TAG + "_eye", TAG, {"Sling_eye": (EYES, "iron")})
+others = compound([P_A[n][0] for n in ("Eye_band", "Rails", "Rear_casing")] + [EYES] + [IN_A] +
                   [SK[n][0] for n in ("Hoops", "Warp_vial", "Vial_clamps", "Casing_extension", "End_cap", "Spikes",
                                       "Claw_plate", "Warp_gauge")])
+others_ne = compound([P_A[n][0] for n in ("Rails", "Rear_casing")] + [EYES] + [IN_A] +
+                     [SK[n][0] for n in ("Hoops", "Warp_vial", "Vial_clamps", "Casing_extension", "End_cap", "Spikes",
+                                         "Claw_plate", "Warp_gauge")])
 for hn, parts in HANDLES.items():
     if hn != TOP and not SHEETS:
         continue
+    if TOP_ROLL and hn != "tiller":                # turned round the gun's axis; the tiller stays on the drum
+        for n_, (sh, st) in list(parts.items()):
+            sh = sh.copy()
+            sh.rotate(V(0, 0, 0), Z, -TOP_ROLL)        # + is towards the gunner's left (+x)
+            parts[n_] = (sh, st)
     add_all("%s_h_%s" % (TAG, hn), "%s_h_%s" % (TAG, hn), parts)
-    c = clear(parts["Grip"][0], others)
+    c = clear(parts["Grip"][0], others if hn != "concept" else others_ne)    # it sits on the eye band
     size = "loop 210 x 140, bar 14" if hn == "loop" else "grip Ø%.0f x %.0f" % GRIP
     check(c >= 30.0, "%s top %s: %s, %.0f mm from the nearest part for the fingers" % (TAG, hn, size, c))
 
@@ -762,13 +780,13 @@ for gn, parts in GRIPS.items():
     if GRIP_ROLL:                                  # turned round the drum's axis: the checks above still hold
         for n_, (sh, st) in list(parts.items()):
             sh = sh.copy()
-            sh.rotate(V(0, 0, 0), Z, GRIP_ROLL)
+            sh.rotate(V(0, 0, 0), Z, -GRIP_ROLL)       # + is towards the gunner's left (+x)
             parts[n_] = (sh, st)
     add_all("%s_g_%s" % (TAG, gn), "%s_g_%s" % (TAG, gn), parts)
 # the inlet against the chosen handle and grip, the crank's sweep and the decor
 near = {"claw plate": SK["Claw_plate"][0], "warp gauge": SK["Warp_gauge"][0],
         "spikes": SK["Spikes"][0], "tripod pad": P_A["Tripod_pad"][0]}
-if TOP != "concept":
+if TOP != "concept" or TOP_ROLL:
     near["top " + TOP] = compound([sh for sh, _ in HANDLES[TOP].values()])
 if CRANK_SWEEP is not None:
     near["crank's sweep"] = CRANK_SWEEP
@@ -797,7 +815,7 @@ SIGHT_PARTS = {}
 if SIGHT != "none" or SHEETS:
     # the line of sight: 10 mm over whatever is shown along the gun's top centre between the sights
     band = box(-15, 15, 0, 600, SIGHT_Z[0] + 8, SIGHT_Z[1] - 8)
-    tops = [P_A[n][0] for n in P_A if n not in ("Carry_handle", "Carry_posts") or TOP in ("concept", "tiller")] + \
+    tops = [P_A[n][0] for n in P_A if n not in ("Carry_handle", "Carry_posts") or TOP == "tiller"] + \
            [sh for sh, _ in SK.values()]
     for grp in (HANDLES.get(TOP), SHIELD_PARTS.get(SHIELD)):
         tops += [sh for sh, _ in (grp or {}).values()]
@@ -892,14 +910,17 @@ if App.GuiUp:
     def show(top, grip, close=False, side=None, shield_=None, sight_=None):
         side = side or INLET
         groups = [GROUP, TAG + "_skin", "%s_i_%s" % (TAG, side)] + \
-                 (["%s_h_%s" % (TAG, top)] if top != "concept" and not close else []) + \
+                 (["%s_h_%s" % (TAG, top)] if not close else []) + \
                  (["%s_g_%s" % (TAG, grip)] if grip != "concept" else [])
-        hide = ([] if top in ("concept", "tiller") else CONCEPT_TOP) + ([] if grip == "concept" else CONCEPT_GRIP) + \
+        hide = ([] if top == "tiller" else CONCEPT_TOP) + ([] if grip == "concept" else CONCEPT_GRIP) + \
                ([] if side == "concept" else [TAG + "_Supply_hose", TAG + "_Flex_shaft_input"]) + \
                [TAG + "_Crank_shaft", TAG + "_Crank_arm", TAG + "_Crank_knob"] + \
                ([] if FLEX else [TAG + "_Flex_shaft_input"])
         if DRIVE != "flex":
             groups.append(TAG + "_drive")
+        if EYE_SIDE and not close:
+            groups.append(TAG + "_eye")
+            hide.append(TAG + "_Sling_eyes")
         if (sight_ or SIGHT) != "none":
             groups.append("%s_v_%s" % (TAG, sight_ or SIGHT))
         if SCALE and not close:
