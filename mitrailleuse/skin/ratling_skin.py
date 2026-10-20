@@ -14,6 +14,10 @@ cuts a part of the concept. Choose before exec (or as environment variables of t
                                                             on the drum, or both
     SHIELD  = "none" | "round" | "gear" | "spiked" | "kite" | "triangle"   a shield between the drum and the pack
     DEPTH   = 70.0                                          mm the drum is drawn deeper than the concept's casing
+    GRIP_ROLL = 0.0                                         deg the grip is turned round the gun's axis (+ towards the
+                                                            gunner's left, - towards the right), e.g. for firing from the hip
+    SIGHT   = "none" | "iron" | "ring" | "warp" | "scope"   sights over the drum and the sleeve band
+    SCALE   = True                                          a 0.5 l beer bottle and a 1 m ruler on the ground beside it
     SHEETS  = False                                         also render every TOP and every GRIP side by side
 
 Always there (the skin itself):
@@ -94,6 +98,11 @@ GRIP_KIND = _param("GRIP", "butt")
 DEPTH = _param("DEPTH", 70.0, float)
 INLET = _param("INLET", "back")
 DRIVE = _param("DRIVE", "flex")
+GRIP_ROLL = _param("GRIP_ROLL", 0.0, float)
+SIGHT = _param("SIGHT", "none")
+SIGHTS = ("none", "iron", "ring", "warp", "scope")
+assert SIGHT in SIGHTS, "SIGHT: one of %s" % (SIGHTS,)
+SCALE = _param("SCALE", True, lambda v: str(v).lower() in ("1", "true", "yes"))
 SHEETS = _param("SHEETS", False, lambda v: str(v).lower() in ("1", "true", "yes"))
 TOPS = ("concept", "post", "arch", "triangle", "tiller", "loop")
 GRIP_KINDS = ("concept", "butt", "spades", "down", "side")
@@ -116,7 +125,9 @@ TAG = "A%d" % BARRELS
 VI = [t for t, _, _, _ in VARIANTS].index(TAG)
 _, GROUP, _, KEY = VARIANTS[VI]
 OFF = V(0, -X_OFF * VI, 0)
-OUT = os.path.join(REPO, "exports", SKIN, "%s_%s_%s_%s_%s_%s" % (TAG, TOP, GRIP_KIND, INLET, DRIVE, SHIELD))
+OUT = os.path.join(REPO, "exports", SKIN, "%s_%s_%s%s_%s_%s_%s%s" % (
+    TAG, TOP, GRIP_KIND, "" if not GRIP_ROLL else "%+.0f" % GRIP_ROLL, INLET, DRIVE, SHIELD,
+    "" if SIGHT == "none" else "_" + SIGHT))
 OUT_SHEETS = os.path.join(REPO, "exports", SKIN, "sheets")
 os.makedirs(OUT, exist_ok=True)
 
@@ -125,7 +136,8 @@ FV.STYLES.update({
     "iron": ((0.20, 0.19, 0.18), 0), "iron_dark": ((0.13, 0.12, 0.12), 0), "rust": ((0.38, 0.23, 0.14), 0),
     "brass": ((0.78, 0.60, 0.28), 0), "copper": ((0.74, 0.38, 0.19), 0), "bronze": ((0.52, 0.37, 0.20), 0),
     "warp": ((0.35, 0.95, 0.25), 20), "leather": ((0.33, 0.20, 0.11), 0), "wood": ((0.40, 0.24, 0.12), 0),
-    "rubber": ((0.16, 0.15, 0.13), 0),
+    "rubber": ((0.16, 0.15, 0.13), 0), "glass": ((0.36, 0.17, 0.04), 25), "label": ((0.92, 0.88, 0.74), 0),
+    "cap": ((0.85, 0.72, 0.30), 0), "ruler_dark": ((0.12, 0.12, 0.12), 0), "ruler_light": ((0.95, 0.80, 0.15), 0),
 })
 RESTYLE = {"Modules_barrel": "iron", "Modules_chamber": "brass", "Modules_printed": "bronze",
            "Modules_steel": "iron", "Front_plate": "rust", "Rear_plate": "rust", "Rails": "iron",
@@ -603,6 +615,77 @@ def body_crank():
             "Crank_arm": (arm, "iron"), "Crank_knob": (knob, "wood"), "Crank_cap": (cap, "brass")}, sweep
 
 
+# ---------------------------------------------------------------- SIGHT: over the drum and the sleeve band
+SIGHT_Z = (-55.0, Z_TIP - 32)                    # the rear sight on the drum's front, the front one on the sleeve band
+
+
+def sights(kind, y_line):
+    """Sights for a line of sight at y_line over the gun's axis (x 0); the scope sits on the drum's right."""
+    zr, zf = SIGHT_Z
+    y_top = CASE[0]                                # the drum's top
+    y_band = REAR_R + 2                            # the sleeve band's top
+    p = {}
+    if kind in ("iron", "ring", "warp"):
+        p["Front_post"] = (box(-3, 3, y_band - 4, y_line - (0 if kind == "iron" else 0), zf - 3, zf + 3)
+                           .fuse(box(-8, 8, y_band - 4, y_band + 6, zf - 8, zf + 8)), "iron")
+        p["Rear_post"] = (box(-6, 6, y_top - 4, y_line - 12, zr - 4, zr + 4)
+                          .fuse(box(-16, 16, y_top - 4, y_top + 4, zr - 8, zr + 8)), "iron")
+    if kind == "iron":                             # a blade and a V-notch leaf
+        leaf = box(-30, 30, y_line - 14, y_line + 10, zr - 2, zr + 2)
+        notch = Part.Face(Part.makePolygon([V(-7, y_line + 11, zr - 3), V(7, y_line + 11, zr - 3),
+                                            V(0, y_line, zr - 3), V(-7, y_line + 11, zr - 3)])).extrude(V(0, 0, 6))
+        p["Rear_leaf"] = (leaf.cut(notch), "brass")
+        p["Front_blade"] = (box(-1.5, 1.5, y_line - 2, y_line + 4, zf - 6, zf + 6), "brass")
+    elif kind == "ring":                           # an AA ring with a cross, and a peep
+        ring = Part.makeTorus(40, 2.2, V(0, y_line, zf), Z)
+        cross = compound([rod(3, (0, y_line - 40, zf), (0, y_line + 40, zf)), rod(3, (-40, y_line, zf), (40, y_line, zf))])
+        p["Front_ring"] = (compound([ring, cross]), "brass")
+        p["Peep"] = (Part.makeTorus(8, 2.5, V(0, y_line, zr), Z), "brass")
+    elif kind == "warp":                           # a brass frame round a green glass pane, a green bead in front
+        frame = box(-30, 30, y_line - 22, y_line + 22, zr - 3, zr + 3).cut(box(-24, 24, y_line - 16, y_line + 16, zr - 4, zr + 4))
+        p["Reflex_frame"] = (frame, "brass")
+        p["Reflex_pane"] = (box(-24, 24, y_line - 16, y_line + 16, zr - 0.5, zr + 0.5), "warp")
+        p["Front_bead"] = (Part.makeSphere(4, V(0, y_line, zf)), "warp")
+    elif kind == "scope":                          # a brass telescope on the drum's upper right
+        xs, ys, z0, z1 = -50.0, y_line, -235.0, 70.0
+        y_d = math.sqrt(CASE[0] ** 2 - xs ** 2)
+        body = rod(30, (xs, ys, z0), (xs, ys, z1)).fuse(rod(40, (xs, ys, z1 - 60), (xs, ys, z1))) \
+            .fuse(rod(36, (xs, ys, z0), (xs, ys, z0 + 40)))
+        p["Scope"] = (body, "brass")
+        p["Scope_bands"] = (compound([Part.makeTorus(15.5, 1.6, V(xs, ys, z), Z) for z in (-150, -100, -20)]), "copper")
+        p["Scope_lenses"] = (compound([rod(34, (xs, ys, z1 - 1), (xs, ys, z1)), rod(30, (xs, ys, z0), (xs, ys, z0 + 1))]),
+                             "warp")
+        p["Scope_mounts"] = (compound([box(xs - 6, xs + 6, y_d - 6, ys - 12, z - 6, z + 6).fuse(
+            Part.makeTorus(16.5, 3, V(xs, ys, z), Z)) for z in (-205, -95)]), "iron")
+    return p
+
+
+# ---------------------------------------------------------------- SCALE: things everyone knows the size of
+BOTTLE = ((0, 0), (33, 0), (33, 165), (30, 180), (16, 205), (13, 215), (13, 243), (0, 243))   # 0.5 l, Ø66 x 250
+
+
+def scale_refs(y0, z0):
+    """A 0.5 l beer bottle standing on the ground (y0) and a 1 m ruler lying on it along the gun from z0, both on
+    the gunner's left: ten 100 mm bars, a tick every 10 mm, a long one every 50."""
+    xr = CASE[0] + 110
+    bars = {"ruler_dark": [], "ruler_light": []}
+    for i in range(10):
+        bars["ruler_dark" if i % 2 else "ruler_light"].append(box(xr, xr + 40, y0 - 3, y0, z0 + 100 * i, z0 + 100 * i + 100))
+    ticks = [box(xr, xr + (16 if k % 5 else 26), y0, y0 + 0.8, z0 + 10 * k - 0.6, z0 + 10 * k + 0.6)
+             for k in range(101) if k % 10]
+    prof = Part.makePolygon([V(x, y, 0) for x, y in BOTTLE + BOTTLE[:1]])
+    glass = Part.Face(prof).revolve(V(0, 0, 0), V(0, 1, 0), 360)
+    lab = Part.makeCylinder(33.4, 75, V(0, 45, 0), V(0, 1, 0)).cut(Part.makeCylinder(32.9, 77, V(0, 44, 0), V(0, 1, 0)))
+    cap = Part.makeCylinder(14.5, 7, V(0, 243, 0), V(0, 1, 0))
+    at = V(xr + 110, y0, z0 + 500)
+    for sh in (glass, lab, cap):
+        sh.translate(at)
+    return {"Ruler_dark": (compound(bars["ruler_dark"]), "ruler_dark"),
+            "Ruler_light": (compound(bars["ruler_light"] + []), "ruler_light"),
+            "Ruler_ticks": (compound(ticks), "ruler_dark"),
+            "Bottle": (glass, "glass"), "Bottle_label": (lab, "label"), "Bottle_cap": (cap, "cap")}
+
+
 # ---------------------------------------------------------------- build and check
 P_A = BUILT[TAG]
 SK = skin(KEY, P_A)
@@ -660,7 +743,6 @@ drum = cyl(2 * CASE[0], BACK, CASE[2])
 for gn, parts in GRIPS.items():
     if gn != GRIP_KIND and not SHEETS:
         continue
-    add_all("%s_g_%s" % (TAG, gn), "%s_g_%s" % (TAG, gn), parts)
     inside = parts["Grip"][0].common(drum).Volume + parts["Trigger"][0].common(drum).Volume
     if gn == "spades":                             # the fingers between the grips' axis and the cap
         room = min(clear(rod(1, (sx * 95, -20, BACK - 50), (sx * 95, -100, BACK - 50)), SK["End_cap"][0])
@@ -677,6 +759,12 @@ for gn, parts in GRIPS.items():
         room = clear(parts["Grip"][0], compound([drum, SK["Claw_plate"][0], SK["Warp_gauge"][0], IN_A]))
     check(inside < 1.0 and room >= 20.0, "%s grip %s: grip and trigger outside the drum (%.0f mm3 in), %.0f mm"
           " for the fingers" % (TAG, gn, inside, room))
+    if GRIP_ROLL:                                  # turned round the drum's axis: the checks above still hold
+        for n_, (sh, st) in list(parts.items()):
+            sh = sh.copy()
+            sh.rotate(V(0, 0, 0), Z, GRIP_ROLL)
+            parts[n_] = (sh, st)
+    add_all("%s_g_%s" % (TAG, gn), "%s_g_%s" % (TAG, gn), parts)
 # the inlet against the chosen handle and grip, the crank's sweep and the decor
 near = {"claw plate": SK["Claw_plate"][0], "warp gauge": SK["Warp_gauge"][0],
         "spikes": SK["Spikes"][0], "tripod pad": P_A["Tripod_pad"][0]}
@@ -705,6 +793,38 @@ for k, parts in SHIELD_PARTS.items():
     bb = sh_.BoundBox
     check(worst[0] >= 3.0, "%s shield %s: %.0f x %.0f mm, %.0f mm from the nearest (%s)"
           % (TAG, k, bb.XLength, bb.YLength, worst[0], worst[1]))
+SIGHT_PARTS = {}
+if SIGHT != "none" or SHEETS:
+    # the line of sight: 10 mm over whatever is shown along the gun's top centre between the sights
+    band = box(-15, 15, 0, 600, SIGHT_Z[0] + 8, SIGHT_Z[1] - 8)
+    tops = [P_A[n][0] for n in P_A if n not in ("Carry_handle", "Carry_posts") or TOP in ("concept", "tiller")] + \
+           [sh for sh, _ in SK.values()]
+    for grp in (HANDLES.get(TOP), SHIELD_PARTS.get(SHIELD)):
+        tops += [sh for sh, _ in (grp or {}).values()]
+    y_line = max([c_.BoundBox.YMax for c_ in (t.common(band) for t in tops if t.BoundBox.intersect(band.BoundBox))
+                  if c_.Volume > 1e-6] + [0]) + 10
+    for k in SIGHTS[1:]:
+        if k != SIGHT and not SHEETS:
+            continue
+        SIGHT_PARTS[k] = sights(k, 175.0 if k == "scope" else y_line)
+        add_all("%s_v_%s" % (TAG, k), "%s_v_%s" % (TAG, k), SIGHT_PARTS[k])
+        sh_ = compound([p_ for p_, _ in SIGHT_PARTS[k].values()])
+        worst = min([(clear(sh_, near[nm]), nm) for nm in near if nm.startswith(("top", "grip", "crank"))] +
+                    [(clear(sh_, SK["Warp_vial"][0]), "vial"), (clear(sh_, SK["Spikes"][0]), "spikes")])
+        check(worst[0] >= 3.0, "%s sight %s: line of sight at y %.0f (%.0f over the drum), %.0f mm from the nearest (%s)"
+              % (TAG, k, 175.0 if k == "scope" else y_line, (175.0 if k == "scope" else y_line) - CASE[0],
+                 worst[0], worst[1]))
+if SCALE:
+    shown = [sh for sh, _ in P_A.values()] + [sh for sh, _ in SK.values()] + [IN_A]
+    for grp in (HANDLES.get(TOP), GRIPS.get(GRIP_KIND), SHIELD_PARTS.get(SHIELD), SIGHT_PARTS.get(SIGHT),
+                CRANK_PARTS if DRIVE != "flex" else None):
+        shown += [sh for sh, _ in (grp or {}).values()]
+    lo = min(sh.BoundBox.YMin for sh in shown)
+    z_back = min(sh.BoundBox.ZMin for sh in shown)
+    z_front = max(sh.BoundBox.ZMax for sh in shown)
+    add_all(TAG + "_scale", TAG + "_scale", scale_refs(lo - 10, z_back))
+    print("      scale: the gun %.0f mm long (z %.0f to %.0f), %.0f mm high; ruler 1000 mm from its back, bottle 0.5 l"
+          " (Ø66 x 250)" % (z_front - z_back, z_back, z_front, max(sh.BoundBox.YMax for sh in shown) - lo))
 print("      note: the concept's rear grip leaves the drum %.0f mm down its axis, and its trigger (y %.0f to %.0f) is"
       " under the drum (R %.0f)" % ((G_O - V(0, -A_RAIL_R * 0.72, -200)).Length, P_A["Trigger"][0].BoundBox.YMin,
                                     P_A["Trigger"][0].BoundBox.YMax, CASE[0]))
@@ -769,7 +889,7 @@ if App.GuiUp:
         os.remove(tmp)
         return path + ".jpg"
 
-    def show(top, grip, close=False, side=None, shield_=None):
+    def show(top, grip, close=False, side=None, shield_=None, sight_=None):
         side = side or INLET
         groups = [GROUP, TAG + "_skin", "%s_i_%s" % (TAG, side)] + \
                  (["%s_h_%s" % (TAG, top)] if top != "concept" and not close else []) + \
@@ -780,6 +900,10 @@ if App.GuiUp:
                ([] if FLEX else [TAG + "_Flex_shaft_input"])
         if DRIVE != "flex":
             groups.append(TAG + "_drive")
+        if (sight_ or SIGHT) != "none":
+            groups.append("%s_v_%s" % (TAG, sight_ or SIGHT))
+        if SCALE and not close:
+            groups.append(TAG + "_scale")
         if (shield_ or SHIELD) != "none":
             groups.append("%s_s_%s" % (TAG, shield_ or SHIELD))
         sc.show_only(groups, hide=hide + (FRONT + CONCEPT_TOP if close else []))
@@ -836,4 +960,12 @@ if App.GuiUp:
                 if vn == "rear":
                     files.append(f)
         sheet(files, os.path.join(OUT_SHEETS, "%s_shields.jpg" % TAG))
+        files = []
+        for i, k in enumerate(SIGHTS[1:]):
+            show(TOP, GRIP_KIND, shield_=SHIELD, sight_=k)
+            for vn in ("side", "rear"):
+                f = snap(os.path.join(OUT_SHEETS, "%s_sight%d_%s_%s" % (TAG, i + 1, k, vn)), VIEWS[vn])
+                if vn == "rear":
+                    files.append(f)
+        sheet(files, os.path.join(OUT_SHEETS, "%s_sights.jpg" % TAG))
     print("renders written to", OUT)
