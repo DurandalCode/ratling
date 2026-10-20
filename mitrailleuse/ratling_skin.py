@@ -22,9 +22,9 @@ cuts a part of the concept. What is added, and where:
 - four handles for A16 to choose from, after the miniature (handles(), each in its own group): an upright
   post with a knob, a riveted arch from hoop to hoop, an inverted spiked triangle, and a tiller off the
   drum's left side; the grips Ø32 x 115 with 30 mm or more for the fingers (checked).
-- four control grips with the trigger for A16 (rear_grips()): a pistol butt in a guard, a grip in a riveted
-  D-bow, spade grips behind the cap with a butterfly trigger, a grip with a squeeze lever; on the concept's
-  grip axis but starting where it leaves the drum, since the concept's trigger sits under the drum.
+- four layouts of the control grip with the trigger for A16 (rear_grips()): an old pistol's butt out of the
+  cap (the miniature), spade grips behind the cap, a grip down from the drum in a D-bow (on the concept's
+  axis, from where it leaves the drum: the concept's trigger sits under the drum), a grip along the flank.
 
 Prints [OK ] / [FAIL] for the clearances it relies on. Writes exports/ratling_skin/<tag>_<view>.jpg, A16_handle<n>_<name>_<view>.jpg, A16_handles_side.jpg,
 A16_grip<n>_<name>_<view>.jpg and A16_grips.jpg.
@@ -310,15 +310,16 @@ for hn, parts in HANDLES.items():
 
 # ---------------------------------------------------------------- rear grip variants (A16), with the trigger
 def rear_grips(p):
-    """Four control grips for A16 where the concept has its rear grip and trigger, each in its own group.
+    """Four layouts of the control grip with the trigger for A16, each in its own group.
 
     The concept's grip leans 20 deg back from (0, -75, -200), so its top and its trigger sit under the drum;
-    these keep that axis and start where it leaves the drum, the trigger in front of the grip.
+    "down" keeps that axis and starts where it leaves the drum.
 
-    pistol: a curved wooden butt, a brass pommel with a spike, a trigger in a guard
-    loop:   a straight grip inside a riveted D-bow from the drum (a knuckle guard), a spike on the bow
+    butt:   an old pistol's butt out of the cap's lower half (the miniature): 25 then 50 deg down, a brass
+            pommel with a spike, the trigger under its root in a guard
     spades: two upright grips behind the cap on a cross bar, a butterfly trigger between them (Maxim)
-    lever:  a straight grip with a squeeze lever down its front, pivoted at the top, as the trigger
+    down:   a straight grip under the drum inside a riveted D-bow (a knuckle guard), a spike on the bow
+    side:   a grip along the drum's upper left flank on two brackets, a thumb lever on its front end
     """
     d = V(0, -math.sin(math.radians(70)), -math.cos(math.radians(70)))
     n = V(0, -d.z, d.y) * -1                               # across the grip, forward
@@ -333,21 +334,26 @@ def rear_grips(p):
         return G.fuse_all([rod(dia, a, b) for a, b in zip(pts, pts[1:])] +
                           [Part.makeSphere(dia / 2, V(*q)) for q in pts[1:-1]])
 
+    def ray(p0, deg, length):
+        return (p0[0], p0[1] - length * math.sin(math.radians(deg)), p0[2] - length * math.cos(math.radians(deg)))
+
     g = {}
-    flange = rod(46, P(-6, 0), P(8, 0))
-    gr1, rg1 = leather_grip(P(8, 0), P(70, 0))
-    g["pistol"] = {"Flange": (flange, "brass"), "Grip": (gr1.fuse(rod(GRIP[0], P(70, 0), P(124, -12)))
-                                                         .fuse(Part.makeSphere(GRIP[0] / 2, V(*P(70, 0)))), "wood"),
-                   "Grip_rings": (rg1, "copper"), "Pommel": (Part.makeSphere(21, V(*P(132, -14))), "brass"),
-                   "Pommel_spike": (cone_from(P(144, -18), P(170, -34), 14), "iron_dark"),
-                   "Trigger": (chain(8, P(16, 18), P(30, 26), P(46, 24)), "brass"),
-                   "Guard": (chain(6, P(6, 16), P(6, 46), P(62, 46), P(66, 14)), "iron")}
-    gr2, rg2 = leather_grip(P(8, 0), P(8 + GRIP[1], 0))
-    bow = chain(12, P(-26, 64), P(129, 64), P(129, 0)).fuse(rod(40, P(8 + GRIP[1], 0), P(8 + GRIP[1] + 12, 0)))
-    g["loop"] = {"Flange": (flange, "brass"), "Grip": (gr2, "wood"), "Grip_rings": (rg2, "copper"),
-                 "Bow": (bow, "iron"), "Bow_spike": (cone_from(P(70, 68), P(70, 112), 16), "iron_dark"),
-                 "Rivets": (compound([Part.makeSphere(RIVET / 2, V(*P(t, 70))) for t in (0, 40, 100)]), "brass"),
-                 "Trigger": (chain(8, P(16, 18), P(30, 26), P(46, 24)), "brass")}
+    # butt, out of the cap
+    r0 = (0.0, -55.0, BACK - 10)
+    r1 = ray(r0, 25, 75)
+    r2 = ray(r1, 50, 62)
+    y_g = -124.0                                           # the guard's bottom bar
+    g["butt"] = {"Flange": (rod(50, (0, -55, BACK - 1), (0, -55, BACK - 17)), "brass"),
+                 "Grip": (chain(GRIP[0], r0, r1, r2), "wood"),
+                 "Grip_rings": (compound([Part.makeTorus(GRIP[0] / 2, 1.6, V(*ray(r0, 25, t)), V(0, -0.42, -0.91))
+                                          for t in (22, 66)]), "copper"),
+                 "Pommel": (Part.makeSphere(23, V(*ray(r2, 50, 10))).fuse(rod(40, ray(r1, 50, 50), ray(r1, 50, 58))),
+                            "brass"),
+                 "Pommel_spike": (cone_from(ray(r2, 50, 26), ray(r2, 30, 56), 14), "iron_dark"),
+                 "Trigger": (chain(7, (0, -66, BACK - 22), (0, -86, BACK - 26), (0, -100, BACK - 22)), "brass"),
+                 "Guard": (chain(6, (0, -72, BACK - 5), (0, y_g, BACK - 8), (0, y_g, BACK - 50),
+                                 (0, -92, BACK - 52)), "iron")}
+    # spades behind the cap
     zb, yb, xs = BACK - 50, -60.0, 95.0
     arms = [rod(16, (sx * 60, yb, BACK - 5), (sx * 60, yb, zb)) for sx in (-1, 1)]
     bar = rod(20, (-xs, yb, zb), (xs, yb, zb))
@@ -361,13 +367,23 @@ def rear_grips(p):
                    "Grip_rings": (compound(rings), "copper"), "Knobs": (compound(knobs), "brass"),
                    "Trigger": (box(-26, 26, yb + 8, yb + 40, zb + 6, zb + 12).fuse(rod(8, (0, yb + 8, zb + 9),
                                                                                      (0, yb, zb + 9))), "brass")}
-    gr4, rg4 = leather_grip(P(8, 0), P(8 + GRIP[1], 0))
-    g["lever"] = {"Flange": (flange, "brass"), "Grip": (gr4, "wood"), "Grip_rings": (rg4, "copper"),
-                  "Pommel": (rod(42, P(8 + GRIP[1], 0), P(18 + GRIP[1], 0)), "brass"),
-                  "Pommel_spikes": (compound([cone_from(P(18 + GRIP[1], u), P(40 + GRIP[1], u * 1.6), 10)
-                                              for u in (-12, 12)]), "iron_dark"),
-                  "Lever": (chain(10, P(4, 20), P(14, 26), P(110, 26)), "brass"),
-                  "Pivot": (rod(14, (-12,) + P(8, 20)[1:], (12,) + P(8, 20)[1:]), "iron")}
+    # down, in a D-bow
+    flange = rod(46, P(-6, 0), P(8, 0))
+    gr2, rg2 = leather_grip(P(8, 0), P(8 + GRIP[1], 0))
+    bow = chain(12, P(-26, 64), P(129, 64), P(129, 0)).fuse(rod(40, P(8 + GRIP[1], 0), P(8 + GRIP[1] + 12, 0)))
+    g["down"] = {"Flange": (flange, "brass"), "Grip": (gr2, "wood"), "Grip_rings": (rg2, "copper"),
+                 "Bow": (bow, "iron"), "Bow_spike": (cone_from(P(70, 68), P(70, 112), 16), "iron_dark"),
+                 "Rivets": (compound([Part.makeSphere(RIVET / 2, V(*P(t, 70))) for t in (0, 40, 100)]), "brass"),
+                 "Trigger": (chain(8, P(16, 18), P(30, 26), P(46, 24)), "brass")}
+    # side, upper left flank; the brackets leave the drum below the claw triangle
+    xg, yg, zg0 = CASE[0] + 40, 40.0, -280.0
+    zg1 = zg0 + GRIP[1]
+    gr4, rg4 = leather_grip((xg, yg, zg0), (xg, yg, zg1))
+    brackets = [rod(14, polar(CASE[0] - 2, 5) + (z,), (xg, yg, z)) for z in (zg0 - 10, zg1 + 10)]
+    g["side"] = {"Grip": (gr4, "wood"), "Grip_rings": (rg4, "copper"), "Brackets": (compound(brackets), "iron"),
+                 "Knobs": (compound([Part.makeSphere(15, V(xg, yg, z)) for z in (zg0 - 18, zg1 + 18)]), "brass"),
+                 "Trigger": (box(xg - 5, xg + 5, yg + 14, yg + 30, zg1 - 22, zg1 - 8)
+                             .fuse(rod(6, (xg - 9, yg + 18, zg1 - 8), (xg + 9, yg + 18, zg1 - 8))), "brass")}
     return g, o, d, n
 
 
@@ -379,20 +395,20 @@ for gn, parts in GRIPS.items():
         nm = "A16_g_%s_%s" % (gn, n)
         SKIN_NAMES.add(nm)
         sc.add("A16_g_" + gn, nm, to_view(shape), style)
-    trig = parts["Trigger" if "Trigger" in parts else "Lever"][0]
+    trig = parts["Trigger"][0]
     inside = parts["Grip"][0].common(drum).Volume + trig.common(drum).Volume
-    guard = [parts[n][0] for n in ("Bow", "Guard") if n in parts]
     if gn == "spades":                             # the fingers between the grips' axis and the cap
         room = min(clear(rod(1, (sx * 95, -20, BACK - 50), (sx * 95, -100, BACK - 50)), s16["End_cap"][0])
                    for sx in (-1, 1)) - GRIP[0] / 2
-    elif guard:                                    # from the grip to the guard's bar along it, measured at mid-bar
-        u_bar, bar_d, t_mid = {"pistol": (46.0, 6.0, 34.0), "loop": (64.0, 12.0, 60.0)}[gn]
-        room = clear(rod(1, P_GRIP(t_mid), tuple(G_O + G_D * t_mid + G_N * (u_bar - bar_d / 2 - 1))),
-                     compound(guard)) + u_bar - bar_d / 2 - 1 - GRIP[0] / 2
-    else:
-        room = None
-    check(inside < 1.0 and (room is None or room >= 25.0), "rear grip %s: grip and trigger outside the drum"
-          " (%.0f mm3 in)%s" % (gn, inside, "" if room is None else ", %.0f mm for the fingers" % room))
+    elif gn == "butt":                             # the grip's underside to the guard's bottom bar
+        room = clear(parts["Grip"][0], box(-3, 3, -127, -121, BACK - 48, BACK - 10))
+    elif gn == "down":                             # from the grip to the bow's bar along it, at mid-grip
+        room = clear(rod(1, P_GRIP(60), tuple(G_O + G_D * 60 + G_N * 57)), parts["Bow"][0]) + 57 - GRIP[0] / 2
+    else:                                          # the fingers under the grip: drum, claw plate, supply hose
+        room = clear(parts["Grip"][0], compound([drum, s16["Claw_plate"][0], s16["Warp_gauge"][0],
+                                                 p16["Supply_hose"][0]]))
+    check(inside < 1.0 and room >= 20.0, "rear grip %s: grip and trigger outside the drum (%.0f mm3 in), %.0f mm"
+          " for the fingers" % (gn, inside, room))
 print("      note: the concept's rear grip leaves the drum %.0f mm down its axis, and its trigger (y %.0f to %.0f) is"
       " under the drum (R %.0f): the grips here start at (y %.0f, z %.0f)"
       % ((G_O - V(0, -A_RAIL_R * 0.72, -200)).Length, p16["Trigger"][0].BoundBox.YMin, p16["Trigger"][0].BoundBox.YMax,
@@ -494,7 +510,7 @@ if App.GuiUp:
         sc.show_only(["A_Montigny_16", "A16_skin", "A16_g_" + gn], hide=front + concept_grip)
         for vn, dv in (("close", (0.50, 0.72, -0.10)), ("closeside", (0.0, 1.0, 0.0)), ("closeback", (0.85, -0.35, -0.2))):
             snap("A16_grip%d_%s_%s" % (i + 1, gn, vn), dv, 1000)
-        sheet.append(os.path.join(OUT, "A16_grip%d_%s_close.jpg" % (i + 1, gn)))
+        sheet.append(os.path.join(OUT, "A16_grip%d_%s_%s.jpg" % (i + 1, gn, "closeback" if gn == "side" else "close")))
     ims = [Image.open(f) for f in sheet]
     w, hh = max(i.width for i in ims), max(i.height for i in ims)
     out = Image.new("RGB", (2 * w, 2 * hh), "white")
