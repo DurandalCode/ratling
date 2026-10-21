@@ -69,7 +69,6 @@ PARTS = [
     ("top_strap", top_strap, Y_, "strong", "on its side; 2 x ST2.9 into the cage's top, the M6 stud through its foot"),
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),
     ("axle_plug", axle_plug, -X_, "strong", "epoxied flush into the axle's front end; an M6 nut epoxied in its pocket"),
-    ("bench_foot", bench_foot, Z_, "strong", "the bench: under the bare cage on the grip's 4 x ST2.9 x 13, its keel in a vice"),
 ]
 _ref = "exports/stage3_qev_v13" if VALVE == "v13" else "exports/stage3_qev"
 REFERENCE = [(VALVE + "_body", _ref + "/body.stl", "airtight", "Stage 3 %s body (module/stage3_qev.py)" % VALVE),

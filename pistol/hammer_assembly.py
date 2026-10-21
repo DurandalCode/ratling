@@ -290,19 +290,6 @@ vent_screw = Part.makeCompound([Part.makeCylinder(1.6, 30.0, V(VENT_FRONT - d_, 
 grip = grip.cut(grip_pilots).cut(vent_screw)
 frame, skin = frame.cut(floor_holes), skin.cut(floor_holes)
 
-# ---------------------------------------------------------------- bench foot
-# The pistol without its grip, trigger and vent valve is the bench for the final scheme: the lock, the plain
-# sleeve and the turning block. The hammer is cocked by hand (it turns the block and lifts the lock), the
-# bench's AirTAC fires it through the cap's pilot. The foot takes the grip's four ST2.9 under the bare cage
-# (no EVA yet) and stands in a vice by its keel.
-BENCH_FOOT = dict(x=(fx[0] + EVA_T, -58.0), y=36.0, t=10.0, keel=(12.0, 30.0))   # keel: thickness (y), depth (z)
-z_cage = fz[0] + EVA_T
-_bf = BENCH_FOOT
-bench_foot = box(_bf["x"][0], _bf["x"][1], -_bf["y"], _bf["y"], z_cage - _bf["t"], z_cage + 8.0).cut(skin_in).fuse(   # up the cage's fillets
-    box(_bf["x"][0] + 6, _bf["x"][1] - 6, -_bf["keel"][0] / 2, _bf["keel"][0] / 2, z_cage - _bf["t"] - _bf["keel"][1],
-        z_cage - _bf["t"] + 0.01))
-bench_foot = bench_foot.cut(Part.makeCompound([Part.makeCylinder(1.25, _bf["t"] + 1, V(x_, y_, z_cage - _bf["t"] - 0.5), ZA)
-                                               for x_, y_ in GRIP_SCREWS])).removeSplitter()
 
 # ---------------------------------------------------------------- dress: block straps, frame plates, crest, hammer, vial, gauge, pilot pipe
 block_d = 2 * HUB_R
@@ -425,9 +412,7 @@ fixed_hits = {"air lines/valve": hit(Part.makeCompound([pilot_line, gauge_line, 
               "cheeks/valve": hit(cheeks, valve_body) + hit(cheeks, mini_valves),
               "block/supports": blk_hit, "strap/vial": hit(top_strap, vial.fuse(cage)) + hit(top_strap, crest),
               "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
-              "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume,
-              "bench foot/frame": hit(bench_foot, frame) + hit(bench_foot, side_plate),
-              "bench foot off the cage (mm)": bench_foot.distToShape(frame)[0]}
+              "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume}
 inside = mini_valves.common(grip.fuse(outer).fuse(pod).fuse(_vv)).Volume / mini_valves.Volume
 spur_out = lambda c: hammer_shape(c).cut(outer).Volume
 report = [NAME, "  mechanism vs dress (worst over the hammer and trigger strokes, mm3):"]
