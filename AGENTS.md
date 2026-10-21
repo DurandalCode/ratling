@@ -55,7 +55,10 @@
   - `mitrailleuse/rear_frame.py` → `pack_frame.py` до `# --- build` и `rotor_bench.py` с `ROTOR_BENCH_LIBRARY = True`
     (берёт головку стенда как есть). `RAIL_Z0` в `pack_frame.py` — задний торец плиты головки, `Z0 - HP_T` в
     `rear_frame.py`: меняешь одно — поправь другое.
-  - `mitrailleuse/pilot_hoses.py` → `rear_frame.py` до `# --- checks` (берёт головку, её фитинги, модули в пакете).
+  - `mitrailleuse/pilot_hoses.py` → `rear_frame.py` до `# --- checks` дважды, с `HEAD_N = 16` и `19` (берёт головку,
+    её фитинги, модули в пакете).
+  - Число стволов головки: `ROTOR_N` перед `exec` в `rotor_bench.py`, `HEAD_N` в `rear_frame.py` (по умолчанию 16,
+    выгрузка у 19 в `exports/rotor_bench19/`, `exports/rear_frame19/`). Блоки головки — `BLOCK_PORTS`.
 - Параметры — константы в начале каждого генератора, а не в `ratling/params.py` (тот только для
   селектора). Некоторые переменные можно задать до `exec` (`VALVE`, `BARREL_TUBE`, `LAYERS`,
   `OVERRIDE`): смотри `try: X / except NameError` в начале файла.

@@ -35,6 +35,11 @@ This replaces concept A's dog clutch and ratchet detent: the detent is far too w
 against the pushers (docs/rotor.md), and a dog clutch that only lets go on a step either jams or lets go
 anywhere.
 
+19 barrels: ROTOR_N = 19 before exec. The rotor and stop disc are the 19's, the bench's block is still four ports
+(75.8 deg). The gun's head takes BLOCK_PORTS blocks round the stator: four quarters at 16, three blocks of five and
+the bench's block of four at 19 (19 is prime), three posts in each, a supply fitting on each. GUN holds that head
+for rear_frame.py; exports/rotor_bench19/ has every block. The drive, housing, stop and gears are the 16's.
+
 v1 (kept below for history): a three-port sector block with the shaft's upper 608 in its hub, the shaft's
 lower 608 in the base, the crank arm straight on the layshaft's top. Replaced because none of it fit the
 gun's head.
@@ -65,6 +70,10 @@ try:
     ROTOR_BENCH_LIBRARY
 except NameError:
     ROTOR_BENCH_LIBRARY = False
+try:
+    ROTOR_N                          # barrels: 16 or 19
+except NameError:
+    ROTOR_N = 16
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 import ratling.geom as G
@@ -79,7 +88,7 @@ exec(open(os.path.join(REPO, "mitrailleuse", "rotor_timing.py"), encoding="utf-8
 HB = {"REPO": REPO, "HEAD_BENCH_LIBRARY": True}
 exec(open(os.path.join(REPO, "mitrailleuse", "head_bench.py"), encoding="utf-8").read(), HB)
 
-NAME = "rotor_bench"
+NAME = "rotor_bench" if ROTOR_N == 16 else "rotor_bench%d" % ROTOR_N
 OUT_DIR = os.path.join(REPO, "exports", NAME)
 V = App.Vector
 X, Y, Z = V(1, 0, 0), V(0, 1, 0), V(0, 0, 1)
@@ -87,10 +96,11 @@ O = V(0, 0, 0)
 cyl = G.cyl
 
 # ---------------------------------------------------------------- parameters
-N = 16
+N = ROTOR_N
 P_ANG = 360.0 / N
-PORTS = (0, 1, 2, 3)                 # stator angles (j + 0.5) * P_ANG: one quarter of the head
-QUARTER = (0.0, 90.0)
+BLOCK_PORTS = {16: (4, 4, 4, 4), 19: (5, 5, 5, 4)}[N]   # the gun's blocks round the stator from 0 deg, ports each
+PORTS = (0, 1, 2, 3)                 # stator angles (j + 0.5) * P_ANG: the bench's block of four
+QUARTER = (0.0, len(PORTS) * P_ANG)  # its sector (a quarter at 16)
 BLOCK_R = (30.0, 86.0)               # quarter block: inner, outer R
 VENT_R, CHARGE_R = _rt["VENT_R"], _rt["CHARGE_R"]
 TOP_C, TOP_V = _rt["cams"](N)["top_c"], _rt["VENT_TOP"]
@@ -99,9 +109,9 @@ STRIP_W = 10.0
 RISER_DR = 7.0                       # pilot riser outside the charge core
 Z_SUP, Z_PIL, Z_LINK, Z_EXH = 20.0, 25.0, 3.2, 3.0
 EXH_R = 35.0                         # exhaust goes in to here, then down through the plate
-SUP_IN_ANG = 2 * P_ANG               # supply inlet between ports 1 and 2
+SUP_IN_ANG = 2 * P_ANG               # supply inlet between ports 1 and 2 of every block
 POST_R, POST_D = 78.0, 12.0
-POST_ANGS = (22.5, 45.0, 67.5)       # between the ports
+POST_ANGS = tuple(k * P_ANG for k in (1, 2, 3))   # between a block's first four ports
 
 SHAFT_D = 8.0
 BRG = (22.0, 8.0, 7.0)               # 608: OD, bore, width
@@ -251,44 +261,53 @@ def g18(x, y):
 port_ang = lambda j: (j + 0.5) * P_ANG
 CH, SUP, EXH = HB["CH_D"], HB["SUP_D"], HB["EXH_D"]
 zb1 = HB["z_bore1"]
-net = {"supply": [], "exhaust": []}
-pil = {}
-holes = []
-for j in PORTS:
-    a = port_ang(j)
-    c, v, rr = polar(CHARGE_R, a), polar(VENT_R, a), polar(CHARGE_R + RISER_DR, a)
-    holes += [core_hole(c[0], c[1], True), core_hole(v[0], v[1], False)]
-    net["supply"].append(cyl(HB["CORE_BORE_D"], zb1 - 0.1, Z_SUP + SUP / 2, *c))
-    pil[j] = G.fuse_all([rod(CH, polar(CHARGE_R + 1.5, a) + (Z_LINK,), rr + (Z_LINK,)),
-                         cyl(CH, Z_LINK - CH / 2, BLOCK_T - HB["G18_TAP_DEPTH"] + 0.5, *rr), g18(*rr),
-                         rod(CH, rr + (Z_PIL,), v + (Z_PIL,)),
-                         cyl(HB["CORE_BORE_D"], zb1 - 0.1, Z_PIL + CH / 2, *v)])
-    net["exhaust"].append(G.fuse_all([rod(EXH, v + (Z_EXH,), polar(EXH_R, a) + (Z_EXH,)),
-                                      cyl(EXH, -1, Z_EXH + EXH / 2, *polar(EXH_R, a))]))
-for j0, j1 in zip(PORTS, PORTS[1:]):
-    net["supply"].append(rod(SUP, polar(CHARGE_R, port_ang(j0)) + (Z_SUP,), polar(CHARGE_R, port_ang(j1)) + (Z_SUP,)))
-sup_in = polar(CHARGE_R * math.cos(math.radians(P_ANG / 2)), SUP_IN_ANG)
-net["supply"] += [cyl(SUP, Z_SUP - SUP / 2, BLOCK_T - HB["G18_TAP_DEPTH"] + 0.5, *sup_in), g18(*sup_in)]
-net["supply"] = G.fuse_all(net["supply"])
-net["exhaust"] = G.fuse_all(net["exhaust"])
-posts_xy = [polar(POST_R, a) for a in POST_ANGS]
-bolt_tool = lambda d, z0, z1: G.fuse_all([cyl(d, z0, z1, *p) for p in posts_xy])
 
-blk = sector(BLOCK_R[0], BLOCK_R[1], 0, BLOCK_T, *QUARTER)
-for s in holes + [net["supply"], net["exhaust"]] + list(pil.values()):
-    blk = blk.cut(s)
-blk = blk.cut(bolt_tool(4.5, -1, BLOCK_T + 1))
-block = blk.copy()
-block.translate(V(0, 0, z_block0))
 
-pl = sector(BLOCK_R[0], BLOCK_R[1], -PLATE_T, 0, *QUARTER)
-for j in PORTS:
-    for r in (CHARGE_R, VENT_R):
-        pl = pl.cut(cyl(HB["PIN_HOLE"], -PLATE_T - 1, 1, *polar(r, port_ang(j))))
-    pl = pl.cut(cyl(EXH, -PLATE_T - 1, 1, *polar(EXH_R, port_ang(j))))
-pl = pl.cut(bolt_tool(4.5, -PLATE_T - 1, 1))
-plate = pl.copy()
-plate.translate(V(0, 0, z_block0))
+def make_block(n):
+    """A block of n ports, stator 0 .. n x P_ANG, and its guide plate (block's bottom at z = 0)."""
+    ports = tuple(range(n))
+    net = {"supply": [], "exhaust": []}
+    pil, holes = {}, []
+    for j in ports:
+        a = port_ang(j)
+        c, v, rr = polar(CHARGE_R, a), polar(VENT_R, a), polar(CHARGE_R + RISER_DR, a)
+        holes += [core_hole(c[0], c[1], True), core_hole(v[0], v[1], False)]
+        net["supply"].append(cyl(HB["CORE_BORE_D"], zb1 - 0.1, Z_SUP + SUP / 2, *c))
+        pil[j] = G.fuse_all([rod(CH, polar(CHARGE_R + 1.5, a) + (Z_LINK,), rr + (Z_LINK,)),
+                             cyl(CH, Z_LINK - CH / 2, BLOCK_T - HB["G18_TAP_DEPTH"] + 0.5, *rr), g18(*rr),
+                             rod(CH, rr + (Z_PIL,), v + (Z_PIL,)),
+                             cyl(HB["CORE_BORE_D"], zb1 - 0.1, Z_PIL + CH / 2, *v)])
+        net["exhaust"].append(G.fuse_all([rod(EXH, v + (Z_EXH,), polar(EXH_R, a) + (Z_EXH,)),
+                                          cyl(EXH, -1, Z_EXH + EXH / 2, *polar(EXH_R, a))]))
+    for j0, j1 in zip(ports, ports[1:]):
+        net["supply"].append(rod(SUP, polar(CHARGE_R, port_ang(j0)) + (Z_SUP,), polar(CHARGE_R, port_ang(j1)) + (Z_SUP,)))
+    sup = polar(CHARGE_R * math.cos(math.radians(P_ANG / 2)), SUP_IN_ANG)
+    net["supply"] += [cyl(SUP, Z_SUP - SUP / 2, BLOCK_T - HB["G18_TAP_DEPTH"] + 0.5, *sup), g18(*sup)]
+    net["supply"] = G.fuse_all(net["supply"])
+    net["exhaust"] = G.fuse_all(net["exhaust"])
+    posts = [polar(POST_R, a) for a in POST_ANGS]
+    tool = lambda d, z0, z1: G.fuse_all([cyl(d, z0, z1, *p) for p in posts])
+    sec = (0.0, n * P_ANG)
+    blk = sector(BLOCK_R[0], BLOCK_R[1], 0, BLOCK_T, *sec)
+    for s in holes + [net["supply"], net["exhaust"]] + list(pil.values()):
+        blk = blk.cut(s)
+    blk = blk.cut(tool(4.5, -1, BLOCK_T + 1))
+    pl = sector(BLOCK_R[0], BLOCK_R[1], -PLATE_T, 0, *sec)
+    for j in ports:
+        for r in (CHARGE_R, VENT_R):
+            pl = pl.cut(cyl(HB["PIN_HOLE"], -PLATE_T - 1, 1, *polar(r, port_ang(j))))
+        pl = pl.cut(cyl(EXH, -PLATE_T - 1, 1, *polar(EXH_R, port_ang(j))))
+    pl = pl.cut(tool(4.5, -PLATE_T - 1, 1))
+    return {"n": n, "ports": ports, "sector": sec, "blk": blk, "pl": pl, "net": net, "pil": pil, "holes": holes,
+            "posts_xy": posts, "sup_in": sup, "bolt_tool": tool}
+
+
+BLOCKS = {n: make_block(n) for n in sorted(set(BLOCK_PORTS) | {len(PORTS)})}
+_b = BLOCKS[len(PORTS)]                                  # the bench's block: one of the gun's
+net, pil, holes, posts_xy, sup_in, bolt_tool = (_b[k] for k in ("net", "pil", "holes", "posts_xy", "sup_in", "bolt_tool"))
+blk = _b["blk"]
+block = blk.translated(V(0, 0, z_block0))
+plate = _b["pl"].translated(V(0, 0, z_block0))
 
 
 # ---------------------------------------------------------------- pushers at rest (rotor parked, psi = 0)
@@ -306,19 +325,26 @@ def follower(x, y, up):
     return f.cut(rod(2.6, (x, y, z0 + FOLLOWER_H - 2.5), (x + r + 1, y, z0 + FOLLOWER_H - 2.5)))
 
 
-followers, pins, springs = [], [], []
 z_core_pin = z_block0 + HB["z_pin"]
-for j in PORTS:
-    for r, top in ((CHARGE_R, TOP_C), (VENT_R, TOP_V)):
-        x_port = j + 0.5
-        up = lift(x_port, top)
-        xy = polar(r, port_ang(j))
-        followers.append(follower(xy[0], xy[1], up))
-        pins.append(cyl(HB["PIN_D"], z_ftop + up - HB["PIN_IN_FOLLOWER"], z_core_pin - HB["REST_GAP"] + up, *xy))
-        s = G.spring(0, z_ftop + up, z_plate0, HB["SPRING"][0], HB["SPRING"][1], 4)
-        s.translate(V(xy[0], xy[1], 0))
-        springs.append(s)
-followers, pins, springs = G.fuse_all(followers), G.fuse_all(pins), G.fuse_all(springs)
+
+
+def pushers(ports):
+    """Followers, pins and return springs of these ports, the rotor parked at psi = 0."""
+    followers, pins, springs = [], [], []
+    for j in ports:
+        for r, top in ((CHARGE_R, TOP_C), (VENT_R, TOP_V)):
+            x_port = (j + 0.5 + N / 2) % N - N / 2          # the rotor is round: the ports past 180 deg come before 0
+            up = lift(x_port, top)
+            xy = polar(r, port_ang(j))
+            followers.append(follower(xy[0], xy[1], up))
+            pins.append(cyl(HB["PIN_D"], z_ftop + up - HB["PIN_IN_FOLLOWER"], z_core_pin - HB["REST_GAP"] + up, *xy))
+            s = G.spring(0, z_ftop + up, z_plate0, HB["SPRING"][0], HB["SPRING"][1], 4)
+            s.translate(V(xy[0], xy[1], 0))
+            springs.append(s)
+    return G.fuse_all(followers), G.fuse_all(pins), G.fuse_all(springs)
+
+
+followers, pins, springs = pushers(PORTS)
 
 # ---------------------------------------------------------------- layshaft, slip clutch
 z_p1 = z_gear0 + GEAR_FACE
@@ -425,39 +451,77 @@ brgs = G.fuse_all([cyl(BRG[0], 0, BRG[2]), cyl(BRG[0], z_hs - BRG[2], z_hs),
     G.fuse_all([cyl(BRG[1], -1, z_hs + 1), cyl(BRG[1], -1, z_lb + 9, *LAY)]))
 brgs = brgs.fuse(ring(BRG[0], BRG[1], (x_b1[0], 0, z_apex), (x_b1[1], 0, z_apex))).fuse(
     ring(BRG[0], BRG[1], (x_b2[0], 0, z_apex), (x_b2[1], 0, z_apex)))
-cores = []
-for j in PORTS:
-    for r in (CHARGE_R, VENT_R):
-        x, y = polar(r, port_ang(j))
-        zc = z_block0
-        cores.append(G.fuse_all([cyl(HB["CORE_THREAD_D"], zc + HB["CAV_TOP"], zc + HB["z_tap1"], x, y),
-                                 cyl(4.4, zc + HB["z_tap1"], zc + HB["z_seat1"] + 1, x, y),
-                                 cyl(2.6, zc + HB["z_seat1"] + 1, zc + zb1 - 1, x, y),
-                                 cyl(1.0, zc + HB["z_pin"], zc + HB["CAV_TOP"], x, y)]))
-cores = G.fuse_all(cores)
-fittings = []
-for xy in [polar(CHARGE_R + RISER_DR, port_ang(j)) for j in PORTS] + [sup_in]:
-    fittings.append(G.push_in_fitting(xy[0], xy[1], z_top))
-fittings = G.fuse_all(fittings)
+def valve_cores(ports):
+    cores = []
+    for j in ports:
+        for r in (CHARGE_R, VENT_R):
+            x, y = polar(r, port_ang(j))
+            zc = z_block0
+            cores.append(G.fuse_all([cyl(HB["CORE_THREAD_D"], zc + HB["CAV_TOP"], zc + HB["z_tap1"], x, y),
+                                     cyl(4.4, zc + HB["z_tap1"], zc + HB["z_seat1"] + 1, x, y),
+                                     cyl(2.6, zc + HB["z_seat1"] + 1, zc + zb1 - 1, x, y),
+                                     cyl(1.0, zc + HB["z_pin"], zc + HB["CAV_TOP"], x, y)]))
+    return G.fuse_all(cores)
+
+
+def push_ins(ports, sup_xy):
+    return G.fuse_all([G.push_in_fitting(xy[0], xy[1], z_top)
+                       for xy in [polar(CHARGE_R + RISER_DR, port_ang(j)) for j in ports] + list(sup_xy)])
+
+
+cores = valve_cores(PORTS)
+fittings = push_ins(PORTS, [sup_in])
+
+
+# ---------------------------------------------------------------- the gun's head: BLOCK_PORTS blocks round the stator
+def turn_xy(p, a):
+    c, s = math.cos(math.radians(a)), math.sin(math.radians(a))
+    return (c * p[0] - s * p[1], s * p[0] + c * p[1])
+
+
+GUN = {"blocks": [], "guide_plates": [], "post_xy": [], "sup_xy": [], "block_at": []}
+_j0 = 0
+for _n in BLOCK_PORTS:
+    _a = _j0 * P_ANG
+    GUN["blocks"].append(BLOCKS[_n]["blk"].translated(V(0, 0, z_block0)).rotated(O, Z, _a))
+    GUN["guide_plates"].append(BLOCKS[_n]["pl"].translated(V(0, 0, z_block0)).rotated(O, Z, _a))
+    GUN["post_xy"] += [turn_xy(p, _a) for p in BLOCKS[_n]["posts_xy"]]
+    GUN["sup_xy"].append(turn_xy(BLOCKS[_n]["sup_in"], _a))
+    GUN["block_at"].append((_n, _a))
+    _j0 += _n
+GUN["blocks"], GUN["guide_plates"] = G.fuse_all(GUN["blocks"]), G.fuse_all(GUN["guide_plates"])
+GUN["followers"], GUN["pins"], GUN["springs"] = pushers(range(N))
+GUN["cores"] = valve_cores(range(N))
+GUN["fittings"] = push_ins(range(N), GUN["sup_xy"])
 
 # ---------------------------------------------------------------- checks
 checks = []
 check = lambda ok, text: checks.append((text, bool(ok)))
 wall = lambda a, b: a.distToShape(b)[0]
 pil_all = G.fuse_all(list(pil.values()))
-d_sp = wall(net["supply"], pil_all)
-d_se = wall(net["supply"], net["exhaust"])
-d_pe = wall(pil_all, net["exhaust"])
-d_pp = min(wall(pil[a], pil[b]) for a, b in zip(PORTS, PORTS[1:]))
-check(min(d_sp, d_se, d_pe, d_pp) >= 1.2, "block: supply / pilot / exhaust / pilot-to-pilot walls >= %.1f mm"
-      " (%.1f / %.1f / %.1f / %.1f)" % (min(d_sp, d_se, d_pe, d_pp), d_sp, d_se, d_pe, d_pp))
-inside = G.fuse_all([net["supply"], net["exhaust"], pil_all] + holes)
-d_bolt = wall(bolt_tool(4.5, -1, BLOCK_T + 1), inside)
-check(d_bolt >= 1.2, "block: bolts %.1f mm clear of every channel and core" % d_bolt)
-outside = cyl(2 * BLOCK_R[1] + 20, 0.5, BLOCK_T - 0.5).cut(sector(BLOCK_R[0], BLOCK_R[1], -1, BLOCK_T + 1, *QUARTER))
-d_side = wall(outside, inside)
-check(d_side >= 2.0, "quarter: every channel and core %.1f mm inside its sides and R%.0f..%.0f, so four make the head"
-      % (d_side, BLOCK_R[0], BLOCK_R[1]))
+for _n, _bk in BLOCKS.items():
+    _pa = G.fuse_all(list(_bk["pil"].values()))
+    _ns = _bk["net"]
+    d_sp, d_se, d_pe = wall(_ns["supply"], _pa), wall(_ns["supply"], _ns["exhaust"]), wall(_pa, _ns["exhaust"])
+    d_pp = min(wall(_bk["pil"][a], _bk["pil"][b]) for a, b in zip(_bk["ports"], _bk["ports"][1:]))
+    check(min(d_sp, d_se, d_pe, d_pp) >= 1.2, "block of %d: supply / pilot / exhaust / pilot-to-pilot walls >= %.1f mm"
+          " (%.1f / %.1f / %.1f / %.1f)" % (_n, min(d_sp, d_se, d_pe, d_pp), d_sp, d_se, d_pe, d_pp))
+    inside = G.fuse_all([_ns["supply"], _ns["exhaust"], _pa] + _bk["holes"])
+    d_bolt = wall(_bk["bolt_tool"](4.5, -1, BLOCK_T + 1), inside)
+    check(d_bolt >= 1.2, "block of %d: bolts %.1f mm clear of every channel and core" % (_n, d_bolt))
+    d_core = min(wall(_bk["holes"][2 * k + i], _bk["holes"][2 * k + 2 + i]) for k in range(_n - 1) for i in (0, 1))
+    check(d_core >= 2.0, "block of %d: %.1f mm between the next ports' core"
+          " holes (vent circle R%.0f, pitch %.1f mm)" % (_n, d_core, VENT_R, 2 * VENT_R * math.sin(math.radians(P_ANG / 2))))
+    outside = cyl(2 * BLOCK_R[1] + 20, 0.5, BLOCK_T - 0.5).cut(sector(BLOCK_R[0], BLOCK_R[1], -1, BLOCK_T + 1, *_bk["sector"]))
+    d_side = wall(outside, inside)
+    check(d_side >= 2.0, "block of %d (%.1f deg): every channel and core %.1f mm inside its sides and R%.0f..%.0f"
+          % (_n, _bk["sector"][1], d_side, BLOCK_R[0], BLOCK_R[1]))
+gap_f = 2 * VENT_R * math.sin(math.radians(P_ANG / 2)) - max(HB["FOLLOWER_D"], HB["SPRING"][0])
+check(gap_f >= 2.0, "pushers on the vent circle: followers Ø%.0f and springs Ø%.0f %.1f mm apart"
+      % (HB["FOLLOWER_D"], HB["SPRING"][0], gap_f))
+check(sum(BLOCK_PORTS) == N and abs(sum(n for n, _ in GUN["block_at"]) * P_ANG - 360.0) < 1e-6,
+      "the gun's head: blocks of %s ports, %d in all, round the stator; %d posts"
+      % (" + ".join(str(n) for n in BLOCK_PORTS), N, len(GUN["post_xy"])))
 ok_links = True
 for j in PORTS:
     a = port_ang(j)
@@ -467,7 +531,8 @@ for j in PORTS:
     ok_links &= pil[j].common(cyl(HB["CORE_BORE_D"], HB["z_seat1"], zb1, *v)).Volume > 0.5
     ok_links &= net["exhaust"].common(cyl(HB["CAV_D"], 0, HB["CAV_TOP"], *v)).Volume > 0.5
 check(ok_links, "block: per port, supply -> charge core, charge cavity -> pilot -> vent core, vent cavity -> exhaust")
-printed = (("block", block), ("plate", plate), ("rotor", rotor), ("gear", gear), ("pinion", pinion),
+printed = tuple(("block of %d" % n, bk["blk"]) for n, bk in BLOCKS.items()) + tuple(
+    ("guide plate of %d" % n, bk["pl"]) for n, bk in BLOCKS.items()) + ( ("rotor", rotor), ("gear", gear), ("pinion", pinion),
            ("stop disc", stop_disc), ("housing", housing), ("bevel", bevel_print), ("crank", crank),
            ("lever", lever), ("base", base), ("bevel box", box))
 bad = [nm for nm, s in printed if not G.single_solid(s)]
@@ -536,19 +601,19 @@ check(PIN[2] - PIN[0] / 2 >= STOP[0] + 0.3 and PIN[1] - PIN[0] / 2 >= STOP[1],
       "stop pin: in a notch %.1f mm deep, %.1f clear of the rim when pressed; trigger travel %.0f mm"
       % (STOP[0] - (PIN[1] - PIN[0] / 2), PIN[2] - PIN[0] / 2 - STOP[0], travel_trig))
 f_knob = t_slip / (CRANK_R / 1000)
-check(True, "crank: <= %.1f N on the knob turning (16 pushers' worth, %.2f N m at the rotor), %.1f N slipping"
-      % (kk["f_crank"], t_rotor, f_knob))
+check(True, "crank: <= %.1f N on the knob turning (%d barrels' pushers, %.2f N m at the rotor), %.1f N slipping"
+      % (kk["f_crank"], N, t_rotor, f_knob))
 bb = base.BoundBox
 check(bb.XLength <= 250 and bb.YLength <= 250, "base %.0f x %.0f mm fits a 256 bed" % (bb.XLength, bb.YLength))
 
 report = [
-    "Mitrailleuse head, bench C v2: the 16's rotor under a quarter block, from a crank through the head's drive",
+    "Mitrailleuse head, bench C v2: the %d's rotor under a block of four, from a crank through the head's drive" % N,
     "  rotor R%.0f, arcs on R%.0f (charge) and R%.0f (vent), ramps lofted; stack on a Ø8 shaft in a housing with"
     " 2 x 608: stop disc R%.0f, gear %d T, rotor" % (ROTOR_R, CHARGE_R, VENT_R, STOP[0], GEAR_Z[1]),
     "  layshaft M8 at %.2f mm: pinion %d T free on it between rubber washers Ø%.0f/%.0f, spring and nut;"
     " bevels %d:%d m%.0f to a crank R%.0f" % (c_gear, GEAR_Z[0], SLIP_WASHER[0], SLIP_WASHER[1], P.BEVEL_TEETH,
                                              P.BEVEL_TEETH, P.BEVEL_MODULE, CRANK_R),
-    "  quarter block %.0f..%.0f deg, R%.0f..%.0f, %.0f thick; ports at %s deg; supply G1/8 on top at %.0f deg,"
+    "  bench block %.1f..%.1f deg, R%.0f..%.0f, %.0f thick; ports at %s deg; supply G1/8 on top at %.0f deg,"
     " a pilot G1/8 on top per port" % (QUARTER + BLOCK_R + (BLOCK_T, " / ".join("%.2f" % port_ang(j) for j in PORTS),
                                                             SUP_IN_ANG)),
     "  levels: housing 0..%.0f, stop disc %.0f, gear %.0f, rotor %.0f, cam %.0f, plate %.0f, block %.0f..%.0f;"
@@ -601,9 +666,14 @@ if not ROTOR_BENCH_LIBRARY:
     for f in os.listdir(OUT_DIR):                         # v1's parts are gone
         if f.endswith((".stl", ".step")):
             os.remove(os.path.join(OUT_DIR, f))
-    for n, s, rot in (("head_block_quarter", block, None), ("head_guide_plate_quarter", plate, None),
-                      ("head_rotor16", rotor, None), ("head_gear75", gear, None), ("head_pinion15", pinion, None),
-                      ("head_stop_disc16", stop_disc, None), ("head_shaft_housing", housing, None),
+    if N == 16:
+        blocks_out = (("head_block_quarter", block, None), ("head_guide_plate_quarter", plate, None))
+    else:                                                 # x BLOCK_PORTS.count(n) for the gun, block4 also the bench's
+        blocks_out = tuple(x for n, bk in BLOCKS.items() for x in (("head_block%d" % n, bk["blk"], None),
+                                                                  ("head_guide_plate%d" % n, bk["pl"], None)))
+    for n, s, rot in blocks_out + (
+                      ("head_rotor%d" % N, rotor, None), ("head_gear75", gear, None), ("head_pinion15", pinion, None),
+                      ("head_stop_disc%d" % N, stop_disc, None), ("head_shaft_housing", housing, None),
                       ("head_bevel20_x2", bevel_print, None), ("head_crank", crank, (Y, 90)),
                       ("head_follower", follower(0, 0, 0), (X, 180)),
                       ("bench_base", base, None), ("bench_lever", lever, None), ("bench_bevel_box", box, (X, 90))):

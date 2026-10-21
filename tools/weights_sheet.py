@@ -22,7 +22,7 @@ for t, n in N.items():
     G[t] = {
         "p_mod": 74.1 * n,
         "p_frame": (274 if n == 16 else 255) + (324 if n == 16 else 295) + 148 + 171,
-        "p_head": (1017 if n == 16 else 1019) + 472,
+        "p_head": (1017 if n == 16 else 1021) + 472,
         "p_grip": 197,
         "steel": n * (106.5 + 34.9) + 7 + 32 + head_steel + 21 + 16,
         "alu": n * 122.3 + 179,

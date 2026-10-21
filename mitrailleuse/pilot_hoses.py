@@ -17,8 +17,10 @@ fittings are across the axis.
                   supply fitting (the supply hoses are not drawn yet; they keep their way out).
     length ...... each hose's cut length: its centre line plus HOSE_IN in each collet.
 
-At 16 the head is the real one. At 19 there is no head yet (bench C is the 16's): its ports are taken on the same
-circle and level, (j + 0.5) x 360 / 19, so the 19's numbers are a forecast until its head is drawn.
+Both heads are the real ones: rear_frame.py with HEAD_N = 16 (four quarter blocks) and 19 (blocks of 5 + 5 + 5 + 4),
+the same circle and level, port j at (j + 0.5) x 360 / n. At 19 the centre module is as far from every port as the
+ports' radius, so its hose is the longest whatever the matching, and longer than bench B counts: noted with the
+extra pilot volume, to try on bench B (docs/human-todo.md).
 
 Run inside FreeCAD (or freecadcmd):
     REPO = '/Users/<you>/ratling'
@@ -40,8 +42,13 @@ except NameError:
     except NameError:
         REPO = os.path.expanduser("~/ratling")
 # the rear frame's build (head, plate, drive) and through it the pack frame's, without checks and export
-exec(open(os.path.join(REPO, "mitrailleuse", "rear_frame.py"), encoding="utf-8").read()
-     .split("\n# ---------------------------------------------------------------- checks")[0])
+_rf = (open(os.path.join(REPO, "mitrailleuse", "rear_frame.py"), encoding="utf-8").read()
+       .split("\n# ---------------------------------------------------------------- checks")[0])
+HEAD_N = 16
+exec(_rf)
+_rf19 = {"REPO": REPO, "HEAD_N": 19}
+exec(_rf, _rf19)
+HEADS = {"A16": (head, RB), "A19": (_rf19["head"], _rf19["RB"])}
 
 NAME = "pilot_hoses"
 OUT_DIR = os.path.join(REPO, "exports", NAME)
@@ -56,13 +63,11 @@ NEAR = 10.0                 # look for the closest thing within this of a hose (
 BENCH_B_HOSE = 110.0        # the hose head_bench.py counts in the pilot's volume (rotor_timing.py's charge times)
 SUP_CORRIDOR = 12.0         # Ø straight up from each supply fitting
 
-z_head = Z0 + head["fittings"].BoundBox.ZMax                     # the head's collets
-r_port = RB["CHARGE_R"] + RB["RISER_DR"]
 
 
-def head_ports(n):
-    """Pilot fittings' centres (x, y) on the head, port j at (j + 0.5) x 360 / n."""
-    return [polar(r_port, (j + 0.5) * 360.0 / n) for j in range(n)]
+def head_ports(rb):
+    """Pilot fittings' centres (x, y) on a head, port j at (j + 0.5) x 360 / n."""
+    return [polar(rb["CHARGE_R"] + rb["RISER_DR"], rb["port_ang"](j)) for j in range(rb["N"])]
 
 
 def hungarian(c):
@@ -137,14 +142,14 @@ def tube(wire, z0):
 checks = []
 check = lambda ok, text: checks.append((text, bool(ok)))
 built = {}
-sup_xy = [RB["sup_in"]]
-sup_xy = [(math.cos(math.radians(q)) * sup_xy[0][0] - math.sin(math.radians(q)) * sup_xy[0][1],
-           math.sin(math.radians(q)) * sup_xy[0][0] + math.cos(math.radians(q)) * sup_xy[0][1]) for q in (0, 90, 180, 270)]
 for tag, key in KEYS:
     pts = LAYOUT[key]
     n = len(pts)
     mods = module_parts(key)
-    ports = head_ports(n)
+    hd, rb = HEADS[tag]
+    z_head = Z0 + hd["fittings"].BoundBox.ZMax                     # the head's collets
+    ports = head_ports(rb)
+    assert len(ports) == n
     a = hungarian([[math.dist(p, q) for q in pts] for p in ports])
     z_mod = mods[0]["fitting"].BoundBox.ZMin                     # the modules' collets
     hoses = []
@@ -152,7 +157,7 @@ for tag, key in KEYS:
         w, r, length = hose_path(p, z_head, pts[a[j]], z_mod)
         hoses.append({"port": j, "module": a[j], "wire": w, "r": r, "len": length, "solid": tube(w, z_head),
                       "d": math.dist(p, pts[a[j]])})
-    built[tag] = (key, mods, ports, hoses, z_mod)
+    built[tag] = (key, mods, ports, hoses, z_mod, z_head)
 
 # ---------------------------------------------------------------- checks
 wall = lambda s, o: s.distToShape(o)[0]
@@ -166,20 +171,21 @@ def near(a, b):
 
 fmt = lambda d: "> %.0f" % NEAR if d >= 1e8 else "%.1f" % d
 rails_all = G.fuse_all(rail_parts)
-head_fit = head["fittings"].translated(V(0, 0, Z0))
 lines = []
-for tag, (key, mods, ports, hoses, z_mod) in built.items():
+for tag, (key, mods, ports, hoses, z_mod, z_head) in built.items():
     n = len(hoses)
-    forecast = "" if tag == "A16" else " (ports forecast, no 19 head yet)"
+    hd, rb = HEADS[tag]
+    head_fit = hd["fittings"].translated(V(0, 0, Z0))
+    sup_xy = rb["GUN"]["sup_xy"]
     check(sorted(h["module"] for h in hoses) == list(range(n)), "%s: %d ports, %d modules, one hose each" % (tag, n, n))
     r_min = min(h["r"] for h in hoses)
-    check(r_min >= R_MIN, "%s: tightest bend R %.1f (>= %.0f, PU %g x %g)%s" % (tag, r_min, R_MIN, HOSE[0], HOSE[1], forecast))
+    check(r_min >= R_MIN, "%s: tightest bend R %.1f (>= %.0f, PU %g x %g)" % (tag, r_min, R_MIN, HOSE[0], HOSE[1]))
     d_hh = 1e9
     for i, h in enumerate(hoses):
         for g in hoses[i + 1:]:
             if near(h["solid"], g["solid"]):
                 d_hh = min(d_hh, wall(h["solid"], g["solid"]))
-    check(d_hh >= GAP, "%s: hoses %s mm apart at the closest%s" % (tag, fmt(d_hh), forecast))
+    check(d_hh >= GAP, "%s: hoses %s mm apart at the closest" % (tag, fmt(d_hh)))
     # everything else: the other modules' rear parts, the head's other fittings (16 only), rails, supply corridors
     d_mod = 1e9
     for h in hoses:
@@ -190,33 +196,34 @@ for tag, (key, mods, ports, hoses, z_mod) in built.items():
                 if near(h["solid"], m[part]):
                     d_mod = min(d_mod, wall(h["solid"], m[part]))
     d_rail = min(wall(h["solid"], rails_all) for h in hoses)
-    if tag == "A16":
-        d_head = 1e9
-        for h in hoses:
-            px, py = ports[h["port"]]
-            others = head_fit.cut(cyl(13.0, z_head - 30, z_head + 1, px, py))
-            d_head = min(d_head, wall(h["solid"], others))
-        corridors = G.fuse_all([cyl(SUP_CORRIDOR, z_head, z_mod, x, y) for x, y in sup_xy])
-        d_sup = min(wall(h["solid"], corridors) for h in hoses)
-    else:
-        d_head, d_sup = 99.0, 99.0
+    d_head = 1e9
+    for h in hoses:
+        px, py = ports[h["port"]]
+        others = head_fit.cut(cyl(13.0, z_head - 30, z_head + 1, px, py))
+        d_head = min(d_head, wall(h["solid"], others))
+    corridors = G.fuse_all([cyl(SUP_CORRIDOR, z_head, z_mod, x, y) for x, y in sup_xy])
+    d_sup = min(wall(h["solid"], corridors) for h in hoses)
     check(min(d_mod, d_rail, d_head, d_sup) >= GAP, "%s: hoses clear of the other modules' plugs, yokes, rods and fittings by"
-          " %s, the rails %.1f, the head's other fittings %s, the supply's way up %s%s"
-          % (tag, fmt(d_mod), d_rail, "%.1f" % d_head if tag == "A16" else "-", "%.1f" % d_sup if tag == "A16" else "-", forecast))
+          " %s, the rails %.1f, the head's other fittings %.1f, the supply's way up %.1f (%d fittings)"
+          % (tag, fmt(d_mod), d_rail, d_head, d_sup, len(sup_xy)))
     cut = [h["len"] + 2 * HOSE_IN for h in hoses]
-    if tag == "A16":
-        check(max(cut) <= BENCH_B_HOSE, "%s: longest hose %.0f mm, within the %.0f mm bench B's pilot volume counts"
-              % (tag, max(cut), BENCH_B_HOSE))
-    else:                   # a forecast: noted, not checked, until the 19's head is drawn
-        over = [c for c in cut if c > BENCH_B_HOSE]
-        lines.append("  %s: %d hose(s) longer than bench B's %.0f mm (longest %.0f: +%.2f cm3 in that pilot), to count"
-                     " with the 19's head" % (tag, len(over), BENCH_B_HOSE, max(cut),
-                                              math.pi / 4 * HOSE[1] ** 2 * (max(cut) - BENCH_B_HOSE) / 1000))
+    over = [h for h, c in zip(hoses, cut) if c > BENCH_B_HOSE]
+    if not over:
+        check(True, "%s: longest hose %.0f mm, within the %.0f mm bench B's pilot volume counts" % (tag, max(cut), BENCH_B_HOSE))
+    else:                   # only the centre module's, which cannot be shorter: noted, for bench B
+        r_p = math.hypot(*ports[0])
+        centre = all(math.hypot(*LAYOUT[key][h["module"]]) < 1.0 for h in over)
+        check(centre, "%s: the only hose over bench B's %.0f mm is the centre module's, %.0f mm: every port is R%.0f off"
+              " it, no matching makes it shorter" % (tag, BENCH_B_HOSE, max(cut), r_p))
+        lines.append("  %s: the centre's hose %.0f mm, +%.2f cm3 in its pilot over bench B's %.0f mm (%.2f cm3): try"
+                     " on bench B" % (tag, max(cut), math.pi / 4 * HOSE[1] ** 2 * (max(cut) - BENCH_B_HOSE) / 1000,
+                                      BENCH_B_HOSE, math.pi / 4 * HOSE[1] ** 2 * BENCH_B_HOSE / 1000))
     lines.append("  %s: hoses %.0f..%.0f mm cut, %.2f m in all; fittings %.1f mm apart across the axis at most"
                  % (tag, min(cut), max(cut), sum(cut) / 1000, max(h["d"] for h in hoses)))
 
 report = [
-    "Mitrailleuse concept A: pilot hoses, the head's fittings (z %.1f) to the modules' (z %.1f)" % (z_head, built["A16"][4]),
+    "Mitrailleuse concept A: pilot hoses, the head's fittings (z %.1f) to the modules' (z %.1f)" % (built["A16"][5],
+                                                                                                built["A16"][4]),
     "  PU %g x %g, %.0f straight out of each collet, an S of two arcs between, %.0f in each fitting; ports matched to"
     " modules for the least total length" % (HOSE[0], HOSE[1], STRAIGHT, HOSE_IN),
 ] + lines + ["  [%s] %s" % ("OK " if ok else "FAIL", t) for t, ok in checks]
@@ -225,9 +232,9 @@ print("\n".join(report))
 # ---------------------------------------------------------------- the hose table
 os.makedirs(OUT_DIR, exist_ok=True)
 table = []
-for tag, (key, mods, ports, hoses, z_mod) in built.items():
+for tag, (key, mods, ports, hoses, z_mod, z_head) in built.items():
     pts = LAYOUT[key]
-    table.append("%s (%s)%s" % (tag, key, "" if tag == "A16" else ", ports forecast"))
+    table.append("%s (%s)" % (tag, key))
     table.append("  port  at deg  ->  module  at (x, y)        R bend  cut mm")
     for h in hoses:
         x, y = pts[h["module"]]
@@ -258,17 +265,22 @@ def add(group, name, shape, style, offset=None):
 
 
 T = V(0, 0, Z0)
-key, mods, ports, hoses, z_mod = built["A16"]
-add("Hoses", "A16_pilot_hoses", G.fuse_all([h["solid"] for h in hoses]), "hose")
+try:
+    SHOW_TAG                # which gun the document shows: "A16" or "A19"
+except NameError:
+    SHOW_TAG = "A16"
+key, mods, ports, hoses, z_mod, z_head = built[SHOW_TAG]
+hd = HEADS[SHOW_TAG][0]
+add("Hoses", SHOW_TAG + "_pilot_hoses", G.fuse_all([h["solid"] for h in hoses]), "hose")
 for n_, st in (("blocks", "stator"), ("guide_plates", "plate"), ("rotor", "rotor"), ("gear", "drive")):
-    add("Head", "Head_" + n_, head[n_], st, offset=T)
-add("Head", "Head_fittings", head["fittings"], "steel", offset=T)
-add("Head", "Head_plate", hp, "frame", offset=T)
-add("Pack", "A16_rails", Part.makeCompound(rail_parts), "alu")
-add("Pack", "A16_rear_plate", plate(key, "rear")[0], "frame")
-add("Pack", "A16_chambers", Part.makeCompound([m["chamber"] for m in mods]), "ghost")
+    add("Head", "Head_" + n_, hd[n_], st, offset=T)
+add("Head", "Head_fittings", hd["fittings"], "steel", offset=T)
+add("Head", "Head_plate", hp if SHOW_TAG == "A16" else _rf19["hp"], "frame", offset=T)
+add("Pack", SHOW_TAG + "_rails", Part.makeCompound(rail_parts), "alu")
+add("Pack", SHOW_TAG + "_rear_plate", plate(key, "rear")[0], "frame")
+add("Pack", SHOW_TAG + "_chambers", Part.makeCompound([m["chamber"] for m in mods]), "ghost")
 for style, names in (("stator", ("rp", "rear_yoke")), ("steel", ("hardware", "fitting"))):
-    add("Module_rears", "A16_" + "_".join(names), Part.makeCompound([m[nm] for m in mods for nm in names]), style)
+    add("Module_rears", SHOW_TAG + "_" + "_".join(names), Part.makeCompound([m[nm] for m in mods for nm in names]), style)
 sc.finish()
 sc.doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 print("written to", OUT_DIR)
