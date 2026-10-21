@@ -253,7 +253,7 @@ def pusher_shape(lk):
     return PUSHER.translated(V(X_OPEN + LOCK_STROKE * lk, 0, 0))
 
 
-lock_housing_h = lock_housing.cut(box(X_OPEN - PUSHER_T / 2 - 0.4, X_LOCKED + PUSHER_T / 2 + 0.4,
+lock_housing_h = lock_housing_plain.cut(box(X_OPEN - PUSHER_T / 2 - 0.4, X_LOCKED + PUSHER_T / 2 + 0.4,
                                       (SLEEVE_BORE + 1) / 2 - 1, 30, Z_FIRE - 3.5, Z_FIRE + 3.5))
 
 # ---------------------------------------------------------------- trigger: one stage, straight onto the vent valve

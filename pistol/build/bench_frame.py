@@ -55,7 +55,7 @@ BEAM = dict(y=12.0, z=(16.0, fz[1] - 2.0))  # top face = the cage's top, where t
 ARM = dict(t=8.0, z=(Z_FIRE - 6.0, Z_FIRE + 6.0))   # side arms, outside the body (|y| > BODY_R)
 PIN_R = 1.5                                 # the pusher's pin (Ø3 steel)
 SCREW = dict(d=3.4, nut_af=5.5, nut_t=2.4, y=24.5)  # M3 along x, its tip on the pin's back, outside the lock (r 23)
-NUT_BLOCK_X = (-27.0, -18.0)
+NUT_BLOCK_X = (-27.0, -14.0)               # from the body's top face to 1.4 mm behind the pin (open)
 CLEAR = 0.6
 
 y_pin = SCREW["y"]
@@ -81,18 +81,41 @@ arm_r = box(x0, NUT_BLOCK_X[1], yr0, yr0 + ARM["t"], ARM["z"][0], ARM["z"][1])
 nut_block = box(NUT_BLOCK_X[0], NUT_BLOCK_X[1], 23.0 + CLEAR, yr0 + ARM["t"], ARM["z"][0], ARM["z"][1])
 screw_hole = cyl_x(SCREW["d"], NUT_BLOCK_X[0] - 1, NUT_BLOCK_X[1] + 1, y_pin, Z_FIRE)
 nut_r = SCREW["nut_af"] / 2 / math.cos(math.radians(30)) + 0.15
-nx = (NUT_BLOCK_X[0] + NUT_BLOCK_X[1]) / 2
+nx = NUT_BLOCK_X[1] - 2.5                  # the nut near the front, in the block's full section
 nut_trap = Part.Face(Part.makePolygon([V(nx - SCREW["nut_t"] / 2 - 0.1, y_pin + nut_r * math.cos(math.radians(60 * k)),
                                          Z_FIRE + nut_r * math.sin(math.radians(60 * k))) for k in range(7)]))
 nut_trap = nut_trap.extrude(V(SCREW["nut_t"] + 0.2, 0, 0)).fuse(
     box(nx - SCREW["nut_t"] / 2 - 0.1, nx + SCREW["nut_t"] / 2 + 0.1, y_pin - SCREW["nut_af"] / 2 - 0.15,
         y_pin + SCREW["nut_af"] / 2 + 0.15, Z_FIRE, ARM["z"][1] + 1))          # slid in from the top
-arm_r = arm_r.fuse(nut_block).cut(screw_hole).cut(nut_trap)
+# Printed rear plate down: whatever stands out past an arm, inward or outward, gets a 45 deg ramp under it.
+def ramp(x_top, y_far, y_arm, z0, z1):
+    """Under a ledge whose underside is at x_top, reaching from the arm (y_arm) out to y_far: 45 deg back to x."""
+    d = abs(y_far - y_arm)
+    tri = Part.Face(Part.makePolygon([V(x_top + 0.01, y_far, z0), V(x_top + 0.01, y_arm, z0), V(x_top - d, y_arm, z0),
+                                      V(x_top + 0.01, y_far, z0)]))
+    return tri.extrude(V(0, 0, z1 - z0))
+
+
+# The block reaches 8 mm in from the arm over the body's top face, with nothing under it as printed: its underside
+# rises at 45 deg from the arm, so it is whole only from 8 mm up, where the nut sits; behind that the screw runs in
+# an open groove.
+d_in = yr0 - (23.0 + CLEAR)
+nut_block = nut_block.cut(Part.Face(Part.makePolygon([V(NUT_BLOCK_X[0] - 0.01, yr0 + 0.01, 0), V(NUT_BLOCK_X[0] - 0.01, 22.0, 0),
+                                                     V(NUT_BLOCK_X[0] + d_in + 2.0, 22.0, 0), V(NUT_BLOCK_X[0] - 0.01, yr0 + 0.01, 0)]))
+                          .extrude(V(0, 0, 100)).translated(V(0, 0, -50)))
+arm_r = arm_r.fuse(nut_block)
+arm_r = arm_r.cut(screw_hole).cut(nut_trap)
 
 # ---------------------------------------------------------------- left arm: the detent box
 db = detent_box.BoundBox
 arm_l = box(x0, db.XMin + 1.0, -(yr0 + ARM["t"]), -yr0, ARM["z"][0], ARM["z"][1])
-arm_l = arm_l.fuse(box(db.XMin - 6.0, db.XMin + 1.0, db.YMin, -yr0, db.ZMin, ARM["z"][1]))
+arm_l = arm_l.fuse(box(db.XMin - 6.0, db.XMin + 1.0, db.YMin, -yr0, db.ZMin, db.ZMax))
+arm_l = arm_l.fuse(ramp(db.XMin - 6.0, db.YMin, -(yr0 + ARM["t"]), db.ZMin, db.ZMax))
+arm_l = arm_l.fuse(box(x0, db.XMin + 1.0, -(yr0 + ARM["t"]), -yr0, ARM["z"][1] - 0.01, db.ZMax)
+                   .common(box(db.XMin - 6.0 - (db.ZMax - ARM["z"][1]), db.XMin + 1.0, -100, 0, -100, 100)))
+x_box = HUB_X0 + BOLT_X0 - 2                # the detent box proper starts here (hammer_assembly.py), beside the hub
+arm_l = arm_l.fuse(box(db.XMin - 6.0, x_box + 0.01, db.YMin, -yr0, db.ZMin, db.ZMax)       # under it, clear of the hub
+                   .cut(cyl_x(2 * (HUB_R + 1.0), HUB_X0 - 1.0, x_box + 1, 0, 0)))
 arm_l = arm_l.cut(Part.makeCompound([bolt_shape(a_) for a_ in (0.0, 30.0)]))
 
 frame_b = plate.fuse(beam).fuse(arm_r).fuse(arm_l).fuse(detent_box)

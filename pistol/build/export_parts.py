@@ -50,7 +50,7 @@ GROUPS = {
 # name, shape, the part's direction that goes down onto the bed, group, note
 PARTS = [
     ("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
-    ("lock_sleeve", lock_sleeve(1.0), -X_, "airtight", "plain, no O-ring (the bench seal fired without one); the pusher glued to its flange"),
+    ("lock_sleeve", lock_sleeve(1.0), X_, "airtight", "nose down (the sealing face on the bed, the flange chamfered over it); plain, no O-ring; the pusher glued to its flange"),
     ("lock_pusher", pusher_shape(1.0), -X_, "strong", "ring behind the sleeve's flange; its cam pin: a Ø3 steel pin"),
     ("block_rear_disc", hub, -X_, "standard", "breech seats on the bed; barrels glued 5 mm into it"),
     ("block_front_disc", front_plate, X_, "standard", "barrels glued into it"),

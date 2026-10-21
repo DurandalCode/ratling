@@ -205,19 +205,22 @@ def body_frame_to_pistol(shape):
 # ---------------------------------------------------------------- fixed: valve, lock, axle
 valve_body = body_frame_to_pistol(body)
 valve_cap = body_frame_to_pistol(cap_a)
-lock_housing = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
-                .common(box(-GAP - LOCK_H - 1, -GAP + 1, -30, 30, Z_FIRE - 30, Z_FIRE + BREECH_FLAT_X))
-                .cut(cyl_x(LOCK_PISTON_D, -GAP - 12, -GAP + 1, 0, Z_FIRE))
-                .cut(cyl_x(SLEEVE_BORE, -GAP - 17, -GAP - 11.9, 0, Z_FIRE))              # the sleeve's tube
-                .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, -GAP + 1, 0, Z_FIRE))
-                .cut(box(WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, -4.5, 4.5, Z_FIRE - 30, Z_FIRE - 10))   # wedge slot
-                .cut(cyl_x(LOCK_PISTON_D, WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, 0, Z_FIRE - WEDGE_LIFT)))  # its fork, dropped
 # Bolts into the body's breech pilots (body frame (x, y) -> pistol (y, z) = (-y, Z_FIRE + x)). Two: the hammer
 # variant's pusher lug runs where v1.1's third, at 270 deg, would go (v1.3's body has only these two).
 LOCK_BOLTS = (90.0, 180.0)
-lock_housing = lock_housing.cut(Part.makeCompound([
-    cyl_x(BREECH_BOLT_HOLE, -GAP - LOCK_H - 1, -GAP + 1, -BREECH_BOLT_R * math.sin(math.radians(a)),
-          Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))) for a in LOCK_BOLTS]))
+lock_housing_plain = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
+                      .common(box(-GAP - LOCK_H - 1, -GAP + 1, -30, 30, Z_FIRE - 30, Z_FIRE + BREECH_FLAT_X))
+                      .cut(cyl_x(LOCK_PISTON_D, -GAP - 12, -GAP + 1, 0, Z_FIRE))
+                      .cut(cyl_x(SLEEVE_BORE, -GAP - 17, -GAP - 11.9, 0, Z_FIRE))              # the sleeve's tube
+                      .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, -GAP + 1, 0, Z_FIRE))
+                      .cut(Part.makeCompound([cyl_x(BREECH_BOLT_HOLE, -GAP - LOCK_H - 1, -GAP + 1,
+                                                    -BREECH_BOLT_R * math.sin(math.radians(a)),
+                                                    Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))) for a in LOCK_BOLTS])))
+# The lever variant's wedge: a slot under the housing and its fork's room, dropped off the axis. The hammer variant
+# (hammer_layout.py) has no wedge and takes lock_housing_plain: the fork's eccentric room was an overhang to support.
+lock_housing = (lock_housing_plain
+                .cut(box(WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, -4.5, 4.5, Z_FIRE - 30, Z_FIRE - 10))   # wedge slot
+                .cut(cyl_x(LOCK_PISTON_D, WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, 0, Z_FIRE - WEDGE_LIFT)))  # its fork, dropped
 lock_port = cyl_x(6, 0, 10, 0, 0)
 lock_port.rotate(V(0, 0, 0), ZA, 90)
 lock_port.translate(V(-GAP - 8, -BREECH_FLANGE_D / 2 + 2, Z_FIRE))
@@ -227,6 +230,9 @@ axle = cyl_x(BARREL_OD, X_BODY_TOP, HUB_X0 + HUB_T + STUB + 20).cut(cyl_x(23.8, 
 def lock_sleeve(lk):
     x_nose = HUB_X0 - 0.1 - LOCK_STROKE * (1 - lk)                  # nose face: 1 mm off -> on the breech
     s = cyl_x(LOCK_PISTON_D - 0.4, x_nose - 9, x_nose - 6, 0, Z_FIRE)
+    c = (LOCK_PISTON_D - 0.4 - NOSE_D) / 2                          # the flange's front face, nose to rim
+    if c <= 3.0:            # 45 deg chamfer on it: printed nose down, the flange needs no support; its back stays flat
+        s = s.common(Part.makeCone(NOSE_D / 2, NOSE_D / 2 + 20, 20, V(x_nose - 6, 0, Z_FIRE), -XA))
     s = s.fuse(cyl_x(SLEEVE_BORE - 0.2, x_nose - 16, x_nose - 6, 0, Z_FIRE))
     s = s.fuse(cyl_x(NOSE_D, x_nose - 6, x_nose, 0, Z_FIRE))
     return s.cut(cyl_x(SEAT_D, x_nose - 20, x_nose + 1, 0, Z_FIRE))
