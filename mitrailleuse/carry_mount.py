@@ -232,7 +232,7 @@ for tag, (key, mods, plates) in built.items():
     sc.add(tag + "_frame", tag + "_rails", Part.makeCompound(rail_parts), "alu", offset=off)
     for side in ("rear", "front"):
         sc.add(tag + "_frame", "%s_%s_plate" % (tag, side), plate(key, side)[0], "frame", offset=off)
-    for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle_ring")), ("ghost", ("chamber",)),
+    for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle")), ("ghost", ("chamber",)),
                          ("barrel", ("barrel",)), ("steel", ("hardware", "fitting"))):
         sc.add(tag + "_modules", "%s_%s" % (tag, "_".join(names)), Part.makeCompound([m[n] for m in mods for n in names]),
                style, offset=off)

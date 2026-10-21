@@ -128,7 +128,7 @@ def place(shape, x, y, a):
 def module_parts(key):
     """The v4.4 parts of every module in the pack, placed: [{name: shape}] in layout order."""
     pts = LAYOUT[key]
-    names = ("rp", "fp", "chamber", "barrel", "sr", "rear_yoke", "front_yoke", "muzzle_ring", "hardware", "fitting")
+    names = ("rp", "fp", "chamber", "barrel", "sr", "rear_yoke", "front_yoke", "muzzle", "hardware", "fitting")
     return [{n: place(M[n], x, y, a) for n in names} for (x, y), a in zip(pts, rod_angles(key, pts))]
 
 
@@ -253,7 +253,7 @@ for tag, (key, mods, plates) in built.items():
         for (x, y), m in zip(LAYOUT[key], mods):
             if math.hypot(c.x - x, c.y - y) > 60:
                 continue
-            for p in ("rp", "fp", "chamber", "rear_yoke", "front_yoke", "muzzle_ring", "hardware", "fitting"):
+            for p in ("rp", "fp", "chamber", "rear_yoke", "front_yoke", "muzzle", "hardware", "fitting"):
                 d_rail = min(d_rail, r.distToShape(m[p])[0])
     check(d_rail >= RAIL_CLEAR, "%s: rails %.1f mm clear of every yoke ear, nut, plug and fitting" % (tag, d_rail))
     lines.append("  %s: %d modules, play between plates = spread of the chamber tubes' length" % (tag, n))
@@ -285,7 +285,7 @@ if not PACK_FRAME_LIBRARY:
         for side, (s, _) in plates.items():
             sc.add(grp + "_frame", "%s_%s_plate" % (tag, side), s, "frame", offset=V(2 * dx[tag], 0, 0))
         sc.add(grp + "_frame", tag + "_rails", Part.makeCompound(rail_parts), "alu", offset=V(2 * dx[tag], 0, 0))
-        for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle_ring", "sr")),
+        for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle", "sr")),
                              ("ghost", ("chamber",)), ("barrel", ("barrel",)), ("steel", ("hardware", "fitting"))):
             sc.add(grp + "_modules", "%s_%s" % (tag, "_".join(names)), Part.makeCompound([m[n] for m in mods for n in names]),
                    style, offset=V(2 * dx[tag], 0, 0))

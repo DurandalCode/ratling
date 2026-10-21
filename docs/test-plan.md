@@ -141,10 +141,11 @@ Only after Stage 3 succeeds should the design be scaled toward the 25-channel ta
 three ways, to choose how the mitrailleuse gets its length
 (`mitrailleuse/mitrailleuse_concepts.py`, concept A):
 
-1. bare 300 mm barrel, the muzzle ring as drawn (the reference);
+1. bare 300 mm barrel with the muzzle clamp as drawn (the default since
+   2026-10-21, a collar on two M3 screws over a wrap of tape; the reference);
 2. the same barrel with the muzzle sleeve (`muzzle_sleeve.stl`) in place of
-   the muzzle ring: Ø30 bore 215 mm ahead of the barrel, four vents at its
-   root, same rods and nuts;
+   the clamp: Ø30 bore 215 mm ahead of the barrel, four vents at its root;
+   it takes the muzzle ring's rods, 362 mm (the clamp's are 358);
 3. a 535 mm barrel: `OVERRIDE = {"BARREL_LEN": 535.0, "MUZZLE_CLAMP": True, "NAME": "stage3v4_long_barrel"}`,
    held by the muzzle clamp (a collar on two M3 screws, over a wrap of tape)
    300 mm from the shoulder; the rods stay 358 mm.
@@ -158,7 +159,7 @@ same rest. Measure:
 - the sleeve's bore after the shots: a marker line drawn along it shows any
   ball touching it;
 - the vents: no ball rubbing at their edges, no cracks at the slots;
-- the clamp after the long barrel's shots: a mark on the barrel at the
+- the clamp after each barrel's shots: a mark on the barrel at the
   clamp's face shows any slip; then slide the clamp off and check the bore
   under it with a ball (it must pass as freely as elsewhere).
 

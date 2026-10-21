@@ -61,7 +61,7 @@ try:
     pts = C["LAYOUT"][key]
     angs = C["rod_angles"](key, pts)
     orings = [C["place"](M["orings"], x, y, a) for (x, y), a in zip(pts, angs)]
-    for mat, names in (("print", ("rp", "fp", "sr", "rear_yoke", "front_yoke", "muzzle_ring")), ("alu", ("chamber",)),
+    for mat, names in (("print", ("rp", "fp", "sr", "rear_yoke", "front_yoke", "muzzle")), ("alu", ("chamber",)),
                        ("steel", ("barrel", "hardware")), ("brass", ("fitting",))):
         add("Mod_" + "_".join(names), Part.makeCompound([m[n] for m in mods for n in names]), mat)
     add("ORings", Part.makeCompound(orings), "rubber")

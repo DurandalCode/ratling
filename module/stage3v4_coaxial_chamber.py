@@ -2,6 +2,11 @@
 """
 Ratling Stage 3 v4.4: the chamber is a bought tube round the barrel.
 
+v4.4 muzzle: the muzzle clamp is the default now (MUZZLE_CLAMP = True; it was an option for the long barrel).
+The seat ring's push goes from the barrel into a collar squeezed on it by two M3 over a wrap of tape, not into
+the lip of a ring on the barrel's end, so the barrel's cut end and its length no longer set the stack. The
+muzzle ring stays as an option (MUZZLE_CLAMP = False) and is still exported.
+
 v4.4 (lighter): the chamber tube is aluminium 38 x 1.5 (was steel 38 x 1.2): bore Ø35.0, so the chamber
 O-rings go 30 x 3 -> 29 x 3 and the chamber grows to ~270 mm for the same 100 cm3. The narrower bore left
 only ~169 mm2 of chamber air round the seat ring's socket (its 24 x 2.5 O-ring groove and wall sat in the
@@ -86,7 +91,10 @@ Parts, each exported in its print orientation (lowest point at z = 0):
                   fitting goes through its hole.
     front yoke .. a plate over the front plug's sleeve, seated on its 45 deg
                   flange, with the two rod ears.
-    muzzle ring . on the barrel's front end (in a counterbore), with the two rod ears.
+    muzzle clamp  a collar 20 mm long on the barrel, 300 mm from its shoulder (flush with the 300 mm barrel's end),
+                  split through one ear, two M3 x 12 across the split, over a wrap of tape (default).
+    muzzle ring . (option, MUZZLE_CLAMP = False) on the barrel's front end (in a counterbore), with the two
+                  rod ears.
     muzzle sleeve (option, in place of the muzzle ring; not in the module, a bench test for the
                   mitrailleuse's length): the muzzle ring with a Ø32 sleeve SLEEVE_LEN ahead of the barrel,
                   bore Ø30 (3.1 mm round the ball), the barrel's end on the same lip as in the ring, located
@@ -100,9 +108,11 @@ on the rear plug's face (the bead inside it), seat ring on top (its stop lip rou
 plug's face). 20 x 2 O-ring on the spigot (grease), barrel into the socket over it, pushed home on the
 shoulder. Tube over the seat ring and barrel with the O-ring cone onto the rear plug, in to
 its flange. Front plug onto the barrel and into the tube (cone again), in to its flange. Rear yoke over the
-fitting, front yoke over the sleeve, muzzle ring on the barrel's end, the rods through all three ears. Nuts
+fitting, front yoke over the sleeve, tape round the barrel and the muzzle clamp over it (screws loose), the rods
+through all three ears. Nuts
 snug at the rear and on the front yoke, then the muzzle nuts until the seat ring's stop lip sits on the rear
-plug (it does not take much: the lip sets the squeeze, the nuts only hold it there).
+plug (it does not take much: the lip sets the squeeze, the nuts only hold it there). Then tighten the muzzle
+clamp's two screws (snug, not cranked: the 0.6 wall must stay round).
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
@@ -112,7 +122,7 @@ Bench test of the length (docs/test-plan.md, Stage 3 v4.4 length): the same modu
     OVERRIDE = {"BARREL_LEN": 535.0, "MUZZLE_CLAMP": True, "NAME": "stage3v4_long_barrel"}
 before exec: the muzzle clamp stays 300 mm from the shoulder, so the rods are the same 358 mm for any barrel
 (the clamp's own rods; without MUZZLE_CLAMP the muzzle ring goes on the long barrel's end and the rods grow).
-    muzzle clamp (option, MUZZLE_CLAMP, in place of the muzzle ring): a collar squeezed on the barrel by two
+    muzzle clamp (default, MUZZLE_CLAMP; the muzzle ring in its place when False): a collar squeezed on the barrel by two
                   M3 x 12 across a split through its ear, over a wrap of tape. Wrap the tape, slide it on,
                   rods and nuts as for the ring (the nuts set the seat ring's lip), then tighten the two screws.
 """
@@ -180,7 +190,7 @@ MUZZLE_T, MUZZLE_CB = 8.0, 4.0                     # muzzle ring, its counterbor
 # is split through its ear at TIE_ANGLES[0] (that ear runs the collar's length) and the screws cross the split
 # tangentially between the bore and the rod. A wrap of tape (or thin rubber) lines it: grip, and an even
 # squeeze, so the 0.6 wall is not pinched oval (the ball fits the bore tight).
-MUZZLE_CLAMP = False
+MUZZLE_CLAMP = True         # default since v4.4 muzzle; False: the muzzle ring on the barrel's end
 CLAMP_AT, CLAMP_W = 300.0, 20.0
 CLAMP_LINER = 0.5           # tape round the barrel
 CLAMP_SCREW_R = 16.6        # the screws' axis off the barrel's axis
@@ -448,16 +458,25 @@ _stick = WASHER_T + NUT_T + 2.0              # washer, nut and a couple of threa
 z_front = z_c1 if MUZZLE_CLAMP else z_m1     # the rods' front ear
 z_rod0, z_rod1 = z_ry - _stick, z_front + _stick
 tie_len = z_rod1 - z_rod0
-hardware = []
-for a in TIE_ANGLES:
-    x, y = at(TIE_R, a)[:2]
-    hardware.append(cyl(TIE_D, z_rod0, z_rod1, x, y))
-    for zf, sgn in ((z_ry, -1), (z_fy1, +1), (z_front, +1)):          # washer on the ear, nut beyond it
-        zw = zf + sgn * WASHER_T
-        hardware.append(cyl(WASHER_D, min(zf, zw), max(zf, zw), x, y).cut(cyl(TIE_HOLE, zf - 2, zf + 2, x, y)))
-        zn = zw + sgn * NUT_T
-        hardware.append(G.hex_prism(NUT_AF, min(zw, zn), max(zw, zn), x, y).cut(cyl(TIE_D, zw - 4, zw + 4, x, y)))
-hardware = G.fuse_all(hardware)
+tie_len_ring = z_m1 + _stick - z_rod0        # the muzzle ring's or the sleeve's rods (their ear is at z_m1)
+
+
+def rods(z_ear):
+    """Both tie rods with a washer and a nut on each ear: rear yoke, front yoke and the muzzle ear at z_ear."""
+    hw = []
+    for a in TIE_ANGLES:
+        x, y = at(TIE_R, a)[:2]
+        hw.append(cyl(TIE_D, z_rod0, z_ear + _stick, x, y))
+        for zf, sgn in ((z_ry, -1), (z_fy1, +1), (z_ear, +1)):          # washer on the ear, nut beyond it
+            zw = zf + sgn * WASHER_T
+            hw.append(cyl(WASHER_D, min(zf, zw), max(zf, zw), x, y).cut(cyl(TIE_HOLE, zf - 2, zf + 2, x, y)))
+            zn = zw + sgn * NUT_T
+            hw.append(G.hex_prism(NUT_AF, min(zw, zn), max(zw, zn), x, y).cut(cyl(TIE_D, zw - 4, zw + 4, x, y)))
+    return G.fuse_all(hw)
+
+
+hardware = rods(z_front)
+hardware_ring = hardware if z_front == z_m1 else rods(z_m1)
 
 # ---------------------------------------------------------------- muzzle clamp (option, in place of the muzzle ring)
 _cb_r = BARREL_OD / 2 + CLAMP_LINER + YOKE_CLEAR     # bore over the lined barrel
@@ -476,6 +495,7 @@ muzzle_clamp = G.fuse_all([tie_plate(_co_r, z_c1 - MUZZLE_T, z_c1), cyl(2 * _co_
                + [cyl(TIE_HOLE, z_c0 - 1, z_c1 + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES])).removeSplitter()
 cl_walls = (CLAMP_SCREW_R - 1.7 - _cb_r, TIE_R - TIE_HOLE / 2 - CLAMP_SCREW_R - 1.7)   # screw hole to bore, to rod
 cl_liner = cyl(2 * (_cb_r - YOKE_CLEAR), z_c0, z_c1).cut(cyl(BARREL_OD, z_c0 - 1, z_c1 + 1))
+muzzle = muzzle_clamp if MUZZLE_CLAMP else muzzle_ring     # the module's muzzle part (pack_frame & co. take this)
 cl_hold = CLAMP_MU * 2 * math.pi * 2 * CLAMP_SCREW_T            # a split collar: normal force = 2 pi x screw tension
 cl_p = 2 * CLAMP_SCREW_T / ((BARREL_OD / 2) * CLAMP_W)          # MPa on the barrel, evened by the liner
 cl_hoop = cl_p * (BARREL_OD / 2) / BARREL_WALL
@@ -600,7 +620,7 @@ checks = [
      % (" (runs %.0f mm past it)" % (BARREL_LEN - CLAMP_AT) if BARREL_LEN > CLAMP_AT else "", PACK_CLEAR, clamp_gap),
      CLAMP_AT <= BARREL_LEN and z_c0 >= z_fy1 + WASHER_T + NUT_T + 2.0 and clamp_gap >= PACK_CLEAR),
     ("muzzle sleeve valid single solid, clear of the barrel, the rods and the nuts",
-     G.single_solid(muzzle_sleeve) and G.no_overlap(muzzle_sleeve, barrel) and G.no_overlap(muzzle_sleeve, hardware)),
+     G.single_solid(muzzle_sleeve) and G.no_overlap(muzzle_sleeve, barrel) and G.no_overlap(muzzle_sleeve, hardware_ring)),
     ("muzzle sleeve: ball %.1f mm off its bore, %.0f mm ahead of the barrel <= safe %.0f (socket %.0f mrad, exit %.0f mrad)"
      % (sl_gap, SLEEVE_LEN, sl_safe, sl_tilt, BALL_EXIT_MRAD), sl_gap >= 3.0 and SLEEVE_LEN <= sl_safe),
     ("muzzle sleeve: vents %.0f mm2 >= the bore %.0f" % (sl_vent_a, area(BARREL_ID)), sl_vent_a >= area(BARREL_ID)),
@@ -632,24 +652,26 @@ report = [
     "  dead volume behind ball: %.1f cm3" % dead_v,
     "  chamber                : %.0f cm3, tube %.0f x %.1f aluminium, %.0f mm long, %.0f g"
     % (chamber_v, CH_OD, CH_WALL, chamber_len, (area(CH_OD) - area(CH_ID)) * chamber_len * 2.70e-3),
-    "  module                 : Ø%.0f (ears %.0f across), %.0f mm long with a %.0f mm barrel, yoke to muzzle ring"
-    % (CH_OD, 2 * (TIE_R + EAR_R), z_m1 - z_ry, BARREL_LEN),
+    "  module                 : Ø%.0f (ears %.0f across), %.0f mm long with a %.0f mm barrel, yoke to the muzzle %s"
+    % (CH_OD, 2 * (TIE_R + EAR_R), max(z_front, z_sh + BARREL_LEN) - z_ry, BARREL_LEN,
+       "clamp" if MUZZLE_CLAMP else "ring"),
     "  @ %.0f bar               : rear plug %.0f N back, front plug %.0f N forward, both on the rods; pilot pushes the"
-    " seat ring %.0f N forward at %.0f bar (%.0f at %.0f), seat ring -> barrel -> muzzle ring -> rods"
-    % (P_MAX_BAR, F_rp, P_MAX_BAR * 0.1 * A_annulus, F_open, P_WORK_BAR, F_ring, P_MAX_BAR),
+    " seat ring %.0f N forward at %.0f bar (%.0f at %.0f), seat ring -> barrel -> muzzle %s -> rods"
+    % (P_MAX_BAR, F_rp, P_MAX_BAR * 0.1 * A_annulus, F_open, P_WORK_BAR, F_ring, P_MAX_BAR,
+       "clamp" if MUZZLE_CLAMP else "ring"),
     "  tie rods               : 2 x M3 threaded rod %.0f mm at R%.1f, %.0f / %.0f deg; 6 nuts, 6 washers Ø%.0f;"
     " no glue, nothing screwed into the barrel or drilled through the tube" % (tie_len, TIE_R, *TIE_ANGLES, WASHER_D),
     "  yokes, muzzle ring     : rear yoke %.0f thick behind the rear plug (hole Ø%.1f for the fitting), front yoke %.0f"
     " on the front plug's flange, muzzle ring %.0f (counterbore %.0f over the barrel's end)"
     % (YOKE_T, FITTING_HOLE_D, YOKE_T, MUZZLE_T, MUZZLE_CB - 0),
-    "  muzzle clamp (option)  : collar %.0f long at %.0f from the shoulder, Ø%.1f bore over %.1f mm of tape, split"
+    "  muzzle clamp           : collar %.0f long at %.0f from the shoulder, Ø%.1f bore over %.1f mm of tape, split"
     " through its ear at %.0f deg, 2 x M3 x 12 across it; holds %.0f N, squeezes %.1f MPa%s"
     % (CLAMP_W, CLAMP_AT, 2 * _cb_r, CLAMP_LINER, _sa, cl_hold, cl_p,
-       ", in the model" if MUZZLE_CLAMP else ""),
+       ", in the model (default)" if MUZZLE_CLAMP else ", option"),
     "  muzzle sleeve (option) : Ø%.0f, bore Ø%.0f, %.0f mm ahead of the barrel (overall %.0f), socket %.0f over the"
-    " barrel, %d vents %.0f x %.0f; %.1f cm3; the same rods"
+    " barrel, %d vents %.0f x %.0f; %.1f cm3; the muzzle ring's rods, %.0f mm"
     % (SLEEVE_OD, SLEEVE_BORE, SLEEVE_LEN, z_sl1 - z_sl0, SLEEVE_SOCKET, SLEEVE_VENTS[0], SLEEVE_VENTS[1],
-       SLEEVE_VENTS[2], muzzle_sleeve.Volume / 1000),
+       SLEEVE_VENTS[2], muzzle_sleeve.Volume / 1000, tie_len_ring),
     "  pack                   : pitch %.0f unchanged, each rod alone in its gap of a hex pack; %.1f mm to the"
     " neighbours (hex), %.1f (square); the ears stand %.1f mm out of the Ø%.0f on the pack's edge"
     % (PACK_PITCH, pack_gap["hex"], pack_gap["square"], pack_grow, CH_OD),
@@ -703,7 +725,8 @@ if not STAGE3V4_LIBRARY:
         ("МЕМБРАНА Ø%.1f" % (2 * DIA_R), (40, 0, 0)),
         ("ЗАДНЯЯ ПРОБКА: пилот G1/8 -> M3R110 A", (40, 0, z_rp)),
         ("ЯРМО + 2 шпильки M3 x %.0f" % tie_len, (40, 0, z_ry - 5)),
-        ("ДУЛЬНОЕ КОЛЬЦО", (40, 0, z_m1 + 5)),
+        ("ДУЛЬНЫЙ ХОМУТ: 2 x M3 x 12 поверх изоленты" if MUZZLE_CLAMP else "ДУЛЬНОЕ КОЛЬЦО",
+         (40, 0, max(z_front, z_m1) + 5)),
     ]:
         sc.label("Labels", text, pos)
     sc.add("Sleeve_option", "Muzzle_sleeve", muzzle_sleeve, "stator")

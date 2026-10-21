@@ -351,7 +351,7 @@ mods = module_parts(key)
 add("Pack", "A16_rails", Part.makeCompound(rail_parts), "alu")
 for side in ("rear", "front"):
     add("Pack", "A16_%s_plate" % side, plate(key, side)[0], "frame")
-for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle_ring")), ("ghost", ("chamber",)),
+for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle")), ("ghost", ("chamber",)),
                      ("barrel", ("barrel",)), ("steel", ("hardware", "fitting"))):
     add("Pack", "A16_" + "_".join(names), Part.makeCompound([m[n] for m in mods for n in names]), style)
 sc.finish(hidden_groups=("Pulled",))
