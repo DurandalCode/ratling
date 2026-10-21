@@ -58,8 +58,10 @@ Several copies of a part: `file.stl:COUNT`.
 
 ## 5. Open in Bambu Studio
 
-Open the fresh projects for the user: `open -a /Applications/BambuStudio.app exports/print/<project>.3mf` (the app is `BambuStudio.app`, no space: `-a "Bambu Studio"` fails) (several files in one
-`open` call open as tabs/windows). Do this after slicing, without asking.
+Open the fresh project for the user: `open -a /Applications/BambuStudio.app exports/print/<project>.3mf` (the app is `BambuStudio.app`, no space: `-a "Bambu Studio"` fails). Open **one project only**:
+several files in one `open` call (or a second `open` while a project is loaded) get imported into the first project,
+all parts piled on one plate. Open the first group, tell the user the next one to open after it prints. Do this after
+slicing, without asking.
 
 ## 6. Commit and report
 
