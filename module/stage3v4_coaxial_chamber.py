@@ -129,7 +129,8 @@ before exec: the muzzle clamp stays 300 mm from the shoulder, so the rods are th
     muzzle clamp (default, MUZZLE_CLAMP; the muzzle ring in its place when False): a collar squeezed on the barrel in two
                   halves, 4 x M3 x 12 across the seam, over a wrap of tape. Wrap the tape, put the halves round it
                   with the screws loose, rods and nuts as for the ring (the nuts set the seat ring's lip), then
-                  tighten the four screws evenly, the seam gaps alike on both sides.
+                  tighten the four screws evenly until the halves meet (a hard stop: the bore is round, 0.25 mm under the
+                  taped barrel, so the tape is crushed all round; if the halves meet with no grip, add a wrap).
 """
 
 import importlib
@@ -198,7 +199,8 @@ MUZZLE_T, MUZZLE_CB = 8.0, 4.0                     # muzzle ring, its counterbor
 MUZZLE_CLAMP = True         # default since v4.4 muzzle; False: the muzzle ring on the barrel's end
 CLAMP_AT, CLAMP_W = 300.0, 20.0
 CLAMP_LINER = 0.5           # tape round the barrel
-CLAMP_GAP = 1.2             # the seam between the two halves, closed by the screws onto the tape
+CLAMP_CRUSH = 0.25          # the tape is crushed this much (radially) when the halves meet: the bore is cut that much under the lined barrel
+CLAMP_GAP = 0.8             # the seam between the two halves; the screws close it to zero, a hard stop (the halves' bores are offset by half of it each, so closed they are one round bore)
 CLAMP_SCREW_R = 16.6        # the screws' axis off the barrel's axis
 CLAMP_SCREW_T, CLAMP_MU = 300.0, 0.4               # N per M3 screw in PETG (snug, not cranked), tape on steel
 # muzzle sleeve (option): bore, and how far ahead of the barrel's end; the socket locates it on the barrel
@@ -485,12 +487,12 @@ hardware = rods(z_front)
 hardware_ring = hardware if z_front == z_m1 else rods(z_m1)
 
 # ---------------------------------------------------------------- muzzle clamp (option, in place of the muzzle ring)
-_cb_r = BARREL_OD / 2 + CLAMP_LINER + YOKE_CLEAR     # bore over the lined barrel
+_cb_r = BARREL_OD / 2 + CLAMP_LINER - CLAMP_CRUSH     # bore, closed: under the lined barrel, so it bites the tape all round
 _co_r = EAR_ROOT_R + 3.0
 _sa = TIE_ANGLES[0]
 _ears_long = [hull_prism([(0, 0, EAR_ROOT_R), (*at(TIE_R, a)[:2], EAR_R)], z_c0, z_c1) for a in TIE_ANGLES]
 _rr = TIE_R + EAR_R + 2
-_cuts = [Part.makeBox(2 * _rr, CLAMP_GAP, CLAMP_W + 2, V(-_rr, -CLAMP_GAP / 2, z_c0 - 1))]      # the seam, both ears
+_cuts = []
 for xs in (CLAMP_SCREW_R, -CLAMP_SCREW_R):          # two M3 x 12 across the seam in each ear; head and nut swap
     hy = -16 if xs > 0 else 6                       # sides, so the halves are one part turned 180 deg
     for zs in (z_c0 + 5, z_c1 - 5):
@@ -500,17 +502,20 @@ for xs in (CLAMP_SCREW_R, -CLAMP_SCREW_R):          # two M3 x 12 across the sea
 for c in _cuts:
     c.rotate(V(0, 0, 0), Z, _sa)
 _whole = G.fuse_all([tie_plate(_co_r, z_c1 - MUZZLE_T, z_c1), cyl(2 * _co_r, z_c0, z_c1)] + _ears_long).cut(
-    G.fuse_all([cyl(2 * _cb_r, z_c0 - 1, z_c1 + 1)] + _cuts
-               + [cyl(TIE_HOLE, z_c0 - 1, z_c1 + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES]))
-_halves = []
-for y0 in (0.0, -2 * _rr):                          # each side of the seam
-    h = Part.makeBox(2 * _rr, 2 * _rr, CLAMP_W + 4, V(-_rr, y0, z_c0 - 2))
-    h.rotate(V(0, 0, 0), Z, _sa)
-    _halves.append(_whole.common(h).removeSplitter())
+    G.fuse_all(_cuts + [cyl(TIE_HOLE, z_c0 - 1, z_c1 + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES]))
+_halves, _closed = [], []
+for sg in (1, -1):                                  # each side of the seam
+    h = Part.makeBox(2 * _rr, 2 * _rr, CLAMP_W + 4, V(-_rr, CLAMP_GAP / 2 if sg > 0 else -CLAMP_GAP / 2 - 2 * _rr, z_c0 - 2))
+    bore = cyl(2 * _cb_r, z_c0 - 1, z_c1 + 1, 0, sg * CLAMP_GAP / 2)   # centred on the axis once this half is moved in
+    for c in (h, bore):
+        c.rotate(V(0, 0, 0), Z, _sa)
+    _halves.append(_whole.common(h).cut(bore).removeSplitter())
+    _closed.append(_halves[-1].translated(App.Rotation(Z, _sa).multVec(V(0, -sg * CLAMP_GAP / 2, 0))))
 muzzle_clamp_half = _halves[0]                      # printed twice: the other half is this one turned 180 deg
 muzzle_clamp = Part.makeCompound(_halves)
 cl_walls = (CLAMP_SCREW_R - 1.7 - _cb_r, TIE_R - TIE_HOLE / 2 - CLAMP_SCREW_R - 1.7)   # screw hole to bore, to rod
-cl_liner = cyl(2 * (_cb_r - YOKE_CLEAR), z_c0, z_c1).cut(cyl(BARREL_OD, z_c0 - 1, z_c1 + 1))
+cl_liner = cyl(BARREL_OD + 2 * CLAMP_LINER, z_c0, z_c1).cut(cyl(BARREL_OD, z_c0 - 1, z_c1 + 1))   # the tape, for the model
+cl_bare = cyl(BARREL_OD, z_c0 - 1, z_c1 + 1)                                  # the steel: the closed halves stop short of it, on the tape
 muzzle = muzzle_clamp if MUZZLE_CLAMP else muzzle_ring     # the module's muzzle part (pack_frame & co. take this)
 cl_hold = CLAMP_MU * 2 * math.pi * 2 * CLAMP_SCREW_T            # hoop tension = the two screws at a seam; x 2 pi
 cl_p = 2 * CLAMP_SCREW_T / ((BARREL_OD / 2) * CLAMP_W)          # MPa on the barrel, evened by the liner
@@ -624,10 +629,10 @@ checks = [
     ("chamber %.0f cm3 within 3 %% of target" % chamber_v, abs(chamber_v - CHAMBER_V) <= 0.03 * CHAMBER_V),
     ("barrel longer than the chamber", z_sh + BARREL_LEN >= z_fp_end + 20),
     ("muzzle clamp: screw holes %.1f mm off the bore, %.1f off the rod hole" % cl_walls, min(cl_walls) >= 1.0),
-    ("muzzle clamp valid single solid, clear of the barrel's liner, the rods and the nuts",
+    ("muzzle clamp valid single solid, closed one round bore clear of the bare barrel (tape in between), clear of the rods and the nuts",
      all(G.single_solid(h) for h in _halves) and G.no_overlap(_halves[0], _halves[1])
      and abs(_halves[0].Volume - _halves[1].Volume) < 1e-3 * _halves[0].Volume
-     and G.no_overlap(muzzle_clamp, cl_liner)
+     and all(G.no_overlap(h, cl_bare) for h in _closed) and G.no_overlap(_closed[0], _closed[1])
      and (G.no_overlap(muzzle_clamp, hardware) if MUZZLE_CLAMP else True)),
     ("muzzle clamp holds >= 3 x the seat ring's push (%.0f N vs %.0f N at %.0f bar; 2 x M3 a seam at %.0f N, mu %.1f)"
      % (cl_hold, F_ring, P_MAX_BAR, CLAMP_SCREW_T, CLAMP_MU), cl_hold >= 3 * F_ring),
@@ -682,7 +687,7 @@ report = [
     "  yokes, muzzle ring     : rear yoke %.0f thick behind the rear plug (hole Ø%.1f for the fitting), front yoke %.0f"
     " on the front plug's flange, muzzle ring %.0f (counterbore %.0f over the barrel's end)"
     % (YOKE_T, FITTING_HOLE_D, YOKE_T, MUZZLE_T, MUZZLE_CB - 0),
-    "  muzzle clamp           : collar %.0f long at %.0f from the shoulder, Ø%.1f bore over %.1f mm of tape, two"
+    "  muzzle clamp           : collar %.0f long at %.0f from the shoulder, Ø%.1f bore closed over %.1f mm of tape, two"
     " halves split at %.0f / %.0f deg, 4 x M3 x 12 across the seam; holds %.0f N, squeezes %.1f MPa%s"
     % (CLAMP_W, CLAMP_AT, 2 * _cb_r, CLAMP_LINER, _sa, _sa + 180, cl_hold, cl_p,
        ", in the model (default)" if MUZZLE_CLAMP else ", option"),
