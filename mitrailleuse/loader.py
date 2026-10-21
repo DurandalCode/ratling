@@ -38,6 +38,8 @@ Run inside FreeCAD (or freecadcmd):
     REPO = '/Users/<you>/ratling'
     exec(open(REPO + '/mitrailleuse/loader.py').read())
 Prints a report with [OK ] / [FAIL] checks and writes exports/loader/ (STEP, STL in print orientation, FCStd).
+AT_STOP = True before exec (or LOADER_AT_STOP=1 in the environment, for tools/render_view.py) shows the comb at the
+end of the stroke, the balls on the spigots, everything cut in half through the axis (y > 0 taken away).
 """
 
 import math
@@ -53,6 +55,10 @@ except NameError:
         REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     except NameError:
         REPO = os.path.expanduser("~/ratling")
+try:
+    AT_STOP
+except NameError:
+    AT_STOP = os.environ.get("LOADER_AT_STOP") == "1"
 # the frame's parameters and functions, without its build, checks and export (it builds the v4.4 module as M)
 PACK_FRAME_LIBRARY = True
 exec(open(os.path.join(REPO, "mitrailleuse", "pack_frame.py"), encoding="utf-8").read()
@@ -211,7 +217,7 @@ def legs():
 def module_front(key):
     """Each module's parts near the loader, placed, with the muzzle sleeve in place of the clamp."""
     pts = LAYOUT[key]
-    names = ("barrel", "fp", "front_yoke", "chamber", "muzzle_sleeve", "hardware_ring", "ball")
+    names = ("barrel", "fp", "front_yoke", "chamber", "muzzle_sleeve", "hardware_ring", "ball", "sr", "rp")
     return [{n: place(M[n], x, y, a) for n in names} for (x, y), a in zip(pts, rod_angles(key, pts))]
 
 
@@ -318,26 +324,36 @@ FV.STYLES.setdefault("alu", ((0.80, 0.82, 0.86), 0))
 FV.STYLES.setdefault("barrel", ((0.45, 0.46, 0.50), 0))
 FV.STYLES.setdefault("ball", ((0.95, 0.8, 0.2), 0))
 dx = {"A16": -150.0, "A19": 150.0}
+half = Part.makeBox(800, 400, 1600, V(-400, -400, -300))                 # y <= 0: the section's kept half
+
+
+def cut(shape):
+    return shape.common(half) if AT_STOP else shape
+
+
 for tag, b in built.items():
     off = V(2 * dx[tag], 0, 0)
     key, mods = b["key"], b["mods"]
-    sc.add(tag + "_loader", tag + "_wafer", b["wafer"], "rotor", offset=off)
-    sc.add(tag + "_loader", tag + "_comb", b["comb"], "printed", offset=off)
-    sc.add(tag + "_loader", tag + "_rams", Part.makeCompound(b["rams"][0]), "alu", offset=off)
-    sc.add(tag + "_loader", tag + "_cups", Part.makeCompound(b["rams"][1]), "shoe", offset=off)
-    sc.add(tag + "_loader", tag + "_legs", Part.makeCompound(leg_parts), "alu", offset=off)
-    sc.add(tag + "_loader", tag + "_feet_caps_posts", Part.makeCompound(
-        [foot_part.translated(V(*p, 0)) for p in legs_xy] + [cap_part.translated(V(*p, 0)) for p in legs_xy] + posts),
-        "printed", offset=off)
-    sc.add(tag + "_balls", tag + "_balls_in_wafer", Part.makeCompound(
-        [Part.makeSphere(BALL_D / 2, V(x, y, (Z_TIP + wz1) / 2)) for x, y in LAYOUT[key]]), "ball", offset=off)
-    sc.add(tag + "_gun", tag + "_front_plate", plate(key, "front")[0], "frame", offset=off)
-    sc.add(tag + "_gun", tag + "_rails", Part.makeCompound([r.common(cyl(400, 0, 400)) for r in rails()]), "alu",
-           offset=off)
-    for style, names in (("stator", ("fp", "front_yoke", "muzzle_sleeve")), ("ghost", ("chamber",)),
+    comb_s, rams_s = (b["comb_end"], b["rams_end"]) if AT_STOP else (b["comb"], b["rams"])
+    sc.add(tag + "_loader", tag + "_wafer", cut(b["wafer"]), "rotor", offset=off)
+    sc.add(tag + "_loader", tag + "_comb", cut(comb_s), "printed", offset=off)
+    sc.add(tag + "_loader", tag + "_rams", cut(Part.makeCompound(rams_s[0])), "alu", offset=off)
+    sc.add(tag + "_loader", tag + "_cups", cut(Part.makeCompound(rams_s[1])), "shoe", offset=off)
+    sc.add(tag + "_loader", tag + "_legs", cut(Part.makeCompound(leg_parts)), "alu", offset=off)
+    sc.add(tag + "_loader", tag + "_feet_caps_posts", cut(Part.makeCompound(
+        [foot_part.translated(V(*p, 0)) for p in legs_xy] + [cap_part.translated(V(*p, 0)) for p in legs_xy]
+        + [p.translated(V(0, 0, cz0_end - cz0_start)) if AT_STOP else p for p in posts])), "printed", offset=off)
+    balls = ([m["ball"] for m in mods] if AT_STOP else
+             [Part.makeSphere(BALL_D / 2, V(x, y, (Z_TIP + wz1) / 2)) for x, y in LAYOUT[key]])
+    sc.add(tag + "_balls", tag + "_balls", cut(Part.makeCompound(balls)), "ball", offset=off)
+    sc.add(tag + "_gun", tag + "_front_plate", cut(plate(key, "front")[0]), "frame", offset=off)
+    sc.add(tag + "_gun", tag + "_rails", cut(Part.makeCompound([r.common(cyl(400, -40, 400)) for r in rails()])),
+           "alu", offset=off)
+    for style, names in (("stator", ("fp", "front_yoke", "muzzle_sleeve", "sr", "rp")), ("ghost", ("chamber",)),
                          ("barrel", ("barrel",)), ("steel", ("hardware_ring",))):
         sc.add(tag + "_gun", "%s_%s" % (tag, "_".join(names)),
-               Part.makeCompound([m[n].common(cyl(400, 0, 600)) for m in mods for n in names]), style, offset=off)
+               cut(Part.makeCompound([m[n].common(cyl(400, -40, 600)) for m in mods for n in names])), style,
+               offset=off)
 sc.finish()
 sc.doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
