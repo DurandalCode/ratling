@@ -92,7 +92,8 @@ Parts, each exported in its print orientation (lowest point at z = 0):
     rear yoke ... a plate behind the rear plug with the two rod ears; the pilot
                   fitting goes through its hole.
     front yoke .. a plate over the front plug's sleeve, seated on its 45 deg
-                  flange, with the two rod ears.
+                  flange, with the two rod ears. Front face on the bed: the 45 deg seat opens
+                  upward, no overhang.
     muzzle clamp  a collar 20 mm long on the barrel, 300 mm from its shoulder (flush with the 300 mm barrel's end),
                   two identical halves split through both ears, 4 x M3 x 12 across the seam, over a wrap of tape
                   (default). Flange end on the bed, print two.
@@ -770,7 +771,7 @@ if not STAGE3V4_LIBRARY:
             os.path.join(OUT_DIR, name + ".stl"))
 
     for n, s, flip in (("rear_plug", rp, False), ("seat_ring", sr, False), ("front_plug", fp, True),
-                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("rear_yoke", rear_yoke, False), ("front_yoke", front_yoke, False),
+                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("rear_yoke", rear_yoke, False), ("front_yoke", front_yoke, True),
                        ("muzzle_ring", muzzle_ring, True), ("muzzle_sleeve", muzzle_sleeve, False),
                        ("muzzle_clamp_half", muzzle_clamp_half, True),
                        ("oring_cone", oring_cone, True)):
