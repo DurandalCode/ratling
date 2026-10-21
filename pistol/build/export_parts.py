@@ -57,7 +57,7 @@ PARTS = [
     ("sector", sector_base, -X_, "strong", "on the axle in front of the lock housing; the slider's pin in its arm"),
     ("pawl", pawl_tooth, -X_, "strong", "the sector's sprung tooth (a Ø3 pen spring behind it)"),
     ("slider", SLIDER_H, -Y_, "strong", "runs on the Ø3 guide rod; its pin (Ø3 steel) in the sector's arm"),
-    ("detent_bolt", bolt_shape(0.0), Z_, "strong", "V tip; a Ø4 pen spring behind it"),
+    ("detent_bolt", turned(bolt_shape(0.0), -(DETENT_ANGLE + 90)), Y_, "strong", "V tip; a Ø4 pen spring behind it; on its side (it is drawn turned to the detent's angle)"),
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 12 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "supports", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
@@ -66,7 +66,7 @@ PARTS = [
     ("grip_left", grip_left, Y_, "standard", "cut face on the bed; the valve box's left half"),
     ("grip_right", grip_right, -Y_, "standard", "cut face on the bed; glued to the left on 3 x Ø3 x 12 dowels"),
     ("trigger_guard", guard, Y_, "standard", "flat; ST2.9 x 13 into its tab through the floor"),
-    ("top_strap", top_strap, Y_, "strong", "on its side; 2 x ST2.9 into the cage's top, the M6 stud through its foot"),
+    ("top_strap", top_strap, Z_, "strong", "top face down (on its side it stood on the nose disc, the bar 9 mm up); 2 x ST2.9 into the cage's top, the M6 stud through its foot"),
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),
     ("axle_plug", axle_plug, -X_, "strong", "epoxied flush into the axle's front end; an M6 nut epoxied in its pocket"),
 ]
