@@ -10,10 +10,10 @@ stands where the head has no block). Frame as in pack_frame.py: z along the barr
 x to the gunner's left; the bench's stator angles from +x are the gun's (the stop pin at 270 deg is underneath,
 the layshaft at 180 deg on the crank's side, the gunner's right).
 
-    head plate .. printed, common to 16 and 19: a disc on the four rails (lugs, M3 grub screws as the pack's
+    head plate .. printed, one for 16 and one for 19 (the posts differ): a disc on the four rails (lugs, M3 grub screws as the pack's
                   plates), its front face at Z0 is the bench base's top. On it, as on the base: the shaft
                   housing's three M4 with nuts behind, the layshaft's boss with its lower 608, the stop lever's
-                  pivot post, and twelve posts on R78 (three a quarter) that carry the four guide plates and
+                  pivot post, and twelve posts on R78 (three a block) that carry the four guide plates and
                   blocks, an M4 through block and guide plate into each. A tab underneath (two M4 holes) is where
                   the rear grip goes, an ear at the right takes the bevel box.
     rails ....... pack_frame.py's, now from the head plate's back face (RAIL_Z0) to the front plate. Each grub
@@ -35,6 +35,9 @@ by end_travel with about f_hold (the report gives both). The rod's ends get thei
 settles the stop (pin travel, the force to hold it). Only the head plate, lever and bevel box are this file's
 parts; the head's own parts are printed from exports/rotor_bench/ (four quarter blocks and guide plates).
 
+HEAD_N = 19 before exec builds the 19's: bench C's head with ROTOR_N = 19 (blocks of 5 + 5 + 5 + 4 ports, its own
+rotor and stop disc), the posts under its blocks, the 19 pack; writes exports/rear_frame19/.
+
 Run inside FreeCAD (or freecadcmd):
     REPO = '/Users/<you>/ratling'
     exec(open(REPO + '/mitrailleuse/rear_frame.py').read())
@@ -55,15 +58,19 @@ except NameError:
         REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     except NameError:
         REPO = os.path.expanduser("~/ratling")
+try:
+    HEAD_N                  # barrels: 16 or 19
+except NameError:
+    HEAD_N = 16
 # the frame's parameters and functions, without its build, checks and export
 PACK_FRAME_LIBRARY = True
 exec(open(os.path.join(REPO, "mitrailleuse", "pack_frame.py"), encoding="utf-8").read()
      .split("\n# ---------------------------------------------------------------- build")[0])
 # bench C's parts and levels (its frame: z up along the rotor's axis, z = 0 the base's top)
-RB = {"REPO": REPO, "ROTOR_BENCH_LIBRARY": True}
+RB = {"REPO": REPO, "ROTOR_BENCH_LIBRARY": True, "ROTOR_N": HEAD_N}
 exec(open(os.path.join(REPO, "mitrailleuse", "rotor_bench.py"), encoding="utf-8").read(), RB)
 
-NAME = "rear_frame"
+NAME = "rear_frame" if HEAD_N == 16 else "rear_frame%d" % HEAD_N
 OUT_DIR = os.path.join(REPO, "exports", NAME)
 Y = V(0, 1, 0)
 O = V(0, 0, 0)
@@ -90,7 +97,7 @@ LAY, BRG, PIN = RB["LAY"], RB["BRG"], RB["PIN"]
 z_lev0, z_lev1 = RB["z_lev0"], RB["z_lev1"]
 pivot, pin_xy = RB["pivot"], RB["pin_xy"]
 POST_H = RB["z_plate0"]
-post_xy = [polar(RB["POST_R"], a + q) for q in (0, 90, 180, 270) for a in RB["POST_ANGS"]]
+post_xy = RB["GUN"]["post_xy"]                  # three a block, between its ports
 DZ = RB["z_floor"][0] - HP_T                     # bench drive -> behind the plate: turned over x, shifted
 
 
@@ -104,10 +111,6 @@ def drive_tf(s):
     s.rotate(O, X, 180)
     s.translate(V(0, 0, DZ))
     return s
-
-
-def turn4(s):
-    return G.fuse_all([s.rotated(O, Z, q) for q in (0, 90, 180, 270)])
 
 
 def rod(d, a, b):
@@ -180,14 +183,12 @@ rod_off = pull_rod(LEVER_END, PULL)
 rod_on = pull_rod(end_on, pull_on)
 pull_travel = math.hypot(pull_on[0] - PULL[0], pull_on[1] - PULL[1])
 
-# the head: bench C's parts, the quarters four times
+# the head: bench C's parts, its blocks round the stator (four quarters at 16; 5 + 5 + 5 + 4 ports at 19)
 head = {
     "housing": RB["housing"], "stop_disc": RB["stop_disc"], "gear": RB["gear"], "rotor": RB["rotor"],
     "pinion": RB["pinion"], "slip": RB["slip"], "shaft": RB["shaft"], "stop_pin": RB["stop_pin"],
-    "blocks": turn4(RB["block"]), "guide_plates": turn4(RB["plate"]), "followers": turn4(RB["followers"]),
-    "pins": turn4(RB["pins"]), "springs": turn4(RB["springs"]), "cores": turn4(RB["cores"]),
-    "fittings": turn4(RB["fittings"]),
 }
+head.update({k: RB["GUN"][k] for k in ("blocks", "guide_plates", "followers", "pins", "springs", "cores", "fittings")})
 zf0, zf1 = RB["z_floor"]
 drive_box_b = RB["box"].common(box(-300, 0, -50, 50, zf0, 300))                     # without the bench's columns
 for x, y in BOX_BOLTS:
@@ -299,7 +300,8 @@ rail_len = z_fs - RAIL_Z0
 lay_len = z_lay_front - z_lay_back
 
 report = [
-    "Mitrailleuse concept A: rear frame (head plate, bevel box, stop's pull rod), bench C's head, common to 16 and 19",
+    "Mitrailleuse concept A: rear frame (head plate, bevel box, stop's pull rod), bench C's head, %d barrels (blocks of %s)"
+    % (HEAD_N, " + ".join(str(n) for n in RB["BLOCK_PORTS"])),
     "  head plate z %.0f..%.0f (front face = the bench base's top), Ø%.0f + 4 rail lugs, %.0f cm3 (%.0f-%.0f g);"
     " head's block top at z %.0f, fittings to z %.0f" % (Z0 - HP_T, Z0, 2 * HP_R, hp.Volume / 1000,
                                                        hp.Volume / 1000 * DENSITY["printed"], hp.Volume / 1000 * DENSITY["solid"],
@@ -308,8 +310,8 @@ report = [
     "  bevel box behind the plate to z %.0f, crank shaft at z %.0f on the right; layshaft M8 x %.0f (z %.0f..%.0f)"
     % (drive["box"].BoundBox.ZMin + Z0, z_crank + Z0, lay_len, z_lay_back + Z0, z_lay_front + Z0),
     "  lever %.0f cm3; head and rear frame without a grip ~%.1f kg, its CG at z %.0f" % (lev.Volume / 1000, m_head, cg),
-    "  bought: 12 x M4 x 50 (blocks), 3 x M4 x 16 + nuts (housing), 2 x M4 x 25 + nuts (box),"
-    " M4 x 40 (lever), 4 x M3 x 8 grub + nuts, M8 stud %.0f, wire Ø%.1f ~%.0f mm" % (lay_len, ROD_D, rod_off.BoundBox.YLength + 20),
+    "  bought: %d x M4 x 50 (blocks), 3 x M4 x 16 + nuts (housing), 2 x M4 x 25 + nuts (box),"
+    " M4 x 40 (lever), 4 x M3 x 8 grub + nuts, M8 stud %.0f, wire Ø%.1f ~%.0f mm" % (len(post_xy), lay_len, ROD_D, rod_off.BoundBox.YLength + 20),
 ] + ["  [%s] %s" % ("OK " if ok else "FAIL", t) for t, ok in checks]
 print("\n".join(report))
 
@@ -346,14 +348,14 @@ for n, s, st in (("Pull_rod", rod_off, "steel"), ("Stop_pin", RB["stop_pin"], "s
     add("Bought", n, s, st, offset=T)
 add("Pulled", "Lever_pulled", lev_on, "ghost", offset=T)
 add("Pulled", "Rod_pulled", rod_on, "ghost", offset=T)
-key, tag = "j_rings_4_12", "A16"
+key, tag = {16: ("j_rings_4_12", "A16"), 19: ("g_hex_19", "A19")}[HEAD_N]
 mods = module_parts(key)
-add("Pack", "A16_rails", Part.makeCompound(rail_parts), "alu")
+add("Pack", tag + "_rails", Part.makeCompound(rail_parts), "alu")
 for side in ("rear", "front"):
-    add("Pack", "A16_%s_plate" % side, plate(key, side)[0], "frame")
+    add("Pack", tag + "_%s_plate" % side, plate(key, side)[0], "frame")
 for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle")), ("ghost", ("chamber",)),
                      ("barrel", ("barrel",)), ("steel", ("hardware", "fitting"))):
-    add("Pack", "A16_" + "_".join(names), Part.makeCompound([m[n] for m in mods for n in names]), style)
+    add("Pack", tag + "_" + "_".join(names), Part.makeCompound([m[n] for m in mods for n in names]), style)
 sc.finish(hidden_groups=("Pulled",))
 sc.doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
