@@ -27,6 +27,10 @@ try:
     REPO
 except NameError:
     REPO = os.path.expanduser("~/ratling")
+try:
+    VALVE                       # set before exec to export the v1.3 build
+except NameError:
+    VALVE = "v11"               # the valve that passed the bench (2026-10-21); the guide is written for it
 exec(open(os.path.join(REPO, "pistol", "hammer_assembly.py")).read())
 
 BUILD = os.path.join(REPO, "exports", "pistol_build")
