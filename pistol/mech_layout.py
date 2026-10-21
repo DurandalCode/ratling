@@ -60,7 +60,7 @@ if VALVE == "v13":
     # No tube screws and no rod: the chamber plug rests on the front strap (hammer_assembly.py), which is tied to the
     # cage and the valve body, so the tube only seals. Face ring 20 x 2 on the hub: 22 x 2.5 would not fit between barrels.
     OVERRIDE = dict(TUBE_SCREWS=False, SEAT_D=16.0, ORING_ID=19.0, ORING_CS=2.5, FACE_ORING_ID=20.0, FACE_ORING_CS=2.0,
-                    GROOVE_WALL_MIN=1.5)
+                    GROOVE_WALL_MIN=1.5, BREECH_BOLT_ANGLES=(90.0, 180.0))     # = module/stage3_v13.py's body
 STAGE3_LIBRARY = True
 exec(open(os.path.join(REPO, "module", "stage3_qev.py")).read())      # v1.1 body, cap
 STAGE3_LIBRARY = False
@@ -212,8 +212,8 @@ lock_housing = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
                 .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, -GAP + 1, 0, Z_FIRE))
                 .cut(box(WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, -4.5, 4.5, Z_FIRE - 30, Z_FIRE - 10))   # wedge slot
                 .cut(cyl_x(LOCK_PISTON_D, WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, 0, Z_FIRE - WEDGE_LIFT)))  # its fork, dropped
-# Bolts into the body's breech pilots (body frame (x, y) -> pistol (y, z) = (-y, Z_FIRE + x)). Two of the three:
-# the hammer variant's pusher lug runs where the one at 270 deg would go.
+# Bolts into the body's breech pilots (body frame (x, y) -> pistol (y, z) = (-y, Z_FIRE + x)). Two: the hammer
+# variant's pusher lug runs where v1.1's third, at 270 deg, would go (v1.3's body has only these two).
 LOCK_BOLTS = (90.0, 180.0)
 lock_housing = lock_housing.cut(Part.makeCompound([
     cyl_x(BREECH_BOLT_HOLE, -GAP - LOCK_H - 1, -GAP + 1, -BREECH_BOLT_R * math.sin(math.radians(a)),
