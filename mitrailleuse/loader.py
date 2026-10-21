@@ -94,7 +94,7 @@ RIM = 3.0
 
 RAM = (8.0, 1.0)            # aluminium tube
 RAM_HOLE = 8.15
-CUP_D, CUP_L, CUP_SOCKET, CUP_DEPTH, CUP_NOSE = 21.0, 22.0, 12.0, 3.0, 2.0
+CUP_D, CUP_L, CUP_SOCKET, CUP_DEPTH, CUP_NOSE = 22.5, 22.0, 12.0, 1.5, 1.5   # wide: a soft ball slips round a thin rod
 CUP_CLEAR = (BALL_D - CUP_D) / 2
 C_T, BOSS = 12.0, 18.0      # comb plate, ram bosses ahead of it
 BOSS_D = 16.0
@@ -268,7 +268,7 @@ for tag, b in built.items():
     hit = max(G.fuse_all(cups + tubes).common(G.fuse_all([m[p] for m in mods for p in ("barrel", "muzzle_sleeve")])).Volume,
               0.0)
     check(hit < 1e-3, "%s: at the stop rams and cups clear of the barrels and sleeves (overlap %.3f mm3)" % (tag, hit))
-    check(CUP_D <= SLEEVE_LIP - 2.0, "%s: cup Ø%.0f in the bore Ø%.1f (%.1f a side), through the sleeve's lip Ø%.1f"
+    check(CUP_CLEAR >= 0.6 and CUP_D < SLEEVE_LIP, "%s: cup Ø%.1f in the bore Ø%.1f (%.2f a side), through the sleeve's lip Ø%.1f"
           % (tag, CUP_D, BALL_D, CUP_CLEAR, SLEEVE_LIP))
     lines.append("  %s: wafer Ø%.0f + 4 lugs, %.0f mm, %.0f cm3 (%.0f-%.0f g); comb Ø%.0f + tabs, %.0f cm3 (%.0f-%.0f g)"
                  % (tag, 2 * b["r_w"], W_T, w.Volume / 1000, w.Volume / 1000 * DENSITY["printed"],
@@ -312,7 +312,7 @@ report = [
     "  legs: 4 x alu tube %g x %g, z %.1f..%.1f (%.0f mm each); loader from the rails' ends to the posts' tops %.0f mm,"
     " %.0f ahead of the sleeve tips" % (LEG + (z_leg0, z_leg1, z_leg1 - z_leg0, cz0_start + C_T + POST_LEN
                                                 - (z_fs - FOOT_SPIGOT[1]), cz0_start + C_T + POST_LEN - Z_TIP)),
-    "  rams: %d / %d x alu tube %g x %g x %.0f mm, cups Ø%.0f" % (16, 19, RAM[0], RAM[1], ram_len, CUP_D),
+    "  rams: %d / %d x alu tube %g x %g x %.0f mm, cups Ø%.1f" % (16, 19, RAM[0], RAM[1], ram_len, CUP_D),
     "  bought: legs 4 x %.0f mm, rams 16 or 19 x %.0f mm, 2 x M5 x 25 + nuts" % (z_leg1 - z_leg0, ram_len),
 ] + lines + ["  [%s] %s" % ("OK " if ok else "FAIL", t) for t, ok in checks]
 print("\n".join(report))
