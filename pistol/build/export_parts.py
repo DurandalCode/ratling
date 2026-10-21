@@ -9,8 +9,9 @@ name, file, print group, size, volume, note. The groups are print profiles;
 pistol/build/make_plates.sh lays each group on Bambu plates with
 tools/print_plate.py.
 
-The v1.1 valve body and cap are Stage 3's own prints (module/stage3_qev.py,
-exports/stage3_qev/); they are listed here by reference.
+The valve body and cap are Stage 3's own prints, listed here by reference:
+v1.3's (module/stage3_v13.py, exports/stage3_qev_v13/) by default, the very
+parts the v1.3 bench uses; v1.1's (exports/stage3_qev/) with VALVE = "v11".
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
@@ -28,9 +29,9 @@ try:
 except NameError:
     REPO = os.path.expanduser("~/ratling")
 try:
-    VALVE                       # set before exec to export the v1.3 build
+    VALVE                       # set before exec ("v11") to export the build round the old valve
 except NameError:
-    VALVE = "v11"               # the valve that passed the bench (2026-10-21); the guide is written for it
+    VALVE = "v13"               # the same body and cap as module/stage3_v13.py: one print serves the bench and the pistol
 exec(open(os.path.join(REPO, "pistol", "hammer_assembly.py")).read())
 
 BUILD = os.path.join(REPO, "exports", "pistol_build")
@@ -48,8 +49,8 @@ GROUPS = {
 
 # name, shape, the part's direction that goes down onto the bed, group, note
 PARTS = [
-    ("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: 3 x M3 to the v1.1 body, O-ring face"),
-    ("lock_sleeve", lock_sleeve(1.0), -X_, "airtight", "11/16 x 1/8 O-ring on it; the pusher glued to its flange"),
+    ("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
+    ("lock_sleeve", lock_sleeve(1.0), -X_, "airtight", "plain, no O-ring (the bench seal fired without one); the pusher glued to its flange"),
     ("lock_pusher", pusher_shape(1.0), -X_, "strong", "ring behind the sleeve's flange; its cam pin: a Ø3 steel pin"),
     ("block_rear_disc", hub, -X_, "standard", "breech seats on the bed; barrels glued 5 mm into it"),
     ("block_front_disc", front_plate, X_, "standard", "barrels glued into it"),
@@ -69,8 +70,9 @@ PARTS = [
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),
     ("axle_plug", axle_plug, -X_, "strong", "epoxied flush into the axle's front end; an M6 nut epoxied in its pocket"),
 ]
-REFERENCE = [("v1.1_body", "exports/stage3_qev/body.stl", "airtight", "Stage 3 v1.1 body (module/stage3_qev.py)"),
-             ("v1.1_cap", "exports/stage3_qev/cap.stl", "airtight", "Stage 3 v1.1 cap")]
+_ref = "exports/stage3_qev_v13" if VALVE == "v13" else "exports/stage3_qev"
+REFERENCE = [(VALVE + "_body", _ref + "/body.stl", "airtight", "Stage 3 %s body (module/stage3_qev.py)" % VALVE),
+             (VALVE + "_cap", _ref + "/cap.stl", "airtight", "Stage 3 %s cap" % VALVE)]
 
 
 def laid(shape, down):

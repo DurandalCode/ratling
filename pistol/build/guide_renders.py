@@ -70,7 +70,6 @@ def screw(head_at, axis, length, d=3.0):
 # ---------------------------------------------------------------- parts at rest
 sleeve_r = lock_sleeve(1.0)
 pusher_r = pusher_shape(1.0)
-oring_sleeve = Part.makeTorus(SLEEVE_BORE / 2 - 1.6, 1.6, V(HUB_X0 - 0.1 - 12.5, 0, Z_FIRE), XA)
 sl_r, sl_pin = slider_h(0.0)
 hammer_r = hammer_shape(0.0)
 nut_m6 = _hex.cut(cyl_x(6.0, X_AXLE_END - 10, X_AXLE_END + 1, 0, 0))
@@ -109,9 +108,8 @@ SUBS = [
          parts=[(valve_body, PRINT, O), (valve_cap, PRINT2, V(-30, 0, 0))],
          moves=[{1: O}, {}, {}]),
     dict(id="s02", view=RIGHT_FRONT, context=[],
-         parts=[(sleeve_r, PRINT3, O), (oring_sleeve, RUBBER, V(-14, 0, 0)), (pusher_body, PRINT, V(-30, 0, 0)),
-                (pusher_pin, METAL, V(-30, 18, 0))],
-         moves=[{1: O}, {2: O, 3: V(0, 18, 0)}, {3: O}]),
+         parts=[(sleeve_r, PRINT3, O), (pusher_body, PRINT, V(-30, 0, 0)), (pusher_pin, METAL, V(-30, 18, 0))],
+         moves=[{}, {1: O, 2: V(0, 18, 0)}, {2: O}]),           # the sleeve goes in plain: no O-ring (bench, 2026-10-21)
     dict(id="s03", view=RIGHT_FRONT, context=[valve_body, valve_cap],
          parts=[(lock_housing_h, PRINT, V(30, 0, 0)), ([(sleeve_r, PRINT3), (pusher_r, PRINT)], None, V(65, 0, 0))],
          moves=[{1: V(30, 0, 0)}, {0: O, 1: O}, {}]),

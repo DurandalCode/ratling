@@ -8,6 +8,9 @@ carried instead by a yoke on the plug's end and two long M4 rods (the cap rods a
 body along the chamber tube). The barrel tube needs no retention of its own (open at the muzzle, no axial load):
 in the pistol the block holds it, on the bench the clip does. The breech face ring is 22 x 2.5.
 
+The body and cap are the pistol's too (pistol/ with VALVE = "v13" builds the same two shapes, checked to the
+volume): print them once, test them here, then move them into the pistol (pistol/build/README.md).
+
 Buy: O-rings 19 x 2.5 (x3: body spigot, plug, breech spigot), 22 x 2.5 (x1, breech face); 2 x M4 threaded rod to
 the length in the report, 2 x M4 nut + washer; no ST2.9 screws.
 

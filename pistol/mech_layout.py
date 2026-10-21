@@ -212,6 +212,12 @@ lock_housing = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
                 .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, -GAP + 1, 0, Z_FIRE))
                 .cut(box(WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, -4.5, 4.5, Z_FIRE - 30, Z_FIRE - 10))   # wedge slot
                 .cut(cyl_x(LOCK_PISTON_D, WEDGE_X[0] - 0.3, WEDGE_X[0] + WEDGE_SLOT, 0, Z_FIRE - WEDGE_LIFT)))  # its fork, dropped
+# Bolts into the body's breech pilots (body frame (x, y) -> pistol (y, z) = (-y, Z_FIRE + x)). Two of the three:
+# the hammer variant's pusher lug runs where the one at 270 deg would go.
+LOCK_BOLTS = (90.0, 180.0)
+lock_housing = lock_housing.cut(Part.makeCompound([
+    cyl_x(BREECH_BOLT_HOLE, -GAP - LOCK_H - 1, -GAP + 1, -BREECH_BOLT_R * math.sin(math.radians(a)),
+          Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))) for a in LOCK_BOLTS]))
 lock_port = cyl_x(6, 0, 10, 0, 0)
 lock_port.rotate(V(0, 0, 0), ZA, 90)
 lock_port.translate(V(-GAP - 8, -BREECH_FLANGE_D / 2 + 2, Z_FIRE))
