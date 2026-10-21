@@ -142,12 +142,12 @@ three ways, to choose how the mitrailleuse gets its length
 (`mitrailleuse/mitrailleuse_concepts.py`, concept A):
 
 1. bare 300 mm barrel with the muzzle clamp as drawn (the default since
-   2026-10-21, a collar on two M3 screws over a wrap of tape; the reference);
+   2026-10-21, a collar of two halves on four M3 screws over a wrap of tape; the reference);
 2. the same barrel with the muzzle sleeve (`muzzle_sleeve.stl`) in place of
    the clamp: Ø30 bore 215 mm ahead of the barrel, four vents at its root;
    it takes the muzzle ring's rods, 362 mm (the clamp's are 358);
 3. a 535 mm barrel: `OVERRIDE = {"BARREL_LEN": 535.0, "MUZZLE_CLAMP": True, "NAME": "stage3v4_long_barrel"}`,
-   held by the muzzle clamp (a collar on two M3 screws, over a wrap of tape)
+   held by the muzzle clamp (a collar of two halves on four M3 screws, over a wrap of tape)
    300 mm from the shoulder; the rods stay 358 mm.
 
 Same pressure, same balls, at least 10 shots each, the module clamped in the

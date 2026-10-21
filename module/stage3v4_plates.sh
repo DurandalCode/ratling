@@ -10,5 +10,5 @@ report() {
 }
 python3 tools/print_plate.py stage3v44_airtight $S/rear_plug.stl $S/seat_ring.stl $S/front_plug.stl \
   --airtight --infill 100% | report airtight
-python3 tools/print_plate.py stage3v44_strong $S/rear_yoke.stl $S/front_yoke.stl $S/muzzle_clamp.stl \
+python3 tools/print_plate.py stage3v44_strong $S/rear_yoke.stl $S/front_yoke.stl $S/muzzle_clamp_half.stl:2 \
   $S/oring_cone.stl $S/jig_guide.stl --infill 60% --walls 5 --pattern gyroid | report strong
