@@ -23,13 +23,24 @@ the trigger lever and the bevel box are the bench's; everything else is a part o
                    plate. Three M4 at R78 through block and plate; the gun takes four of each.
     pushers ...... bench B's: Ø3 pin in a printed follower, set by a grub screw, return spring.
     stop ......... a steel pin Ø4 drops into the stop disc's notches and stops the rotor on the step, every
-                   pusher off the ramps; here it sits in a lever on the base pressed by hand (the bench's).
+                   pusher off the ramps. It sits in the stop lever; the trigger arm under it, on the same pivot,
+                   drives it through the disconnector (below). The arm here is the bench's, pressed by hand.
+    disconnector . one volley a pull: the arm's coupling pin (an M3 x 10 screw, head down, on a spring in the
+                   arm's boss) stands 2 mm up into the stop lever's hole, a loose Ø3 push pin on top of it. Once a
+                   turn the trip cam under the 75-tooth gear pushes the push pin down, the coupling pin goes under
+                   the lever, the lever's own spring throws the stop pin onto the rim and it drops into home's
+                   notch: the rotor stops after N shots with the trigger still held, and the crank slips. Let go,
+                   the arm comes back onto the lever's tab, the coupling pin pops up into the hole again. The cam
+                   lets go 0.7 step before home, after the last notch has passed the stop pin.
     slip clutch .. the layshaft is an M8 stud; the 15-tooth pinion is free on it, squeezed between two
                    rubber washers by a spring and a nut. Stopped by the pin, the rotor holds and the crank
                    slips (SLIP x the rotor's torque); the nut sets it.
     drive ........ a 1:1 bevel pair (ratling.params, the selector's) on top of the layshaft turns it from a
                    horizontal crank shaft in two 608s. The bench's bevel box holds those and the layshaft's
                    upper 608; the gun's frame will hold the same bearings.
+
+v3: the disconnector. Before it the stop pin sat in the trigger lever itself, and a held trigger let the rotor run
+on into a second volley through empty barrels.
 
 This replaces concept A's dog clutch and ratchet detent: the detent is far too weak to finish a step
 against the pushers (docs/rotor.md), and a dog clutch that only lets go on a step either jams or lets go
@@ -124,6 +135,20 @@ STOP = (30.0, 25.0, 6.0)             # stop disc: rim R, notch floor R, thicknes
 NOTCH_W = 4.8                        # mm at the pin's radius: the pin + room to drop in at full speed
 PIN = (4.0, 27.0, 33.0)              # stop pin Ø, centre R in a notch, centre R on the rim
 LEVER = (30.0, 70.0, 8.0, 6.0)       # pivot to pin, pivot to trigger, width, thickness
+ARM_T = 6.0                          # trigger arm, under the stop lever on the same pivot
+COUPLE = 22.0                        # pivot to the coupling pin, on the far side from the stop pin
+TAB_AT = 28.0                        # pivot to the stop lever's tab that the arm rests on
+PLUNGER = (3.0, 5.5, 10.0, 2.0)      # coupling pin: an M3 x 10 screw head down; Ø, head Ø, shank, up into the lever
+PUSH_L = 13.0                        # push pin Ø3 over it, loose in the stop lever
+PL_BOSS = (10.0, 2.0, 6.8)           # the arm's boss under the coupling pin: Ø, bottom z, bore (M8 grub at its end)
+TRIP_D = 2.5                         # the trip cam pushes the push pin down this far: the coupling pin 0.5 under the lever
+CAM_R = (45.0, 62.0)                 # trip cam under the 75-tooth gear, inner and outer R
+CAM_RAMP = (30.0, 45.0)              # its ramps: leading (pushes the pin down), trailing, deg
+CAM_DWELL = 2.0                      # mm
+CAM_BOLT_R = 48.0                    # 2 x M3 countersunk from below, nuts on the gear
+MU = 0.3                             # printed on steel, dry
+SPRING_LEVER = (0.5, 6.0, 20.0, 10)  # the stop lever's spring: wire, OD, free length, active coils
+SPRING_PL = (0.5, 6.0, 12.0, 6)      # the coupling pin's
 GEAR_M, GEAR_Z = 1.75, (15, 75)
 GEAR_FACE = 8.0
 ROTOR_R, ROTOR_T = 70.0, 8.0
@@ -151,6 +176,8 @@ c_gear = GEAR_M * sum(GEAR_Z) / 2                     # layshaft distance
 LAY = (-c_gear, 0.0)                                  # layshaft at 180 deg
 z_lev1 = z_hs                                         # the lever just under the stop disc
 z_lev0 = z_lev1 - LEVER[3]
+z_arm1 = z_lev0                                       # the trigger arm under it
+z_arm0 = z_arm1 - ARM_T
 
 
 def polar(r, a):
@@ -412,19 +439,148 @@ for p in col_bolts:
     box = box.cut(cyl(3.6, -1, 16.0, *p))
 box = box.removeSplitter()
 
-# ---------------------------------------------------------------- stop lever, trigger
+# ---------------------------------------------------------------- stop lever, trigger arm, disconnector
+# The stop lever carries the pin; the trigger arm turns on the same pivot under it and drives it through a coupling
+# pin that its spring pushes up into the lever. Once a turn the trip cam under the gear pushes the coupling pin down
+# through a push pin, the lever's spring throws the stop pin back onto the rim and it drops into the next notch:
+# the rotor stops at home with the trigger still held. Let go, the arm comes back onto the lever's tab, the
+# coupling pin pops up into the lever again.
 pin_xy = polar(PIN[1], pin_ang)                  # (0, -27) engaged
 pivot = (pin_xy[0] + LEVER[0], pin_xy[1])
-lever = G.fuse_all([Part.makeBox(LEVER[0] + LEVER[1] + 6, LEVER[2], LEVER[3],
-                                 V(pin_xy[0] - 4, pin_xy[1] - LEVER[2] / 2, z_lev0)),
-                    cyl(12.0, z_lev0, z_lev1, *pivot), cyl(10.0, z_lev0, z_lev1, *pin_xy)])
-lever = lever.cut(cyl(4.3, z_lev0 - 1, z_lev1 + 1, *pivot)).cut(cyl(PIN[0] - 0.1, z_lev0 - 1, z_lev1 + 1, *pin_xy))
-stop_pin = cyl(PIN[0], z_lev0, z_stop0 + STOP[2], *pin_xy)
+couple_xy = (pivot[0] + COUPLE, pivot[1])
+phi_stop = math.degrees(math.asin((PIN[2] - PIN[1]) / LEVER[0]))   # both turn this far for the pin, in -> out
+z_pl_top = z_lev0 + PLUNGER[3]                   # coupling pin's top, coupled
+z_pp = z_pl_top + PUSH_L                         # push pin's top, coupled
+z_pl_step = z_pl_top - PLUNGER[2]                # the coupling pin's head under this step in the arm's bore
+LS_XY = (pin_xy[0] - 2.0, pin_xy[1] - math.sqrt(25.0 - 4.0) - SPRING_LEVER[2] + 4.0)   # lever spring's seat
+
+
+def about_pivot(s, a):
+    return s.rotated(V(pivot[0], pivot[1], 0), Z, a)
+
+
+def turn_pt(p, a, c=None):
+    c = c or pivot
+    ca, sa = math.cos(math.radians(a)), math.sin(math.radians(a))
+    return (c[0] + ca * (p[0] - c[0]) - sa * (p[1] - c[1]), c[1] + sa * (p[0] - c[0]) + ca * (p[1] - c[1]))
+
+
+def stop_lever_shape():
+    """Pin, pivot, coupling hole and the tab under the arm's lower edge; a head part (the gun's, too)."""
+    py, w = pivot[1], LEVER[2]
+    x_tab = pivot[0] + TAB_AT
+    y_tab = py - w / 2 - 0.3                      # the arm's edge rests on it
+    s = G.fuse_all([Part.makeBox(x_tab + 2 - (pin_xy[0] - 4), w, LEVER[3], V(pin_xy[0] - 4, py - w / 2, z_lev0)),
+                    cyl(12.0, z_lev0, z_lev1, *pivot), cyl(10.0, z_lev0, z_lev1, *pin_xy), cyl(9.0, z_lev0, z_lev1, *couple_xy),
+                    Part.makeBox(4.0, py - w / 2 - (y_tab - 4.0), LEVER[3], V(x_tab - 2, y_tab - 4.0, z_lev0)),
+                    Part.makeBox(4.0, 4.0, z_lev0 - z_arm0 - 0.5, V(x_tab - 2, y_tab - 4.0, z_arm0 + 0.5))])
+    s = s.cut(cyl(4.3, z_lev0 - 1, z_lev1 + 1, *pivot)).cut(cyl(PIN[0] - 0.1, z_lev0 - 1, z_lev1 + 1, *pin_xy))
+    s = s.cut(cyl(PLUNGER[0] + 0.2, z_lev0 - 1, z_lev1 + 1, *couple_xy)).cut(
+        Part.makeCone(PLUNGER[0] / 2 + 0.8, PLUNGER[0] / 2 + 0.1, 0.7, V(couple_xy[0], couple_xy[1], z_lev0)))
+    return s.removeSplitter()
+
+
+def trigger_arm_shape(x0, x1):
+    """The arm along the lever's line from x0 to x1 (pivot and coupling pin between), its boss for the coupling
+    pin's spring, and the pocket the push pin rides in once the lever has gone back without it."""
+    py, w = pivot[1], LEVER[2]
+    s = G.fuse_all([Part.makeBox(x1 - x0, w, ARM_T, V(x0, py - w / 2, z_arm0)), cyl(12.0, z_arm0, z_arm1, *pivot),
+                    cyl(9.0, z_arm0, z_arm1, *couple_xy), cyl(PL_BOSS[0], PL_BOSS[1], z_arm0 + 0.01, *couple_xy)])
+    s = s.cut(cyl(4.3, z_arm0 - 1, z_arm1 + 1, *pivot)).cut(cyl(PLUNGER[0] + 0.2, z_pl_step - 0.01, z_arm1 + 1, *couple_xy))
+    s = s.cut(cyl(PL_BOSS[2], PL_BOSS[1] - 1, z_pl_step, *couple_xy))
+    pocket = [cyl(PLUNGER[0] + 0.6, z_arm1 - 1.0, z_arm1 + 1, *turn_pt(couple_xy, -a))
+              for a in [k * (phi_stop + 2.0) / 12 for k in range(13)]]
+    return s.cut(G.fuse_all(pocket)).removeSplitter()
+
+
+stop_lever = stop_lever_shape()
 trig_xy = (pivot[0] + LEVER[1], pivot[1])
-lever = lever.fuse(Part.makeBox(10, 4, 22, V(trig_xy[0] - 5, trig_xy[1] - LEVER[2] / 2 - 4, z_lev0)))   # finger pad
+arm = trigger_arm_shape(pivot[0], trig_xy[0] + 5).fuse(
+    Part.makeBox(10, 4, 22, V(trig_xy[0] - 5, trig_xy[1] - LEVER[2] / 2 - 4, z_arm0))).removeSplitter()   # finger pad
+lever = stop_lever                               # rear_frame.py and the old name
+stop_pin = cyl(PIN[0], z_lev0, z_stop0 + STOP[2], *pin_xy)
+
+
+def coupler(a_arm=0.0, a_lev=0.0, down=0.0):
+    """Coupling pin (with the arm at a_arm) and push pin (with the lever at a_lev), pushed down by `down`."""
+    cp, cl = turn_pt(couple_xy, a_arm), turn_pt(couple_xy, a_lev)
+    pl = cyl(PLUNGER[0], z_pl_step - down, z_pl_top - down, *cp).fuse(cyl(PLUNGER[1], z_pl_step - 3.0 - down, z_pl_step - down, *cp))
+    pp = cyl(PLUNGER[0], z_pl_top - down, z_pp - down, *cl)
+    return pl, pp
+
+
+plunger, push_pin = coupler()
+pl_springs = G.spring(0, PL_BOSS[1] + 6.0, z_pl_step - 3.0, SPRING_PL[1], SPRING_PL[0], 5)
+pl_springs.translate(V(couple_xy[0], couple_xy[1], 0))
+ls_y0 = pin_xy[1] - math.sqrt(25.0 - 4.0)        # the lever spring from the pin's boss out to its seat
+lever_spring = G.spring(0, 0, ls_y0 - LS_XY[1], SPRING_LEVER[1], SPRING_LEVER[0], 6)
+lever_spring.rotate(O, X, 90)
+lever_spring.translate(V(LS_XY[0], ls_y0, (z_lev0 + z_lev1) / 2))
+
+# trip cam: an angular profile at the push pin (trigger held), in gear angles; placed so that the coupling pin is
+# out at TRIP_AT steps before home, the stop pin over the rim between the last notch and home's
+cp_on = turn_pt(couple_xy, phi_stop)
+R_pp, th_pp = math.hypot(*cp_on), math.degrees(math.atan2(cp_on[1], cp_on[0])) % 360
+fp = math.degrees((PLUNGER[0] / 2) / R_pp)       # the push pin's half width, deg
+z_dwell = z_pp - TRIP_D
+z_cam_end = z_pp + 0.5                           # the cam's ends stand clear over the pin
+L_lead = (z_cam_end - z_dwell) / math.tan(math.radians(CAM_RAMP[0]))
+L_trail = (z_cam_end - z_dwell) / math.tan(math.radians(CAM_RAMP[1]))
+s_out = (TRIP_D - PLUNGER[3] - 0.2) / math.tan(math.radians(CAM_RAMP[0]))   # into the ramp: the coupling pin out
+home_req = 2 * fp + math.degrees((s_out + CAM_DWELL + L_trail) / R_pp)        # the cam past the pin after that
+psi_trip = -(P_ANG + home_req) / 2               # half-way between the last notch's low face and the cam clear
+th_dw1 = th_pp - fp - psi_trip - math.degrees(s_out / R_pp)  # dwell's leading edge, gear angle
+
+
+def cam_z(g):
+    """Cam underside at gear angle g (deg), None off the cam."""
+    s = math.radians(((g - th_dw1 + 180) % 360) - 180) * R_pp
+    if 0 <= s <= L_lead:
+        return z_dwell + s * math.tan(math.radians(CAM_RAMP[0]))
+    if -CAM_DWELL <= s < 0:
+        return z_dwell
+    if -CAM_DWELL - L_trail <= s < -CAM_DWELL:
+        return z_dwell + (-CAM_DWELL - s) * math.tan(math.radians(CAM_RAMP[1]))
+    return None
+
+
+def depression(psi, a_lev=phi_stop):
+    """How far the cam pushes the push pin down with the rotor at psi (deg) and the lever at a_lev."""
+    c = turn_pt(couple_xy, a_lev)
+    th, r = math.degrees(math.atan2(c[1], c[0])), math.hypot(*c)
+    h = math.degrees((PLUNGER[0] / 2) / r)
+    zs = [cam_z(th + h * (k / 10.0) - psi) for k in range(-10, 11)]
+    zs = [z for z in zs if z is not None]
+    return max(0.0, z_pp - min(zs)) if zs else 0.0
+
+
+def trip_cam_shape():
+    g0 = th_dw1 - math.degrees((CAM_DWELL + L_trail) / R_pp)
+    g1 = th_dw1 + math.degrees(L_lead / R_pp)
+    n = 40
+    wires = []
+    for i in range(n + 1):
+        g = g0 + (g1 - g0) * i / n
+        z = cam_z(g) if cam_z(g) is not None else z_cam_end
+        c, s_ = math.cos(math.radians(g)), math.sin(math.radians(g))
+        pts = [V(r * c, r * s_, zz) for r, zz in ((CAM_R[0], z), (CAM_R[1], z), (CAM_R[1], z_gear0), (CAM_R[0], z_gear0))]
+        wires.append(Part.makePolygon(pts + [pts[0]]))
+    cam = Part.makeLoft(wires, True, True)
+    gm = (g0 + g1) / 2
+    bolts = [polar(CAM_BOLT_R, gm + k * (g1 - g0) * 0.3) for k in (-1, 1)]
+    for b in bolts:
+        cam = cam.cut(cyl(3.4, z_dwell - 1, z_gear0 + 1, *b)).cut(
+            Part.makeCone(3.3, 1.7, 1.6, V(b[0], b[1], z_dwell - 0.01)))
+    return cam.removeSplitter(), bolts
+
+
+trip_cam, cam_bolts = trip_cam_shape()
+for b in cam_bolts:                               # M3 through the gear, nuts on top
+    gear = gear.cut(cyl(3.4, z_gear0 - 1, z_gear0 + GEAR_FACE + 1, *b))
+gear = gear.removeSplitter()
 
 # ---------------------------------------------------------------- base (the bench's)
-X0, X1, Y0, Y1 = x_w2[0] + 8.0, trig_xy[0] + 10.0, -45.0, 86.0
+X0, X1, Y0, Y1 = x_w2[0] + 8.0, trig_xy[0] + 10.0, LS_XY[1] - 8.0, 86.0
 base = Part.makeBox(X1 - X0, Y1 - Y0, 6.0, V(X0, Y0, -6.0))
 base = base.cut(cyl(16.0, -7, 1))                                               # the shaft's e-clip
 for p in hb_xy:                                                                 # housing: M4, nuts below
@@ -434,10 +590,20 @@ base = base.fuse(cyl(32.0, 0, Z_BOSS, *LAY)).cut(cyl(BRG[0] + 0.2, Z_BOSS - BRG[
 for p in posts_xy:
     base = base.fuse(cyl(POST_D, 0, z_plate0, *p))
 base = base.cut(bolt_tool(3.6, z_plate0 - 16, z_plate0 + 1))
-base = base.fuse(cyl(12.0, 0, z_lev0 - 0.5, *pivot)).cut(cyl(3.4, z_lev0 - 16, z_lev0, *pivot))   # pivot: M4 from the top
-# spring post: the lever's spring pushes the trigger towards -y, the pin into the disc
+base = base.fuse(cyl(12.0, 0, z_arm0 - 0.5, *pivot)).cut(cyl(3.4, z_arm0 - 16, z_arm0, *pivot))   # pivot: M4 from the top
+
+
+def lever_spring_post():
+    """The stop lever's spring seat: a post outside the pin, the spring along y in a pocket on its face."""
+    p = Part.makeBox(10.0, 6.0, z_lev1, V(LS_XY[0] - 5.0, LS_XY[1] - 6.0, 0))
+    return p.cut(rod(SPRING_LEVER[1] + 0.4, (LS_XY[0], LS_XY[1] - 2.0, (z_lev0 + z_lev1) / 2),
+                     (LS_XY[0], LS_XY[1] + 1.0, (z_lev0 + z_lev1) / 2)))
+
+
+base = base.fuse(lever_spring_post())
+# spring post: the arm's spring pushes the trigger towards -y, onto the stop lever's tab
 sp_xy = (pivot[0] + 40.0, pivot[1] + LEVER[2] / 2 + 14.0)
-base = base.fuse(Part.makeBox(10, 6, z_lev1 + 4, V(sp_xy[0] - 5, sp_xy[1], 0)))
+base = base.fuse(Part.makeBox(10, 6, z_arm1 + 4, V(sp_xy[0] - 5, sp_xy[1], 0)))
 for p in col_bolts:                                                             # bevel box: M4 from below
     base = base.cut(cyl(4.5, -7, 1, *p)).cut(cyl(8.0, -7, -3.0, *p))
 base = base.removeSplitter()
@@ -534,12 +700,15 @@ check(ok_links, "block: per port, supply -> charge core, charge cavity -> pilot 
 printed = tuple(("block of %d" % n, bk["blk"]) for n, bk in BLOCKS.items()) + tuple(
     ("guide plate of %d" % n, bk["pl"]) for n, bk in BLOCKS.items()) + ( ("rotor", rotor), ("gear", gear), ("pinion", pinion),
            ("stop disc", stop_disc), ("housing", housing), ("bevel", bevel_print), ("crank", crank),
-           ("lever", lever), ("base", base), ("bevel box", box))
+           ("stop lever", stop_lever), ("trigger arm", arm), ("trip cam", trip_cam), ("base", base), ("bevel box", box))
 bad = [nm for nm, s in printed if not G.single_solid(s)]
 check(not bad, "every printed part one solid%s" % (" (not: " + ", ".join(bad) + ")" if bad else ""))
-still = (("base", base), ("housing", housing), ("plate", plate), ("lever", lever), ("bevel box", box),
-         ("bearings", brgs), ("stop pin", stop_pin))
+still = (("base", base), ("housing", housing), ("plate", plate), ("stop lever", stop_lever), ("arm", arm),
+         ("stop lever on", about_pivot(stop_lever, phi_stop)), ("arm on", about_pivot(arm, phi_stop)),
+         ("bevel box", box), ("bearings", brgs), ("stop pin", stop_pin), ("push pin", push_pin),
+         ("push pin on", coupler(phi_stop, phi_stop)[1]))
 turning = (("rotor", rotor, ()), ("gear", gear, ("pinion",)), ("stop disc", stop_disc, ("stop pin",)),
+           ("trip cam", trip_cam, ("gear",)),
            ("pinion", pinion, ("gear",)), ("slip", slip, ("bearings",)), ("bevel L", bev_lay, ("bevel C", "bearings")),
            ("bevel C", bev_crank, ("bevel L", "bearings")), ("crank", crank, ("bearings",)))
 others = dict(still)
@@ -594,12 +763,56 @@ f_slip = t_slip / (MU_RUBBER * 2 * ((SLIP_WASHER[0] + SLIP_WASHER[1]) / 4) / 100
 f_pin = SLIP * t_rotor / (PIN[1] / 1000)
 f_trig = 0.2 * f_pin * LEVER[0] / LEVER[1]
 check(f_trig <= 8.0, "stopped: the pin holds %.0f N (slip %.2f N m at the layshaft, spring ~%.0f N on the washers);"
-      " the trigger lets it out with ~%.1f N (steel pin, greased, lever %.0f:%.0f)"
-      % (f_pin, t_slip, f_slip, f_trig, LEVER[1], LEVER[0]))
+      " the trigger lets it out with ~%.1f N (steel pin, greased, lever %.0f:%.0f), coupling pin %.0f N"
+      % (f_pin, t_slip, f_slip, f_trig, LEVER[1], LEVER[0], f_trig * LEVER[1] / COUPLE))
 travel_trig = (PIN[2] - PIN[1]) * LEVER[1] / LEVER[0]
 check(PIN[2] - PIN[0] / 2 >= STOP[0] + 0.3 and PIN[1] - PIN[0] / 2 >= STOP[1],
       "stop pin: in a notch %.1f mm deep, %.1f clear of the rim when pressed; trigger travel %.0f mm"
       % (STOP[0] - (PIN[1] - PIN[0] / 2), PIN[2] - PIN[0] / 2 - STOP[0], travel_trig))
+# the disconnector
+k_spring = lambda sp: 79000.0 * sp[0] ** 4 / (8 * (sp[1] - sp[0]) ** 3 * sp[3])     # N/mm
+ls_arm = pivot[0] - LS_XY[0]
+ls_rest = ls_y0 - LS_XY[1]
+f_ls = k_spring(SPRING_LEVER) * (SPRING_LEVER[2] - (ls_rest - (PIN[2] - PIN[1]) * ls_arm / LEVER[0]))   # pin out
+f_ls0 = k_spring(SPRING_LEVER) * (SPRING_LEVER[2] - ls_rest)
+f_trig += f_ls * ls_arm / LEVER[1]
+pl_rest = z_pl_step - 3.0 - (PL_BOSS[1] + 6.0)
+f_pl = k_spring(SPRING_PL) * (SPRING_PL[2] - (pl_rest - TRIP_D))
+f_lat = f_ls * ls_arm / COUPLE
+f_v = f_pl + MU * f_lat
+ta = math.tan(math.radians(CAM_RAMP[0]))
+t_trip = f_v * (ta + MU) / (1 - MU * ta) * R_pp / 1000
+swing = 2 * COUPLE * math.sin(math.radians(phi_stop / 2))
+check(swing >= PLUNGER[0] + 0.2 + 1.0 and pl_rest - TRIP_D >= 1.5 * SPRING_PL[0] * 6,
+      "disconnector: the coupling pin %.0f mm up into the stop lever; the trip cam pushes it %.1f under; the lever's"
+      " hole then swings %.1f mm off it (pin Ø%.0f)" % (PLUNGER[3], TRIP_D - PLUNGER[3], swing, PLUNGER[0]))
+m_prior, m_home = psi_trip + P_ANG, -psi_trip - home_req
+d_trip = depression(psi_trip)
+d_home = max(depression(0.0, a) for a in (0.0, phi_stop / 2, phi_stop))
+first = min(k * 0.05 for k in range(-int(P_ANG * 20), 1) if depression(k * 0.05) >= PLUNGER[3] + 0.2 - 1e-6)
+check(min(m_prior, m_home) >= 3.0 and d_home == 0 and abs(first - psi_trip) < 0.1,
+      "trip: the coupling pin out %.1f deg before home (%.2f steps), %.1f deg after the last notch's low face passed the"
+      " stop pin, the cam clear of the push pin %.1f deg before home" % (-psi_trip, -psi_trip / P_ANG, m_prior, m_home))
+cam_t = trip_cam.rotated(O, Z, psi_trip)
+pp_t = coupler(phi_stop, phi_stop, d_trip)[1]
+pp_t2 = coupler(phi_stop, phi_stop, d_trip - 0.3)[1]
+v_t, v_t2 = cam_t.common(pp_t).Volume, cam_t.common(pp_t2).Volume
+check(v_t < 0.05 and v_t2 > 0.01 and cam_t.common(trip_cam).Volume >= 0 and
+      trip_cam.common(coupler(phi_stop, phi_stop)[1]).Volume < 1e-3 and trip_cam.common(push_pin).Volume < 1e-3,
+      "trip cam in the model: at home clear of the push pin, held or not; at the trip it has the pin %.1f mm down"
+      % d_trip)
+arm_on = about_pivot(arm, phi_stop)
+v_pocket = max(arm_on.common(coupler(phi_stop, a, TRIP_D)[1]).Volume for a in [k * phi_stop / 6 for k in range(7)])
+check(v_pocket < 0.05, "let go of by the arm, the lever swings back with the push pin %.1f mm down in the arm's pocket"
+      % (TRIP_D - PLUNGER[3]))
+sweep = cyl(2 * CAM_R[1] + 0.6, z_dwell - 0.3, z_gear0 - 0.01).cut(cyl(2 * CAM_R[0] - 0.6, z_dwell - 1, z_gear0 + 1))
+hit = [nm for nm, o in still if not nm.startswith("push pin") and sweep.common(o).Volume > 0.01]
+check(not hit, "trip cam's sweep (R%.0f..%.0f, z %.1f..%.0f) clear of everything but the push pin%s"
+      % (CAM_R + (z_dwell, z_gear0) + ((" (" + ", ".join(hit) + ")") if hit else "",)))
+check(t_rotor + t_trip <= SLIP * t_rotor, "trip: %.1f N to push the pins down (springs %.1f + friction), %.2f N m on the"
+      " rotor; with the pushers %.2f N m <= the slip clutch's %.2f" % (f_v, f_pl, t_trip, t_rotor + t_trip, SLIP * t_rotor))
+check(f_trig <= 10.0, "trigger: ~%.1f N held (the pin out of a loaded notch, the lever's spring %.1f N at %.0f mm), "
+      "%.0f mm travel; the lever's spring %.1f N on the pin at rest" % (f_trig, f_ls, ls_arm, travel_trig, f_ls0 * ls_arm / LEVER[0]))
 f_knob = t_slip / (CRANK_R / 1000)
 check(True, "crank: <= %.1f N on the knob turning (%d barrels' pushers, %.2f N m at the rotor), %.1f N slipping"
       % (kk["f_crank"], N, t_rotor, f_knob))
@@ -639,11 +852,14 @@ if not ROTOR_BENCH_LIBRARY:
                      ("Stop_disc", stop_disc, "printed"), ("Shaft_housing", housing, "stator"),
                      ("Bevel_gears", bev_lay.fuse(bev_crank), "drive"), ("Crank", crank, "printed")):
         add("Head", n, s, st)
-    for n, s, st in (("Lever", lever, "printed"), ("Base", base, "frame"), ("Bevel_box", box, "frame")):
+    add("Head", "Stop_lever", stop_lever, "rotor")
+    add("Head", "Trip_cam", trip_cam, "drive")
+    for n, s, st in (("Trigger_arm", arm, "printed"), ("Base", base, "frame"), ("Bevel_box", box, "frame")):
         add("Bench", n, s, st)
     for n, s, st in (("Valve_cores", cores, "steel"), ("Pins", pins, "steel"), ("Return_springs", springs, "steel"),
                      ("Shaft", shaft, "steel"), ("Layshaft", layshaft, "steel"), ("Crank_shaft", crank_shaft, "steel"),
                      ("Bearings", brgs, "steel"), ("Slip_clutch", slip, "oring"), ("Stop_pin", stop_pin, "steel"),
+                     ("Coupling_pins", plunger.fuse(push_pin), "steel"), ("Springs", pl_springs.fuse(lever_spring), "steel"),
                      ("Fittings", fittings, "steel")):
         add("Bought", n, s, st)
     add("Channels", "Supply", net["supply"].translated(V(0, 0, z_block0)), "flow")
@@ -676,7 +892,8 @@ if not ROTOR_BENCH_LIBRARY:
                       ("head_stop_disc%d" % N, stop_disc, None), ("head_shaft_housing", housing, None),
                       ("head_bevel20_x2", bevel_print, None), ("head_crank", crank, (Y, 90)),
                       ("head_follower", follower(0, 0, 0), (X, 180)),
-                      ("bench_base", base, None), ("bench_lever", lever, None), ("bench_bevel_box", box, (X, 90))):
+                      ("head_stop_lever", stop_lever, None), ("head_trip_cam", trip_cam, (X, 180)),
+                      ("bench_base", base, None), ("bench_trigger_arm", arm, None), ("bench_bevel_box", box, (X, 90))):
         write(s, n, rot)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
         f.write("\n".join(report) + "\n")

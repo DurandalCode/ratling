@@ -229,9 +229,11 @@ module's pilot port (4 mm hose, ~110 mm as in the gun), gauge on the end.
 
 *Test article: `mitrailleuse/rotor_bench.py`*: the 16-barrel rotor turning
 under one quarter of the core block (four ports), cranked through a 1:1
-bevel pair and 5:1 spur gears. The trigger's lever holds a Ø4 steel pin in
-the stop disc's notches; the pinion slips on the layshaft between rubber
-washers while the rotor is stopped. All but the base, the lever and the
+bevel pair and 5:1 spur gears. The stop lever holds a Ø4 steel pin in the
+stop disc's notches; the trigger's arm drives it through a coupling pin
+that a trip cam under the gear knocks out once a turn (one volley a pull);
+the pinion slips on the layshaft between rubber washers while the rotor is
+stopped. All but the base, the lever and the
 bevel box are the final head's parts. Do bench B first: the pushers and
 cores are set the same way.
 
@@ -243,6 +245,14 @@ cores are set the same way.
    and fast: the rotor must stop with every pusher either fully up or
    fully down (mark the pins), never on a ramp. Note if the pin ever
    fails to drop in at full crank speed (~1 turn/s).
+1a. **One volley a pull.** Hold the trigger and crank: the rotor must stop
+   at home after one turn (16 steps; 19 on the 19's disc) with the trigger
+   still held, the crank slipping. Let go, pull again: one more turn. 20
+   volleys slow and fast, plus a few with the crank jerked hard into the
+   stop: it never stops a step early or late, never runs on into a second
+   turn, and the coupling pin always pops back up when let go. Read the
+   force on the knob as the cam pushes the push pin (the model: ~0.3 N m
+   more at the rotor) and the trigger's holding force (the model: 8.4 N).
 2. **Pushers.** Cores in, gaps set as on bench B, 2 bar, plugs or gauges
    on the four pilots. Step the crank: each pilot rises two steps ahead
    and drops on its vent step, in order 0, 1, 2, 3.
