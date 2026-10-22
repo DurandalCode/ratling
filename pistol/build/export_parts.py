@@ -38,11 +38,13 @@ BUILD = os.path.join(REPO, "exports", "pistol_build")
 STL = os.path.join(BUILD, "stl")
 X_, Y_, Z_ = V(1, 0, 0), V(0, 1, 0), V(0, 0, 1)
 
-# Print groups (profiles): airtight = holds the shot's air; strong = moving and loaded parts; supports = parts
-# with overhangs that need them; standard = the rest.
+# Print groups (profiles): airtight = holds the shot's air (6 walls seal it; 60 % gyroid is what Stage 3 v1.1
+# held 2 bar on, 100 % adds nothing at ~1 MPa wall stress); strong = moving and loaded parts; impact = the hammer:
+# 6 walls, on supports; supports = parts with overhangs that need them; standard = the rest.
 GROUPS = {
-    "airtight": "--airtight --infill 100%",
+    "airtight": "--airtight --infill 60% --pattern gyroid",
     "strong": "--infill 60% --walls 5 --pattern gyroid",
+    "impact": "--infill 40% --walls 6 --support",
     "supports": "--infill 40% --walls 4 --support",
     "standard": "--infill 30% --walls 4",
 }
@@ -59,7 +61,7 @@ PARTS = [
     ("slider", SLIDER_H, -Y_, "strong", "runs on the Ø3 guide rod; its pin (Ø3 steel) in the sector's arm"),
     ("detent_bolt", turned(bolt_shape(0.0), -(DETENT_ANGLE + 90)), Y_, "strong", "V tip; a Ø4 pen spring behind it; on its side (it is drawn turned to the detent's angle)"),
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 12 + nuts to the side plate"),
-    ("hammer", hammer_body, Y_, "supports", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
+    ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
     ("frame_cage", frame, Y_, "supports", "right wall on the bed; supports under the cheeks and the spring rib"),
     ("frame_side_plate", side_plate, -Y_, "standard", "outer face on the bed; 6 x ST2.9 x 13 into the cage"),

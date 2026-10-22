@@ -19,6 +19,7 @@
 | Модуль ствола митральезы | `module/stage3v4_coaxial_chamber.py` (v4.4), `module/stage3v4_plates.sh` | докстринг файла |
 | Пакет, плита и каркас митральезы | `mitrailleuse/pack_layouts.py`, `mitrailleuse/pack_plate.py`, `mitrailleuse/make_plates.sh`, `mitrailleuse/pack_frame.py`, `mitrailleuse/carry_mount.py`, `mitrailleuse/rear_frame.py`, `mitrailleuse/pilot_hoses.py` | `docs/pack.md` |
 | Эскиз митральезы, ротор | `mitrailleuse/mitrailleuse_concepts.py`, `mitrailleuse/rotor_timing.py`, стенды `mitrailleuse/head_bench.py`, `mitrailleuse/rotor_bench.py` | `docs/rotor.md` |
+| Зарядник митральезы (вафля, шомполы) | `mitrailleuse/loader.py` (→ `pack_frame.py` до `# --- build`) | `docs/loader.md` |
 | Скин «ратлинг» (внешний вид, не детали) | `mitrailleuse/skin/ratling_skin.py`, `mitrailleuse/skin/run_skin.py` | `docs/skin.md` |
 | Вес | `tools/print_mass.py` | `docs/weights.md` |
 | Клапан v1.1 и стенд | `module/stage3_qev.py`, `stage3_floating_seal.py`, `stage3_vent_head.py`, `stage3_v13.py` | докстринги |

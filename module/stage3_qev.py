@@ -52,7 +52,8 @@ Parts, each exported in its print orientation (lowest point at z = 0):
 
 Spigot glands are connectors/tube_plug_v1's, proven fit.
 4 x M4 tie rods carry the cap load, so the printed layers stay in
-compression. Print PETG, 100 % infill; water-test to 1.5-2 x P_MAX before air.
+compression. Print PETG, 6 walls, 60 % gyroid (as v1.1 was printed and held);
+water-test to 1.5-2 x P_MAX before air.
 
 Bench hookup with the AirTAC M3R110 (inverted): supply -> R, A -> cap pilot
 port, P open. At rest R->A pressurizes the pilot; pressing the roller vents
@@ -727,7 +728,7 @@ if not STAGE3_LIBRARY:
         ("ШАРИК Rival", (-25, 0, z_barrel + BARREL_SPIGOT_LEN + BALL_D)),
         ("КАЗЁННИК: кольцо на торце, 3 x M3x14", (-BREECH_FLANGE_D / 2 - 10, 0, BODY_H + 3)),
         ("ХОМУТ труб: к стенду", (C.x + 25, 0, tube_end - CLIP_FROM_PLUG)),
-        ("КОРПУС QEV (PETG 100 %)", (BODY_R + 10, 0, BODY_H / 2)),
+        ("КОРПУС QEV (PETG, 6 стенок)", (BODY_R + 10, 0, BODY_H / 2)),
         ("МЕМБРАНА 1,5 мм, Ø%.0f" % DIA_D, (-BODY_R - 10, 0, 0)),
         ("КРЫШКА: пилот G1/8 -> M3R110 A", (-BODY_R - 10, 0, -CAP_T / 2)),
         ("ШПИЛЬКИ M4 x %d x4 + гайки" % rod_len, (rod_pts[1].x, rod_pts[1].y, BODY_H + 10)),
