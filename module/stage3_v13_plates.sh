@@ -9,6 +9,6 @@ report() {
   python3 -c "import sys,json;r=json.load(sys.stdin);print('$1:',r['plates'],'plate(s),',', '.join('%d min %.0f g'%(s['minutes'],s['grams']) for s in r['sliced']))"
 }
 python3 tools/print_plate.py stage3v13_airtight $S/body.stl $S/cap.stl $S/chamber_plug.stl $S/barrel_breech.stl \
-  --airtight --infill 100% | report airtight
+  --airtight --infill 60% --pattern gyroid | report airtight
 python3 tools/print_plate.py stage3v13_strong $S/plug_yoke.stl $S/tube_clip.stl $S/jig_base.stl $S/jig_ring.stl $S/jig_puck.stl \
   --infill 60% --walls 5 --pattern gyroid | report strong

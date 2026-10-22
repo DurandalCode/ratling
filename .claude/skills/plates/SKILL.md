@@ -41,7 +41,7 @@ Do not rotate parts; pass `--support` only if the generator says a part needs it
 
 | group | what goes in | options to `tools/print_plate.py` |
 |---|---|---|
-| airtight | anything that holds chamber or pilot air: plugs, caps, valve bodies, seat rings | `--airtight --infill 100%` |
+| airtight | anything that holds chamber or pilot air: plugs, caps, valve bodies, seat rings | `--airtight --infill 60% --pattern gyroid` (Stage 3 v1.1 held 2 bar on it; the 6 walls seal, 100 % only adds time) |
 | strong | loaded or moving parts: yokes, rod ears, muzzle rings, levers, gears | `--infill 60% --walls 5 --pattern gyroid` |
 | standard | tools and jigs: O-ring cones, drilling templates, gauges | `--infill 30% --walls 4` (they may share the strong plate to save a print) |
 | mock-up | paper/flat mock-ups, pack plates | `--filament "Bambu PLA Basic @BBL P2S"` |
