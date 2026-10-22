@@ -12,7 +12,8 @@ barrel, so the loader is a comb of rams on four legs; a telescope would only sho
                   socket for the leg. Nothing is added to the gun.
     legs ........ aluminium tube 12 x 1, four, common, on the rails' axes (R 104 at 45 deg), from the feet
                   past the muzzle sleeves to a printed cap on each front end that keeps the comb on. Each in
-                  LEG_PARTS sections butted on an aluminium ferrule, a shock cord inside (a tent pole).
+                  LEG_PARTS sections on printed ferrules: glued in the lower section, a finger's nub clicks
+                  into a hole in the upper one, flush, so the lugs slide over; press it in to part.
     wafer ....... printed, per pack: a plate with a pocket per barrel; a counterbore on its back sits on the
                   sleeve's tip, so the pocket is on the bore's axis. Three ribs in each pocket hold the ball
                   (it is soft and goes in tight), the ram pushes it through. Four lugs slide on the legs.
@@ -20,8 +21,9 @@ barrel, so the loader is a comb of rams on four legs; a telescope would only sho
     comb ........ printed plate, per pack, with a boss per barrel for a ram, long lugs that slide on the legs,
                   and two side tabs for the handle posts. Its back face lands on the wafer's face at the end of
                   the stroke: that stop sets how deep the balls go (STOP_GAP short of the spigot).
-    rams ........ aluminium tube RAM, one per barrel, in two halves on a ferrule with a shock cord inside: the
-                  lower half with its cup as long as the comb with the upper half, so they fold side by side.
+    rams ........ aluminium tube RAM, one per barrel, in two halves on a printed snap joint (push to join, pull
+                  hard to part): the lower half with its cup as long as the comb with the upper half, so they
+                  fold side by side.
                   Glued into the comb's bosses, a printed cup on the end
                   (Ø CUP_D: CUP_CLEAR inside the bore; a concave face that keeps the ball centred in the
                   loose sleeve, a chamfered nose that finds the sleeve's flare into the barrel).
@@ -80,8 +82,13 @@ Z_BALL = M["ball"].BoundBox.ZMax                   # ball's front on the seat ri
 SLEEVE_LIP = 2 * (M["BARREL_ID"] / 2 + 0.2)        # the sleeve's lip at the barrel's end, its flare above it
 
 LEG = (12.0, 1.0)           # aluminium tube, as the rails
-LEG_PARTS = 3               # folds: sections on ferrules, shock cord inside
-FERRULE = {"leg": (10.0, 1.0, 60.0), "ram": (6.0, 1.0, 50.0)}   # aluminium tube inside the joint: OD, wall, length
+LEG_PARTS = 3               # folds: sections joined by printed snap ferrules
+# ram joint: a printed male collar on the upper half's end clicks into a female collar on the lower half's
+# (a lip on two split fingers into a groove on the spigot); push to join, pull hard to part
+SNAP = dict(od=16.0, spigot=10.0, socket=10.3, groove=8.4, lip=8.8, male_len=22.0, female_len=36.0, slot=2.0)
+# leg joint: a printed ferrule glued in the lower section; in the upper one a finger's nub clicks into a hole
+# drilled in its wall, flush (the comb's and wafer's lugs slide over); press the nub in to part
+LEG_FERRULE = dict(d=LEG[0] - 2 * 1.0 - 0.3, len=60.0, nub=3.6, hole=4.0, nub_at=20.0, finger=(5.0, 20.0, 1.2))
 LEG_HOLE = 12.4             # in the wafer's and the comb's lugs
 LUG_R = 12.5
 RAIL_BORE = RAIL[0] - 2 * RAIL[1]
@@ -187,16 +194,32 @@ def ram_joint(z0):
     return (zt + z0 + C_LUG_LEN) / 2
 
 
+def snap_male():
+    """On the upper half's lower end, the joint's plane at z = 0: the tube bottoms 2 mm into the body."""
+    k = SNAP
+    r_s, r_g, r_b, r_t = k["spigot"] / 2, k["groove"] / 2, k["od"] / 2, RAM_HOLE / 2
+    return M["revolve"]([(0, -14), (r_s - 1, -14), (r_s, -13), (r_s, -5.4), (r_g, -4.6), (r_g, -1.4), (r_s, -0.6),
+                         (r_s, 0), (r_b, 0), (r_b, k["male_len"]), (r_t, k["male_len"]), (r_t, 2), (0, 2)])
+
+
+def snap_female():
+    """On the lower half's upper end, the joint's plane at z = 0: socket, lip, two fingers split by a slot."""
+    k = SNAP
+    r_c, r_l, r_b, r_t = k["socket"] / 2, k["lip"] / 2, k["od"] / 2, RAM_HOLE / 2
+    s = M["revolve"]([(r_t, -k["female_len"]), (r_b, -k["female_len"]), (r_b, 0), (r_c, 0), (r_c, -1.0),
+                      (r_l, -1.8), (r_l, -4.2), (r_c, -5.0), (r_c, -14.5), (0, -14.5), (0, -16), (r_t, -16)])
+    return s.cut(Part.makeBox(k["slot"], k["od"] + 2, 14.1, V(-k["slot"] / 2, -k["od"] / 2 - 1, -14))).removeSplitter()
+
+
 def rams(key, z0):
-    """Each ram in two halves butted on a ferrule: [tubes and ferrules], [cups]."""
+    """Each ram in two halves on a snap joint: [tubes and collars], [cups]."""
     zt = z0 - cz0_end + z_cup                         # cup's tip
     zr0 = zt + CUP_L - CUP_SOCKET
     zj = ram_joint(z0)
-    od, wall, fl = FERRULE["ram"]
     parts = []
     for x, y in LAYOUT[key]:
-        parts += [tube(RAM[0], RAM[1], zr0, zj - 0.2, x, y), tube(RAM[0], RAM[1], zj + 0.2, zr0 + ram_len, x, y),
-                  tube(od, wall, zj - fl / 2, zj + fl / 2, x, y)]
+        parts += [tube(RAM[0], RAM[1], zr0, zj - 16.0, x, y), tube(RAM[0], RAM[1], zj + 2.0, zr0 + ram_len, x, y),
+                  snap_male().translated(V(x, y, zj)), snap_female().translated(V(x, y, zj))]
     return parts, [cup().translated(V(x, y, zt)) for x, y in LAYOUT[key]]
 
 
@@ -234,15 +257,42 @@ def post(z0):
 leg_joints = [z_leg0 + (z_leg1 - z_leg0) * k / LEG_PARTS for k in range(1, LEG_PARTS)]
 
 
+def leg_ferrule():
+    """Joint's plane at z = 0, nub along +x: the lower half glued in, the upper half's finger snaps its nub
+    into the hole in the upper section's wall."""
+    k = LEG_FERRULE
+    r = k["d"] / 2
+    fw, fl, ft = k["finger"]
+    s = cyl(k["d"], -k["len"] / 2, k["len"] / 2)
+    za, zb = k["nub_at"] - fl + 4.0, k["nub_at"] + 4.0           # finger from za (its root) to zb
+    gap = Part.makeBox(ft, fw + 1.6, zb - za + 1, V(r - 1.6 - ft, -(fw + 1.6) / 2, za))       # under the finger
+    sides = [Part.makeBox(r, 0.8, zb - za + 1, V(r - 1.6 - ft, sy * (fw / 2 + 0.4) - 0.4, za)) for sy in (1, -1)]
+    s = s.cut(G.fuse_all([gap] + sides + [cyl(k["d"] + 2, zb, zb + 1.0).cut(cyl(2 * (r - 1.6 - ft), zb - 1, zb + 2))
+                                          .common(Part.makeBox(r + 2, fw + 1.6, 2, V(0, -(fw + 1.6) / 2, zb - 0.5)))]))
+    nub = Part.makeCylinder(k["nub"] / 2, LEG[0] / 2 - 0.1 - (r - 1.0), V(r - 1.0, 0, k["nub_at"]), V(1, 0, 0))
+    return s.fuse(nub).removeSplitter()
+
+
+def placed_ferrule(p, a, z):
+    f = leg_ferrule()
+    f.rotate(V(0, 0, 0), Z, a)
+    return f.translated(V(p[0], p[1], z))
+
+
 def legs():
-    """Each leg in LEG_PARTS sections butted on ferrules."""
+    """Each leg in LEG_PARTS sections butted on snap ferrules, a hole for the nub in the upper section."""
     zs = [z_leg0] + leg_joints + [z_leg1]
-    od, wall, fl = FERRULE["leg"]
+    k = LEG_FERRULE
     out = []
-    for p in legs_xy:
-        out += [tube(LEG[0], LEG[1], a + (0.2 if a > z_leg0 else 0), b - (0.2 if b < z_leg1 else 0), *p)
-                for a, b in zip(zs, zs[1:])]
-        out += [tube(od, wall, z - fl / 2, z + fl / 2, *p) for z in leg_joints]
+    for p, a in zip(legs_xy, RAIL_ANGLES):
+        for lo, hi in zip(zs, zs[1:]):
+            t = tube(LEG[0], LEG[1], lo + (0.2 if lo > z_leg0 else 0), hi - (0.2 if hi < z_leg1 else 0), *p)
+            if lo > z_leg0:
+                h = Part.makeCylinder(k["hole"] / 2, LEG[0], V(0, 0, lo + k["nub_at"]), V(1, 0, 0))
+                h.rotate(V(0, 0, 0), Z, a)
+                t = t.cut(h.translated(V(p[0], p[1], 0)))
+            out.append(t)
+        out += [placed_ferrule(p, a, z) for z in leg_joints]
     return out
 
 
@@ -324,11 +374,23 @@ fold_leg = (z_leg1 - z_leg0) / LEG_PARTS + FOOT_COLLAR + FOOT_SPIGOT[1]   # the 
 fold_len = max(fold_comb, fold_lower, fold_leg)
 fold_w = max(b["comb"].BoundBox.XLength for b in built.values())
 fold_h = max(b["comb"].BoundBox.YLength for b in built.values())
-check(abs(fold_comb - fold_lower) < 1.0 and FERRULE["ram"][0] <= RAM[0] - 2 * RAM[1]
-      and FERRULE["leg"][0] <= LEG[0] - 2 * LEG[1],
-      "folds: rams part %.0f mm from the cup's tip (lower half %.0f, comb with the upper %.0f), ferrule %g x %g x %.0f;"
-      " legs in %d x %.0f, ferrule %g x %g x %.0f"
-      % (zj - z_cup, fold_lower, fold_comb, *FERRULE["ram"], LEG_PARTS, (z_leg1 - z_leg0) / LEG_PARTS, *FERRULE["leg"]))
+check(abs(fold_comb - fold_lower) < 1.0,
+      "folds: rams part %.0f mm from the cup's tip (lower half %.0f, comb with the upper %.0f); legs in %d x %.0f"
+      % (zj - z_cup, fold_lower, fold_comb, LEG_PARTS, (z_leg1 - z_leg0) / LEG_PARTS))
+m_, f_ = snap_male(), snap_female()
+check(G.single_solid(m_) and len(f_.Solids) == 1 and m_.common(f_).Volume < 1e-3
+      and SNAP["lip"] < SNAP["spigot"] and SNAP["groove"] < SNAP["lip"] and SNAP["od"] <= BALL_D - 6,
+      "ram snap: spigot Ø%g into the socket Ø%g, lip Ø%g over the spigot (%.1f a side to pass, fingers split by"
+      " a %g slot), into the groove Ø%g; collars Ø%g (%.1f a side in the bore)"
+      % (SNAP["spigot"], SNAP["socket"], SNAP["lip"], (SNAP["spigot"] - SNAP["lip"]) / 2, SNAP["slot"],
+         SNAP["groove"], SNAP["od"], (BALL_D - SNAP["od"]) / 2))
+lf = leg_ferrule()
+check(G.single_solid(lf) and lf.BoundBox.XMax <= LEG[0] / 2 - 0.05 and LEG_FERRULE["d"] < LEG[0] - 2 * LEG[1]
+      and LEG_FERRULE["nub"] < LEG_FERRULE["hole"],
+      "leg ferrule Ø%.1f x %.0f in the bore Ø%g, its nub Ø%g in a Ø%g hole %.0f mm into the upper section,"
+      " %.2f under the leg's surface (the lugs slide over)"
+      % (LEG_FERRULE["d"], LEG_FERRULE["len"], LEG[0] - 2 * LEG[1], LEG_FERRULE["nub"], LEG_FERRULE["hole"],
+         LEG_FERRULE["nub_at"], LEG[0] / 2 - lf.BoundBox.XMax))
 # rams: pinned at the comb, guided at the cup (wafer pocket, sleeve, bore)
 i_ram = math.pi / 64 * (RAM[0] ** 4 - (RAM[0] - 2 * RAM[1]) ** 4)
 free = cz0_end - z_cup
@@ -358,11 +420,10 @@ report = [
     " %.0f ahead of the sleeve tips" % (LEG + (z_leg0, z_leg1, z_leg1 - z_leg0, cz0_start + C_T + POST_LEN
                                                 - (z_fs - FOOT_SPIGOT[1]), cz0_start + C_T + POST_LEN - Z_TIP)),
     "  rams: %d / %d x alu tube %g x %g x %.0f mm, cups Ø%.1f" % (16, 19, RAM[0], RAM[1], ram_len, CUP_D),
-    "  bought: legs 4 x %d x %.0f mm, rams 16 or 19 x 2 halves (%.0f + %.0f mm), ferrules alu %g x %g: 16 or 19 x %.0f"
-    " (rams), %d x %.0f (legs); shock cord 2.5 mm through each ram, 3 mm through each leg; 2 x M5 x 25 + nuts"
-    % (LEG_PARTS, (z_leg1 - z_leg0) / LEG_PARTS - 0.4, zj - 0.2 - (z_cup + CUP_L - CUP_SOCKET),
-       (cz0_end + C_T + BOSS) - zj - 0.2, FERRULE["ram"][0], FERRULE["ram"][1], FERRULE["ram"][2],
-       4 * (LEG_PARTS - 1), FERRULE["leg"][2]),
+    "  bought: legs 4 x %d x %.0f mm (a Ø%g hole %.0f mm from the lower end of the upper two), rams 16 or 19 x 2"
+    " halves (%.0f + %.0f mm), 2 x M5 x 25 + nuts; printed snaps: 16 or 19 male + female, %d leg ferrules"
+    % (LEG_PARTS, (z_leg1 - z_leg0) / LEG_PARTS - 0.4, LEG_FERRULE["hole"], LEG_FERRULE["nub_at"],
+       zj - 16.0 - (z_cup + CUP_L - CUP_SOCKET), (cz0_end + C_T + BOSS) - zj - 2.0, 4 * (LEG_PARTS - 1)),
     "  folded (rams parted, legs in sections, posts off): %.0f x %.0f x %.0f mm" % (fold_len, fold_w, fold_h),
 ] + lines + ["  [%s] %s" % ("OK " if ok else "FAIL", t) for t, ok in checks]
 print("\n".join(report))
@@ -426,6 +487,9 @@ for tag, b in built.items():
 write(cup_part, "cup", True)                                  # socket end on the bed, the dish up; print 16 or 19
 write(foot_part, "foot")                                      # spigot on the bed; print 4
 write(cap_part, "leg_cap", True)                              # closed end on the bed; print 4
+write(snap_male(), "ram_snap_male", True)                    # spigot up; print 16 or 19
+write(snap_female(), "ram_snap_female")                       # socket up; print 16 or 19
+write(leg_ferrule(), "leg_ferrule")                           # print 8
 write(posts[0], "post")                                       # flat foot on the bed; print 2
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
     f.write("\n".join(report) + "\n")
