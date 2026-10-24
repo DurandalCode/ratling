@@ -2,6 +2,12 @@
 """
 Ratling Stage 3 v4.4: the chamber is a bought tube round the barrel.
 
+v4.4 bore: the aluminium tube that came is Ø34 inside, not 38 - 2 x 1.5 = Ø35: the plugs' spigots (Ø34.6) did not
+go in at all, the Ø34.0 seat ring did. CH_ID is the measured bore now (34.0), not derived from the wall. The spigots
+go Ø33.6, the 29 x 3 rings stay (groove Ø29.1, 18 % squeeze at Ø34.0, ~12 % at Ø34.3), the seat ring Ø34.0 -> 33.4,
+and the diaphragm Ø31 -> 30.6 to keep the stop lip 1 mm wide. The chamber grows to ~291 mm for the same 100 cm3;
+the rods stay 358 mm.
+
 v4.4 muzzle: the muzzle clamp is the default now (MUZZLE_CLAMP = True; it was an option for the long barrel).
 The seat ring's push goes from the barrel into a collar squeezed on it over a wrap of tape, not into the lip of
 a ring on the barrel's end, so the barrel's cut end and its length no longer set the stack. The collar is two
@@ -170,13 +176,13 @@ BARREL_ID, BARREL_WALL = 23.8, 0.59
 BARREL_OD = BARREL_ID + 2 * BARREL_WALL
 BARREL_LEN = 300.0
 CH_OD, CH_WALL = 38.0, 1.5  # bought chamber tube, v4.4: aluminium (v4-v4.3: steel 38 x 1.2)
-CH_ID = CH_OD - 2 * CH_WALL
+CH_ID = 34.0                # measured bore, not OD - 2 x wall (35.0): the tube that came reads ~34; the plugs fit this
 
 RADIAL_CLEAR = 0.20
 CH_ORING = (29.0, 3.0)      # ID x CS, in the chamber tube (rear and front plug); v4.4: 30 x 3 would sit slack in Ø35
 BR_ORING = (24.0, 2.5)      # ID x CS, on the barrel (front plug; v4.4: no longer in the seat ring's socket)
 SP_ORING = (20.0, 2.0)      # ID x CS, v4.4: on the seat ring's spigot, inside the barrel's bore
-ORING_SQUEEZE = 0.15
+ORING_SQUEEZE = 0.18        # chamber O-rings; 18 % at Ø34.0 still leaves ~12 % if the bore is really Ø34.3
 BR_SQUEEZE = 0.12           # v4.1: the barrel's 24 x 2 a little easier, it was cut by the barrel's edge going in
 GROOVE_W = 1.3              # x CS
 LEAD_CHAMFER = 1.0
@@ -220,7 +226,7 @@ MOUTH_CHAMFER = 1.0         # pocket edge, rear plug side
 LIFT = 2.9                  # the free annulus is narrow: more stretches the rubber > 30 %
 DIA_T = 1.5
 DIA_SQUEEZE = 0.20          # set by the seat ring's stop lip
-DIA_R = 15.5                # v4.1: inside the seat ring's stop lip (v4: 17.4, on pins)
+DIA_R = 15.3                # v4.1: inside the seat ring's stop lip (v4: 17.4, on pins); v4.4: 15.5 -> 15.3 for the Ø34 bore
 BEAD_R = 13.2
 BEAD_W = (0.9, 0.4)         # base, top
 BEAD_H = 0.4
@@ -294,7 +300,7 @@ sp_root_r = BARREL_ID / 2 - SP_ORING[1] * (1 - ORING_SQUEEZE)
 sp_stretch = 2 * sp_root_r / SP_ORING[0] - 1
 seat_r = SEAT_D / 2
 seat_out_r = seat_r + SEAT_LAND
-ring_out_r = CH_ID / 2 - 0.5
+ring_out_r = CH_ID / 2 - 0.3
 z_flare = SEAT_TUBE_H
 z_flare_end = z_flare + (sock_out_r - seat_out_r)
 z_sh = z_flare + (sock_r + SHOULDER_WALL - seat_out_r)    # barrel stop: shoulder in the seat ring
