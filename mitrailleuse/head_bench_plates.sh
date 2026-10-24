@@ -14,4 +14,4 @@ report() {
 python3 tools/print_plate.py head_bench_airtight $B/head_block.stl \
   --airtight --infill 60% --pattern gyroid | report airtight
 python3 tools/print_plate.py head_bench_frame $B/base.stl $B/guide_plate.stl $B/slider.stl $B/follower.stl:2 \
-  --filament "Bambu PLA Basic @BBL P2S 0.4 nozzle" --infill 25% --walls 4 --pattern gyroid | report frame
+  --filament "Bambu PLA Basic @BBL P2S" --infill 25% --walls 4 --pattern gyroid | report frame

@@ -15,7 +15,7 @@ report() {
 python3 tools/print_plate.py pistol_bench_airtight $V/body.stl $V/cap.stl $P/lock_housing.stl $P/lock_sleeve.stl \
   --airtight --infill 60% --pattern gyroid | report airtight
 python3 tools/print_plate.py pistol_bench_frame exports/pistol_bench/bench_frame.stl \
-  --filament "Bambu PLA Basic @BBL P2S 0.4 nozzle" --infill 25% --walls 4 --pattern gyroid | report frame
+  --filament "Bambu PLA Basic @BBL P2S" --infill 25% --walls 4 --pattern gyroid | report frame
 python3 tools/print_plate.py pistol_bench_strong $P/lock_pusher.stl $P/top_strap.stl \
   $P/nose_sleeve.stl $P/axle_plug.stl $P/detent_bolt.stl --infill 60% --walls 5 --pattern gyroid | report strong
 python3 tools/print_plate.py pistol_bench_standard $P/block_rear_disc.stl $P/block_front_disc.stl \
