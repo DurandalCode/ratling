@@ -350,10 +350,24 @@ strap_bolts = Part.makeCompound([Part.makeCylinder(1.7, STRAP["z"][1] - fz[1] + 
 top_strap, frame, skin = top_strap.cut(strap_bolts), frame.cut(strap_bolts), skin.cut(strap_bolts)
 nose = cyl_x(NOSE_OD, X_MUZZLE + WASHER_T, X_AXLE_END, 0, 0).cut(cyl_x(BARREL_OD + 0.4, X_MUZZLE, X_AXLE_END + 1, 0, 0))
 washer = cyl_x(NOSE_OD, X_MUZZLE, X_MUZZLE + WASHER_T, 0, 0).cut(cyl_x(BARREL_OD + 0.4, X_MUZZLE - 1, X_MUZZLE + 2, 0, 0))
-# The axle's front plug: glued flush into the tube (it closes the chamber), an M6 nut glued into a hex pocket in
-# its face, the stud's hole behind it blind, so no air leaks along the thread.
-PLUG_L, PLUG_HOLE = 20.0, 14.0
-axle_plug = cyl_x(23.8 - 0.3, X_AXLE_END - PLUG_L, X_AXLE_END, 0, 0)
+# The axle's front plug: on a 19 x 2.5 O-ring in the tube (the valve spigot's ring, same bore), not glued, so it
+# comes out. A flange Ø25 x 2 on its face takes the tube's front end (the tube is 2 mm shorter for it), so the tube
+# sits between the valve's shoulder and the flange; the flange runs in the nose sleeve's bore. An M6 nut glued into
+# a hex pocket in its face, the stud's hole behind it blind, so no air leaks along the thread. The chamber's push on
+# the plug goes stud -> strap as before. Prints flange down; the groove's square wall faces the flange (the ring is
+# pushed onto it), its rear wall is 45 deg (a ceiling as printed).
+PLUG_L, PLUG_HOLE, PLUG_FLANGE = 24.0, 14.0, 2.0
+PLUG_ORING, PLUG_SQUEEZE = (19.0, 2.5), 0.12     # as the valve spigot's (module/stage3_qev.py ORING_SQUEEZE)
+_pr, _gr = (23.8 - 0.3) / 2, 23.8 / 2 - PLUG_ORING[1] * (1 - PLUG_SQUEEZE)    # plug, groove root
+_gx = X_AXLE_END - 15.0                          # square wall
+_gw = 1.3 * PLUG_ORING[1]
+axle_plug = Part.Face(Part.makePolygon([V(x_, 0, r_) for x_, r_ in (
+    (X_AXLE_END - PLUG_L, 0), (X_AXLE_END - PLUG_L, _pr - 0.8), (X_AXLE_END - PLUG_L + 0.8, _pr),
+    (_gx - _gw - (_pr - _gr), _pr), (_gx - _gw, _gr), (_gx, _gr), (_gx, _pr),
+    (X_AXLE_END - PLUG_FLANGE, _pr), (X_AXLE_END - PLUG_FLANGE, BARREL_OD / 2), (X_AXLE_END, BARREL_OD / 2),
+    (X_AXLE_END, 0), (X_AXLE_END - PLUG_L, 0))])).revolve(V(0, 0, 0), XA, 360)
+plug_stretch = 2 * _gr / PLUG_ORING[0] - 1
+axle = axle.cut(cyl_x(BARREL_OD + 1, X_AXLE_END - PLUG_FLANGE, X_AXLE_END + 1, 0, 0))     # its end on the flange
 _hexr = 10.0 / 2 / math.cos(math.radians(30)) + 0.15                  # M6 nut, 10 across flats
 _hex = Part.Face(Part.makePolygon([V(X_AXLE_END - 5.2, _hexr * math.cos(math.radians(60 * k)), _hexr * math.sin(math.radians(60 * k)))
                                    for k in range(7)])).extrude(V(5.3, 0, 0))
@@ -412,7 +426,8 @@ fixed_hits = {"air lines/valve": hit(Part.makeCompound([pilot_line, gauge_line, 
               "cheeks/valve": hit(cheeks, valve_body) + hit(cheeks, mini_valves),
               "block/supports": blk_hit, "strap/vial": hit(top_strap, vial.fuse(cage)) + hit(top_strap, crest),
               "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
-              "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume}
+              "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume,
+              "plug/axle+nose+strap": hit(axle_plug, axle) + hit(axle_plug, nose) + hit(axle_plug, top_strap)}
 inside = mini_valves.common(grip.fuse(outer).fuse(pod).fuse(_vv)).Volume / mini_valves.Volume
 spur_out = lambda c: hammer_shape(c).cut(outer).Volume
 report = [NAME, "  mechanism vs dress (worst over the hammer and trigger strokes, mm3):"]
@@ -431,7 +446,9 @@ report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
               NOSE_OD, R_RING - 23.8 / 2 - NOSE_OD / 2),
            "  barrels: tube %.0f, breech face to muzzle %.0f; chamber (the axle) %.0f mm of tube, ~%.0f cm3"
            % (BARREL_TUBE, HUB_T + STUB, axle.BoundBox.XLength,
-              19.6 + (axle.BoundBox.XLength - 60) * math.pi / 4 * 23.8 ** 2 / 1000)]
+              19.6 + (axle.BoundBox.XLength - 60) * math.pi / 4 * 23.8 ** 2 / 1000),
+           "  axle plug: %d x %.1f O-ring, groove Ø%.1f (stretch %.1f %%, squeeze %.0f %%), flange Ø%.1f x %.0f on the tube's end"
+           % (PLUG_ORING + (2 * _gr, plug_stretch * 100, PLUG_SQUEEZE * 100, BARREL_OD, PLUG_FLANGE))]
 print("\n".join(report))
 
 # ---------------------------------------------------------------- document
@@ -487,13 +504,13 @@ MATERIAL = {
     "buy": ("Chamber_axle", "Vent_valve", "Pin", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer"),
 }
-BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, 258 mm (the chamber)", "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
+BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
             "Vent_valve": "AirTAC M3R110-06 with its roller off (or M3PP110-06): G1/8 elbows for A (4 mm) and R (6 mm), a G1/8 silencer on P", "Pin": "steel pin Ø3",
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
             "Pilot_pipe": "PU tube 4/2.5: vent valve A -> cap G1/8 push-in, up the backstrap",
             "Gauge_line": "PU tube 4/2.5, tee to the gauge", "Tee": "push-in tee for 4 mm tube", "Axle_cap": "M6 x 25 stud (or a headless bolt) + cap nut; an M6 nut glued in the plug",
-            "Axle_plug": "glued flush into the axle's front end with epoxy: it closes the chamber",
+            "Axle_plug": "in the axle's front end on a 19 x 2.5 O-ring, its flange on the tube's end: it closes the chamber",
             "Top_strap": "2 x M3 x 40 + nuts down through its foot into the cage's top",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its tab, rear end glued in the grip",

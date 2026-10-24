@@ -2,7 +2,8 @@
 # Ratling pistol bench (pistol/build/bench_frame.py): only the parts the bench needs, on Bambu plates (sliced).
 # The pistol's parts are the pistol's own STLs, PETG; they go into the pistol after the bench. The frame stays on
 # the bench, indoors: PLA, stiffer (~3.3 vs 1.9 GPa) and truer than PETG, 4 walls, 25 % gyroid. The block discs
-# share the strong plate (one print fewer; 5 walls and 60 % are more than they need).
+# share the strong plate (one print fewer; 5 walls and 60 % are more than they need). The axle plug is airtight: it
+# seals on an O-ring now, not on glue all round.
 #   (FreeCAD) exec(open(REPO + '/pistol/build/export_parts.py').read())   # the pistol's STLs
 #   (FreeCAD) exec(open(REPO + '/pistol/build/bench_frame.py').read())    # the frame
 #   sh pistol/build/bench_plates.sh
@@ -13,10 +14,10 @@ V=exports/stage3_qev_v13
 report() {
   python3 -c "import sys,json;r=json.load(sys.stdin);print('$1:',r['plates'],'plate(s),',', '.join('%d min %.0f g'%(s['minutes'],s['grams']) for s in r['sliced']))"
 }
-python3 tools/print_plate.py pistol_bench_airtight $V/body.stl $V/cap.stl $P/lock_housing.stl $P/lock_sleeve.stl \
+python3 tools/print_plate.py pistol_bench_airtight $V/body.stl $V/cap.stl $P/lock_housing.stl $P/lock_sleeve.stl $P/axle_plug.stl \
   --airtight --infill 60% --pattern gyroid | report airtight
 python3 tools/print_plate.py pistol_bench_frame exports/pistol_bench/bench_frame.stl \
   --filament "Bambu PLA Basic @BBL P2S" --infill 25% --walls 4 --pattern gyroid | report frame
 python3 tools/print_plate.py pistol_bench_strong $P/lock_pusher.stl $P/top_strap.stl \
-  $P/nose_sleeve.stl $P/axle_plug.stl $P/detent_bolt.stl $P/block_rear_disc.stl $P/block_front_disc.stl \
+  $P/nose_sleeve.stl $P/detent_bolt.stl $P/block_rear_disc.stl $P/block_front_disc.stl \
   --infill 60% --walls 5 --pattern gyroid | report strong

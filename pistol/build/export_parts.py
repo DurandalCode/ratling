@@ -70,7 +70,7 @@ PARTS = [
     ("trigger_guard", guard, Y_, "standard", "flat; ST2.9 x 13 into its tab through the floor"),
     ("top_strap", top_strap, Z_, "strong", "top face down (on its side it stood on the nose disc, the bar 9 mm up); 2 x ST2.9 into the cage's top, the M6 stud through its foot"),
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),
-    ("axle_plug", axle_plug, -X_, "strong", "epoxied flush into the axle's front end; an M6 nut epoxied in its pocket"),
+    ("axle_plug", axle_plug, X_, "airtight", "flange on the bed; in the axle's front end on a 19 x 2.5 O-ring; an M6 nut epoxied in its pocket"),
 ]
 _ref = "exports/stage3_qev_v13" if VALVE == "v13" else "exports/stage3_qev"
 REFERENCE = [(VALVE + "_body", _ref + "/body.stl", "airtight", "Stage 3 %s body (module/stage3_qev.py)" % VALVE),
