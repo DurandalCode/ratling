@@ -131,6 +131,7 @@ for i in range(7):
         moving[(k_, a_)] = s_
 fixed_parts = {"valve body": valve_body, "valve cap": valve_cap, "lock housing": lock_housing_h, "axle": axle,
                "strap": top_strap}
+beam_gap = (beam.distToShape(axle)[0], beam.distToShape(valve_body)[0])
 pin_open = cam_pin.translated(V(X_OPEN, 0, 0))
 pin_locked = cam_pin.translated(V(X_OPEN + LOCK_STROKE, 0, 0))
 pb = pin_open.BoundBox
@@ -149,7 +150,8 @@ checks = {
     "nut block behind the pin, open (%.1f mm)" % screw_tip_gap: screw_tip_gap > 0.5,
     "strap foot lands on the beam's top":
         abs(top_strap.common(box(x0, foot_x1, -50, 50, -100, 100)).BoundBox.ZMin - BEAM["z"][1]) < 0.01,
-    "beam over the axle and the body (>= 1 mm)": BEAM["z"][0] - max(axle.BoundBox.ZMax, valve_body.BoundBox.ZMax) >= 1.0,
+    # the distance, not BoundBox.ZMax: the body's box is loose (ZMax 22.2, its top is at 14.0)
+    "beam over the axle and the body (>= 1 mm: %.1f, %.1f)" % beam_gap: min(beam_gap) >= 1.0,
 }
 rod_new = rod_len + PLATE_T
 print(NAME)
