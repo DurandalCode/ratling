@@ -16,3 +16,6 @@ python3 tools/print_plate.py stage3v44_strong $S/front_yoke.stl $S/muzzle_clamp_
 # prototype; it stands 240 mm on its socket end. Takes the muzzle ring's 362 mm rods.
 python3 tools/print_plate.py stage3v44_sleeve_pla $S/muzzle_sleeve.stl \
   --filament "Bambu PLA Basic @BBL P2S" --infill 30% --walls 4 --pattern gyroid | report sleeve
+# v4.4 rear (2026-10-25): the rear plug alone, its ears grown in, for the PLA bench module
+python3 tools/print_plate.py stage3v44_rear_plug_pla $S/rear_plug.stl \
+  --filament "Bambu PLA Basic @BBL P2S" --airtight --infill 60% --pattern gyroid | report rear_plug
