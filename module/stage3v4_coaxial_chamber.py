@@ -2,6 +2,13 @@
 """
 Ratling Stage 3 v4.4: the chamber is a bought tube round the barrel.
 
+v4.4 rear: the rear yoke is part of the rear plug now. The loose yoke (8 mm) sat over the pilot fitting's hex in
+a Ø16.5 hole, so a wrench could not get at it and the fitting was screwed in blind (one PLA thread got stripped).
+The plug grows the yoke's 8 mm at its back (its ears, the rods' holes, a solid disc) and the G1/8 tap starts on
+the new back face: the fitting's hex stands clear of it. Outside nothing moves: the ears, the rear nuts and the
+358 mm rods are where they were, the pack plate still lands on the ears' front face (z_rp). The pilot channel is
+8 mm longer (+0.1 cm3). The rear plug is no longer round, so the O-ring cone goes over the front plug only.
+
 v4.4 bore: the aluminium tube that came is ~Ø34.6 inside, not 38 - 2 x 1.5 = Ø35: the bare Ø34.6 spigots of the
 plugs went in only just, and with the 29 x 3 rings (~22 % squeeze there) not at all. CH_ID is the measured bore now,
 not derived from the wall. The spigots go Ø34.4 (0.1 per side, CH_CLEAR), the rings stay 29 x 3 at 18 % squeeze
@@ -82,7 +89,7 @@ inside the tube:
 
 Parts, each exported in its print orientation (lowest point at z = 0):
 
-    rear plug ... rear face on the bed: flange (= tube OD), spigot into the
+    rear plug ... rear face on the bed: the rod ears (v4.4 rear: the rear yoke grown into it), flange (= tube OD), spigot into the
                   chamber tube on a 30 x 3 O-ring, pilot pocket (= lift) on the
                   front face with floor grooves and a sealing bead (v4.1: no stop pins),
                   G1/8 pilot port from the bed side.
@@ -95,8 +102,6 @@ Parts, each exported in its print orientation (lowest point at z = 0):
                   under the tube's bore, clear of the cut edge. Grease them.
     front plug .. sleeve end on the bed: closes the chamber round the barrel
                   (30 x 3 O-ring in the tube, 24 x 2.5 on the barrel).
-    rear yoke ... a plate behind the rear plug with the two rod ears; the pilot
-                  fitting goes through its hole.
     front yoke .. a plate over the front plug's sleeve, seated on its 45 deg
                   flange, with the two rod ears. Front face on the bed: the 45 deg seat opens
                   upward, no overhang.
@@ -117,9 +122,9 @@ Assembly (v4.4): no glue. Deburr the barrel's rear end inside. Pilot fitting int
 on the rear plug's face (the bead inside it), seat ring on top (its stop lip round the diaphragm, on the
 plug's face). 20 x 2 O-ring on the spigot (grease), barrel into the socket over it, pushed home on the
 shoulder. Tube over the seat ring and barrel with the O-ring cone onto the rear plug, in to
-its flange. Front plug onto the barrel and into the tube (cone again), in to its flange. Rear yoke over the
-fitting, front yoke over the sleeve, tape round the barrel and the muzzle clamp over it (screws loose), the rods
-through all three ears. Nuts
+its flange. Front plug onto the barrel and into the tube (cone again), in to its flange. Front yoke over the
+sleeve, tape round the barrel and the muzzle clamp over it (screws loose), the rods
+through all three ears (the rear plug's, the front yoke's, the clamp's). Nuts
 snug at the rear and on the front yoke, then the muzzle nuts until the seat ring's stop lip sits on the rear
 plug (it does not take much: the lip sets the squeeze, the nuts only hold it there). Then tighten the muzzle
 clamp's two screws (snug, not cranked: the 0.6 wall must stay round).
@@ -193,9 +198,8 @@ TIE_R, TIE_ANGLES = 21.5, (30.0, 210.0)            # each alone in its gap of a 
 EAR_R = 4.0                 # ear round the rod
 EAR_ROOT_R = 14.0           # ears are the hull of this circle round the axis and the ear circle
 WASHER_D, WASHER_T, NUT_AF, NUT_T = 7.0, 0.5, 5.5, 2.4
-YOKE_T = 8.0                # rear and front yoke (the rear one spans the fitting's hole like a beam)
+YOKE_T = 8.0                # front yoke, and the rear plug's ears behind its flange (v4.4 rear)
 YOKE_CLEAR = 0.2
-FITTING_HOLE_D = 16.5       # rear yoke, over the pilot fitting's hex (13 AF)
 MUZZLE_T, MUZZLE_CB = 8.0, 4.0                     # muzzle ring, its counterbore over the barrel's end
 # muzzle clamp (default, MUZZLE_CLAMP): the muzzle ring as a collar squeezed on the barrel by its own four M3
 # screws, CLAMP_AT from the barrel's shoulder whatever the barrel's length, so the rods stay the same and a
@@ -312,7 +316,8 @@ z_spg2 = z_spg1 + GROOVE_W * SP_ORING[1]                 # square wall
 z_sp = z_spg2 + SP_LAND1 + LEAD_CHAMFER                  # spigot tip
 z_f = -t_c                                   # rear plug front face
 z_te = z_f - RP_SPIGOT                       # chamber tube rear end
-z_rp = z_te - RP_FLANGE_T                    # rear plug back face
+z_rp = z_te - RP_FLANGE_T                    # rear plug's flange back face: the ears' front face, the pack plate's
+z_ry = z_rp - YOKE_T                         # rear plug's back face, behind the ears (the rear yoke until v4.4 rear)
 z_floor = z_f - LIFT
 
 
@@ -382,20 +387,21 @@ def tie_plate(core_r, z0, z1):
 
 
 # ---------------------------------------------------------------- rear plug
-rp = cyl(CH_OD, z_rp, z_te).fuse(revolve([(0, z_te - 0.5), (spigot_r, z_te - 0.5), (spigot_r, z_f - 0.5),
+rp = G.fuse_all([cyl(CH_OD, z_ry, z_te)] + ears(z_ry, z_rp)).fuse(revolve([(0, z_te - 0.5), (spigot_r, z_te - 0.5), (spigot_r, z_f - 0.5),
                                           (spigot_r - 0.5, z_f), (0, z_f)]))
 rp = rp.fuse(revolve([(BEAD_R - BEAD_W[0] / 2, z_f - 0.01), (BEAD_R + BEAD_W[0] / 2, z_f - 0.01),
                       (BEAD_R + BEAD_W[1] / 2, z_f + BEAD_H), (BEAD_R - BEAD_W[1] / 2, z_f + BEAD_H)]))
 rp_groove, rp_groove_z = shaft_groove(z_f - RP_GROOVE_WALL, +1)     # chamber in front: rear wall square
 pilot_cuts = [revolve([(0, z_floor), (MOUTH_R - MOUTH_CHAMFER, z_floor), (MOUTH_R - MOUTH_CHAMFER, z_f - MOUTH_CHAMFER),
                        (MOUTH_R, z_f), (MOUTH_R, z_f + 1), (0, z_f + 1)]),
-              cyl(PILOT_D, z_rp + G18_TAP_DEPTH, z_floor + 0.01),
-              cyl(G18_TAP_D, z_rp - 1, z_rp + G18_TAP_DEPTH),
-              Part.makeCone(G18_TAP_D / 2, PILOT_D / 2, (G18_TAP_D - PILOT_D) / 2, V(0, 0, z_rp + G18_TAP_DEPTH))]
+              cyl(PILOT_D, z_ry + G18_TAP_DEPTH, z_floor + 0.01),
+              cyl(G18_TAP_D, z_ry - 1, z_ry + G18_TAP_DEPTH),
+              Part.makeCone(G18_TAP_D / 2, PILOT_D / 2, (G18_TAP_D - PILOT_D) / 2, V(0, 0, z_ry + G18_TAP_DEPTH))]
 for i in range(GROOVE_N):
     g = Part.makeBox(MOUTH_R - 2, GROOVE_WIDTH, GROOVE_DEPTH + 0.5, V(0, -GROOVE_WIDTH / 2, z_floor - GROOVE_DEPTH))
     g.rotate(V(0, 0, 0), Z, 360.0 / GROOVE_N * i + 45)
     pilot_cuts.append(g)
+pilot_cuts += [cyl(TIE_HOLE, z_ry - 1, z_rp + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES]
 rp = rp.cut(G.fuse_all([rp_groove] + pilot_cuts))
 rp = rp.removeSplitter()
 
@@ -452,8 +458,6 @@ fp_bgroove, fp_bgroove_z = bore_groove(z_fp_tip + FP_GROOVE_WALL, -1)
 fp = fp.cut(G.fuse_all([fp_groove, fp_bgroove])).removeSplitter()
 
 # ---------------------------------------------------------------- tie rods: yokes, muzzle ring, rods
-z_ry = z_rp - YOKE_T                         # rear yoke behind the rear plug
-rear_yoke = tie_plate(CH_OD / 2, z_ry, z_rp).cut(cyl(FITTING_HOLE_D, z_ry - 1, z_rp + 1)).removeSplitter()
 _dz = YOKE_CLEAR * math.sqrt(2)              # front yoke: on the front plug's 45 deg flange, round its sleeve
 _r0 = CH_OD / 2 + 0.3
 z_fy1 = z_fs + YOKE_T
@@ -477,7 +481,7 @@ tie_len_ring = z_m1 + _stick - z_rod0        # the muzzle ring's or the sleeve's
 
 
 def rods(z_ear):
-    """Both tie rods with a washer and a nut on each ear: rear yoke, front yoke and the muzzle ear at z_ear."""
+    """Both tie rods with a washer and a nut on each ear: rear plug, front yoke and the muzzle ear at z_ear."""
     hw = []
     for a in TIE_ANGLES:
         x, y = at(TIE_R, a)[:2]
@@ -580,14 +584,19 @@ A_entry = 2 * math.pi * MOUTH_R * (z_entry_top - RING_T) - STRUT_N * STRUT_W * (
 open_ratio = 1 - A_seat_eff / A_dia
 annulus_w = MOUTH_R - (seat_r + SEAT_LAND / 2)
 dia_strain = math.hypot(annulus_w, LIFT) / annulus_w - 1
-pocket_v = (A_dia * LIFT + area(PILOT_D) * (z_floor - z_rp - G18_TAP_DEPTH)) / 1000
+pocket_v = (A_dia * LIFT + area(PILOT_D) * (z_floor - z_ry - G18_TAP_DEPTH)) / 1000
 dead_v = (A_seat * z_sh + area(SP_BORE) * (z_sp - z_sh)) / 1000
 F_rp = P_MAX_BAR * 0.1 * area(CH_ID)
 F_ring = P_MAX_BAR * 0.1 * A_dia                            # pilot up at the top pressure, chamber empty
 F_open = P_WORK_BAR * 0.1 * A_dia                            # pilot up, chamber empty: on the seat ring / barrel
 TIE_SIGMA = (F_rp + F_ring) / len(TIE_ANGLES) / TIE_STRESS_A                # both at once, on the rear nuts: a bound
-# rear yoke as a beam between the rods, the plug's push spread over its flange, the fitting's hole out of the section
-YOKE_SIGMA = 6 * F_rp / 2 * (TIE_R - 4 * CH_OD / 2 / (3 * math.pi)) / ((CH_OD - FITTING_HOLE_D) * YOKE_T ** 2)
+# rear plug's ear disc as a beam between the rods, the chamber's push spread over its flange, the tap out of the
+# section; a bound: the plug's body ahead of it is left out
+YOKE_SIGMA = 6 * F_rp / 2 * (TIE_R - 4 * CH_OD / 2 / (3 * math.pi)) / ((CH_OD - G18_TAP_D) * YOKE_T ** 2)
+
+fitting = G.push_in_fitting(0, 0, 0)
+fitting.rotate(V(0, 0, 0), X, 180)
+fitting.translate(V(0, 0, z_ry))
 
 checks = [
     ("rear plug, seat ring, front plug valid single solids", all(G.single_solid(s) for s in (rp, sr, fp))),
@@ -612,18 +621,18 @@ checks = [
     ("seat ring clear of the chamber tube", ring_out_r <= CH_ID / 2 - 0.3 and sock_out_r <= CH_ID / 2 - 1.0),
     ("socket wall >= 1.2 mm, shoulder wall >= 1.5 mm", SOCKET_WALL >= 1.2 and SHOULDER_WALL >= 1.5),
     ("spigot: wall under its groove >= 1.2 mm, its bore over the seat", sp_root_r - SP_BORE / 2 >= 1.2 and SP_BORE >= SEAT_D),
-    ("pilot pocket floor grooves above the G1/8 tap", z_floor - GROOVE_DEPTH - (z_rp + G18_TAP_DEPTH + 2.4) >= 2.0),
+    ("pilot pocket floor grooves above the G1/8 tap", z_floor - GROOVE_DEPTH - (z_ry + G18_TAP_DEPTH + 2.4) >= 2.0),
     ("rear plug groove behind the pocket, ahead of the flange", rp_groove_z[1] <= z_floor - 2.0 and rp_groove_z[0] >= z_te + 2.0),
     ("spigot inside the socket, clear of its lead-in", z_sp + 2.0 <= z_sock - LEAD_CHAMFER),
     ("barrel on the shoulder, clear of the spigot and the socket", G.no_overlap(sr, barrel) and z_spg0 > z_sh),
     ("tie rods: M3 at %.0f MPa with rear plug and seat ring pushing at once (%.0f + %.0f N at %.0f bar)"
      % (TIE_SIGMA, F_rp, F_ring, P_MAX_BAR), TIE_SIGMA <= 150.0),
-    ("rear yoke bends at <= 20 MPa at %.0f bar (%.0f)" % (P_MAX_BAR, YOKE_SIGMA), YOKE_SIGMA <= 20.0),
+    ("rear plug's ears bend at <= 20 MPa at %.0f bar (%.0f)" % (P_MAX_BAR, YOKE_SIGMA), YOKE_SIGMA <= 20.0),
     ("tie rods clear of the tube and the plugs",
      TIE_R - TIE_HOLE / 2 >= CH_OD / 2 + 0.3 and G.no_overlap(hardware, G.fuse_all([chamber, rp, fp]))),
-    ("yokes and muzzle ring valid single solids, clear of plugs and barrel",
-     all(G.single_solid(s) for s in (rear_yoke, front_yoke, muzzle_ring))
-     and G.no_overlap(rear_yoke, rp) and G.no_overlap(front_yoke, fp) and G.no_overlap(muzzle_ring, barrel)),
+    ("front yoke and muzzle ring valid single solids, clear of the front plug and barrel",
+     all(G.single_solid(s) for s in (front_yoke, muzzle_ring))
+     and G.no_overlap(front_yoke, fp) and G.no_overlap(muzzle_ring, barrel)),
     ("front yoke on the front plug's flange, inside the sleeve's length", abs(front_yoke.BoundBox.ZMin - z_fs) < 1e-6
      and z_fy1 <= z_fp_end),
     ("pack: footprint >= %.1f mm off the neighbours' (hex %.1f, square %.1f)" % (PACK_CLEAR, pack_gap["hex"], pack_gap["square"]),
@@ -657,8 +666,9 @@ checks = [
     ("muzzle sleeve prints standing, %.0f mm on a %.0f bed" % (z_sl1 - z_sl0, BED_H), z_sl1 - z_sl0 <= BED_H - 6),
     ("muzzle sleeve clear of the front yoke's nuts, Ø%.0f in a pack at pitch %.0f" % (SLEEVE_OD, PACK_PITCH),
      z_m0 - _skirt_h >= z_fy1 + WASHER_T + NUT_T + 2.0 and SLEEVE_OD <= PACK_PITCH - 4.0),
-    ("plugs no wider than the chamber tube (the O-ring cone goes over them)",
-     max(rp.BoundBox.XMax, fp.BoundBox.XMax) <= CH_OD / 2 + 1e-6),
+    ("front plug no wider than the chamber tube (the O-ring cone goes over it)", fp.BoundBox.XMax <= CH_OD / 2 + 1e-6),
+    ("pilot fitting's hex and body clear of the rear plug behind its back face (a wrench gets at the hex)",
+     G.no_overlap(fitting.common(cyl(100, z_ry - 50, z_ry)), rp) and fitting.BoundBox.ZMax <= z_ry + G18_TAP_DEPTH),
     ("drilling template valid single solid", G.single_solid(jig_guide)),
     ("O-ring cone: mouth over the free ring (Ø%.1f > %.1f), exit under the bore (Ø%.1f < %.1f), taper <= 10 deg"
      % (_cone_in, _o_free, _cone_out, CH_ID),
@@ -682,7 +692,7 @@ report = [
     "  dead volume behind ball: %.1f cm3" % dead_v,
     "  chamber                : %.0f cm3, tube %.0f x %.1f aluminium, %.0f mm long, %.0f g"
     % (chamber_v, CH_OD, CH_WALL, chamber_len, (area(CH_OD) - area(CH_ID)) * chamber_len * 2.70e-3),
-    "  module                 : Ø%.0f (ears %.0f across), %.0f mm long with a %.0f mm barrel, yoke to the muzzle %s"
+    "  module                 : Ø%.0f (ears %.0f across), %.0f mm long with a %.0f mm barrel, rear plug to the muzzle %s"
     % (CH_OD, 2 * (TIE_R + EAR_R), max(z_front, z_sh + BARREL_LEN) - z_ry, BARREL_LEN,
        "clamp" if MUZZLE_CLAMP else "ring"),
     "  @ %.0f bar               : rear plug %.0f N back, front plug %.0f N forward, both on the rods; pilot pushes the"
@@ -691,9 +701,9 @@ report = [
        "clamp" if MUZZLE_CLAMP else "ring"),
     "  tie rods               : 2 x M3 threaded rod %.0f mm at R%.1f, %.0f / %.0f deg; 6 nuts, 6 washers Ø%.0f;"
     " no glue, nothing screwed into the barrel or drilled through the tube" % (tie_len, TIE_R, *TIE_ANGLES, WASHER_D),
-    "  yokes, muzzle ring     : rear yoke %.0f thick behind the rear plug (hole Ø%.1f for the fitting), front yoke %.0f"
+    "  ears, muzzle ring      : rear plug's ears %.0f thick behind its flange (G1/8 on its back face), front yoke %.0f"
     " on the front plug's flange, muzzle ring %.0f (counterbore %.0f over the barrel's end)"
-    % (YOKE_T, FITTING_HOLE_D, YOKE_T, MUZZLE_T, MUZZLE_CB - 0),
+    % (YOKE_T, YOKE_T, MUZZLE_T, MUZZLE_CB - 0),
     "  muzzle clamp           : collar %.0f long at %.0f from the shoulder, Ø%.1f bore closed over %.1f mm of tape, two"
     " halves split at %.0f / %.0f deg, 4 x M3 x 12 across the seam; holds %.0f N, squeezes %.1f MPa%s"
     % (CLAMP_W, CLAMP_AT, 2 * _cb_r, CLAMP_LINER, _sa, _sa + 180, cl_hold, cl_p,
@@ -721,9 +731,6 @@ orings = G.fuse_all([
     torus(sp_root_r + SP_ORING[1] / 2, SP_ORING[1], z_spg2 - GROOVE_W * SP_ORING[1] / 2),
     torus(br_root_r - BR_ORING[1] / 2, BR_ORING[1], fp_bgroove_z[1] - GROOVE_W * BR_ORING[1] / 2),
 ])
-fitting = G.push_in_fitting(0, 0, 0)
-fitting.rotate(V(0, 0, 0), X, 180)
-fitting.translate(V(0, 0, z_rp))
 ball = Part.makeSphere(BARREL_ID / 2, V(0, 0, z_sp + math.sqrt((BARREL_ID / 2) ** 2 - (SP_BORE / 2) ** 2)))   # on the spigot's tip
 
 # ---------------------------------------------------------------- document
@@ -732,7 +739,7 @@ if not STAGE3V4_LIBRARY:
     sc = FV.Scene(NAME)
     doc = sc.doc
     for n, s, style in (("Rear_plug", rp, "stator"), ("Seat_ring", sr, "rotor"), ("Diaphragm", diaphragm, "shoe"),
-                        ("Front_plug", fp, "stator"), ("Rear_yoke", rear_yoke, "stator"),
+                        ("Front_plug", fp, "stator"),
                         ("Front_yoke", front_yoke, "stator"),
                         ("Muzzle_ring", muzzle_clamp if MUZZLE_CLAMP else muzzle_ring, "stator")):
         sc.add("Printed", n, s, style)
@@ -742,9 +749,9 @@ if not STAGE3V4_LIBRARY:
         sc.add("Bought", n, s, style)
     half = Part.makeBox(100, 50, 1200, V(-50, -50, -600))
     for n in ("Rear_plug", "Seat_ring", "Diaphragm", "Front_plug", "Barrel_tube", "Chamber_tube", "ORings", "Ball",
-              "Pilot_fitting", "Rear_yoke", "Front_yoke", "Muzzle_ring", "Tie_rods"):
+              "Pilot_fitting", "Front_yoke", "Muzzle_ring", "Tie_rods"):
         style = dict(Rear_plug="stator", Seat_ring="rotor", Diaphragm="shoe", Front_plug="stator", ORings="oring",
-                     Ball="flow", Pilot_fitting="steel", Rear_yoke="stator", Front_yoke="stator", Muzzle_ring="stator",
+                     Ball="flow", Pilot_fitting="steel", Front_yoke="stator", Muzzle_ring="stator",
                      Tie_rods="steel").get(n, "ghost")
         sc.add("Section", "Sec_" + n, sc.src[n].cut(half), style)
     for text, pos in [
@@ -753,8 +760,8 @@ if not STAGE3V4_LIBRARY:
         ("ПЕРЕДНЯЯ ПРОБКА", (40, 0, z_tf + 5)),
         ("КОЛЬЦО СЕДЛА: седло Ø%.0f" % SEAT_D, (40, 0, 10)),
         ("МЕМБРАНА Ø%.1f" % (2 * DIA_R), (40, 0, 0)),
-        ("ЗАДНЯЯ ПРОБКА: пилот G1/8 -> M3R110 A", (40, 0, z_rp)),
-        ("ЯРМО + 2 шпильки M3 x %.0f" % tie_len, (40, 0, z_ry - 5)),
+        ("ЗАДНЯЯ ПРОБКА с ушами: пилот G1/8 -> M3R110 A", (40, 0, z_rp)),
+        ("2 шпильки M3 x %.0f" % tie_len, (40, 0, z_ry - 5)),
         ("ДУЛЬНЫЙ ХОМУТ: 2 половинки, 4 x M3 x 12 поверх изоленты" if MUZZLE_CLAMP else "ДУЛЬНОЕ КОЛЬЦО",
          (40, 0, max(z_front, z_m1) + 5)),
     ]:
@@ -783,7 +790,7 @@ if not STAGE3V4_LIBRARY:
             os.path.join(OUT_DIR, name + ".stl"))
 
     for n, s, flip in (("rear_plug", rp, False), ("seat_ring", sr, False), ("front_plug", fp, True),
-                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("rear_yoke", rear_yoke, False), ("front_yoke", front_yoke, True),
+                       ("diaphragm", diaphragm_free, False), ("jig_guide", jig_guide, False), ("front_yoke", front_yoke, True),
                        ("muzzle_ring", muzzle_ring, True), ("muzzle_sleeve", muzzle_sleeve, False),
                        ("muzzle_clamp_half", muzzle_clamp_half, True),
                        ("oring_cone", oring_cone, True)):

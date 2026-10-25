@@ -81,7 +81,7 @@ Y = V(0, 1, 0)
 O = V(0, 0, 0)
 
 # ---------------------------------------------------------------- parameters
-Z0 = -228.0                 # head plate's front face (the bench base's top): block's top at Z0 + 123 = -105
+Z0 = -236.0                 # head plate's front face (the bench base's top): block's top at Z0 + 123 = -113
 HP_T = 10.0
 HP_R = 98.0                 # the disc; rail lugs outside it
 TAB = (60.0, -124.0)        # grip tab underneath: width across x, lower edge
@@ -368,7 +368,7 @@ mods = module_parts(key)
 add("Pack", tag + "_rails", Part.makeCompound(rail_parts), "alu")
 for side in ("rear", "front"):
     add("Pack", tag + "_%s_plate" % side, plate(key, side)[0], "frame")
-for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle")), ("ghost", ("chamber",)),
+for style, names in (("stator", ("rp", "fp", "front_yoke", "muzzle")), ("ghost", ("chamber",)),
                      ("barrel", ("barrel",)), ("steel", ("hardware", "fitting"))):
     add("Pack", tag + "_" + "_".join(names), Part.makeCompound([m[n] for m in mods for n in names]), style)
 sc.finish(hidden_groups=("Pulled",))

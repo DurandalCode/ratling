@@ -190,8 +190,8 @@ for tag, (key, mods, ports, hoses, z_mod, z_head) in built.items():
     d_mod = 1e9
     for h in hoses:
         for k, m in enumerate(mods):
-            for part in ("rp", "rear_yoke", "hardware", "fitting"):
-                if k == h["module"] and part in ("fitting", "rear_yoke", "rp"):
+            for part in ("rp", "hardware", "fitting"):
+                if k == h["module"] and part in ("fitting", "rp"):
                     continue
                 if near(h["solid"], m[part]):
                     d_mod = min(d_mod, wall(h["solid"], m[part]))
@@ -279,7 +279,7 @@ add("Head", "Head_plate", hp if SHOW_TAG == "A16" else _rf19["hp"], "frame", off
 add("Pack", SHOW_TAG + "_rails", Part.makeCompound(rail_parts), "alu")
 add("Pack", SHOW_TAG + "_rear_plate", plate(key, "rear")[0], "frame")
 add("Pack", SHOW_TAG + "_chambers", Part.makeCompound([m["chamber"] for m in mods]), "ghost")
-for style, names in (("stator", ("rp", "rear_yoke")), ("steel", ("hardware", "fitting"))):
+for style, names in (("stator", ("rp",)), ("steel", ("hardware", "fitting"))):
     add("Module_rears", SHOW_TAG + "_" + "_".join(names), Part.makeCompound([m[nm] for m in mods for nm in names]), style)
 sc.finish()
 sc.doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))

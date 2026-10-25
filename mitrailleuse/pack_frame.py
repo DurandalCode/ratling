@@ -7,25 +7,27 @@ The first real part of concept A (mitrailleuse_concepts.py draws it as masses). 
 layout J) and at 19 (hex, layout G). The rails are the same for both; only the two plates change.
 Frame as in mitrailleuse_concepts.py: z along the barrels (+z to the muzzle), y up, x to the gunner's left.
 
-    rear plate .. round the modules' rear plugs. Its rear face is the rear plug's back face, so the rear
-                  yoke's ears (outside the Ø38 tube) land on it: a module cannot move forward.
+    rear plate .. round the modules' rear plugs' flanges. Its rear face is the flange's back face, so the
+                  rear plug's ears (outside the Ø38 tube; the rear yoke grew into the plug in v4.4 rear) land on
+                  it: a module cannot move forward.
     front plate . round the front plugs' flanges. Its front face is the front plug's flange, so the front
                   yoke's ears land on it: a module cannot move back.
-                  The plates are stops beside the module's own stack (nut - yoke - plug), never in it: the
-                  yoke still sits on its plug, the rods and nuts are the module's, nothing changes in v4.4.
+                  The plates are stops beside the module's own stack (nut - ears - plug), never in it: the
+                  rods and nuts are the module's.
                   Per module a Ø38 + 2 HOLE_CLEAR hole with a notch at each rod (the rod is 0.5 mm off the
                   tube's hole, so the two are one cut), turned as the pack turns its rods (docs/pack.md). A
                   lug round each rail.
     rails ....... 4 aluminium tubes 12 x 1 at RAIL_R, 45 deg off the axes, from the head plate's
-                  back face (RAIL_Z0, rear_frame.py) to the front plate's face. Clear of every yoke ear, nut and fitting at 16 and 19.
+                  back face (RAIL_Z0, rear_frame.py) to the front plate's face. Clear of every ear, nut and fitting at 16 and 19.
     set screws .. one M3 x 8 grub screw per lug, radial onto the rail through a nut dropped into a pocket on
                   the plate's top face: the plates slide on the rails until they are set.
 
-Assembly: plates loose on the rails. Each module's core (plugs, tube, seat ring, barrel) goes in from the
-front, through the front plate and the rear plate, until the rear plug's back face is level with the rear
-plate's. Then the module is finished in place as in its own docstring: rear yoke over the fitting, front
-yoke over the front plug's sleeve, muzzle ring, rods from the front through the yokes, both plates and the
-ring, nuts. Last, push the plates out onto the yokes and set the grub screws. Cut all chamber tubes to one
+Assembly: plates loose on the rails, the head plate not on them yet. Each module's core (plugs, tube, seat
+ring, barrel) goes in from the rear, through the rear plate and the front plate, until the rear plug's ears
+land on the rear plate (they do not pass it). Then the module is finished in place as in its own docstring:
+front yoke over the front plug's sleeve, muzzle clamp, rods from the front through the clamp, the yoke, both
+plates and the rear plug's ears, nuts. Push the plates out onto the ears and the yokes, set the grub screws,
+then slide the head plate on. Cut all chamber tubes to one
 length in one stop: their spread is the play a module has between the plates.
 
 Run inside FreeCAD (or freecadcmd):
@@ -85,7 +87,7 @@ RAIL = (12.0, 1.0)          # aluminium tube, OD x wall
 RAIL_R = 104.0              # rail axes off the pack's axis, the same at 16 and 19 (J is the tighter: 4.7 mm)
 RAIL_ANGLES = (45.0, 135.0, 225.0, 315.0)
 RAIL_HOLE = 12.3
-RAIL_Z0 = -238.0            # rear end: the head plate's back face (rear_frame.py, Z0 - HP_T)
+RAIL_Z0 = -246.0            # rear end: the head plate's back face (rear_frame.py, Z0 - HP_T)
 LUG_R = 12.5                # round the rail
 RAIL_CLEAR = 1.0            # rail to any module part, along its whole length
 GRUB = (3.4, 8.0)           # M3 grub screw: hole, length
@@ -128,7 +130,7 @@ def place(shape, x, y, a):
 def module_parts(key):
     """The v4.4 parts of every module in the pack, placed: [{name: shape}] in layout order."""
     pts = LAYOUT[key]
-    names = ("rp", "fp", "chamber", "barrel", "sr", "rear_yoke", "front_yoke", "muzzle", "hardware", "fitting")
+    names = ("rp", "fp", "chamber", "barrel", "sr", "front_yoke", "muzzle", "hardware", "fitting")
     return [{n: place(M[n], x, y, a) for n in names} for (x, y), a in zip(pts, rod_angles(key, pts))]
 
 
@@ -229,17 +231,17 @@ for tag, (key, mods, plates) in built.items():
                                1e-3, True) for a in RAIL_ANGLES for sx in (-1, 1)), "%s %s plate one solid, round every rail" % (tag, side))
         check(max(bb.XLength, bb.YLength) <= BED - 4, "%s %s plate %.0f x %.0f x %.0f fits the %.0f bed"
               % (tag, side, bb.XLength, bb.YLength, bb.ZLength, BED))
-        near = ("rp", "chamber", "hardware", "rear_yoke") if side == "rear" else ("fp", "chamber", "hardware",
+        near = ("rp", "chamber", "hardware") if side == "rear" else ("fp", "chamber", "hardware",
                                                                                    "front_yoke")
         sample = mods[:2] + mods[len(mods) // 2:len(mods) // 2 + 1] + mods[-2:]      # a 3D cut per module is slow
         worst = max(s.common(m[p]).Volume for m in sample for p in near)
         check(worst < 1e-2, "%s %s plate clear of the modules' plugs, tubes, rods and yokes (worst %.3f mm3)"
               % (tag, side, worst))
-        # the yoke's ears land on the plate's face: contact area per module
-        yoke = "rear_yoke" if side == "rear" else "front_yoke"
+        # the ears (the rear plug's, the front yoke's) land on the plate's face: contact area per module
+        yoke = "rp" if side == "rear" else "front_yoke"
         dz = 0.05 if side == "rear" else -0.05          # the yoke pushed into the plate by dz: area = volume / dz
         land = min(s.common(m[yoke].translated(V(0, 0, dz))).Volume / abs(dz) for m in sample)
-        check(land >= 20.0, "%s %s plate: each %s lands on it over %.0f mm2" % (tag, side, yoke.replace("_", " "),
+        check(land >= 20.0, "%s %s plate: each %s lands on it over %.0f mm2" % (tag, side, "rear plug's ears" if yoke == "rp" else "front yoke",
                                                                                  land))
         lines.append("  %s %s plate: Ø%.0f + 4 rail lugs, %.0f mm, %.0f cm3 (%.0f-%.0f g)"
                      % (tag, side, 2 * r_disc, PLATE_T, s.Volume / 1000, s.Volume / 1000 * DENSITY["printed"],
@@ -253,7 +255,7 @@ for tag, (key, mods, plates) in built.items():
         for (x, y), m in zip(LAYOUT[key], mods):
             if math.hypot(c.x - x, c.y - y) > 60:
                 continue
-            for p in ("rp", "fp", "chamber", "rear_yoke", "front_yoke", "muzzle", "hardware", "fitting"):
+            for p in ("rp", "fp", "chamber", "front_yoke", "muzzle", "hardware", "fitting"):
                 d_rail = min(d_rail, r.distToShape(m[p])[0])
     check(d_rail >= RAIL_CLEAR, "%s: rails %.1f mm clear of every yoke ear, nut, plug and fitting" % (tag, d_rail))
     lines.append("  %s: %d modules, play between plates = spread of the chamber tubes' length" % (tag, n))
@@ -285,7 +287,7 @@ if not PACK_FRAME_LIBRARY:
         for side, (s, _) in plates.items():
             sc.add(grp + "_frame", "%s_%s_plate" % (tag, side), s, "frame", offset=V(2 * dx[tag], 0, 0))
         sc.add(grp + "_frame", tag + "_rails", Part.makeCompound(rail_parts), "alu", offset=V(2 * dx[tag], 0, 0))
-        for style, names in (("stator", ("rp", "fp", "rear_yoke", "front_yoke", "muzzle", "sr")),
+        for style, names in (("stator", ("rp", "fp", "front_yoke", "muzzle", "sr")),
                              ("ghost", ("chamber",)), ("barrel", ("barrel",)), ("steel", ("hardware", "fitting"))):
             sc.add(grp + "_modules", "%s_%s" % (tag, "_".join(names)), Part.makeCompound([m[n] for m in mods for n in names]),
                    style, offset=V(2 * dx[tag], 0, 0))
