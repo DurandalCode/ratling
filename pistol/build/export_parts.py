@@ -49,6 +49,12 @@ GROUPS = {
     "standard": "--infill 30% --walls 4",
 }
 
+# The bolt as printed: BOLT_CLEAR smaller a side than the channel cut from it in the housing (the tip keeps its flat and 45 deg flanks).
+BOLT_CLEAR = 0.25
+_hw, _tw, _top = BOLT[1] / 2 - BOLT_CLEAR, BOLT_TIP / 2, -HUB_R + BOLT_DEPTH
+detent_bolt_print = prism_x([(-_hw, _top - BOLT_LEN), (_hw, _top - BOLT_LEN), (_hw, _top - (_hw - _tw)), (_tw, _top), (-_tw, _top),
+                             (-_hw, _top - (_hw - _tw))], HUB_X0 + BOLT_X0 + BOLT_CLEAR, HUB_X0 + BOLT_X0 + BOLT[0] - BOLT_CLEAR)
+
 # name, shape, the part's direction that goes down onto the bed, group, note
 PARTS = [
     ("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
@@ -59,7 +65,7 @@ PARTS = [
     ("sector", sector_base, -X_, "strong", "on the axle in front of the lock housing; the slider's pin in its arm"),
     ("pawl", pawl_tooth, -X_, "strong", "the sector's sprung tooth (a Ø3 pen spring behind it)"),
     ("slider", SLIDER_H, -Y_, "strong", "runs on the Ø3 guide rod; its pin (Ø3 steel) in the sector's arm"),
-    ("detent_bolt", turned(bolt_shape(0.0), -(DETENT_ANGLE + 90)), Y_, "strong", "V tip; a Ø4 pen spring behind it; on its side (it is drawn turned to the detent's angle)"),
+    ("detent_bolt", detent_bolt_print, Y_, "strong", "V tip; a Ø4 pen spring behind it; on its side; %.2f mm smaller than its channel a side (the first print would not go in)" % BOLT_CLEAR),
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 12 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
