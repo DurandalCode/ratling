@@ -4,8 +4,8 @@ Ratling pistol bench, a try: no lock at all, the sleeve printed into the housing
 
 The lock exists to close the 4 mm gap between the lock housing and the hub while the shot goes and to open it for
 the turn. If the sleeve is a fixed ring that stops NOSE_GAP short of the hub, the block turns without touching it
-and the shot leaks only through that slit. So the housing grows the sleeve's nose (NOSE_D out, SEAT_D bore) as one
-print: no sleeve, no pusher, no O-ring, no lugs or slots, no lock screw, no cam, no fit to tune.
+and the shot leaks only through that slit. So the housing is a plain block with a through SEAT_D bore that ends in the sleeve's nose (NOSE_D out) as one
+print, without the pockets for the flange and tube: no sleeve, no pusher, no O-ring, no lugs or slots, no lock screw, no cam, no fit to tune.
 
 Only the lock is built here: valve, the housing with the nose, the housing screws, the block, the axle. Writes
 exports/pistol_bench_fixed_nose/ and leaves pistol_bench/ alone.
@@ -38,7 +38,15 @@ except NameError:
 # ---------------------------------------------------------------- housing with the nose
 x_nose = HUB_X0 - NOSE_GAP
 nose = cyl_x(NOSE_D, -GAP - 1.0, x_nose, 0, Z_FIRE).cut(cyl_x(SEAT_D, -GAP - 2.0, x_nose + 1.0, 0, Z_FIRE))
-housing = lock_housing_plain.fuse(nose).removeSplitter()
+# lock_housing_plain minus the pockets for the sleeve's flange and tube: here the bore is a plain through channel
+housing = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
+           .common(box(-GAP - LOCK_H - 1, -GAP + 1, -30, 30, Z_FIRE - 30, Z_FIRE + BREECH_FLAT_X))
+           .fuse(nose)
+           .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, x_nose + 1.0, 0, Z_FIRE))
+           .cut(Part.makeCompound([cyl_x(BREECH_BOLT_HOLE, -GAP - LOCK_H - 1, -GAP + 1,
+                                         -BREECH_BOLT_R * math.sin(math.radians(a)),
+                                         Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))) for a in LOCK_BOLTS]))
+           .removeSplitter())
 
 screws = {}
 for n_, a_ in enumerate(LOCK_BOLTS, 1):
