@@ -19,7 +19,8 @@ it as they are (pistol/build/export_parts.py), and one printed frame does what t
     detent ...... an arm on the left carries the pistol's detent box: its V bolt and Ø4 pen spring click
                   the block into each of the six barrels when it is turned by hand
 
-Writes exports/pistol_bench/bench_frame.stl (rear plate on the bed) and a document with the bench.
+Writes exports/pistol_bench/bench_frame.stl (rear plate on the bed) and a document with the bench. The document
+also has a group Hardware: every bolt, nut and stud at its real size, checked against the holes it goes through.
 
 Run inside FreeCAD (it builds pistol/hammer_assembly.py first, about two minutes):
     REPO = '/Users/<you>/ratling'
@@ -153,6 +154,75 @@ checks = {
     # the distance, not BoundBox.ZMax: the body's box is loose (ZMax 22.2, its top is at 14.0)
     "beam over the axle and the body (>= 1 mm: %.1f, %.1f)" % beam_gap: min(beam_gap) >= 1.0,
 }
+# ---------------------------------------------------------------- hardware: every bolt, nut and stud the bench stands on
+# Steel shapes at their real sizes, in the position they hold when the bench is assembled (lock screw: sleeve seated).
+# Not printed; they are in the document (group Hardware) and in the checks, so a bolt that hits a part shows up here.
+M3_HEAD, M4_HEAD = (5.5, 3.0), (7.0, 4.0)       # socket head: diameter, height
+TIE_LEN, LOCK_SCREW_L, STRAP_BOLT_L = 60.0, 20.0, 40.0
+
+
+def hex_x(af, x_start, t, y, z, rot=0.0):
+    r_ = af / 2 / math.cos(math.radians(30))
+    return Part.Face(Part.makePolygon([V(x_start, y + r_ * math.cos(math.radians(60 * k + rot)),
+                                         z + r_ * math.sin(math.radians(60 * k + rot))) for k in range(7)])).extrude(V(t, 0, 0))
+
+
+hardware = {}
+for n_, (y_, z_) in enumerate(rod_yz, 1):
+    # M4 x 60 from the plate's back face: head on the plate, through the cap and the body to the nut in its pocket
+    hardware["Tie_rod_M4x60_%d" % n_] = cyl_x(4.0, x0, x0 + TIE_LEN, y_, z_).fuse(cyl_x(M4_HEAD[0], x0 - M4_HEAD[1], x0, y_, z_))
+    nut_x = X_BODY_TOP - NUT_POCKET_DEPTH + 1.1       # pocket floor + the rubber washer (stage3_qev.py's rod_len)
+    hardware["Tie_nut_M4_%d" % n_] = hex_x(NUT_AF, nut_x, NUT_T, y_, z_, rot=30.0).cut(cyl_x(4.0, nut_x - 1, nut_x + NUT_T + 1, y_, z_))
+for n_, x_ in enumerate(STRAP_BOLTS, 1):
+    hardware["Strap_bolt_M3x40_%d" % n_] = (Part.makeCylinder(1.5, STRAP_BOLT_L, V(x_, 0, STRAP["z"][1] - STRAP_BOLT_L), ZA)
+                                            .fuse(Part.makeCylinder(M3_HEAD[0] / 2, M3_HEAD[1], V(x_, 0, STRAP["z"][1]), ZA)))
+for n_, a_ in enumerate(LOCK_BOLTS, 1):
+    # M3 x 30 self-tapping, head on the housing's front face, into the body's breech pilots
+    y_, z_ = -BREECH_BOLT_R * math.sin(math.radians(a_)), Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a_))
+    hardware["Lock_housing_screw_M3x30_%d" % n_] = (cyl_x(3.0, -GAP - 30.0, -GAP, y_, z_)
+                                                    .fuse(cyl_x(M3_HEAD[0], -GAP, -GAP + M3_HEAD[1], y_, z_)))
+screw_tip = pin_locked.BoundBox.XMin
+hardware["Lock_screw_M3x20"] = (cyl_x(3.0, screw_tip - LOCK_SCREW_L, screw_tip, y_pin, Z_FIRE)
+                                .fuse(cyl_x(M3_HEAD[0], screw_tip - LOCK_SCREW_L - M3_HEAD[1], screw_tip - LOCK_SCREW_L, y_pin, Z_FIRE)))
+hardware["Lock_screw_nut_M3"] = (hex_x(SCREW["nut_af"], nx - SCREW["nut_t"] / 2, SCREW["nut_t"], y_pin, Z_FIRE)
+                                 .cut(cyl_x(3.0, nx - 2, nx + 2, y_pin, Z_FIRE)))
+hardware["Axle_stud_M6_cap_nut"] = axle_cap
+hardware["Axle_nut_M6"] = hex_x(10.0, X_AXLE_END - 5.2, 5.0, 0, 0).cut(cyl_x(6.0, X_AXLE_END - 6, X_AXLE_END, 0, 0))
+
+tie_names = [k_ for k_ in hardware if k_.startswith("Tie_rod")]
+tie_nuts = [k_ for k_ in hardware if k_.startswith("Tie_nut")]
+strap_names = [k_ for k_ in hardware if k_.startswith("Strap_bolt")]
+lock_scr = [k_ for k_ in hardware if k_.startswith("Lock_housing_screw")]
+sectors = [turned(sector_base, sector_turn(c_)) for c_ in (0.0, 0.25, 0.5, 0.75, 1.0)]
+tie_tip, nut_top = x0 + TIE_LEN, nut_x + NUT_T
+checks.update({
+    "tie rods in the holes of the plate, cap and body (no overlap)":
+        all(hit(hardware[k_], m_) < 0.05 for k_ in tie_names for m_ in (frame_b, valve_cap, valve_body)),
+    "tie nuts sit in the body's pockets (no overlap)": all(hit(hardware[k_], valve_body) < 0.05 for k_ in tie_nuts),
+    # M4 x 55 would reach the nut (needs x0 + L >= nut top + 1); the x 60 of the README sticks out beside the lock housing
+    "tie rod tip past the nut (%.1f > %.1f) and clear of the lock housing and the frame" % (tie_tip, nut_top):
+        nut_top + 1.0 <= tie_tip and all(hit(hardware[k_], s_) < 0.05 for k_ in tie_names for s_ in (lock_housing_h, frame_b)),
+    "strap bolts clear of the strap's holes and the axle":
+        all(hit(hardware[k_], s_) < 0.05 for k_ in strap_names for s_ in (top_strap, axle)),
+    "strap bolt tip inside the beam (%.1f >= %.1f)" % (STRAP["z"][1] - STRAP_BOLT_L, BEAM["z"][0]):
+        STRAP["z"][1] - STRAP_BOLT_L >= BEAM["z"][0] - 0.01,
+    "housing screws clear of the housing's holes": all(hit(hardware[k_], lock_housing_h) < 0.05 for k_ in lock_scr),
+    "housing screw heads clear of the block, turned 0..60, and of the sector":
+        all(hit(hardware[k_], s_) < 0.05 for k_ in lock_scr for s_ in list(moving.values()) + sectors),
+    "lock screw clear of the frame's hole, the cap, the housing, the pusher and the sleeve":
+        all(hit(hardware["Lock_screw_M3x20"], s_) < 0.05 for s_ in (frame_b, valve_cap, lock_housing_h,
+                                                                    pusher_shape(1.0), lock_sleeve(1.0))),
+    # the screw comes in from behind the nut block (x -27), but the valve body fills x < %.0f at y %.1f: head and shaft
+    # behind the block sit inside it, so the screw cannot be turned from behind
+    "lock screw clear of the valve body (%.0f mm3 inside it)" % hit(hardware["Lock_screw_M3x20"], valve_body):
+        hit(hardware["Lock_screw_M3x20"], valve_body) < 0.05,
+    "lock screw tip on the pin's back (seated, gap %.2f mm)" % (pin_locked.BoundBox.XMin - screw_tip):
+        abs(pin_locked.BoundBox.XMin - screw_tip) < 0.05,
+    "lock screw nut in its trap": hit(hardware["Lock_screw_nut_M3"], frame_b) < 0.05,
+    "M6 stud through the strap and the plug, nut in the plug":
+        all(hit(hardware[k_], s_) < 0.05 for k_ in ("Axle_stud_M6_cap_nut", "Axle_nut_M6") for s_ in (top_strap, axle_plug)),
+})
+
 rod_new = rod_len + PLATE_T
 print(NAME)
 print("  frame: plate %.0f x %.0f x %.0f, beam to x %.1f, volume %.0f cm3" % (
@@ -161,6 +231,9 @@ print("  tie rods: the cap's %d mm + the plate %.0f -> M4 x %d" % (rod_len, PLAT
 print("  lock screw: M3 along x at y %.1f; nut block ends %.1f mm behind the pin (open), %.1f locked; "
       "screw past the block's face: %.1f .. %.1f mm" % (y_pin, screw_tip_gap, screw_tip_gap + LOCK_STROKE,
                                                         screw_tip_gap, screw_tip_gap + LOCK_STROKE))
+print("  hardware: %d x M4 x %d + nut, %d x M3 x %d (strap), %d x M3 x 30 self-tapping (lock housing), M3 x %d + nut (lock), "
+      "M6 stud + cap nut + nut (axle); tie rod tip at x %.1f, nut top %.1f, body top %.1f"
+      % (len(tie_names), TIE_LEN, len(strap_names), STRAP_BOLT_L, len(lock_scr), LOCK_SCREW_L, tie_tip, nut_top, X_BODY_TOP))
 print("  hits (mm3): " + ", ".join("%s %.1f" % kv for kv in hits.items()))
 for k_, v_ in checks.items():
     print("  [%s] %s" % ("OK " if v_ else "FAIL", k_))
@@ -187,6 +260,13 @@ for n, s, c, t in (("Bench_frame", frame_b, NEW, 0), ("Valve_body", valve_body, 
     if App.GuiUp:
         o.ViewObject.ShapeColor = c
         o.ViewObject.Transparency = t
+hw_group = doc.addObject("App::DocumentObjectGroup", "Hardware")
+for n, s in hardware.items():
+    o = doc.addObject("Part::Feature", n)
+    o.Shape = s
+    hw_group.addObject(o)
+    if App.GuiUp:
+        o.ViewObject.ShapeColor = STEEL_C
 doc.recompute()
 doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 print("written to", OUT_DIR)

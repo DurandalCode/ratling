@@ -107,7 +107,10 @@ SLIDER_X = (-9.0, -5.0)             # behind the sector, right of the lock housi
 
 BOLT = (5.0, 6.0)                   # x, y section
 BOLT_X0 = 3.0
-BOLT_DEPTH = 6.0                    # into the rim notch
+BOLT_TIP = 1.0                      # the bolt's flat tip, tangential; its flanks run 45 deg out to the full BOLT[1]
+NOTCH_RIM_W = 8.4                   # the rim notch's width at the rim: V flanks at 45 deg, matched to the bolt's tip
+NOTCH_V_DEPTH = 4.0                 # its depth (a 0.4 mm flat at the bottom)
+BOLT_DEPTH = (NOTCH_RIM_W - BOLT_TIP) / 2   # 3.7: the tip depth at which the bolt's flanks lie flat on the notch's
 RIM_NOTCH = (2.5, 8.5)              # x range of the rim notches (behind the barrel sockets)
 
 TRIGGER_PIVOT = V(-52, 0, -62)
@@ -125,7 +128,7 @@ YOKE_DROP = 52.0                    # slider foot slot this far under the slider
 LEVER_PIVOT = V((SLIDER_X[0] + SLIDER_X[1]) / 2 + LEVER_ARM * (1 + math.cos(math.radians(25))) / 2, 0, -YOKE_DROP)
 LEVER_ARM_Y = (SLIDER_Y[1], SLIDER_Y[1] + 3.0)
 LEVER_BAR_Z = -82.0                 # the lever's bar runs back under the frame at this height
-DETENT_HALF = 6.0                   # deg either side of a notch where the V tip still sits in it
+DETENT_HALF = math.degrees(BOLT_DEPTH / HUB_R)   # ~5 deg either side of a notch: a 45 deg flank lifts the tip BOLT_DEPTH over this arc
 DETENT_ANGLE = -150.0               # under the lower left barrel: the lever's bar has the bottom
 
 # Grip (shared with pistol_assembly.py; the lever's finger loop follows its front)
@@ -259,14 +262,32 @@ def wedge_shape(lift):
 
 
 # ---------------------------------------------------------------- block (turns)
+def prism_x(poly_yz, x0, x1):
+    """A polygon in the (y, z) plane, extruded along x from x0 to x1."""
+    return Part.Face(Part.makePolygon([V(x0, y, z) for y, z in poly_yz + poly_yz[:1]])).extrude(V(x1 - x0, 0, 0))
+
+
+# The rim notch is a V cut in the rim at the bottom (turned to each barrel): 45 deg flanks, so the detent bolt's
+# wedged tip rides out of it by itself when the block turns, and the spring puts it back into the next one.
+_rw = NOTCH_RIM_W / 2
+rim_notch = prism_x([(-_rw - 1, -HUB_R - 1), (_rw + 1, -HUB_R - 1), (_rw - NOTCH_V_DEPTH, -HUB_R + NOTCH_V_DEPTH),
+                     (-_rw + NOTCH_V_DEPTH, -HUB_R + NOTCH_V_DEPTH)], HUB_X0 + RIM_NOTCH[0], HUB_X0 + RIM_NOTCH[1])
+
+
+def bolt_prism(top, length):
+    """The detent bolt, at the bottom: BOLT[0] along x, BOLT[1] wide, its end `length` under the tip at z = top;
+    the last (BOLT[1] - BOLT_TIP) / 2 of it is a wedge with 45 deg flanks down to a BOLT_TIP flat."""
+    hw, tw, wh = BOLT[1] / 2, BOLT_TIP / 2, (BOLT[1] - BOLT_TIP) / 2
+    return prism_x([(-hw, top - length), (hw, top - length), (hw, top - wh), (tw, top), (-tw, top), (-hw, top - wh)],
+                   HUB_X0 + BOLT_X0, HUB_X0 + BOLT_X0 + BOLT[0])
+
+
 hub = cyl_x(2 * HUB_R, HUB_X0, HUB_X0 + HUB_T)
 for i in range(6):
     y, z = polar(R_RING, -90 + 60 * i)
     hub = hub.cut(cyl_x(SEAT_D, HUB_X0 - 1, HUB_X0 + HUB_SEAT + 1, y, z)).cut(
         cyl_x(BARREL_OD + 0.3, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T + 1, y, z))
-    rn = Part.makeBox(RIM_NOTCH[1] - RIM_NOTCH[0], BOLT[1] + 1, BOLT_DEPTH + 1,
-                      V(HUB_X0 + RIM_NOTCH[0], -(BOLT[1] + 1) / 2, -HUB_R - 1))
-    hub = hub.cut(turned(rn, 60 * i))
+    hub = hub.cut(turned(rim_notch, 60 * i))
     a = 60 * i                                          # pawl notches between the barrels
     n = Part.makeBox(NOTCH_DEPTH + 1, NOTCH_W + NOTCH_SLACK, NOTCH_R[1] - NOTCH_R[0], V(HUB_X0 - 1, -NOTCH_W / 2, NOTCH_R[0]))
     hub = hub.cut(turned(n, a - 90))
@@ -311,8 +332,7 @@ def bolt_depth(block_deg):
 
 def bolt_shape(block_deg):
     top = -HUB_R + bolt_depth(block_deg)
-    return turned(box(HUB_X0 + BOLT_X0, HUB_X0 + BOLT_X0 + BOLT[0], -BOLT[1] / 2, BOLT[1] / 2, top - 22, top),
-                  DETENT_ANGLE + 90)
+    return turned(bolt_prism(top, 22), DETENT_ANGLE + 90)
 
 
 # ---------------------------------------------------------------- lever (drawn closed, turned about its pivot)

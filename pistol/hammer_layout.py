@@ -96,8 +96,7 @@ sector_base = sector_base.fuse(turned(_boss, PAWL_A0 - 90)).cut(turned(_bore, PA
 
 def bolt_shape(block_deg):
     top = -HUB_R + bolt_depth(block_deg)
-    return turned(box(HUB_X0 + BOLT_X0, HUB_X0 + BOLT_X0 + BOLT[0], -BOLT[1] / 2, BOLT[1] / 2, top - BOLT_LEN, top),
-                  DETENT_ANGLE + 90)
+    return turned(bolt_prism(top, BOLT_LEN), DETENT_ANGLE + 90)
 
 
 def detent_spring_pocket():
@@ -246,15 +245,32 @@ ring = cyl_x(LOCK_PISTON_D - 0.4, -PUSHER_T / 2, PUSHER_T / 2, 0, Z_FIRE).cut(
     cyl_x(SLEEVE_BORE + 0.6, -5, 5, 0, Z_FIRE))
 lug = box(-PUSHER_T / 2, PUSHER_T / 2, (SLEEVE_BORE + 1) / 2, SLIDER_Y[0] - 0.5, Z_FIRE - 3, Z_FIRE + 3)
 cam_pin = Part.makeCylinder(1.5, 2.5 + 3.0, V(0, SLIDER_Y[0] - 2.5, Z_FIRE), YA)      # 3 mm into the cheek, short of the guide rod
-PUSHER = ring.fuse(lug).fuse(cam_pin)
+try:
+    LOCK_LUG_ANGLES                 # directions of the ring's lugs round the sleeve axis, deg from +y toward +z (set before exec)
+except NameError:
+    LOCK_LUG_ANGLES = (0.0,)        # one, on the right where the slider is; pistol/build/bench_two_lugs.py tries a pair
+
+
+def about_lock_axis(shape, deg):
+    s = shape.copy()
+    s.rotate(V(0, 0, Z_FIRE), XA, deg)
+    return s
+
+
+PUSHER = ring
+for a_ in LOCK_LUG_ANGLES:
+    PUSHER = PUSHER.fuse(about_lock_axis(lug.fuse(cam_pin), a_))
 
 
 def pusher_shape(lk):
     return PUSHER.translated(V(X_OPEN + LOCK_STROKE * lk, 0, 0))
 
 
-lock_housing_h = lock_housing_plain.cut(box(X_OPEN - PUSHER_T / 2 - 0.4, X_LOCKED + PUSHER_T / 2 + 0.4,
-                                      (SLEEVE_BORE + 1) / 2 - 1, 30, Z_FIRE - 3.5, Z_FIRE + 3.5))
+_lug_slot = box(X_OPEN - PUSHER_T / 2 - 0.4, X_LOCKED + PUSHER_T / 2 + 0.4,
+                (SLEEVE_BORE + 1) / 2 - 1, 30, Z_FIRE - 3.5, Z_FIRE + 3.5)
+lock_housing_h = lock_housing_plain
+for a_ in LOCK_LUG_ANGLES:
+    lock_housing_h = lock_housing_h.cut(about_lock_axis(_lug_slot, a_))
 
 # ---------------------------------------------------------------- trigger: one stage, straight onto the vent valve
 # A crescent: concave finger face in front, the tip curled forward like a claw, grooves across the finger face.
