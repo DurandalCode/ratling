@@ -32,6 +32,7 @@ exec(open(os.path.join(REPO, "pistol", "hammer_assembly.py")).read())
 
 NAME = "pistol_detent_test"
 OUT_DIR = os.path.join(REPO, "exports", NAME)
+BOLT_CLEAR = 0.25               # the bolt is this much smaller than its channel on each side (the first print would not go in)
 NOTCH_EXTRA = 0.4               # sector B's notch is this much wider at the rim
 BAND_R0 = 36.0                  # the sector's rim band: HUB_R down to here
 BAND_X1 = HUB_X0 + 11.0         # ... and as thick as the notch needs (notch x 3..9 on the disc)
@@ -76,7 +77,9 @@ base = box(BASE_X0, 0.0, -strip_w, strip_w, z_bot, 9.0)
 tie = box(0.0, bx0 + 0.01, -strip_w, strip_w, z_bot, z_top)                  # the strip to the housing, behind the sector
 peg = cyl_x(PEG_D, BASE_X0, HUB_X0 + ARM_T + 1.0, 0, 0).fuse(cyl_x(PEG_D + 3, BASE_X0, 0.0, 0, 0))
 jig = base.fuse(tie).fuse(housing).fuse(peg).cut(channel).cut(spring).removeSplitter()
-bolt = bolt_prism(-HUB_R + BOLT_DEPTH, BOLT_LEN)
+_hw, _tw, _top = BOLT[1] / 2 - BOLT_CLEAR, BOLT_TIP / 2, -HUB_R + BOLT_DEPTH
+bolt = prism_x([(-_hw, _top - BOLT_LEN), (_hw, _top - BOLT_LEN), (_hw, _top - (_hw - _tw)), (_tw, _top), (-_tw, _top),
+                (-_hw, _top - (_hw - _tw))], HUB_X0 + BOLT_X0 + BOLT_CLEAR, HUB_X0 + BOLT_X0 + BOLT[0] - BOLT_CLEAR)   # 45 deg flanks kept
 
 # ---------------------------------------------------------------- checks
 turns = [turned(sec_a, a_) for a_ in range(0, 61, 5)]
