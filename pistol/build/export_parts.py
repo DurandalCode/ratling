@@ -57,9 +57,7 @@ detent_bolt_print = prism_x([(-_hw, _top - BOLT_LEN), (_hw, _top - BOLT_LEN), (_
 
 # name, shape, the part's direction that goes down onto the bed, group, note
 PARTS = [
-    ("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
-    ("lock_sleeve", lock_sleeve(1.0), X_, "airtight", "nose down (the sealing face on the bed, the flange chamfered over it); plain, no O-ring; the pusher glued to its flange"),
-    ("lock_pusher", pusher_shape(1.0), -X_, "strong", "ring behind the sleeve's flange; its cam pin: a Ø3 steel pin"),
+    ("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing, no lock: a plain Ø16 through bore ending in the sleeve's nose, 0.3 mm off the hub; flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
     ("block_rear_disc", hub, -X_, "standard", "breech seats on the bed; barrels glued 5 mm into it"),
     ("block_front_disc", front_plate, X_, "standard", "barrels glued into it"),
     ("sector", sector_base, -X_, "strong", "on the axle in front of the lock housing; the slider's pin in its arm"),
@@ -78,6 +76,10 @@ PARTS = [
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),
     ("axle_plug", axle_plug, X_, "airtight", "flange on the bed; in the axle's front end on a 19 x 2.5 O-ring; an M6 nut epoxied in its pocket"),
 ]
+if not LOCKLESS:                # the old lock: a sleeve with a pusher behind its flange
+    PARTS[0:1] = [("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
+                  ("lock_sleeve", lock_sleeve(1.0), X_, "airtight", "nose down (the sealing face on the bed, the flange chamfered over it); plain, no O-ring; the pusher glued to its flange"),
+                  ("lock_pusher", pusher_shape(1.0), -X_, "strong", "ring behind the sleeve's flange; its cam pin: a Ø3 steel pin")]
 _ref = "exports/stage3_qev_v13" if VALVE == "v13" else "exports/stage3_qev"
 REFERENCE = [(VALVE + "_body", _ref + "/body.stl", "airtight", "Stage 3 %s body (module/stage3_qev.py)" % VALVE),
              (VALVE + "_cap", _ref + "/cap.stl", "airtight", "Stage 3 %s cap" % VALVE)]

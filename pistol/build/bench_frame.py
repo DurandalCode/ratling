@@ -39,6 +39,7 @@ try:
 except NameError:
     REPO = os.path.expanduser("~/ratling")
 VALVE = "v13"
+LOCKLESS = False                 # this bench is about the old lock (sleeve, pusher)
 exec(open(os.path.join(REPO, "pistol", "hammer_assembly.py")).read())
 
 NAME = "pistol_bench"

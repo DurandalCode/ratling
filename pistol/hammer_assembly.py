@@ -400,7 +400,7 @@ def hit(a, b):
 
 
 rest = pose(REST)
-moving = ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Hammer", "Sleeve", "Pusher", "Trigger")
+moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Hammer", "Sleeve", "Pusher", "Trigger") if n_ in rest)
 worst = {}
 for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
     for tg in (0.0, 1.0):

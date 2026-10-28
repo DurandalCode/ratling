@@ -4,9 +4,16 @@ Ratling six-barrel pistol: mechanism layout, thumb-hammer variant.
 
 The lever variant (pistol/mech_layout.py) needs both hands; this one is
 worked by one: the thumb pulls a hammer back and lets it go, the trigger
-fires. The block, its ratchet, detent, lock sleeve and the v1.1 valve come
-from mech_layout.py unchanged; only what drives them is new. No air is
-spent on anything but the shot.
+fires. The block, its ratchet, detent and the v1.1 valve come from
+mech_layout.py unchanged; only what drives them is new. No air is spent on
+anything but the shot.
+
+LOCKLESS (default True): no lock at all. The lock housing carries the
+sleeve's nose as one print, a plain Ø16 through bore ending 0.3 mm off the
+hub, so the block turns freely and the shot leaks only through that slit
+(it shot well on the bench). There is no sleeve, no pusher, no cam slot in the
+slider and no lug slot; the text below that talks of the lock is the old
+LOCKLESS = False variant, kept for the history.
 
     thumb back (56 deg): the hammer's crank lifts the slider through a
         bracket behind it (a Scotch yoke). Its first 3 mm pull the lock
@@ -120,7 +127,12 @@ SPUR = (95.0 + math.degrees(math.atan2(12.0, 38.0)), math.hypot(38.0, 12.0))   #
 CRANK_Y = (32.0, 35.0)              # the crank on the right, outside the valve body (y 31)
 BRACKET_Y = (35.2, 38.2)            # the slider's bracket, outside the crank
 SLIDER_REACH = 48.0                 # slider body: from its pin this far down (the cam slot)
-CHEEK_X = (-14.5, -7.0)             # slider's rear cheek with the cam slot
+try:
+    LOCKLESS                        # False: the old lock (sleeve, pusher, cam slot in the slider), set before exec
+except NameError:
+    LOCKLESS = True
+NOSE_GAP = 0.3                      # LOCKLESS: the housing's nose face to the hub's rear face (the sleeve's was 0.1 locked)
+CHEEK_X = (-14.5, -7.0)             # slider's rear cheek with the cam slot (LOCKLESS: none, the bracket starts at the slider)
 PUSHER_T = 3.0
 CAM_RISE = 3.0                      # slider rise that opens the lock
 TRIGGER_TRAVEL = 23.0               # deg; reset below: the pull that brings the trigger onto the vent valve's face
@@ -226,13 +238,16 @@ def cam_slot():
 
 
 xs = [crank_tip(i / 20).x for i in range(21)]
-SLIDER_H = (box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6)
-            .fuse(box(CHEEK_X[0], CHEEK_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6))
-            .fuse(box(CHEEK_X[0], SLIDER_X[1], SLIDER_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
-            .fuse(box(min(xs) - 8, CHEEK_X[0] + 0.01, BRACKET_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
-            .cut(box(min(xs) - 2, max(xs) + 2, BRACKET_Y[0] - 1, BRACKET_Y[1] + 1, D_YOKE - 1.7, D_YOKE + 1.7))
-            .cut(cam_slot())
-            .cut(Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100), ZA)))
+_cx0 = SLIDER_X[0] if LOCKLESS else CHEEK_X[0]           # where the bracket leaves the slider
+SLIDER_H = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6)
+if not LOCKLESS:
+    SLIDER_H = SLIDER_H.fuse(box(CHEEK_X[0], CHEEK_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6))
+SLIDER_H = (SLIDER_H.fuse(box(_cx0, SLIDER_X[1], SLIDER_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
+            .fuse(box(min(xs) - 8, _cx0 + 0.01, BRACKET_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
+            .cut(box(min(xs) - 2, max(xs) + 2, BRACKET_Y[0] - 1, BRACKET_Y[1] + 1, D_YOKE - 1.7, D_YOKE + 1.7)))
+if not LOCKLESS:
+    SLIDER_H = SLIDER_H.cut(cam_slot())
+SLIDER_H = SLIDER_H.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100), ZA))
 
 
 def slider_h(c):
@@ -271,6 +286,20 @@ _lug_slot = box(X_OPEN - PUSHER_T / 2 - 0.4, X_LOCKED + PUSHER_T / 2 + 0.4,
 lock_housing_h = lock_housing_plain
 for a_ in LOCK_LUG_ANGLES:
     lock_housing_h = lock_housing_h.cut(about_lock_axis(_lug_slot, a_))
+
+if LOCKLESS:
+    # A plain block with a Ø SEAT_D through bore that ends in the sleeve's nose (NOSE_D out), NOSE_GAP short of the hub.
+    # lock_housing_plain minus the pockets for the flange and the tube, as pistol/build/bench_fixed_nose.py proved.
+    x_nose = HUB_X0 - NOSE_GAP
+    nose_ring = cyl_x(NOSE_D, -GAP - 1.0, x_nose, 0, Z_FIRE)
+    lock_housing_h = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
+                      .common(box(-GAP - LOCK_H - 1, -GAP + 1, -30, 30, Z_FIRE - 30, Z_FIRE + BREECH_FLAT_X))
+                      .fuse(nose_ring)
+                      .cut(cyl_x(SEAT_D, -GAP - LOCK_H - 1, x_nose + 1.0, 0, Z_FIRE))
+                      .cut(Part.makeCompound([cyl_x(BREECH_BOLT_HOLE, -GAP - LOCK_H - 1, -GAP + 1,
+                                                    -BREECH_BOLT_R * math.sin(math.radians(a)),
+                                                    Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))) for a in LOCK_BOLTS]))
+                      .removeSplitter())
 
 # ---------------------------------------------------------------- trigger: one stage, straight onto the vent valve
 # A crescent: concave finger face in front, the tip curled forward like a claw, grooves across the finger face.
@@ -364,7 +393,7 @@ def pose(st):
     tooth_ = pawl_tooth.translated(V(-PAWL_BACK * st["bend"], 0, 0))
     return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec), "Pawl": turned(tooth_, sec),
             "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Hammer": hammer_shape(c),
-            "Sleeve": lock_sleeve(lock_h(c)), "Pusher": pusher_shape(lock_h(c)), "Trigger": trigger_h(st["trig"])}
+            "Trigger": trigger_h(st["trig"])} | ({} if LOCKLESS else {"Sleeve": lock_sleeve(lock_h(c)), "Pusher": pusher_shape(lock_h(c))})
 
 
 STYLE = dict(STYLE)
@@ -388,17 +417,17 @@ for i in range(11):
     c = i / 10
     st = dict(cock=c, block=block_drive(c), bend=0.0, trig=0.0)
     sh = pose(st)
-    for mv_ in ("Hammer", "Slider", "Pusher", "Sector", "Sleeve", "Trigger", "Pin"):
+    for mv_ in [m_ for m_ in ("Hammer", "Slider", "Pusher", "Sector", "Sleeve", "Trigger", "Pin") if m_ in sh]:
         for fx_, s_ in FIXED.items():
             v_ = sh[mv_].common(s_).Volume
             worst[(mv_, fx_)] = max(worst.get((mv_, fx_), 0.0), v_)
-    for a_, b_ in (("Hammer", "Slider"), ("Slider", "Block"), ("Pusher", "Sleeve"), ("Hammer", "Trigger"),
-                   ("Slider", "Sector"), ("Pusher", "Slider")):
+    for a_, b_ in [p_ for p_ in (("Hammer", "Slider"), ("Slider", "Block"), ("Pusher", "Sleeve"), ("Hammer", "Trigger"),
+                                 ("Slider", "Sector"), ("Pusher", "Slider")) if p_[0] in sh and p_[1] in sh]:
         v_ = sh[a_].common(sh[b_]).Volume
         worst[(a_, b_)] = max(worst.get((a_, b_), 0.0), v_)
     if i % 2 == 0:
-        report.append("  cock %.1f  hammer %+5.1f deg  slider pin z %+6.1f  sector %+5.1f  block %+5.1f deg  lock %.2f"
-                      % (c, hammer_rot(c), slider_z(c), sector_turn(c), block_drive(c), lock_h(c)))
+        report.append("  cock %.1f  hammer %+5.1f deg  slider pin z %+6.1f  sector %+5.1f  block %+5.1f deg%s"
+                      % (c, hammer_rot(c), slider_z(c), sector_turn(c), block_drive(c), "" if LOCKLESS else "  lock %.2f" % lock_h(c)))
 for tg in (0.0, 0.5, 1.0):                       # trigger stroke with the hammer down
     sh = pose(dict(cock=0.0, block=0.0, bend=0.0, trig=tg))
     for a_ in ("Trigger",):
@@ -416,9 +445,13 @@ mu = 0.25
 cam_a = math.degrees(math.atan2(LOCK_STROKE, CAM_RISE))
 F_sl = LOCK_SEAT_N * math.tan(math.radians(cam_a) + math.atan(mu))
 torque = F_sl * HAMMER_ARM * math.cos(math.radians(crank_angle(0.0))) / 1000
-report.append("  lock: cam %.0f deg, opens in the first %.1f deg of the cock; %0.f N on the flange needs %.0f N on the slider"
-              " = %.2f N*m from the mainspring at rest"
-              % (cam_a, next(HAMMER_SWING * i / 400 for i in range(401) if lock_h(i / 400) <= 0.0), LOCK_SEAT_N, F_sl, torque))
+if LOCKLESS:
+    report.append("  no lock: housing with the nose %.1f mm off the hub, one print; the mainspring is as sized for the lock "
+                  "(%.2f N*m at rest), softer is enough now" % (NOSE_GAP, torque))
+else:
+    report.append("  lock: cam %.0f deg, opens in the first %.1f deg of the cock; %0.f N on the flange needs %.0f N on the slider"
+                  " = %.2f N*m from the mainspring at rest"
+                  % (cam_a, next(HAMMER_SWING * i / 400 for i in range(401) if lock_h(i / 400) <= 0.0), LOCK_SEAT_N, F_sl, torque))
 ms = MAINSPRING
 D_ms = ms["od"] - ms["d"]
 k_ms = 200000.0 * ms["d"] ** 4 / (64 * D_ms * ms["coils"]) * math.pi / 180       # N*mm per deg, each
@@ -435,7 +468,7 @@ report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: pen sp
 report.append("  vent valve: AirTAC M3R110-06 body %.1f x %.0f x %.1f, front at x %.1f; trigger pull %.1f deg pushes its plunger"
               " %.1f mm (it clicks at %.1f: %.1f to spare), its back stopping on the body"
               % (AIRTAC["L"], AIRTAC["W"], AIRTAC["T"], VENT_FRONT, TRIGGER_TRAVEL, VENT_PUSH, VENT_SWITCH, VENT_PUSH - VENT_SWITCH))
-report.append("  pawl idles %.1f deg of the hammer before it drives: the lock is open by then"
+report.append(("  pawl idles %.1f deg of the hammer before it drives" + ("" if LOCKLESS else ": the lock is open by then"))
               % next(HAMMER_SWING * i / 400 for i in range(401) if block_drive(i / 400) > 0.0))
 print("\n".join(report))
 
