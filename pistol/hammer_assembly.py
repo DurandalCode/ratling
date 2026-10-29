@@ -501,6 +501,9 @@ if True:
     _back = PAWL_MOVER.translated(V(-(PAWL_BACK + 0.3), 0, 0))
     _bh = max(hit(turned(_back, sector_turn(c_ / 4)), o_) for c_ in range(5)
               for o_ in (lock_housing_h, valve_body, valve_cap, frame, side_plate, slider_h(c_ / 4)[0], slider_h(c_ / 4)[1], axle))
+    if FLEX_PAWL:
+        _gap = PAWL_FLEX_FREE.distToShape(RING_POCKETED)[0]
+        checks["pawl: the tongue is %.2f mm clear of the ring all round (>= 0.5, a narrower slit fuses shut in print)" % _gap] = _gap >= 0.5
     checks["pawl: room behind it for %.1f mm of travel (%.2f mm3 hit)" % (PAWL_BACK + 0.3, _bh)] = _bh < 0.05
 # The slider must wrap its guide rod, not lie in a groove on it: a ring 1 mm thick round the rod's hole must be solid.
 _ring = Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15 + 1.0, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA).cut(

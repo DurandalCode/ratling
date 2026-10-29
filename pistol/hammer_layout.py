@@ -143,7 +143,7 @@ else:
     # Built at the pawl's place at the "top" (+z); theta runs from +z towards -y, the drive direction.
     TONGUE_L, TONGUE_T = 14.0, 0.95                     # along the arc, thick in x (the bending direction); 12 x 1.0 pushed back too hard, 15 x 0.9 too soft
     TONGUE_X = (SECTOR_X[0], SECTOR_X[0] + TONGUE_T)    # the tongue is the back layer of the ring
-    R_T = (SECTOR_R[1] - 0.5, NOTCH_R[1] - 0.3)         # tongue and tooth radially: 14.8 .. 18.2 (notch 14.5 .. 18.5)
+    R_T = (SECTOR_R[1] - 0.3, NOTCH_R[1] - 0.3)         # tongue and tooth radially: 15.0 .. 18.2 (notch 14.5 .. 18.5)
     TH_ROOT = math.degrees(TONGUE_L / (sum(R_T) / 2))   # the root, from the tooth's centre
     TH_FREE = -math.degrees(2.0 / (sum(R_T) / 2))       # the free end, a little past the tooth's ramp side
 
@@ -156,7 +156,9 @@ else:
 
     _tongue = _arc_prism(R_T[0], R_T[1], TH_FREE, TH_ROOT + 1.0, *TONGUE_X)
     _root = _arc_prism(R_T[0] - 0.2, R_T[1] + 0.6, TH_ROOT, TH_ROOT + 22.0, SECTOR_X[0], SECTOR_X[1])
-    _pocket = _arc_prism(R_T[0] - 0.2, R_T[1] + 0.3, TH_FREE - 3.0, TH_ROOT, SECTOR_X[0] - 0.3, SECTOR_X[1] + 0.3)
+    # The slit round the tongue is 0.6 mm inside and 0.5 mm outside: 0.2-0.3 mm slits fuse shut in a 0.4 nozzle print and
+    # the tongue was then glued to the ring (stiff, uneven).
+    _pocket = _arc_prism(R_T[0] - 0.6, R_T[1] + 0.5, TH_FREE - 3.0, TH_ROOT, SECTOR_X[0] - 0.3, SECTOR_X[1] + 0.3)
     _x_face, _x_tip = HUB_X0 - 0.3, HUB_X0 + TIP_RISE
     _pts = [(-1.6, TONGUE_X[0] + 0.4), (1.6, TONGUE_X[0] + 0.4), (1.6, _x_face), (0.0, _x_tip), (-1.6, _x_tip)]
     _poly = [V(x, y, R_T[0]) for y, x in _pts]
@@ -167,7 +169,9 @@ else:
     PAWL_MOVER = PAWL_FLEX
     _pb = [V(x, y, R_T[0]) for y, x in [(-1.6, TONGUE_X[0] + 0.4), (1.6, TONGUE_X[0] + 0.4), (1.6, _x_tip), (-1.6, _x_tip)]]
     _tooth_blank = Part.Face(Part.makePolygon(_pb + [_pb[0]])).extrude(V(0, 0, R_T[1] - R_T[0]))
-    _sector_cut = sector_base.cut(turned(_pocket, PAWL_A0 - 90)).fuse(turned(_root, PAWL_A0 - 90))
+    RING_POCKETED = sector_base.cut(turned(_pocket, PAWL_A0 - 90))                 # for the slit check
+    PAWL_FLEX_FREE = turned(_arc_prism(R_T[0], R_T[1], TH_FREE, TH_ROOT - 3.0, *TONGUE_X).fuse(_tooth), PAWL_A0 - 90)
+    _sector_cut = RING_POCKETED.fuse(turned(_root, PAWL_A0 - 90))
     sector_base = _sector_cut.fuse(PAWL_FLEX).removeSplitter()
     sector_base_blank = _sector_cut.fuse(turned(_tongue.fuse(_tooth_blank), PAWL_A0 - 90)).removeSplitter()   # a square tooth to file by hand
 
