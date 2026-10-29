@@ -9,7 +9,8 @@ bar. Put the slider's Ø3 pin through the sector's arm slot and push the slider 
 sector, 60 deg of disc after the pawl's lost motion, and a click at each barrel.
 
 Prints ONE part (the jig). The rest are the pistol's own: block_rear_disc, sector, pawl, slider, detent_bolt, and a
-Ø3 pen spring for the pawl, a Ø4 one for the bolt, a 96 mm Ø3 rod, a Ø3 x 9 pin for the slider.
+Ø3 pen spring for the pawl, a Ø4 one for the bolt, a 96 mm Ø3 rod (in from below, held by an M3 x 10
+self-tapping screw across the lower boss), a Ø3 x 9 pin for the slider.
 
 Writes exports/pistol_indexer_test/ (STL of the jig in print orientation, FCStd of the stand with the parts).
 
@@ -61,8 +62,12 @@ jig = post.fuse(strip).fuse(cross).fuse(detent_side)
 for t_ in to_boss:
     jig = jig.fuse(t_)
 jig = jig.fuse(boss_hi).fuse(boss_lo)
-for z0_, z1_ in ((boss_hi.BoundBox.ZMin, z_hi), (z_lo, boss_lo.BoundBox.ZMax)):
+# The rod goes in from below (top boss: a blind hole it butts into; bottom boss: open at the bottom) and is held by an M3
+# self-tapping screw across the bottom boss: the top hole alone gave it no way in, and nothing held it once it was in.
+for z0_, z1_ in ((boss_hi.BoundBox.ZMin, z_hi + 0.7), (boss_lo.BoundBox.ZMin - 1.0, boss_lo.BoundBox.ZMax)):
     jig = jig.cut(Part.makeCylinder(ROD_HOLE / 2, z1_ - z0_, V(rod_x, rod_y, z0_), ZA))
+clamp_z = (z_lo + boss_lo.BoundBox.ZMax) / 2 + 0.7                  # mid-way along the rod's end inside the boss
+jig = jig.cut(Part.makeCylinder(1.25, 5.5, V(rod_x, rod_y, clamp_z), YA))              # Ø2.5 pilot for the M3, from the outside (+y)
 jig = jig.removeSplitter()
 
 # ---------------------------------------------------------------- checks over the stroke
