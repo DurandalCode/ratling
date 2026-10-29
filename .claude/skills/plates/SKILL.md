@@ -46,6 +46,9 @@ Do not rotate parts; pass `--support` only if the generator says a part needs it
 | standard | tools and jigs: O-ring cones, drilling templates, gauges | `--infill 30% --walls 4` (they may share the strong plate to save a print) |
 | mock-up | paper/flat mock-ups, pack plates | `--filament "Bambu PLA Basic @BBL P2S"` |
 
+Nozzle: 0.4 by default. Big plain parts (frames, grip shells, plates, long straps) can go on the 0.8 nozzle with
+`--nozzle 0.8` (its printer, filament and 0.32 mm presets; walls halved to the same thickness): about half the time.
+Never airtight parts (refused) or parts with fits under ~0.5 mm; give 0.8 parts their own project, `<name>_<group>_08`.
 Default filament is PETG (pressurised parts). Not printed: rubber (diaphragms), bought tubes, O-rings, hardware.
 Several copies of a part: `file.stl:COUNT`.
 

@@ -5,9 +5,9 @@ Ratling six-barrel pistol (hammer variant): every printed part, laid for the bed
 Builds pistol/hammer_assembly.py and writes each printed part as an STL in
 its print orientation (the face named in PARTS on the bed, lowest point at
 z = 0) to exports/pistol_build/stl/, and exports/pistol_build/parts.json:
-name, file, print group, size, volume, note. The groups are print profiles;
-pistol/build/make_plates.sh lays each group on Bambu plates with
-tools/print_plate.py.
+name, file, print group, nozzle, size, volume, note. The groups are print
+profiles; pistol/build/make_plates.sh lays each group on Bambu plates with
+tools/print_plate.py, one project per group and nozzle.
 
 The valve body and cap are Stage 3's own prints, listed here by reference:
 v1.3's (module/stage3_v13.py, exports/stage3_qev_v13/) by default, the very
@@ -48,6 +48,12 @@ GROUPS = {
     "supports": "--infill 40% --walls 4 --support",
     "standard": "--infill 30% --walls 4",
 }
+
+# Big plain parts go on the 0.8 nozzle (0.32 mm layer, half the walls): the grip, cage, side plate and strap print in
+# about half the time and are no weaker. The rest stays on 0.4: airtight parts (the seal is proven there only), small
+# moving parts and anything with a fit under ~0.5 mm (the detent bolt's 0.25 mm a side, the block's V-notches, the
+# barrel bores).
+NOZZLE_08 = {"frame_cage", "frame_side_plate", "grip_left", "grip_right", "trigger_guard", "top_strap"}
 
 # name, shape, the part's direction that goes down onto the bed, group, note
 PARTS = [
@@ -94,16 +100,17 @@ for name, shape, down, group, note in PARTS:
     path = os.path.join(STL, name + ".stl")
     MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(path)
     bb = s.BoundBox
-    rows.append(dict(name=name, stl=os.path.relpath(path, REPO), group=group, note=note,
+    rows.append(dict(name=name, stl=os.path.relpath(path, REPO), group=group,
+                     nozzle="0.8" if name in NOZZLE_08 else "0.4", note=note,
                      size=[round(bb.XLength, 1), round(bb.YLength, 1), round(bb.ZLength, 1)],
                      volume_cm3=round(s.Volume / 1000, 1), valid=s.isValid()))
 for name, path, group, note in REFERENCE:
-    rows.append(dict(name=name, stl=path, group=group, note=note, size=None, volume_cm3=None, valid=True))
+    rows.append(dict(name=name, stl=path, group=group, nozzle="0.4", note=note, size=None, volume_cm3=None, valid=True))
 with open(os.path.join(BUILD, "parts.json"), "w") as f:
     json.dump(dict(groups=GROUPS, parts=rows), f, indent=1, ensure_ascii=False)
 print("pistol build: %d parts" % len(rows))
 for r in rows:
-    print("  %-18s %-9s %-22s %s" % (r["name"], r["group"], "x".join("%.0f" % v_ for v_ in r["size"]) if r["size"] else "(ref)",
+    print("  %-18s %-9s %s %-22s %s" % (r["name"], r["group"], r["nozzle"], "x".join("%.0f" % v_ for v_ in r["size"]) if r["size"] else "(ref)",
                                      "" if r["valid"] else "INVALID"))
 big = [r["name"] for r in rows if r["size"] and max(r["size"][:2]) > 250]
 print("  over 250 mm on the bed: %s" % (", ".join(big) if big else "none"))

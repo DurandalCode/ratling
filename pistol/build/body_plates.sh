@@ -11,16 +11,19 @@ NAMES = {"frame_cage", "frame_side_plate", "grip_left", "grip_right", "trigger_g
          "sector", "pawl", "detent_housing", "detent_bolt"}
 spec = json.load(open("exports/pistol_build/parts.json"))
 for group, opts in spec["groups"].items():
-    stls = [p["stl"] for p in spec["parts"] if p["group"] == group and p["name"] in NAMES]
-    if not stls:
-        continue
-    cmd = [sys.executable, "tools/print_plate.py", "pistol_body_" + group] + stls + shlex.split(opts)
-    print(">", " ".join(cmd), flush=True)
-    out = subprocess.run(cmd, capture_output=True, text=True)
-    if out.returncode:
-        print(out.stdout[-1500:], out.stderr[-1500:])
-        sys.exit(out.returncode)
-    r = json.loads(out.stdout)
-    print("  %s: %d plate(s), %s" % (r["project"], r["plates"],
-          ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])), flush=True)
+    for nozzle in ("0.4", "0.8"):           # parts on the 0.8 nozzle get their own projects, <group>_08
+        stls = [p["stl"] for p in spec["parts"]
+                if p["group"] == group and p.get("nozzle", "0.4") == nozzle and p["name"] in NAMES]
+        if not stls:
+            continue
+        cmd = [sys.executable, "tools/print_plate.py", "pistol_body_" + group + ("_08" if nozzle == "0.8" else "")] + stls
+        cmd += shlex.split(opts) + (["--nozzle", nozzle] if nozzle != "0.4" else [])
+        print(">", " ".join(cmd), flush=True)
+        out = subprocess.run(cmd, capture_output=True, text=True)
+        if out.returncode:
+            print(out.stdout[-1500:], out.stderr[-1500:])
+            sys.exit(out.returncode)
+        r = json.loads(out.stdout)
+        print("  %s: %d plate(s), %s" % (r["project"], r["plates"],
+              ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])), flush=True)
 PY

@@ -15,11 +15,18 @@ falls back to a default plate). On top go the overrides given here.
 
     tools/print_plate.py tube_plug_v1 exports/tube_plug_v1/tube_plug_v1.stl:2 --infill 100%
 
+--nozzle 0.8 (or 0.6) swaps in that nozzle's printer and filament presets and
+a coarser layer, and cuts --walls so the wall stays as thick as with 0.4. Big
+plain parts print in about half the time (the pistol's grip, side plate and
+cage: 3 h 35 min on 0.8 at 0.32 mm against 6 h 18 min). Not for --airtight:
+the seal was proven on 0.4 at 0.2 mm only.
+
 Plain Python, no FreeCAD. Adapted from star-dome's tools/print_plates.py.
 """
 
 import argparse
 import json
+import math
 import os
 import re
 import subprocess
@@ -44,6 +51,9 @@ AIRTIGHT_FILAMENT = {"filament_flow_ratio": "1.05", "nozzle_temperature": "+10",
 PRINTER = "Bambu Lab P2S 0.4 nozzle"
 PROCESS = "0.20mm Standard @BBL P2S"
 FILAMENT = "Bambu PETG Basic @BBL P2S 0.4 nozzle"   # pressurized parts: PETG
+# --nozzle: the layer for each nozzle but 0.4 (0.32 on 0.8 is barely slower than 0.40 and smoother in the hand)
+NOZZLE_PROCESS = {"0.6": "0.24mm Balanced Quality @BBL P2S 0.6 nozzle",
+                  "0.8": "0.32mm Balanced Quality @BBL P2S 0.8 nozzle"}
 
 
 def preset(kind, name):
@@ -71,6 +81,12 @@ def apply(values, changes):
             return str(int(float(c)) + int(v[1:])) if v.startswith("+") else v
         out[k] = [one(c) for c in cur] if isinstance(cur, list) else one(cur if cur is not None else "0")
     return out
+
+
+def for_nozzle(name, nozzle):
+    """The 0.4 preset's name for another nozzle: "... 0.4 nozzle" or no suffix (PLA) -> "... 0.8 nozzle"."""
+    base = name[:-len(" 0.4 nozzle")] if name.endswith(" 0.4 nozzle") else name
+    return base if nozzle == "0.4" and base == name else "%s %s nozzle" % (base, nozzle)
 
 
 def mark_changes(project, process_keys, filament_keys):
@@ -113,8 +129,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("name")
     ap.add_argument("parts", nargs="+", help="STL[:COUNT]")
+    ap.add_argument("--nozzle", default="0.4", choices=["0.4", "0.6", "0.8"],
+                    help="nozzle diameter; picks its printer, process and filament presets, walls kept as thick as on 0.4")
     ap.add_argument("--printer", default=PRINTER)
-    ap.add_argument("--process", default=PROCESS)
+    ap.add_argument("--process")
     ap.add_argument("--filament", default=FILAMENT)
     ap.add_argument("--infill", default="35%", help="sparse infill density, e.g. 100%%")
     ap.add_argument("--walls", default="4")
@@ -126,6 +144,14 @@ def main(argv=None):
                     help="slow, hot, over-extruded, 6+ walls: for parts that hold air")
     ap.add_argument("--no-slice", action="store_true")
     args = ap.parse_args(argv)
+    if args.nozzle != "0.4":
+        if args.airtight:
+            raise SystemExit("--airtight is proven on the 0.4 nozzle only; print airtight parts on 0.4")
+        args.printer = for_nozzle(args.printer, args.nozzle)
+        args.filament = for_nozzle(args.filament, args.nozzle)
+        args.walls = str(max(2, math.ceil(int(args.walls) * 0.4 / float(args.nozzle) - 1e-9)))
+    if not args.process:
+        args.process = NOZZLE_PROCESS.get(args.nozzle, PROCESS)
 
     stls, counts = [], []
     for p in args.parts:
@@ -183,7 +209,7 @@ def main(argv=None):
 
     mark_changes(project, [k for k in overrides if k != "curr_bed_type"], AIRTIGHT_FILAMENT.keys() if args.airtight else ())
     plates, sliced = slice_info(project)
-    report = {"project": os.path.relpath(project, REPO), "printer": args.printer,
+    report = {"project": os.path.relpath(project, REPO), "nozzle": args.nozzle, "printer": args.printer,
               "process": args.process, "filament": args.filament, "overrides": overrides,
               "airtight": AIRTIGHT_FILAMENT if args.airtight else None,
               "parts": [{"stl": os.path.relpath(s, REPO), "count": c} for s, c in zip(stls, counts)],
