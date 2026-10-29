@@ -95,10 +95,46 @@ PAWL_X0 = -6.5                      # the plunger's back at rest (its front in t
 PAWL_BOSS_X0 = -14.2                # the boss's back wall
 BOLT_LEN = 12.0
 _pw, _ph, _pr0 = NOTCH_W - 0.8, NOTCH_R[1] - SECTOR_R[1] - 0.5, SECTOR_R[1] - 0.5
-pawl_tooth = turned(Part.makeBox(HUB_X0 + 2.0 - PAWL_X0, _pw, _ph, V(PAWL_X0, -_pw / 2, _pr0)), PAWL_A0 - 90)
-_boss = Part.makeBox(SECTOR_X[0] + 0.01 - PAWL_BOSS_X0, _pw + 2.4, _ph + 2.4, V(PAWL_BOSS_X0, -_pw / 2 - 1.2, _pr0 - 1.2))
-_bore = Part.makeBox(SECTOR_X[1] + 1 - (PAWL_BOSS_X0 + 1.2), _pw + 0.3, _ph + 0.3, V(PAWL_BOSS_X0 + 1.2, -_pw / 2 - 0.15, _pr0 - 0.15))
-sector_base = sector_base.fuse(turned(_boss, PAWL_A0 - 90)).cut(turned(_bore, PAWL_A0 - 90)).removeSplitter()
+try:
+    FLEX_PAWL                       # False: the old plunger in a boss on a Ø3 pen spring, set before exec
+except NameError:
+    FLEX_PAWL = True
+if not FLEX_PAWL:
+    pawl_tooth = turned(Part.makeBox(HUB_X0 + 2.0 - PAWL_X0, _pw, _ph, V(PAWL_X0, -_pw / 2, _pr0)), PAWL_A0 - 90)
+    _boss = Part.makeBox(SECTOR_X[0] + 0.01 - PAWL_BOSS_X0, _pw + 2.4, _ph + 2.4, V(PAWL_BOSS_X0, -_pw / 2 - 1.2, _pr0 - 1.2))
+    _bore = Part.makeBox(SECTOR_X[1] + 1 - (PAWL_BOSS_X0 + 1.2), _pw + 0.3, _ph + 0.3, V(PAWL_BOSS_X0 + 1.2, -_pw / 2 - 0.15, _pr0 - 0.15))
+    sector_base = sector_base.fuse(turned(_boss, PAWL_A0 - 90)).cut(turned(_bore, PAWL_A0 - 90)).removeSplitter()
+else:
+    # The pawl is a flexure printed in the sector: a tongue cut out of the ring along its arc (root on the drive side, so
+    # the drive loads it in tension) with a ramped tooth on its free end. On the return the notch's corner slides up the
+    # tooth's ramp and the tongue bends back 2 mm: no plunger, no spring, no boss. The old square tooth could not leave a
+    # square notch at all; the ramp rises 2.0 mm over about 1.5 mm of travel (checked in tools/ against the disc as it is).
+    # Built at the pawl's place at the "top" (+z); theta runs from +z towards -y, the drive direction.
+    TONGUE_L, TONGUE_T = 12.0, 1.0                      # along the arc, thick in x (the bending direction)
+    TONGUE_X = (SECTOR_X[0], SECTOR_X[0] + TONGUE_T)    # the tongue is the back layer of the ring
+    R_T = (SECTOR_R[1] - 0.5, NOTCH_R[1] - 0.3)         # tongue and tooth radially: 14.8 .. 18.2 (notch 14.5 .. 18.5)
+    TH_ROOT = math.degrees(TONGUE_L / (sum(R_T) / 2))   # the root, from the tooth's centre
+    TH_FREE = -math.degrees(2.0 / (sum(R_T) / 2))       # the free end, a little past the tooth's ramp side
+
+    def _arc_prism(r0, r1, th0, th1, x0, x1):
+        n = max(2, int(abs(th1 - th0) / 6) + 1)
+        pts = [V(x0, 0, 0)] + [V(x0, -60 * math.sin(math.radians(th0 + (th1 - th0) * i / n)),
+                                 60 * math.cos(math.radians(th0 + (th1 - th0) * i / n))) for i in range(n + 1)]
+        wedge = Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(x1 - x0, 0, 0))
+        return wedge.common(cyl_x(2 * r1, x0 - 1, x1 + 1, 0, 0).cut(cyl_x(2 * r0, x0 - 2, x1 + 2, 0, 0)))
+
+    _tongue = _arc_prism(R_T[0], R_T[1], TH_FREE, TH_ROOT + 1.0, *TONGUE_X)
+    _root = _arc_prism(R_T[0] - 0.2, R_T[1] + 0.6, TH_ROOT, TH_ROOT + 22.0, SECTOR_X[0], SECTOR_X[1])
+    _pocket = _arc_prism(R_T[0] - 0.2, R_T[1] + 0.3, TH_FREE - 3.0, TH_ROOT, SECTOR_X[0] - 0.3, SECTOR_X[1] + 0.3)
+    _x_face, _x_tip = HUB_X0 - 0.3, HUB_X0 + 2.0
+    _pts = [(-1.6, TONGUE_X[0] + 0.4), (1.6, TONGUE_X[0] + 0.4), (1.6, _x_face), (0.0, _x_tip), (-1.6, _x_tip)]
+    _poly = [V(x, y, R_T[0]) for y, x in _pts]
+    _tooth = Part.Face(Part.makePolygon(_poly + [_poly[0]])).extrude(V(0, 0, R_T[1] - R_T[0]))
+    PAWL_FLEX = turned(_tongue.fuse(_tooth).removeSplitter(), PAWL_A0 - 90)       # for the clash check: tongue bent back
+    pawl_tooth = turned(_tooth, PAWL_A0 - 90)
+    PAWL_BACK = 2.3                                     # tongue travel: 2.0 to clear the face and 0.3 spare (strain ~2.4 %)
+    sector_base = (sector_base.cut(turned(_pocket, PAWL_A0 - 90)).fuse(turned(_root, PAWL_A0 - 90)).fuse(PAWL_FLEX)
+                   .removeSplitter())
 
 
 def bolt_shape(block_deg):
@@ -390,9 +426,10 @@ def pose(st):
     sl, pin = slider_h(c)
     sec = sector_turn(c)
     tooth_ = pawl_tooth.translated(V(-PAWL_BACK * st["bend"], 0, 0))
-    return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec), "Pawl": turned(tooth_, sec),
+    return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec),
             "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Hammer": hammer_shape(c),
-            "Trigger": trigger_h(st["trig"])} | ({} if LOCKLESS else {"Sleeve": lock_sleeve(lock_h(c)), "Pusher": pusher_shape(lock_h(c))})
+            "Trigger": trigger_h(st["trig"])} | ({} if FLEX_PAWL else {"Pawl": turned(tooth_, sec)}) \
+        | ({} if LOCKLESS else {"Sleeve": lock_sleeve(lock_h(c)), "Pusher": pusher_shape(lock_h(c))})
 
 
 STYLE = dict(STYLE)

@@ -475,6 +475,28 @@ for label_, d_ in (("forward", V(2, 0, 0)), ("back", V(-2, 0, 0)), ("left", V(0,
                    ("up", V(0, 0, 2)), ("down", V(0, 0, -2))):
     v_ = hit(stack.translated(d_), around)
     checks["valve stack stopped when pushed 2 mm %s (%.0f mm3)" % (label_, v_)] = v_ > 0.5
+if FLEX_PAWL:
+    # The pawl is a flexure in the sector: one solid; no clash with the disc over the drive; the return needs at most the
+    # tongue's travel (PAWL_BACK) of retraction at the tooth; and that travel, plus a margin, is free behind the tongue.
+    checks["sector is one valid solid (%d solids)" % len(sector_base.Solids)] = len(sector_base.Solids) == 1 and sector_base.isValid()
+    _w = max(hit(turned(sector_base, sector_turn(i_ / 20)), turned(hub, block_drive(i_ / 20))) for i_ in range(21))
+    checks["pawl: no clash with the disc over the drive (%.2f mm3)" % _w] = _w < 0.05
+    def _need(a_, blk_):
+        lo_, hi_ = 0.0, PAWL_BACK + 0.3
+        if hit(turned(pawl_tooth.translated(V(-hi_, 0, 0)), a_), turned(hub, blk_)) > 0.05:
+            return 9.9
+        if hit(turned(pawl_tooth, a_), turned(hub, blk_)) <= 0.05:
+            return 0.0
+        for _ in range(12):
+            m_ = (lo_ + hi_) / 2
+            lo_, hi_ = (m_, hi_) if hit(turned(pawl_tooth.translated(V(-m_, 0, 0)), a_), turned(hub, blk_)) > 0.05 else (lo_, m_)
+        return hi_
+    _n = max(_need(-a_, 60.0) for a_ in range(0, 69, 4))
+    checks["pawl: the return needs %.2f mm of retraction (tongue travel %.1f mm)" % (_n, PAWL_BACK)] = _n <= PAWL_BACK + 0.1
+    _back = PAWL_FLEX.translated(V(-(PAWL_BACK + 0.3), 0, 0))
+    _bh = max(hit(turned(_back, sector_turn(c_ / 4)), o_) for c_ in range(5)
+              for o_ in (lock_housing_h, valve_body, valve_cap, frame, side_plate, slider_h(c_ / 4)[0], slider_h(c_ / 4)[1], axle))
+    checks["pawl: room behind the tongue for %.1f mm of travel (%.2f mm3 hit)" % (PAWL_BACK + 0.3, _bh)] = _bh < 0.05
 # The slider must wrap its guide rod, not lie in a groove on it: a ring 1 mm thick round the rod's hole must be solid.
 _ring = Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15 + 1.0, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA).cut(
     Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA))
