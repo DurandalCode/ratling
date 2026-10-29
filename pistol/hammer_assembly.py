@@ -53,7 +53,10 @@ FRAME = dict(x=(HAMMER_PIVOT.x - HAMMER_R - 8.0, -1.0), y=(-45.0, 45.0), z=(-76.
 EVA_T = 3.0                         # the frame's look: an EVA skin this thick over a printed cage
 CAGE_T = 3.0
 CAGE_WINDOWS = dict(side=((-40.0, -16.0), (-60.0, 12.0)), top=((-50.0, -18.0), 24.0), bottom=((-40.0, -10.0), 24.0))
-STANDOFFS = ((-48.0, -45.0, (1, -1)), (-48.0, -5.0, (-1,)))   # x, z, sides: the cage to the valve body (not where the crank runs)
+try:
+    STANDOFFS                       # set before exec (the zigzag study moves the left one off the push-rod's height)
+except NameError:
+    STANDOFFS = ((-48.0, -45.0, (1, -1)), (-48.0, -5.0, (-1,)))   # x, z, sides: the cage to the valve body (not where the crank runs)
 # The cage opens on the left: the mechanism goes in from that side, and a side plate closes it on six ST2.9
 # into bosses on the cage's top and bottom walls. The plate is also the hammer shaft's left bearing and
 # carries the detent's bracket.
@@ -475,7 +478,7 @@ for label_, d_ in (("forward", V(2, 0, 0)), ("back", V(-2, 0, 0)), ("left", V(0,
                    ("up", V(0, 0, 2)), ("down", V(0, 0, -2))):
     v_ = hit(stack.translated(d_), around)
     checks["valve stack stopped when pushed 2 mm %s (%.0f mm3)" % (label_, v_)] = v_ > 0.5
-if True:
+if not globals().get("NO_PAWL", False):          # the zigzag study has no pawl at all
     # The pawl (a flexure in the sector, or a plunger in its boss on a steel spring): one solid; no clash with the disc over the drive; the return needs at most the
     # tongue's travel (PAWL_BACK) of retraction at the tooth; and that travel, plus a margin, is free behind the tongue.
     checks["sector is one valid solid (%d solids)" % len(sector_base.Solids)] = len(sector_base.Solids) == 1 and sector_base.isValid()
