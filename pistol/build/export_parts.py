@@ -20,6 +20,7 @@ Run inside FreeCAD:
 
 import json
 import os
+import sys
 
 import FreeCAD as App
 import MeshPart
@@ -68,10 +69,10 @@ PARTS = [
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
     ("frame_cage", frame, Y_, "supports", "right wall on the bed; supports under the cheeks and the spring rib"),
-    ("frame_side_plate", side_plate, -Y_, "standard", "outer face on the bed; 6 x ST2.9 x 13 into the cage"),
-    ("grip_left", grip_left, Y_, "standard", "cut face on the bed; the valve box's left half"),
-    ("grip_right", grip_right, -Y_, "standard", "cut face on the bed; glued to the left on 3 x Ø3 x 12 dowels"),
-    ("trigger_guard", guard, Y_, "standard", "flat; ST2.9 x 13 into its tab through the floor"),
+    ("frame_side_plate", side_plate, -Y_, "supports", "outer face on the bed; 6 x ST2.9 x 13 into the cage"),
+    ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the valve box's left half"),
+    ("grip_right", grip_right, -Y_, "supports", "cut face on the bed; glued to the left on 3 x Ø3 x 12 dowels"),
+    ("trigger_guard", guard, Y_, "supports", "flat; ST2.9 x 13 into its tab through the floor"),
     ("top_strap", top_strap, Z_, "strong", "top face down (on its side it stood on the nose disc, the bar 9 mm up); 2 x ST2.9 into the cage's top, the M6 stud through its foot"),
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),
     ("axle_plug", axle_plug, X_, "airtight", "flange on the bed; in the axle's front end on a 19 x 2.5 O-ring; an M6 nut epoxied in its pocket"),
@@ -98,19 +99,38 @@ rows = []
 for name, shape, down, group, note in PARTS:
     s = laid(shape, down)
     path = os.path.join(STL, name + ".stl")
-    MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1).write(path)
+    sys.path.insert(0, os.path.join(REPO, "tools"))
+    import orient_check
+    native = os.path.join(BUILD, "native.stl")                  # the part as drawn: a better face to put down, named in its own axes
+    MeshPart.meshFromShape(Shape=shape, LinearDeflection=0.1, AngularDeflection=0.3).write(native)
+    ranked = orient_check.search(native)
+    cur_name = [k_ for k_, d_ in orient_check.AXES.items() if abs(d_[0] - down.x) + abs(d_[1] - down.y) + abs(d_[2] - down.z) < 1e-6][0]
+    cur_score = [sc_ for sc_, n_, m_ in ranked if n_ == cur_name][0]
+    hint = None
+    if ranked[0][0] < cur_score - 50 and ranked[0][1] != cur_name:
+        hint = "a better face down: %s (score %.0f, now %.0f)" % (ranked[0][1], ranked[0][0], cur_score)
+    mesh = MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1)
+    mesh.translate(0, 0, -mesh.BoundBox.ZMin)           # the shape's own bounding box is loose on curved faces: lay the mesh itself
+    mesh.write(path)
     bb = s.BoundBox
     rows.append(dict(name=name, stl=os.path.relpath(path, REPO), group=group,
                      nozzle="0.8" if name in NOZZLE_08 else "0.4", note=note,
                      size=[round(bb.XLength, 1), round(bb.YLength, 1), round(bb.ZLength, 1)],
-                     volume_cm3=round(s.Volume / 1000, 1), valid=s.isValid()))
+                     volume_cm3=round(s.Volume / 1000, 1), valid=s.isValid(), hint=hint))
 for name, path, group, note in REFERENCE:
     rows.append(dict(name=name, stl=path, group=group, nozzle="0.4", note=note, size=None, volume_cm3=None, valid=True))
+sys.path.insert(0, os.path.join(REPO, "tools"))
+import orient_check                                     # the same check print_plate.py makes before it slices
+for r in rows:
+    if r["size"]:
+        r["orientation"], r["orientation_note"] = orient_check.verdict(orient_check.measure(os.path.join(REPO, r["stl"])),
+                                                                         "--support" in GROUPS[r["group"]])
 with open(os.path.join(BUILD, "parts.json"), "w") as f:
     json.dump(dict(groups=GROUPS, parts=rows), f, indent=1, ensure_ascii=False)
 print("pistol build: %d parts" % len(rows))
 for r in rows:
-    print("  %-18s %-9s %s %-22s %s" % (r["name"], r["group"], r["nozzle"], "x".join("%.0f" % v_ for v_ in r["size"]) if r["size"] else "(ref)",
-                                     "" if r["valid"] else "INVALID"))
+    print("  [%s] %-18s %-9s %s %-12s %s%s" % ({"OK": "OK ", "WARN": "WARN", "FAIL": "FAIL"}[r["orientation"]] if r.get("orientation") else "    ",
+                                              r["name"], r["group"], r["nozzle"], "x".join("%.0f" % v_ for v_ in r["size"]) if r["size"] else "(ref)",
+                                              "INVALID " if not r["valid"] else "", r.get("orientation_note", "") + ("  | HINT " + r["hint"] if r.get("hint") else "")))
 big = [r["name"] for r in rows if r["size"] and max(r["size"][:2]) > 250]
 print("  over 250 mm on the bed: %s" % (", ".join(big) if big else "none"))

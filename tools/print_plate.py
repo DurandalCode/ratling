@@ -35,6 +35,8 @@ import tempfile
 import zipfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import orient_check
 OUT_DIR = os.path.join(REPO, "exports", "print")
 BAMBU = os.environ.get("BAMBU_STUDIO", "/Applications/BambuStudio.app/Contents/MacOS/BambuStudio")
 PROFILES = os.environ.get(
@@ -143,6 +145,8 @@ def main(argv=None):
     ap.add_argument("--airtight", action="store_true",
                     help="slow, hot, over-extruded, 6+ walls: for parts that hold air")
     ap.add_argument("--no-slice", action="store_true")
+    ap.add_argument("--ignore-orientation", action="store_true",
+                    help="slice even if a part lies wrong on the bed (tools/orient_check.py says FAIL)")
     args = ap.parse_args(argv)
     if args.nozzle != "0.4":
         if args.airtight:
@@ -161,6 +165,15 @@ def main(argv=None):
             raise SystemExit("no such STL: %s (run its generator first)" % path)
         stls.append(path)
         counts.append(int(count or 1))
+
+    orient = {}
+    for path in stls:
+        orient[path] = orient_check.verdict(orient_check.measure(path), args.support)
+        print("  [%s] %s: %s" % ({"OK": "OK ", "WARN": "WARN", "FAIL": "FAIL"}[orient[path][0]], os.path.relpath(path, REPO),
+                                 orient[path][1]), file=sys.stderr)
+    if any(v[0] == "FAIL" for v in orient.values()) and not args.ignore_orientation:
+        raise SystemExit("a part lies wrong on the bed: turn it in its generator (the face on the bed) or ask for "
+                         "supports; --ignore-orientation slices anyway")
 
     overrides = {"sparse_infill_density": args.infill, "wall_loops": args.walls,
                  "enable_support": "1" if args.support else "0", "curr_bed_type": args.plate}
@@ -212,7 +225,8 @@ def main(argv=None):
     report = {"project": os.path.relpath(project, REPO), "nozzle": args.nozzle, "printer": args.printer,
               "process": args.process, "filament": args.filament, "overrides": overrides,
               "airtight": AIRTIGHT_FILAMENT if args.airtight else None,
-              "parts": [{"stl": os.path.relpath(s, REPO), "count": c} for s, c in zip(stls, counts)],
+              "parts": [{"stl": os.path.relpath(s, REPO), "count": c, "orientation": orient[s][0], "note": orient[s][1]}
+                        for s, c in zip(stls, counts)],
               "plates": plates,
               "sliced": [{"plate": i, "minutes": round(m), "grams": round(g, 1)} for i, m, g in sliced]}
     json.dump(report, sys.stdout, indent=2, ensure_ascii=False)

@@ -52,6 +52,21 @@ Never airtight parts (refused) or parts with fits under ~0.5 mm; give 0.8 parts 
 Default filament is PETG (pressurised parts). Not printed: rubber (diaphragms), bought tubes, O-rings, hardware.
 Several copies of a part: `file.stl:COUNT`.
 
+## 3a. Check how each part lies on the bed
+
+`tools/print_plate.py` runs `tools/orient_check.py` on every STL before it slices and prints one line each to stderr
+(`[OK ]` / `[WARN]` / `[FAIL]`, bed contact and overhang area in mm2); a `FAIL` (more than max(300 mm2, 8 % of the
+bed contact) of faces steeper than 45 deg with no `--support`) stops it. Read those lines, do not skip them:
+
+- `FAIL`: do not slice with `--ignore-orientation`. Turn the part in its generator (the `down` face in `PARTS` of
+  `pistol/build/export_parts.py`, which prints a `HINT` with a better face when there is one), or move the part to a
+  group with supports, and regenerate. `python3 tools/orient_check.py --search part.stl` ranks the six faces.
+- `WARN`: a tall part on a tiny footprint (the pawl, 9 mm2) or no flat face at all (the detent housing, the side plate):
+  tell the user in the report and what the risk is.
+- After slicing, look at `Metadata/plate_1.png` inside the `.3mf` (unzip it into the scratchpad and Read the PNG): the
+  picture shows what sits on what; the numbers catch a part standing on its boss, the picture catches a plate that
+  hangs from columns.
+
 ## 4. Write and run the script
 
 `module/<name>_plates.sh`, modelled on `module/stage3v4_plates.sh`: `cd` to the repo, one
