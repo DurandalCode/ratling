@@ -86,10 +86,14 @@ except NameError:
 # The plunger pawl's tooth is rigid and wide (TOOTH_W): the ramp is in the disc's notch, not on the tooth. The notch keeps its
 # drive wall; its floor is the idle gap + the tooth + 0.2 mm either side, then a 45 deg ramp (3 mm) up to the face: 9.7 mm in
 # all, of ~12 mm free between the barrels' O-rings at R 16.5.
-TOOTH_W, RAMP_L = 4.0, 3.0
+try:
+    RAMP_IN_DISC                    # False: the disc as printed (square notches): the tooth is a rigid blank, the ramp is filed in the disc by hand
+except NameError:
+    RAMP_IN_DISC = False
+TOOTH_W, RAMP_L = (4.0, 3.0) if RAMP_IN_DISC else (3.6, 0.0)
 # The pawl at rest sits LOST_DEG (2.3 mm at R 16.5) off the notch's centre line, so its centre is at y = 2.3 in the notch's frame:
 # its leading face reaches the drive wall (y = -2.0) after exactly the idle, its trailing face is 0.45 mm short of the ramp's foot (the arcs of the sector against the planes of the notch).
-NOTCH_RAMP = None if FLEX_PAWL else (16.5 * math.radians(LOST_DEG) + TOOTH_W / 2 + 0.45, RAMP_L, 0.15)   # the drive wall 0.15 mm back: arcs against planes
+NOTCH_RAMP = None if (FLEX_PAWL or not RAMP_IN_DISC) else (16.5 * math.radians(LOST_DEG) + TOOTH_W / 2 + 0.45, RAMP_L, 0.15)   # the drive wall 0.15 mm back: arcs against planes
 MECH_OVERRIDES = dict(ARM_A0=SECTOR_SWING / 2, PIN_R0=24.5 / math.cos(math.radians(SECTOR_SWING / 2)), ARM_R=33.0,
                       NOTCH_SLACK=16.5 * math.radians(LOST_DEG), HUB_T=HUB_T_HAMMER, FRONT_T=6.0, NOTCH_RAMP=NOTCH_RAMP,
                       SLIDER_Y=(23.0, 31.5))             # thicker round its guide rod
@@ -114,7 +118,7 @@ if not FLEX_PAWL:
     # on the return the notch's ramp lifts the tooth out against the spring; the drive wall is vertical and the drive
     # pushes the tooth squarely. The body is a Ø6 plunger in a Ø6.4 channel in a boss on a tab of the ring's full thickness.
     # Built at the pawl's place at the "top" (+z), turned by PAWL_A0 - 90 at the end.
-    TIP_RISE = 2.5                                      # the tooth's tip 2.5 mm past the face, 0.5 above the notch floor
+    TIP_RISE = 2.5 if RAMP_IN_DISC else 2.7            # the tooth's tip past the face (notch floor at 3.0): 2.7 leaves material to file
     SPRING = dict(wire=0.5, od=6.0, free=10.0, coils=8, solid=4.0, k=0.55)      # k in N/mm
     PL_AXIS_Z = 17.6                                    # the plunger's axis, radially (the tooth is its lower part)
     PL_BODY_R, PL_CH_R = 3.0, 3.2                       # body and channel radii: 0.2 mm of play

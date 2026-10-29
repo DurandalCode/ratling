@@ -496,8 +496,12 @@ if True:
             m_ = (lo_ + hi_) / 2
             lo_, hi_ = (m_, hi_) if hit(turned(pawl_tooth.translated(V(-m_, 0, 0)), a_), turned(hub, blk_)) > 0.05 else (lo_, m_)
         return hi_
-    _n = max(_need(-a_, 60.0) for a_ in range(0, 69, 4))
-    checks["pawl: the return needs %.2f mm of retraction (tongue travel %.1f mm)" % (_n, PAWL_BACK)] = _n <= PAWL_BACK + 0.1
+    if FLEX_PAWL or RAMP_IN_DISC:
+        _n = max(_need(-a_, 60.0) for a_ in range(0, 69, 4))
+        checks["pawl: the return needs %.2f mm of retraction (tongue travel %.1f mm)" % (_n, PAWL_BACK)] = _n <= PAWL_BACK + 0.1
+    else:
+        print("  [n/a] pawl return: the disc's notches are square, the ramp is filed in by hand; the rigid tooth is a blank (%.1f wide, tip %.1f past the face)"
+              % (TOOTH_W, TIP_RISE))
     _back = PAWL_MOVER.translated(V(-(PAWL_BACK + 0.3), 0, 0))
     _bh = max(hit(turned(_back, sector_turn(c_ / 4)), o_) for c_ in range(5)
               for o_ in (lock_housing_h, valve_body, valve_cap, frame, side_plate, slider_h(c_ / 4)[0], slider_h(c_ / 4)[1], axle))
