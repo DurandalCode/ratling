@@ -147,6 +147,8 @@ def main(argv=None):
     ap.add_argument("--brim", type=float, metavar="MM",
                     help="outer brim of this width round every part: for tall thin ones (the slider, the pawl) that peel off the bed")
     ap.add_argument("--no-slice", action="store_true")
+    ap.add_argument("--allow-overhang", type=float, metavar="MM2",
+                    help="overhang area limit per part (default max(300, 8 %% of the bed contact)): for bridged pockets that print fine")
     ap.add_argument("--ignore-orientation", action="store_true",
                     help="slice even if a part lies wrong on the bed (tools/orient_check.py says FAIL)")
     args = ap.parse_args(argv)
@@ -170,7 +172,7 @@ def main(argv=None):
 
     orient = {}
     for path in stls:
-        orient[path] = orient_check.verdict(orient_check.measure(path), args.support)
+        orient[path] = orient_check.verdict(orient_check.measure(path), args.support, args.allow_overhang)
         print("  [%s] %s: %s" % ({"OK": "OK ", "WARN": "WARN", "FAIL": "FAIL"}[orient[path][0]], os.path.relpath(path, REPO),
                                  orient[path][1]), file=sys.stderr)
     if any(v[0] == "FAIL" for v in orient.values()) and not args.ignore_orientation:

@@ -98,9 +98,9 @@ def search(path, support=False):
     return sorted(rows, key=lambda r: r[0])
 
 
-def verdict(m, support=False):
+def verdict(m, support=False, limit=None):
     """(OK / WARN / FAIL, why)."""
-    limit = max(OVERHANG_MM2, OVERHANG_FRAC * m["bed_mm2"])
+    limit = limit or max(OVERHANG_MM2, OVERHANG_FRAC * m["bed_mm2"])
     if m["overhang_mm2"] > limit and not support:
         return "FAIL", "%.0f mm2 of overhang (limit %.0f) and no supports: turn it over or ask for supports" % (m["overhang_mm2"], limit)
     if m["bed_mm2"] < SMALL_BED_MM2:

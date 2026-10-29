@@ -96,6 +96,7 @@ NOTCH_R = (14.5, 18.5)              # pawl notches in the hub's rear face, betwe
 NOTCH_DEPTH = 3.0
 NOTCH_W = 4.0                       # tangential
 NOTCH_SLACK = 0.0                   # notch made this much wider behind the pawl: lost motion before it drives
+NOTCH_RAMP = None                   # (floor end y, ramp length, drive wall moved back by): the notch's trailing wall is a 45 deg ramp (hammer_layout.py, pawl as a plunger)
 SECTOR_R = (12.9, 15.3)             # ring round the axle
 SECTOR_X = (-GAP + 0.4, -0.4)
 ARM_R = 31.0                        # drive arm, radial slot 26..31
@@ -289,7 +290,13 @@ for i in range(6):
         cyl_x(BARREL_OD + 0.3, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T + 1, y, z))
     hub = hub.cut(turned(rim_notch, 60 * i))
     a = 60 * i                                          # pawl notches between the barrels
-    n = Part.makeBox(NOTCH_DEPTH + 1, NOTCH_W + NOTCH_SLACK, NOTCH_R[1] - NOTCH_R[0], V(HUB_X0 - 1, -NOTCH_W / 2, NOTCH_R[0]))
+    if NOTCH_RAMP:      # drive wall at y = -NOTCH_W / 2, flat floor to y_f, then a 45 deg ramp up to the face: a rigid tooth rides out of it
+        y_f, rl, wall_extra = NOTCH_RAMP
+        poly_ = [V(x_, y_, NOTCH_R[0]) for y_, x_ in [(-NOTCH_W / 2 - wall_extra, HUB_X0 - 1), (-NOTCH_W / 2 - wall_extra, HUB_X0 + NOTCH_DEPTH),
+                                                    (y_f, HUB_X0 + NOTCH_DEPTH), (y_f + rl, HUB_X0), (y_f + rl, HUB_X0 - 1)]]
+        n = Part.Face(Part.makePolygon(poly_ + [poly_[0]])).extrude(V(0, 0, NOTCH_R[1] - NOTCH_R[0]))
+    else:
+        n = Part.makeBox(NOTCH_DEPTH + 1, NOTCH_W + NOTCH_SLACK, NOTCH_R[1] - NOTCH_R[0], V(HUB_X0 - 1, -NOTCH_W / 2, NOTCH_R[0]))
     hub = hub.cut(turned(n, a - 90))
 hub = hub.cut(cyl_x(BARREL_OD + 0.6, HUB_X0 - 1, HUB_X0 + HUB_T + 1))
 barrels = Part.makeCompound([cyl_x(BARREL_OD, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T + STUB, *polar(R_RING, -90 + 60 * i))
