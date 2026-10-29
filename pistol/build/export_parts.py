@@ -49,12 +49,6 @@ GROUPS = {
     "standard": "--infill 30% --walls 4",
 }
 
-# The bolt as printed: BOLT_CLEAR smaller a side than the channel cut from it in the housing (the tip keeps its flat and 45 deg flanks).
-BOLT_CLEAR = 0.25
-_hw, _tw, _top = BOLT[1] / 2 - BOLT_CLEAR, BOLT_TIP / 2, -HUB_R + BOLT_DEPTH
-detent_bolt_print = prism_x([(-_hw, _top - BOLT_LEN), (_hw, _top - BOLT_LEN), (_hw, _top - (_hw - _tw)), (_tw, _top), (-_tw, _top),
-                             (-_hw, _top - (_hw - _tw))], HUB_X0 + BOLT_X0 + BOLT_CLEAR, HUB_X0 + BOLT_X0 + BOLT[0] - BOLT_CLEAR)
-
 # name, shape, the part's direction that goes down onto the bed, group, note
 PARTS = [
     ("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing, no lock: a plain Ø16 through bore ending in the sleeve's nose, 0.3 mm off the hub; flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),

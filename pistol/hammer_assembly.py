@@ -451,6 +451,30 @@ report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
            % (PLUG_ORING + (2 * _gr, plug_stretch * 100, PLUG_SQUEEZE * 100, BARREL_OD, PLUG_FLANGE))]
 print("\n".join(report))
 
+# ---------------------------------------------------------------- checks: pass or fail, not only numbers
+checks = {}
+checks["mechanism clears the dress over the hammer and trigger strokes"] = not [v_ for v_ in worst.values() if v_ > 0.05]
+for k_, v_ in fixed_hits.items():
+    checks["fixed: %s (%.1f mm3)" % (k_, v_)] = v_ < (2.0 if k_.startswith("slider/stop") else 0.05)   # the stop pad is meant to touch
+# Sliding fits need air: a part cut to its neighbour's exact size will not go in once printed (the detent bolt did not).
+for label_, a_, b_ in (("detent bolt in its channel", turned(detent_bolt_print, DETENT_ANGLE + 90), detent_box), ("slider on the guide rod", rest["Slider"], guide_rod),
+                       ("hammer on its axle", rest["Hammer"], shaft), ("sector on the chamber tube", rest["Sector"], axle),
+                       ("block on the chamber tube", block, axle)):
+    d_ = a_.distToShape(b_)[0]
+    checks["clearance %s: %.2f mm (>= 0.10)" % (label_, d_)] = d_ >= 0.10
+# Retention: the valve stack (body, cap, lock housing) must not slide a couple of mm any way without meeting the cage, the
+# side plate, the strap, the chamber tube or the block. A direction with nothing to stop it is a part left to the glue.
+stack = Part.makeCompound([valve_body, valve_cap, lock_housing_h])
+around = Part.makeCompound([frame, side_plate, top_strap, axle, nose, axle_plug, block])
+for label_, d_ in (("forward", V(2, 0, 0)), ("back", V(-2, 0, 0)), ("left", V(0, -2, 0)), ("right", V(0, 2, 0)),
+                   ("up", V(0, 0, 2)), ("down", V(0, 0, -2))):
+    v_ = hit(stack.translated(d_), around)
+    checks["valve stack stopped when pushed 2 mm %s (%.0f mm3)" % (label_, v_)] = v_ > 0.5
+for k_, ok_ in checks.items():
+    print("  [%s] %s" % ("OK " if ok_ else "FAIL", k_))
+print("  valve stack rear face x %.1f, cage rear wall inside x %.1f (%.1f mm between)"
+      % (stack.BoundBox.XMin, fx[0] + EVA_T + CAGE_T, stack.BoundBox.XMin - (fx[0] + EVA_T + CAGE_T)))
+
 # ---------------------------------------------------------------- document
 if NAME in App.listDocuments():
     App.closeDocument(NAME)

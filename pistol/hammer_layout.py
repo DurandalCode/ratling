@@ -106,6 +106,13 @@ def bolt_shape(block_deg):
     return turned(bolt_prism(top, BOLT_LEN), DETENT_ANGLE + 90)
 
 
+# The bolt as printed: BOLT_CLEAR smaller a side than the channel cut from it in the housing (the tip keeps its flat and 45 deg flanks).
+BOLT_CLEAR = 0.25
+_hw, _tw, _top = BOLT[1] / 2 - BOLT_CLEAR, BOLT_TIP / 2, -HUB_R + BOLT_DEPTH
+detent_bolt_print = prism_x([(-_hw, _top - BOLT_LEN), (_hw, _top - BOLT_LEN), (_hw, _top - (_hw - _tw)), (_tw, _top), (-_tw, _top),
+                             (-_hw, _top - (_hw - _tw))], HUB_X0 + BOLT_X0 + BOLT_CLEAR, HUB_X0 + BOLT_X0 + BOLT[0] - BOLT_CLEAR)
+
+
 def detent_spring_pocket():
     c = Part.makeCylinder(2.15, 10.5, V(HUB_X0 + BOLT_X0 + BOLT[0] / 2, 0, -HUB_R - BOLT_LEN - 10.5), ZA)
     return turned(c, DETENT_ANGLE + 90)
