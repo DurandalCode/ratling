@@ -47,6 +47,7 @@ GROUPS = {
     "strong": "--infill 60% --walls 5 --pattern gyroid",
     "impact": "--infill 40% --walls 6 --support",
     "supports": "--infill 40% --walls 4 --support",
+    "strong_supports": "--infill 60% --walls 5 --pattern gyroid --support",
     "standard": "--infill 30% --walls 4",
 }
 
@@ -63,7 +64,7 @@ PARTS = [
     ("block_front_disc", front_plate, X_, "standard", "barrels glued into it"),
     ("sector", sector_base, X_, "strong", "front face on the bed, the pawl's boss up (the other way round the ring hung on the boss); on the axle in front of the lock housing; the slider's pin in its arm"),
     ("pawl", pawl_tooth, -X_, "strong", "the sector's sprung tooth (a Ø3 pen spring behind it)"),
-    ("slider", SLIDER_H, Y_, "strong", "the bracket's outer face on the bed, 15 mm tall (on its x face it stood 54 mm tall on a thin strip and peeled off; on the other y face the bracket hung); runs on the Ø3 guide rod; its pin (Ø3 steel) in the sector's arm"),
+    ("slider", SLIDER_H, Y_, "strong_supports", "the bracket's outer face on the bed, 15 mm tall, on supports under the plate and the rod boss (on its x face it stood 54 mm tall and peeled off); runs"),
     ("detent_bolt", detent_bolt_print, X_, "strong", "V tip; a Ø4 pen spring behind it; flat on its x face; %.2f mm smaller than its channel a side (the first print would not go in)" % BOLT_CLEAR),
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 12 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),

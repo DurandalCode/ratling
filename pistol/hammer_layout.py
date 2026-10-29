@@ -249,6 +249,11 @@ _cx0 = SLIDER_X[0] if LOCKLESS else CHEEK_X[0]           # where the bracket lea
 SLIDER_H = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6)
 if not LOCKLESS:
     SLIDER_H = SLIDER_H.fuse(box(CHEEK_X[0], CHEEK_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6))
+else:
+    # The guide rod (x = -8.5) is only 0.5 mm from the plate's back face (x = -9): without the old cheek its Ø3.3 hole was
+    # an open groove and the slider just lay on the rod. A boss behind the plate gives the hole a 1.5 mm wall all round.
+    SLIDER_H = SLIDER_H.fuse(box(GUIDE_ROD["x"] - 3.2, SLIDER_X[0] + 0.01, GUIDE_ROD["y"] - 3.2, GUIDE_ROD["y"] + 3.2,
+                                 -SLIDER_REACH, 6))
 SLIDER_H = (SLIDER_H.fuse(box(_cx0, SLIDER_X[1], SLIDER_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
             .fuse(box(min(xs) - 8, _cx0 + 0.01, BRACKET_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
             .cut(box(min(xs) - 2, max(xs) + 2, BRACKET_Y[0] - 1, BRACKET_Y[1] + 1, D_YOKE - 1.7, D_YOKE + 1.7)))

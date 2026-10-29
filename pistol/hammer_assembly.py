@@ -475,6 +475,11 @@ for label_, d_ in (("forward", V(2, 0, 0)), ("back", V(-2, 0, 0)), ("left", V(0,
                    ("up", V(0, 0, 2)), ("down", V(0, 0, -2))):
     v_ = hit(stack.translated(d_), around)
     checks["valve stack stopped when pushed 2 mm %s (%.0f mm3)" % (label_, v_)] = v_ > 0.5
+# The slider must wrap its guide rod, not lie in a groove on it: a ring 1 mm thick round the rod's hole must be solid.
+_ring = Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15 + 1.0, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA).cut(
+    Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA))
+_wrap = SLIDER_H.common(_ring).Volume / _ring.Volume
+checks["slider wraps its guide rod: %.0f %% of a 1 mm ring round the hole is solid (>= 98)" % (_wrap * 100)] = _wrap >= 0.98
 # The slider's steel pin must have a hole to sit in: drawn over solid plastic it only looked fixed.
 _sl0, _pin0 = slider_h(0.5)
 checks["slider pin sits in its hole (%.1f mm3 of it inside solid plastic)" % hit(_sl0, _pin0)] = hit(_sl0, _pin0) < 0.05
