@@ -57,7 +57,7 @@ NOZZLE_08 = {"frame_cage", "frame_side_plate", "grip_left", "grip_right", "trigg
 
 # name, shape, the part's direction that goes down onto the bed, group, note
 PARTS = [
-    ("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing, no lock: a plain Ø16 through bore ending in the sleeve's nose, 0.3 mm off the hub; flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
+    ("lock_housing", lock_housing_h, -X_, "standard", "the lock's housing, no lock (only the shot's impulse passes, no standing pressure): a plain Ø16 through bore ending in the sleeve's nose, 0.3 mm off the hub; flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
     ("block_rear_disc", hub, -X_, "standard", "breech seats on the bed; barrels glued 5 mm into it"),
     ("block_front_disc", front_plate, X_, "standard", "barrels glued into it"),
     ("sector", sector_base, -X_, "strong", "on the axle in front of the lock housing; the slider's pin in its arm"),
