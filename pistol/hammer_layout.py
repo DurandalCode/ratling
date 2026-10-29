@@ -267,21 +267,7 @@ ring = cyl_x(LOCK_PISTON_D - 0.4, -PUSHER_T / 2, PUSHER_T / 2, 0, Z_FIRE).cut(
     cyl_x(SLEEVE_BORE + 0.6, -5, 5, 0, Z_FIRE))
 lug = box(-PUSHER_T / 2, PUSHER_T / 2, (SLEEVE_BORE + 1) / 2, SLIDER_Y[0] - 0.5, Z_FIRE - 3, Z_FIRE + 3)
 cam_pin = Part.makeCylinder(1.5, 2.5 + 3.0, V(0, SLIDER_Y[0] - 2.5, Z_FIRE), YA)      # 3 mm into the cheek, short of the guide rod
-try:
-    LOCK_LUG_ANGLES                 # directions of the ring's lugs round the sleeve axis, deg from +y toward +z (set before exec)
-except NameError:
-    LOCK_LUG_ANGLES = (0.0,)        # one, on the right where the slider is; pistol/build/bench_two_lugs.py tries a pair
-
-
-def about_lock_axis(shape, deg):
-    s = shape.copy()
-    s.rotate(V(0, 0, Z_FIRE), XA, deg)
-    return s
-
-
-PUSHER = ring
-for a_ in LOCK_LUG_ANGLES:
-    PUSHER = PUSHER.fuse(about_lock_axis(lug.fuse(cam_pin), a_))
+PUSHER = ring.fuse(lug.fuse(cam_pin))          # one lug, on the right where the slider is
 
 
 def pusher_shape(lk):
@@ -290,13 +276,11 @@ def pusher_shape(lk):
 
 _lug_slot = box(X_OPEN - PUSHER_T / 2 - 0.4, X_LOCKED + PUSHER_T / 2 + 0.4,
                 (SLEEVE_BORE + 1) / 2 - 1, 30, Z_FIRE - 3.5, Z_FIRE + 3.5)
-lock_housing_h = lock_housing_plain
-for a_ in LOCK_LUG_ANGLES:
-    lock_housing_h = lock_housing_h.cut(about_lock_axis(_lug_slot, a_))
+lock_housing_h = lock_housing_plain.cut(_lug_slot)
 
 if LOCKLESS:
     # A plain block with a Ø SEAT_D through bore that ends in the sleeve's nose (NOSE_D out), NOSE_GAP short of the hub.
-    # lock_housing_plain minus the pockets for the flange and the tube, as pistol/build/bench_fixed_nose.py proved.
+    # lock_housing_plain minus the pockets for the flange and the tube, as the bench try proved (0.3 mm off the hub, it shot well).
     x_nose = HUB_X0 - NOSE_GAP
     nose_ring = cyl_x(NOSE_D, -GAP - 1.0, x_nose, 0, Z_FIRE)
     lock_housing_h = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
