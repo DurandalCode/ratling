@@ -89,7 +89,7 @@ for i in range(11):
     c = i / 10
     st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=0.0))
     disc = turned(hub, block_drive(c))
-    for n_, sh_ in (("slider", st["Slider"]), ("pin", st["Pin"]), ("sector", st["Sector"]), ("pawl", st["Pawl"]),                     ("bolt", st["Bolt"]), ("disc", disc)):
+    for n_, sh_ in (("slider", st["Slider"]), ("pin", st["Pin"]), ("sector", st["Sector"]),                     ("bolt", st["Bolt"]), ("disc", disc)) + ((("pawl", st["Pawl"]),) if "Pawl" in st else ()):
         for k_, o_ in (("jig", jig), ("rod", rod)):
             v_ = hit(sh_, o_)
             if n_ == "bolt" and k_ == "jig":
@@ -114,8 +114,8 @@ if NAME in App.listDocuments():
     App.closeDocument(NAME)
 doc = App.newDocument(NAME)
 st0 = pose(dict(cock=0.5, block=block_drive(0.5), bend=0.0, trig=0.0))
-for n, s, c, t in (("Jig", jig, (0.55, 0.62, 0.72), 0), ("Disc", turned(hub, block_drive(0.5)), (0.3, 0.7, 0.35), 40),
-                   ("Sector", st0["Sector"], (0.9, 0.6, 0.2), 0), ("Pawl", st0["Pawl"], (0.9, 0.3, 0.3), 0),
+for n, s, c, t in ((("Pawl", st0["Pawl"], (0.9, 0.3, 0.3), 0),) if "Pawl" in st0 else ()) + (("Jig", jig, (0.55, 0.62, 0.72), 0), ("Disc", turned(hub, block_drive(0.5)), (0.3, 0.7, 0.35), 40),
+                   ("Sector", st0["Sector"], (0.9, 0.6, 0.2), 0), 
                    ("Slider", st0["Slider"], (0.35, 0.45, 0.85), 0), ("Slider_pin", st0["Pin"], (0.8, 0.8, 0.8), 0),
                    ("Bolt", st0["Bolt"], (0.8, 0.8, 0.8), 0), ("Guide_rod", rod, (0.8, 0.8, 0.8), 0)):
     o = doc.addObject("Part::Feature", n)

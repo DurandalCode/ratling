@@ -98,7 +98,8 @@ _pw, _ph, _pr0 = NOTCH_W - 0.8, NOTCH_R[1] - SECTOR_R[1] - 0.5, SECTOR_R[1] - 0.
 try:
     FLEX_PAWL                       # True: the pawl is a flexure tongue in the sector (it pushed back too hard, see below)
 except NameError:
-    FLEX_PAWL = False
+    FLEX_PAWL = True
+TIP_RISE = 2.7                                          # the pawl tooth's tip stands this far past the hub's face (notch depth 3.0)
 if not FLEX_PAWL:
     # The pawl is a plunger in a boss on the sector's back, on a steel compression spring from the 304 assortment kit:
     # 0.5 x 6 x 10 mm, 8 coils, ~0.55 N/mm (G = 70 GPa), solid height 4.0 mm: 1.4 N at rest, 2.9 N at full travel. The square tooth of the first plunger could
@@ -109,7 +110,6 @@ if not FLEX_PAWL:
     PL_AXIS_Z = 17.6                                    # the plunger's axis, radially (the tooth is its lower part)
     PL_BODY_R, PL_CH_R = 3.0, 3.2                       # body and channel radii: 0.2 mm of play
     PL_STEP_X = SECTOR_X[1] - 1.3                       # the body's front face rests on the channel's front wall (1.3 thick)
-    TIP_RISE = 2.7                                      # the tooth's tip stands this far past the hub's face (notch depth 3.0): taller to file
     PL_BODY_L = 3.0
     PL_PLUG_L = 2.0
     PL_SPRING_L = 7.4                                   # the spring's length with the pawl at rest: 2.6 mm of preload
@@ -141,7 +141,7 @@ else:
     # tooth's ramp and the tongue bends back 2 mm: no plunger, no spring, no boss. The old square tooth could not leave a
     # square notch at all; the ramp rises 2.0 mm over about 1.5 mm of travel (checked in tools/ against the disc as it is).
     # Built at the pawl's place at the "top" (+z); theta runs from +z towards -y, the drive direction.
-    TONGUE_L, TONGUE_T = 15.0, 0.9                      # along the arc, thick in x (the bending direction); 12 x 1.0 pushed back too hard
+    TONGUE_L, TONGUE_T = 14.0, 0.95                     # along the arc, thick in x (the bending direction); 12 x 1.0 pushed back too hard, 15 x 0.9 too soft
     TONGUE_X = (SECTOR_X[0], SECTOR_X[0] + TONGUE_T)    # the tongue is the back layer of the ring
     R_T = (SECTOR_R[1] - 0.5, NOTCH_R[1] - 0.3)         # tongue and tooth radially: 14.8 .. 18.2 (notch 14.5 .. 18.5)
     TH_ROOT = math.degrees(TONGUE_L / (sum(R_T) / 2))   # the root, from the tooth's centre
@@ -157,22 +157,27 @@ else:
     _tongue = _arc_prism(R_T[0], R_T[1], TH_FREE, TH_ROOT + 1.0, *TONGUE_X)
     _root = _arc_prism(R_T[0] - 0.2, R_T[1] + 0.6, TH_ROOT, TH_ROOT + 22.0, SECTOR_X[0], SECTOR_X[1])
     _pocket = _arc_prism(R_T[0] - 0.2, R_T[1] + 0.3, TH_FREE - 3.0, TH_ROOT, SECTOR_X[0] - 0.3, SECTOR_X[1] + 0.3)
-    _x_face, _x_tip = HUB_X0 - 0.3, HUB_X0 + 2.0
+    _x_face, _x_tip = HUB_X0 - 0.3, HUB_X0 + TIP_RISE
     _pts = [(-1.6, TONGUE_X[0] + 0.4), (1.6, TONGUE_X[0] + 0.4), (1.6, _x_face), (0.0, _x_tip), (-1.6, _x_tip)]
     _poly = [V(x, y, R_T[0]) for y, x in _pts]
     _tooth = Part.Face(Part.makePolygon(_poly + [_poly[0]])).extrude(V(0, 0, R_T[1] - R_T[0]))
     PAWL_FLEX = turned(_tongue.fuse(_tooth).removeSplitter(), PAWL_A0 - 90)       # for the clash check: tongue bent back
     pawl_tooth = turned(_tooth, PAWL_A0 - 90)
-    PAWL_BACK = 2.3                                     # tongue travel: 2.0 to clear the face and 0.3 spare (strain ~2.4 %)
+    PAWL_BACK = TIP_RISE + 0.1                          # tongue travel: to clear the face and 0.1 spare
     PAWL_MOVER = PAWL_FLEX
-    sector_base = (sector_base.cut(turned(_pocket, PAWL_A0 - 90)).fuse(turned(_root, PAWL_A0 - 90)).fuse(PAWL_FLEX)
-                   .removeSplitter())
+    _pb = [V(x, y, R_T[0]) for y, x in [(-1.6, TONGUE_X[0] + 0.4), (1.6, TONGUE_X[0] + 0.4), (1.6, _x_tip), (-1.6, _x_tip)]]
+    _tooth_blank = Part.Face(Part.makePolygon(_pb + [_pb[0]])).extrude(V(0, 0, R_T[1] - R_T[0]))
+    _sector_cut = sector_base.cut(turned(_pocket, PAWL_A0 - 90)).fuse(turned(_root, PAWL_A0 - 90))
+    sector_base = _sector_cut.fuse(PAWL_FLEX).removeSplitter()
+    sector_base_blank = _sector_cut.fuse(turned(_tongue.fuse(_tooth_blank), PAWL_A0 - 90)).removeSplitter()   # a square tooth to file by hand
 
 # A thin thrust ring on the sector's front face (Ø28.8 x 0.8, inside the pawl's radius): it keeps the ring 0.1 mm off the
 # hub's rear face and, on the indexer stand, is what the disc rests on, so the disc sits where the model puts it.
 SECTOR_FRONT_T = 0.8
-sector_base = sector_base.fuse(cyl_x(28.8, SECTOR_X[1] - 0.01, SECTOR_X[1] + SECTOR_FRONT_T, 0, 0)
-                               .cut(cyl_x(2 * SECTOR_R[0], SECTOR_X[1] - 1, SECTOR_X[1] + 2, 0, 0))).removeSplitter()
+_thrust = cyl_x(28.8, SECTOR_X[1] - 0.01, SECTOR_X[1] + SECTOR_FRONT_T, 0, 0).cut(cyl_x(2 * SECTOR_R[0], SECTOR_X[1] - 1, SECTOR_X[1] + 2, 0, 0))
+sector_base = sector_base.fuse(_thrust).removeSplitter()
+if FLEX_PAWL:
+    sector_base_blank = sector_base_blank.fuse(_thrust).removeSplitter()
 
 
 def bolt_shape(block_deg):

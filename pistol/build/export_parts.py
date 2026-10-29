@@ -77,6 +77,11 @@ PARTS = [
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),
     ("axle_plug", axle_plug, X_, "airtight", "flange on the bed; in the axle's front end on a 19 x 2.5 O-ring; an M6 nut epoxied in its pocket"),
 ]
+if FLEX_PAWL:                   # the pawl is a flexure tongue: the sector as it is, and one with a square tooth to file
+    _i = [i_ for i_, p_ in enumerate(PARTS) if p_[0] == "sector"][0]
+    PARTS[_i:_i + 1] = [
+        ("sector", sector_base, -X_, "strong", "rear face on the bed (the tongue is its first layer), the ramped pawl tooth up (tip 2.7 mm past the hub face), 6 mm tall; on the axle in front of the lock housing; the slider's pin in its arm"),
+        ("sector_blank", sector_base_blank, -X_, "strong", "the same with a SQUARE pawl tooth to file the ramp on by hand: the leading face (towards the drive) stays flat, the ramp goes on the other side")]
 if not FLEX_PAWL:               # the pawl is a plunger in a boss on the sector, on a steel spring, closed by a plug
     _i = [i_ for i_, p_ in enumerate(PARTS) if p_[0] == "sector"][0]
     PARTS[_i:_i + 1] = [
