@@ -136,6 +136,12 @@ else:
     sector_base = (sector_base.cut(turned(_pocket, PAWL_A0 - 90)).fuse(turned(_root, PAWL_A0 - 90)).fuse(PAWL_FLEX)
                    .removeSplitter())
 
+# A thin thrust ring on the sector's front face (Ø28.8 x 0.8, inside the pawl's radius): it keeps the ring 0.1 mm off the
+# hub's rear face and, on the indexer stand, is what the disc rests on, so the disc sits where the model puts it.
+SECTOR_FRONT_T = 0.8
+sector_base = sector_base.fuse(cyl_x(28.8, SECTOR_X[1] - 0.01, SECTOR_X[1] + SECTOR_FRONT_T, 0, 0)
+                               .cut(cyl_x(2 * SECTOR_R[0], SECTOR_X[1] - 1, SECTOR_X[1] + 2, 0, 0))).removeSplitter()
+
 
 def bolt_shape(block_deg):
     top = -HUB_R + bolt_depth(block_deg)

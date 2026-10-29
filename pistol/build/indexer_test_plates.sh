@@ -5,7 +5,3 @@ set -e
 cd "$(dirname "$0")/../.."
 python3 tools/print_plate.py pistol_indexer_test exports/pistol_indexer_test/stl/indexer_jig.stl \
     --filament "Bambu PLA Basic @BBL P2S" --infill 15% --walls 3 | python3 -c 'import json,sys; r=json.load(sys.stdin); print("  %s: %d plate(s), %s" % (r["project"], r["plates"], ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])))'
-# The rings that set the axial distances on the post (exact heights: PLA, solid, the washer is 0.8 mm).
-python3 tools/print_plate.py pistol_indexer_rings exports/pistol_indexer_test/stl/ring_spacer_rear.stl \
-    exports/pistol_indexer_test/stl/ring_washer.stl exports/pistol_indexer_test/stl/ring_collar.stl \
-    --filament "Bambu PLA Basic @BBL P2S" --infill 100% --walls 4 --brim 4 | python3 -c 'import json,sys; r=json.load(sys.stdin); print("  %s: %d plate(s), %s" % (r["project"], r["plates"], ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])))'
