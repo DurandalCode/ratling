@@ -96,14 +96,41 @@ PAWL_BOSS_X0 = -14.2                # the boss's back wall
 BOLT_LEN = 12.0
 _pw, _ph, _pr0 = NOTCH_W - 0.8, NOTCH_R[1] - SECTOR_R[1] - 0.5, SECTOR_R[1] - 0.5
 try:
-    FLEX_PAWL                       # False: the old plunger in a boss on a Ø3 pen spring, set before exec
+    FLEX_PAWL                       # True: the pawl is a flexure tongue in the sector (it pushed back too hard, see below)
 except NameError:
-    FLEX_PAWL = True
+    FLEX_PAWL = False
 if not FLEX_PAWL:
-    pawl_tooth = turned(Part.makeBox(HUB_X0 + 2.0 - PAWL_X0, _pw, _ph, V(PAWL_X0, -_pw / 2, _pr0)), PAWL_A0 - 90)
-    _boss = Part.makeBox(SECTOR_X[0] + 0.01 - PAWL_BOSS_X0, _pw + 2.4, _ph + 2.4, V(PAWL_BOSS_X0, -_pw / 2 - 1.2, _pr0 - 1.2))
-    _bore = Part.makeBox(SECTOR_X[1] + 1 - (PAWL_BOSS_X0 + 1.2), _pw + 0.3, _ph + 0.3, V(PAWL_BOSS_X0 + 1.2, -_pw / 2 - 0.15, _pr0 - 0.15))
-    sector_base = sector_base.fuse(turned(_boss, PAWL_A0 - 90)).cut(turned(_bore, PAWL_A0 - 90)).removeSplitter()
+    # The pawl is a plunger in a boss on the sector's back, on a steel compression spring from the 304 assortment kit:
+    # 0.5 x 6 x 10 mm, 8 coils, ~0.55 N/mm (G = 70 GPa), solid height 4.0 mm. The square tooth of the first plunger could
+    # not leave the square notch; this one has the ramped tooth (rise 2.0 mm over ~1.5 mm of travel, checked against the
+    # disc as it is) and a body big enough to hold, in a boss on a tab of the ring's full thickness (the old boss hung on
+    # a 1.7 mm strip and broke off). Built at the pawl's place at the "top" (+z), turned by PAWL_A0 - 90 at the end.
+    SPRING = dict(wire=0.5, od=6.0, free=10.0, coils=8, solid=4.0, k=0.55)      # k in N/mm
+    PL_AXIS_Z = 17.6                                    # the plunger's axis, radially (the tooth is its lower part)
+    PL_BODY_R, PL_CH_R = 3.0, 3.2                       # body and channel radii: 0.2 mm of play
+    PL_STEP_X = SECTOR_X[1] - 1.3                       # the body's front face rests on the channel's front wall (1.3 thick)
+    PL_BODY_L = 4.0
+    PL_REAR_X = -14.5                                   # the boss's back face; the plug closes it
+    PL_PLUG_L = 2.0
+    PL_SPRING_L = 6.8                                   # the spring's length with the pawl at rest: 3.2 mm of preload
+    PAWL_BACK = 2.3                                     # travel: the spring is then 4.5 mm long, 0.5 over its solid height
+    _r_t = (SECTOR_R[1] - 0.5, NOTCH_R[1] - 0.3)        # the tooth radially: 14.8 .. 18.2 (notch 14.5 .. 18.5)
+    _x_face, _x_tip = HUB_X0 - 0.3, HUB_X0 + 2.0
+    _pts = [(-1.6, PL_STEP_X - 0.2), (1.6, PL_STEP_X - 0.2), (1.6, _x_face), (0.0, _x_tip), (-1.6, _x_tip)]
+    _poly = [V(x, y, _r_t[0]) for y, x in _pts]
+    _nose = Part.Face(Part.makePolygon(_poly + [_poly[0]])).extrude(V(0, 0, _r_t[1] - _r_t[0]))
+    _body = Part.makeCylinder(PL_BODY_R, PL_BODY_L, V(PL_STEP_X - PL_BODY_L, 0, PL_AXIS_Z), XA)
+    _plunger = _nose.fuse(_body).removeSplitter()
+    _channel = Part.makeCylinder(PL_CH_R, PL_STEP_X - PL_REAR_X + 0.5, V(PL_REAR_X - 0.5, 0, PL_AXIS_Z), XA)
+    _window = box(PL_STEP_X - PAWL_BACK - 0.8, SECTOR_X[1] + 0.5, -1.85, 1.85, _r_t[0] - 0.2, _r_t[1] + 0.2)  # the nose's way, over its whole travel
+    _tab = box(SECTOR_X[0], SECTOR_X[1], -4.8, 4.8, SECTOR_R[0] + 0.1, PL_AXIS_Z + PL_CH_R + 1.6)         # the ring, grown out under the boss
+    _boss = box(PL_REAR_X, SECTOR_X[0] + 0.01, -4.8, 4.8, SECTOR_R[0] + 0.1, PL_AXIS_Z + PL_CH_R + 1.6)
+    _plug = Part.makeCylinder(PL_CH_R - 0.05, PL_PLUG_L, V(PL_REAR_X, 0, PL_AXIS_Z), XA)               # pressed and glued in the boss's rear
+    sector_base = (sector_base.fuse(turned(_tab, PAWL_A0 - 90)).fuse(turned(_boss, PAWL_A0 - 90))
+                   .cut(turned(_channel, PAWL_A0 - 90)).cut(turned(_window, PAWL_A0 - 90)).removeSplitter())
+    pawl_tooth = turned(_plunger, PAWL_A0 - 90)         # nose and body, the moving part
+    PAWL_MOVER = pawl_tooth
+    PAWL_PLUG = turned(_plug, PAWL_A0 - 90)
 else:
     # The pawl is a flexure printed in the sector: a tongue cut out of the ring along its arc (root on the drive side, so
     # the drive loads it in tension) with a ramped tooth on its free end. On the return the notch's corner slides up the
@@ -133,6 +160,7 @@ else:
     PAWL_FLEX = turned(_tongue.fuse(_tooth).removeSplitter(), PAWL_A0 - 90)       # for the clash check: tongue bent back
     pawl_tooth = turned(_tooth, PAWL_A0 - 90)
     PAWL_BACK = 2.3                                     # tongue travel: 2.0 to clear the face and 0.3 spare (strain ~2.4 %)
+    PAWL_MOVER = PAWL_FLEX
     sector_base = (sector_base.cut(turned(_pocket, PAWL_A0 - 90)).fuse(turned(_root, PAWL_A0 - 90)).fuse(PAWL_FLEX)
                    .removeSplitter())
 

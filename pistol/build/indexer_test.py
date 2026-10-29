@@ -58,6 +58,16 @@ channel = bolt_prism(-HUB_R + BOLT_DEPTH, BOLT_LEN).fuse(bolt_prism(-HUB_R, BOLT
     bolt_prism(-HUB_R, BOLT_LEN + 2).translated(V(0, 0, 3.0)))
 spring4 = Part.makeCylinder(2.15, 10.5, V(HUB_X0 + BOLT_X0 + BOLT[0] / 2, 0, -HUB_R - BOLT_LEN - 10.5), ZA)
 detent_side = turned(det.fuse(bar).fuse(tie).cut(channel).cut(spring4), DETENT_ANGLE + 90)
+# ---------------------------------------------------------------- the axial distances come from the parts themselves
+# A shoulder on the post (Ø28.6, printed with it) runs from the plate to the sector's rear face, so the sector rests exactly
+# where the model puts it (x = -3.6); the sector's own front ring (0.8 mm) is what the disc rests on, 0.1 mm short of the
+# model's x = 0.5. The stand lies on its plate, the post points up, gravity holds the stack: no spacers, rings or screws.
+SHOULDER = cyl_x(28.6, PLATE_X[1] - 0.01, SECTOR_X[0], 0, 0).cut(cyl_x(POST_OD - 0.4, PLATE_X[1] - 1, SECTOR_X[0] + 1, 0, 0))   # overlaps the post's wall by 0.2 mm
+# ... except where the pawl's boss sweeps (the tooth runs from -98 to -30 deg, the boss is +-16 deg wide): a wedge is left out
+_sweep = prism_x([(0.0, 0.0)] + [(-60 * math.sin(math.radians(f_)), 60 * math.cos(math.radians(f_))) for f_ in range(-125, -4, 10)],
+                 PLATE_X[1] - 1, SECTOR_X[0] + 1)
+SHOULDER = SHOULDER.cut(_sweep)
+post = post.fuse(SHOULDER).removeSplitter()
 jig = post.fuse(strip).fuse(cross).fuse(detent_side)
 for t_ in to_boss:
     jig = jig.fuse(t_)
@@ -70,12 +80,6 @@ clamp_z = (z_lo + boss_lo.BoundBox.ZMax) / 2 + 0.7                  # mid-way al
 jig = jig.cut(Part.makeCylinder(1.25, 5.5, V(rod_x, rod_y, clamp_z), YA))              # Ø2.5 pilot for the M3, from the outside (+y)
 jig = jig.removeSplitter()
 
-# ---------------------------------------------------------------- the axial distances come from the parts themselves
-# A shoulder on the post (Ø28.6, printed with it) runs from the plate to the sector's rear face, so the sector rests exactly
-# where the model puts it (x = -3.6); the sector's own front ring (0.8 mm) is what the disc rests on, 0.1 mm short of the
-# model's x = 0.5. The stand lies on its plate, the post points up, gravity holds the stack: no spacers, rings or screws.
-SHOULDER = cyl_x(28.6, PLATE_X[1] - 0.01, SECTOR_X[0], 0, 0).cut(cyl_x(POST_ID, PLATE_X[1] - 1, SECTOR_X[0] + 1, 0, 0))
-jig = jig.fuse(SHOULDER).removeSplitter()
 rings = {}
 
 # ---------------------------------------------------------------- checks over the stroke
@@ -85,7 +89,7 @@ for i in range(11):
     c = i / 10
     st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=0.0))
     disc = turned(hub, block_drive(c))
-    for n_, sh_ in (("slider", st["Slider"]), ("pin", st["Pin"]), ("sector", st["Sector"]),                     ("bolt", st["Bolt"]), ("disc", disc)):
+    for n_, sh_ in (("slider", st["Slider"]), ("pin", st["Pin"]), ("sector", st["Sector"]), ("pawl", st["Pawl"]),                     ("bolt", st["Bolt"]), ("disc", disc)):
         for k_, o_ in (("jig", jig), ("rod", rod)):
             v_ = hit(sh_, o_)
             if n_ == "bolt" and k_ == "jig":
@@ -111,7 +115,7 @@ if NAME in App.listDocuments():
 doc = App.newDocument(NAME)
 st0 = pose(dict(cock=0.5, block=block_drive(0.5), bend=0.0, trig=0.0))
 for n, s, c, t in (("Jig", jig, (0.55, 0.62, 0.72), 0), ("Disc", turned(hub, block_drive(0.5)), (0.3, 0.7, 0.35), 40),
-                   ("Sector", st0["Sector"], (0.9, 0.6, 0.2), 0),
+                   ("Sector", st0["Sector"], (0.9, 0.6, 0.2), 0), ("Pawl", st0["Pawl"], (0.9, 0.3, 0.3), 0),
                    ("Slider", st0["Slider"], (0.35, 0.45, 0.85), 0), ("Slider_pin", st0["Pin"], (0.8, 0.8, 0.8), 0),
                    ("Bolt", st0["Bolt"], (0.8, 0.8, 0.8), 0), ("Guide_rod", rod, (0.8, 0.8, 0.8), 0)):
     o = doc.addObject("Part::Feature", n)
