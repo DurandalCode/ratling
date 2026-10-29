@@ -81,7 +81,8 @@ if not FLEX_PAWL:               # the pawl is a plunger in a boss on the sector,
     _i = [i_ for i_, p_ in enumerate(PARTS) if p_[0] == "sector"][0]
     PARTS[_i:_i + 1] = [
         ("sector", sector_base, X_, "strong_supports", "front ring on the bed, the boss (with the pawl's channel, a tab of the ring's full thickness under it) up, on supports; on the axle in front of the lock housing; the slider's pin in its arm"),
-        ("pawl", pawl_tooth, -X_, "strong", "the plunger: Ø6 body, ramped nose; its back face on the bed, the nose up; in the sector's boss on a 0.5 x 6 x 10 mm steel spring (8 coils, from the 304 kit)"),
+        ("pawl", pawl_tooth, -X_, "strong", "the plunger: Ø6 body, ramped nose; its back face on the bed, the nose up; in the sector's boss on a 0.5 x 6 x 10 mm steel spring (8 coils, from the 304 kit); tip 2.7 mm past the hub face"),
+        ("pawl_blank", PAWL_BLANK, -X_, "strong", "the same plunger with a square tooth (tip 2.7 mm past the hub face) to file the ramp on by hand: leading face (towards the drive) stays flat, ramp on the other side"),
         ("pawl_plug", PAWL_PLUG, -X_, "strong", "closes the boss's rear behind the spring: pressed in and glued with CA")]
 if not LOCKLESS:                # the old lock: a sleeve with a pusher behind its flange
     PARTS[0:1] = [("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
