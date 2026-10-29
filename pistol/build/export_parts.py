@@ -63,7 +63,7 @@ PARTS = [
     ("block_front_disc", front_plate, X_, "standard", "barrels glued into it"),
     ("sector", sector_base, X_, "strong", "front face on the bed, the pawl's boss up (the other way round the ring hung on the boss); on the axle in front of the lock housing; the slider's pin in its arm"),
     ("pawl", pawl_tooth, -X_, "strong", "the sector's sprung tooth (a Ø3 pen spring behind it)"),
-    ("slider", SLIDER_H, X_, "strong", "flat on its x face (on its side the bracket hung in the air); runs on the Ø3 guide rod; its pin (Ø3 steel) in the sector's arm"),
+    ("slider", SLIDER_H, Y_, "strong", "the bracket's outer face on the bed, 15 mm tall (on its x face it stood 54 mm tall on a thin strip and peeled off; on the other y face the bracket hung); runs on the Ø3 guide rod; its pin (Ø3 steel) in the sector's arm"),
     ("detent_bolt", detent_bolt_print, X_, "strong", "V tip; a Ø4 pen spring behind it; flat on its x face; %.2f mm smaller than its channel a side (the first print would not go in)" % BOLT_CLEAR),
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 12 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
@@ -105,10 +105,11 @@ for name, shape, down, group, note in PARTS:
     MeshPart.meshFromShape(Shape=shape, LinearDeflection=0.1, AngularDeflection=0.3).write(native)
     ranked = orient_check.search(native)
     cur_name = [k_ for k_, d_ in orient_check.AXES.items() if abs(d_[0] - down.x) + abs(d_[1] - down.y) + abs(d_[2] - down.z) < 1e-6][0]
-    cur_score = [sc_ for sc_, n_, m_ in ranked if n_ == cur_name][0]
+    cur_score, cur_h = [(sc_, m_["height"]) for sc_, n_, m_ in ranked if n_ == cur_name][0]
     hint = None
-    if ranked[0][0] < cur_score - 50 and ranked[0][1] != cur_name:
-        hint = "a better face down: %s (score %.0f, now %.0f)" % (ranked[0][1], ranked[0][0], cur_score)
+    cand = [r_ for r_ in ranked if r_[2]["height"] <= 1.5 * cur_h]          # not a taller, thinner stand than now
+    if cand and cand[0][0] < cur_score - 50 and cand[0][1] != cur_name:
+        hint = "a better face down: %s (score %.0f, now %.0f)" % (cand[0][1], cand[0][0], cur_score)
     mesh = MeshPart.meshFromShape(Shape=s, LinearDeflection=0.02, AngularDeflection=0.1)
     mesh.translate(0, 0, -mesh.BoundBox.ZMin)           # the shape's own bounding box is loose on curved faces: lay the mesh itself
     mesh.write(path)

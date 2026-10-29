@@ -7,7 +7,7 @@ set -e
 cd "$(dirname "$0")/../.."
 d=exports/pistol_build/stl
 python3 tools/print_plate.py pistol_indexer_parts $d/sector.stl $d/pawl.stl $d/slider.stl \
-    --infill 60% --walls 5 --pattern gyroid | python3 -c 'import json,sys; r=json.load(sys.stdin); print("  %s: %d plate(s), %s" % (r["project"], r["plates"], ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])))'
+    --infill 60% --walls 5 --pattern gyroid --brim 5 | python3 -c 'import json,sys; r=json.load(sys.stdin); print("  %s: %d plate(s), %s" % (r["project"], r["plates"], ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])))'
 # The same three in PLA (stiffer, truer to size): to try the tight fits (the pawl's channel, the guide rod hole) cheaply.
 python3 tools/print_plate.py pistol_indexer_parts_pla $d/sector.stl $d/pawl.stl $d/slider.stl \
-    --filament "Bambu PLA Basic @BBL P2S" --infill 60% --walls 5 --pattern gyroid | python3 -c 'import json,sys; r=json.load(sys.stdin); print("  %s: %d plate(s), %s" % (r["project"], r["plates"], ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])))'
+    --filament "Bambu PLA Basic @BBL P2S" --infill 60% --walls 5 --pattern gyroid --brim 5 | python3 -c 'import json,sys; r=json.load(sys.stdin); print("  %s: %d plate(s), %s" % (r["project"], r["plates"], ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])))'

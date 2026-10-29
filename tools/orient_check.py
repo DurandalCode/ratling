@@ -9,7 +9,8 @@ says, per part:
 
   FAIL  overhang: area of faces steeper than 45 deg from the vertical above the first layers, more than
         max(OVERHANG_MM2, OVERHANG_FRAC of the bed contact), with no supports asked for
-  WARN  bed contact under SMALL_BED_MM2: a tall part on a tiny footprint (it may snap off or wobble); or the
+  WARN  bed contact under SMALL_BED_MM2, or under SLIM_MM per mm of height: a tall part on a thin footprint (it may peel
+        off or wobble: --brim 5 in print_plate.py); or the
         STL floats off z = 0 (Bambu Studio drops it on the bed, the checks are made from its lowest point)
   OK    otherwise; with supports the overhang is only reported
 
@@ -25,6 +26,7 @@ OVERHANG_COS = 0.7071   # a downward face steeper than 45 deg prints in the air
 OVERHANG_MM2 = 300.0
 OVERHANG_FRAC = 0.08
 SMALL_BED_MM2 = 30.0
+SLIM_MM = 40.0          # bed contact under this many mm2 per mm of height: a tall narrow part, it peels (PLA on the first stand did)
 Z_TOL = 0.05
 
 
@@ -102,7 +104,9 @@ def verdict(m, support=False):
     if m["overhang_mm2"] > limit and not support:
         return "FAIL", "%.0f mm2 of overhang (limit %.0f) and no supports: turn it over or ask for supports" % (m["overhang_mm2"], limit)
     if m["bed_mm2"] < SMALL_BED_MM2:
-        return "WARN", "only %.0f mm2 on the bed for a %.0f mm tall part" % (m["bed_mm2"], m["height"])
+        return "WARN", "only %.0f mm2 on the bed for a %.0f mm tall part: add --brim 5" % (m["bed_mm2"], m["height"])
+    if m["bed_mm2"] < SLIM_MM * m["height"]:
+        return "WARN", "tall and narrow (%.0f mm2 on the bed, %.0f mm tall): it may peel off, add --brim 5" % (m["bed_mm2"], m["height"])
     if abs(m["zmin"]) > Z_TOL:
         return "WARN", "the STL floats at z = %.2f (bed %.0f mm2, overhang %.0f mm2)" % (m["zmin"], m["bed_mm2"], m["overhang_mm2"])
     return "OK", "bed %.0f mm2, overhang %.0f mm2%s" % (m["bed_mm2"], m["overhang_mm2"], " (supports)" if support else "")

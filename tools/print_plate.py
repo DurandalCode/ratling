@@ -144,6 +144,8 @@ def main(argv=None):
     ap.add_argument("--support", action="store_true", help="enable supports (parts are drawn not to need them)")
     ap.add_argument("--airtight", action="store_true",
                     help="slow, hot, over-extruded, 6+ walls: for parts that hold air")
+    ap.add_argument("--brim", type=float, metavar="MM",
+                    help="outer brim of this width round every part: for tall thin ones (the slider, the pawl) that peel off the bed")
     ap.add_argument("--no-slice", action="store_true")
     ap.add_argument("--ignore-orientation", action="store_true",
                     help="slice even if a part lies wrong on the bed (tools/orient_check.py says FAIL)")
@@ -177,6 +179,8 @@ def main(argv=None):
 
     overrides = {"sparse_infill_density": args.infill, "wall_loops": args.walls,
                  "enable_support": "1" if args.support else "0", "curr_bed_type": args.plate}
+    if args.brim:
+        overrides.update({"brim_type": "outer_only", "brim_width": str(args.brim)})
     if float(args.infill.rstrip("%")) >= 100:
         overrides["sparse_infill_pattern"] = "zig-zag"      # grid is refused at 100 %
     elif args.pattern:
