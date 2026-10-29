@@ -136,6 +136,11 @@ def _standoffs(sign):
 
 standoffs = Part.makeCompound(_standoffs(1) + _standoffs(-1))
 frame = frame.fuse(Part.makeCompound(_standoffs(1))).removeSplitter()      # the left ones go on the side plate
+# A pillar from the floor behind the cap, 0.3 mm off its rear face, in the clear between the mainsprings (y < -6.6) and
+# the slider (y > 23): the shot pushes the valve stack back (~90 N at 2 bar) and only the standoffs' friction held it.
+_cap_back = valve_cap.BoundBox.XMin
+rear_stop = box(_cap_back - 9.0, _cap_back - 0.3, -8.0, 8.0, fz[0] + EVA_T + CAGE_T - 0.5, -50.0)
+frame = frame.fuse(rear_stop).removeSplitter()
 # Slot in the bottom wall for the trigger over its stroke
 slab = box(fx[0], fx[1], -16, 16, fz[0] - 1, fz[0] + EVA_T + CAGE_T + 1)
 xs = []
