@@ -255,6 +255,9 @@ SLIDER_H = (SLIDER_H.fuse(box(_cx0, SLIDER_X[1], SLIDER_Y[0], BRACKET_Y[1], D_YO
 if not LOCKLESS:
     SLIDER_H = SLIDER_H.cut(cam_slot())
 SLIDER_H = SLIDER_H.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100), ZA))
+# The Ø3 steel pin that drives the sector sits in a hole through the slider's plate (glued; it had no hole at all, the
+# drawn pin just overlapped solid plastic): the slider's pin height is z = 0 in its own frame, y = PIN_Y.
+SLIDER_H = SLIDER_H.cut(Part.makeCylinder(1.5, SLIDER_X[1] - SLIDER_X[0] + 2.0, V(SLIDER_X[0] - 1.0, PIN_Y, 0), XA))
 
 
 def slider_h(c):

@@ -475,6 +475,9 @@ for label_, d_ in (("forward", V(2, 0, 0)), ("back", V(-2, 0, 0)), ("left", V(0,
                    ("up", V(0, 0, 2)), ("down", V(0, 0, -2))):
     v_ = hit(stack.translated(d_), around)
     checks["valve stack stopped when pushed 2 mm %s (%.0f mm3)" % (label_, v_)] = v_ > 0.5
+# The slider's steel pin must have a hole to sit in: drawn over solid plastic it only looked fixed.
+_sl0, _pin0 = slider_h(0.5)
+checks["slider pin sits in its hole (%.1f mm3 of it inside solid plastic)" % hit(_sl0, _pin0)] = hit(_sl0, _pin0) < 0.05
 for k_, ok_ in checks.items():
     print("  [%s] %s" % ("OK " if ok_ else "FAIL", k_))
 print("  valve stack rear face x %.1f, cage rear wall inside x %.1f (%.1f mm between)"
