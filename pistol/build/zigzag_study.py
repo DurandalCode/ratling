@@ -28,6 +28,7 @@ try:
     REPO
 except NameError:
     REPO = os.path.expanduser("~/ratling")
+PAWL_NOTCHES = False         # no pawl: the six rectangular pockets in the rear face go
 exec(open(os.path.join(REPO, "pistol", "hammer_assembly.py")).read())
 
 NAME = "pistol_zigzag"
