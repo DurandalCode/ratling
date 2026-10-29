@@ -499,7 +499,7 @@ if not globals().get("NO_PAWL", False):          # the zigzag study has no pawl 
             m_ = (lo_ + hi_) / 2
             lo_, hi_ = (m_, hi_) if hit(turned(pawl_tooth.translated(V(-m_, 0, 0)), a_), turned(hub, blk_)) > 0.05 else (lo_, m_)
         return hi_
-    if FLEX_PAWL or RAMP_IN_DISC:
+    if FLEX_PAWL or RAMP_IN_DISC or TOOTH_RAMP:
         _n = max(_need(-a_, 60.0) for a_ in range(0, 69, 4))
         checks["pawl: the return needs %.2f mm of retraction (tongue travel %.1f mm)" % (_n, PAWL_BACK)] = _n <= PAWL_BACK + 0.1
     else:

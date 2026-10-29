@@ -91,6 +91,8 @@ try:
 except NameError:
     RAMP_IN_DISC = False
 TOOTH_W, RAMP_L = (4.0, 3.0) if RAMP_IN_DISC else (3.6, 0.0)
+TOOTH_RAMP = not RAMP_IN_DISC            # the disc as printed (square notches): the ramp is on the tooth's trailing face
+TOOTH_RAMP_RUN = 2.4                    # its length along the arc (the rise is the tip's height): ~1.2 N of drag on the disc per N of spring
 # The pawl at rest sits LOST_DEG (2.3 mm at R 16.5) off the notch's centre line, so its centre is at y = 2.3 in the notch's frame:
 # its leading face reaches the drive wall (y = -2.0) after exactly the idle, its trailing face is 0.45 mm short of the ramp's foot (the arcs of the sector against the planes of the notch).
 NOTCH_RAMP = None if (FLEX_PAWL or not RAMP_IN_DISC) else (16.5 * math.radians(LOST_DEG) + TOOTH_W / 2 + 0.45, RAMP_L, 0.15)   # the drive wall 0.15 mm back: arcs against planes
@@ -118,7 +120,7 @@ if not FLEX_PAWL:
     # on the return the notch's ramp lifts the tooth out against the spring; the drive wall is vertical and the drive
     # pushes the tooth squarely. The body is a Ø6 plunger in a Ø6.4 channel in a boss on a tab of the ring's full thickness.
     # Built at the pawl's place at the "top" (+z), turned by PAWL_A0 - 90 at the end.
-    TIP_RISE = 2.5 if RAMP_IN_DISC else 2.7            # the tooth's tip past the face (notch floor at 3.0): 2.7 leaves material to file
+    TIP_RISE = 2.5                                      # the tooth's tip 2.5 mm past the face, 0.5 above the notch floor (3.0)
     SPRING = dict(wire=0.5, od=6.0, free=10.0, coils=8, solid=4.0, k=0.55)      # k in N/mm
     PL_AXIS_Z = 17.6                                    # the plunger's axis, radially (the tooth is its lower part)
     PL_BODY_R, PL_CH_R = 3.0, 3.2                       # body and channel radii: 0.2 mm of play
@@ -131,7 +133,11 @@ if not FLEX_PAWL:
     _r_t = (NOTCH_R[0] + 0.6, NOTCH_R[1] - 0.5)         # the tooth radially: 15.1 .. 18.0 (notch 14.5 .. 18.5): the sector's arc against the notch's planes needs 0.5 mm
     _x_tip = HUB_X0 + TIP_RISE
     _sh = V(0, 0, 0)                                    # the tooth's centre is the pawl's own y = 0
-    _pts = [(-TOOTH_W / 2, PL_STEP_X - 0.2), (TOOTH_W / 2, PL_STEP_X - 0.2), (TOOTH_W / 2, _x_tip), (-TOOTH_W / 2, _x_tip)]
+    if TOOTH_RAMP:      # flat leading face (towards the drive, y < 0), the trailing face (y > 0) a ramp from the face level up to the tip
+        _pts = [(-TOOTH_W / 2, PL_STEP_X - 0.2), (TOOTH_W / 2, PL_STEP_X - 0.2), (TOOTH_W / 2, HUB_X0 - 0.3),
+                (TOOTH_W / 2 - TOOTH_RAMP_RUN, _x_tip), (-TOOTH_W / 2, _x_tip)]
+    else:
+        _pts = [(-TOOTH_W / 2, PL_STEP_X - 0.2), (TOOTH_W / 2, PL_STEP_X - 0.2), (TOOTH_W / 2, _x_tip), (-TOOTH_W / 2, _x_tip)]
     _poly = [V(x, y, _r_t[0]) for y, x in _pts]
     _nose = Part.Face(Part.makePolygon(_poly + [_poly[0]])).extrude(V(0, 0, _r_t[1] - _r_t[0]))
     _body = Part.makeCylinder(PL_BODY_R, PL_BODY_L, V(PL_STEP_X - PL_BODY_L, 0, PL_AXIS_Z), XA)

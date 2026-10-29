@@ -249,5 +249,5 @@ for n, s, c, t in (("Disc_with_groove", turned(disc, al_), (0.3, 0.7, 0.35), 40)
         o.ViewObject.ShapeColor = c
         o.ViewObject.Transparency = t
 doc.recompute()
-doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
+doc.saveAs(os.path.join(OUT_DIR, NAME + "_scheme.FCStd"))
 print("written to", OUT_DIR)
