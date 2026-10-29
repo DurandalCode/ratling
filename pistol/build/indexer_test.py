@@ -114,7 +114,14 @@ if NAME in App.listDocuments():
     App.closeDocument(NAME)
 doc = App.newDocument(NAME)
 st0 = pose(dict(cock=0.5, block=block_drive(0.5), bend=0.0, trig=0.0))
-for n, s, c, t in ((("Pawl", st0["Pawl"], (0.9, 0.3, 0.3), 0),) if "Pawl" in st0 else ()) + (("Jig", jig, (0.55, 0.62, 0.72), 0), ("Disc", turned(hub, block_drive(0.5)), (0.3, 0.7, 0.35), 40),
+_extra = ()
+if "Pawl" in st0:                      # the plunger (the tooth), its plug and the spring, turned with the sector
+    _sp = Part.makeCylinder(SPRING["od"] / 2, PL_SPRING_L, V(PL_STEP_X - PL_BODY_L - PL_SPRING_L, 0, PL_AXIS_Z), XA).cut(
+        Part.makeCylinder(SPRING["od"] / 2 - SPRING["wire"] * 2, PL_SPRING_L + 2, V(PL_STEP_X - PL_BODY_L - PL_SPRING_L - 1, 0, PL_AXIS_Z), XA))
+    _extra = (("Pawl", st0["Pawl"], (0.95, 0.85, 0.1), 0),
+              ("Pawl_plug", turned(PAWL_PLUG, sector_turn(0.5)), (0.9, 0.3, 0.3), 0),
+              ("Pawl_spring", turned(turned(_sp, PAWL_A0 - 90), sector_turn(0.5)), (0.8, 0.8, 0.85), 30))
+for n, s, c, t in _extra + (("Jig", jig, (0.55, 0.62, 0.72), 0), ("Disc", turned(hub, block_drive(0.5)), (0.3, 0.7, 0.35), 40),
                    ("Sector", st0["Sector"], (0.9, 0.6, 0.2), 0), 
                    ("Slider", st0["Slider"], (0.35, 0.45, 0.85), 0), ("Slider_pin", st0["Pin"], (0.8, 0.8, 0.8), 0),
                    ("Bolt", st0["Bolt"], (0.8, 0.8, 0.8), 0), ("Guide_rod", rod, (0.8, 0.8, 0.8), 0)):

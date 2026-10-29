@@ -1,6 +1,6 @@
 #!/bin/sh
 # Ratling pistol: the pistol's own parts the indexer stand needs, each on its own plate (together their brims and supports
-# ran into each other): the sector (boss with the pawl's channel), the pawl plunger with its plug, and the slider (it lies
+# ran into each other): the sector (boss with the pawl's channel) together with the pawl plunger (the tooth) and two plugs, and the slider (it lies
 # on its bracket face, on supports). Strong profile, PETG, and the same in PLA for the fits.
 # The rear disc (ramped notches) and the detent bolt are on pistol_detent_parts (pistol/build/detent_parts_plates.sh).
 # Run pistol/build/export_parts.py in FreeCAD first.
@@ -14,12 +14,10 @@ for m in "" "_pla"; do
     f=""
     [ -n "$m" ] && f="--filament"
     if [ -n "$m" ]; then
-        python3 tools/print_plate.py pistol_indexer_sector$m $d/sector.stl --filament "Bambu PLA Basic @BBL P2S" $strong --support --brim 5 | python3 -c "$summary"
-        python3 tools/print_plate.py pistol_indexer_pawl$m $d/pawl.stl $d/pawl_plug.stl:2 --filament "Bambu PLA Basic @BBL P2S" $strong --brim 3 | python3 -c "$summary"
+        python3 tools/print_plate.py pistol_indexer_sector$m $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 --filament "Bambu PLA Basic @BBL P2S" $strong --support --brim 3 | python3 -c "$summary"
         python3 tools/print_plate.py pistol_indexer_slider$m $d/slider.stl --filament "Bambu PLA Basic @BBL P2S" $strong --support --brim 5 | python3 -c "$summary"
     else
-        python3 tools/print_plate.py pistol_indexer_sector $d/sector.stl $strong --support --brim 5 | python3 -c "$summary"
-        python3 tools/print_plate.py pistol_indexer_pawl $d/pawl.stl $d/pawl_plug.stl:2 $strong --brim 3 | python3 -c "$summary"
+        python3 tools/print_plate.py pistol_indexer_sector $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 $strong --support --brim 3 | python3 -c "$summary"
         python3 tools/print_plate.py pistol_indexer_slider $d/slider.stl $strong --support --brim 5 | python3 -c "$summary"
     fi
 done
