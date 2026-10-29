@@ -110,7 +110,7 @@ else:
     # tooth's ramp and the tongue bends back 2 mm: no plunger, no spring, no boss. The old square tooth could not leave a
     # square notch at all; the ramp rises 2.0 mm over about 1.5 mm of travel (checked in tools/ against the disc as it is).
     # Built at the pawl's place at the "top" (+z); theta runs from +z towards -y, the drive direction.
-    TONGUE_L, TONGUE_T = 12.0, 1.0                      # along the arc, thick in x (the bending direction)
+    TONGUE_L, TONGUE_T = 15.0, 0.9                      # along the arc, thick in x (the bending direction); 12 x 1.0 pushed back too hard
     TONGUE_X = (SECTOR_X[0], SECTOR_X[0] + TONGUE_T)    # the tongue is the back layer of the ring
     R_T = (SECTOR_R[1] - 0.5, NOTCH_R[1] - 0.3)         # tongue and tooth radially: 14.8 .. 18.2 (notch 14.5 .. 18.5)
     TH_ROOT = math.degrees(TONGUE_L / (sum(R_T) / 2))   # the root, from the tooth's centre
@@ -510,6 +510,11 @@ report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: pen sp
 report.append("  vent valve: AirTAC M3R110-06 body %.1f x %.0f x %.1f, front at x %.1f; trigger pull %.1f deg pushes its plunger"
               " %.1f mm (it clicks at %.1f: %.1f to spare), its back stopping on the body"
               % (AIRTAC["L"], AIRTAC["W"], AIRTAC["T"], VENT_FRONT, TRIGGER_TRAVEL, VENT_PUSH, VENT_SWITCH, VENT_PUSH - VENT_SWITCH))
+if FLEX_PAWL:
+    _I = (R_T[1] - R_T[0]) * TONGUE_T ** 3 / 12
+    report.append("  pawl tongue %.0f x %.1f x %.1f mm: ~%.2f N (PETG) / %.2f N (PLA) at %.1f mm of deflection, strain ~%.1f %%  (a straight-beam estimate)"
+                  % (TONGUE_L, TONGUE_T, R_T[1] - R_T[0], 3 * 1900 * _I * PAWL_BACK / TONGUE_L ** 3, 3 * 3300 * _I * PAWL_BACK / TONGUE_L ** 3,
+                     PAWL_BACK, 150 * TONGUE_T * PAWL_BACK / TONGUE_L ** 2))
 report.append(("  pawl idles %.1f deg of the hammer before it drives" + ("" if LOCKLESS else ": the lock is open by then"))
               % next(HAMMER_SWING * i / 400 for i in range(401) if block_drive(i / 400) > 0.0))
 print("\n".join(report))
