@@ -18,6 +18,8 @@ __pycache__/
 # Local agent/tool state
 .claude/settings.local.json
 .claude/worktrees/
+# User-local OpenCode config (absolute paths to ~/.freecad-mcp on the owner's Mac)
+opencode.json
 
 # render_view.py logs
 *.png.log
