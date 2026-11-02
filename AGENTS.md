@@ -70,6 +70,16 @@
 - Новая версия модуля обычно правит живой файл, а прошлые версии остаются абзацами в его
   докстринге («vX (kept below for history)»). Действует только верхняя версия.
 
+## FreeCAD на Mac владельца
+
+На маке FreeCAD стоит в бандле приложения (1.1.3) и не добавлен в PATH — зовите его полным путём:
+
+```sh
+export LANG=C.UTF-8 LC_ALL=C.UTF-8     # обязательно: без UTF-8 падает на первом «Ø» в отчёте
+APPS=/Applications/FreeCAD.app/Contents/Resources/bin
+"$APPS/freecadcmd" -c "REPO='$PWD'; exec(open('module/stage3v4_coaxial_chamber.py').read())"
+```
+
 ## FreeCAD на облачной ВМ
 
 На ВМ FreeCAD заранее не стоит, но ставится за минуту. Нужен он, если задача меняет геометрию
