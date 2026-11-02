@@ -14,10 +14,11 @@ for m in "" "_pla"; do
     f=""
     [ -n "$m" ] && f="--filament"
     if [ -n "$m" ]; then
-        python3 tools/print_plate.py pistol_indexer_sector$m $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 --filament "Bambu PLA Basic @BBL P2S" $strong --support --brim 3 | python3 -c "$summary"
+        python3 tools/print_plate.py pistol_indexer_sector$m $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 --filament "Bambu PLA Basic @BBL P2S" $strong --support --brim 5 | python3 -c "$summary"
         python3 tools/print_plate.py pistol_indexer_slider$m $d/slider.stl --filament "Bambu PLA Basic @BBL P2S" $strong --support --brim 5 | python3 -c "$summary"
     else
-        python3 tools/print_plate.py pistol_indexer_sector $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 $strong --support --brim 3 | python3 -c "$summary"
+        # brim 5, not 3: the export report warns the sector, the pawl and the plugs sit too small on the bed
+        python3 tools/print_plate.py pistol_indexer_sector $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 $strong --support --brim 5 | python3 -c "$summary"
         python3 tools/print_plate.py pistol_indexer_slider $d/slider.stl $strong --support --brim 5 | python3 -c "$summary"
     fi
 done
