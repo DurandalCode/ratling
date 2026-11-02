@@ -17,8 +17,9 @@ for m in "" "_pla"; do
         python3 tools/print_plate.py pistol_indexer_sector$m $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 --filament "Bambu PLA Basic @BBL P2S" $strong --support --brim 5 | python3 -c "$summary"
         python3 tools/print_plate.py pistol_indexer_slider$m $d/slider.stl --filament "Bambu PLA Basic @BBL P2S" $strong --support --brim 5 | python3 -c "$summary"
     else
+        # one combined plate (the PETG copies to print): all four brims and their supports fit without
+        # touching when the packer spaces them apart -- checked in pistol_indexer.3mf, plate_1.png
         # brim 5, not 3: the export report warns the sector, the pawl and the plugs sit too small on the bed
-        python3 tools/print_plate.py pistol_indexer_sector $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 $strong --support --brim 5 | python3 -c "$summary"
-        python3 tools/print_plate.py pistol_indexer_slider $d/slider.stl $strong --support --brim 5 | python3 -c "$summary"
+        python3 tools/print_plate.py pistol_indexer $d/sector.stl $d/pawl.stl $d/pawl_plug.stl:2 $d/slider.stl $strong --support --brim 5 | python3 -c "$summary"
     fi
 done
