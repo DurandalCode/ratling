@@ -65,7 +65,7 @@ BOSS_D, BOSS_L = 8.0, 10.0
 TRIGGER_CHEEKS = dict(x=(-56.0, -48.0), y=(3.3, 7.0))          # the trigger's pivot (an M3 screw and nut) between them
 GRIP_SCREWS = ((-96.0, 29.0), (-96.0, -29.0), (-64.0, 29.0), (-64.0, -29.0))   # x, y: grip/tang to the cage's floor, outside the valve
 VALVE_BOX_Y = 33.0                  # the tang is a box under the frame round the vent valve and its fittings
-GUARD_TAB = dict(x=(-27.0, -13.0), y=5.0, t=3.0)                # the guard's front tab under the floor
+GUARD_TAB = dict(x=(-21.0, -17.0), y=5.0, t=11.0)   # the guard's front tab under the floor, in the window
 SPUR_SLOT = dict(a=(58.0, 210.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
 FRAME_FILLET = 12.0
 REAR = dict(x=-60.0, top=15.0)      # behind this the frame steps down: the hammer stands up out of it
@@ -104,17 +104,30 @@ def pipe_along(points, r):
 
 
 # ---------------------------------------------------------------- frame shell
+# The frame: the neck box in front of REAR and, behind it, a hinge wheel round the hammer's pivot.
+# The wheel's cage face at r 19 clears the hub by 9 and the swept springs by 2.5; whatever swings
+# out past r 19 (the comb, r 44.5) does it only in the slot band |y| <= 6.5, so the top stays open.
+# The heel wall carries the floor out under the wheel; the collar houses the pilot's fitting.
 fx, fy, fz = FRAME["x"], FRAME["y"], FRAME["z"]
+P_ = HAMMER_PIVOT
+WHEEL_R = 25.0                      # sil at r 25, cage face at 25 - i
+HEEL_X, HEEL_Z = fx[0] - 7.0, -12.0                          # the heel's back face, its top under the wheel
+FIN = dict(x=(fx[0] - 13.0, fx[0] + 4.3), y=14.0, z=(P_.z - 6.0, P_.z + 18.0))
 def envelope(i, open_front=False):
-    """The frame's outline shrunk by i: tall in front, stepped down behind REAR. open_front: as a cavity, run on
-    forward into the block and square (it is cut away)."""
+    """The frame's outline, shrunk by i: the neck box in front of REAR and, behind it, the hinge
+    wheel round the hammer's pivot on a heel wall standing on the floor, with the pilot's collar.
+    open_front: the cavity, run on forward into the block (it is cut away)."""
+    _wheel = Part.makeCylinder(WHEEL_R - i, 2 * (fy[1] - i), V(P_.x, -(fy[1] - i), P_.z), YA)
     if open_front:
         return (box(REAR["x"] + 1, fx[1] + 10, fy[0] + i, fy[1] - i, fz[0] + i, fz[1] - i)
-                .fuse(box(fx[0] + i, REAR["x"] + 10, fy[0] + i, fy[1] - i, fz[0] + i, REAR["top"] - i)))
+                .fuse(box(fx[0] + i, REAR["x"] + 10, fy[0] + i, fy[1] - i, fz[0] + i, REAR["top"] - i))
+                .fuse(_wheel))
     f_ = box(REAR["x"] - 2, fx[1], fy[0] + i, fy[1] - i, fz[0] + i, fz[1] - i)
-    r_ = box(fx[0] + i, REAR["x"] + 10, fy[0] + i, fy[1] - i, fz[0] + i, REAR["top"] - i)
     r = max(FRAME_FILLET - i, 1.0)
-    return f_.makeFillet(r, f_.Edges).fuse(r_.makeFillet(r, r_.Edges)).removeSplitter()
+    return (f_.makeFillet(r, f_.Edges)
+            .fuse(_wheel)
+            .fuse(box(HEEL_X, REAR["x"] - 2, fy[0] + i, fy[1] - i, fz[0] + i, HEEL_Z - i))
+            .fuse(box(FIN["x"][0] + i, FIN["x"][1] - i, -FIN["y"] + i, FIN["y"] - i, FIN["z"][0] + i, FIN["z"][1] - i)))
 
 
 outer = envelope(0.0)
@@ -161,7 +174,7 @@ pie = [V(H_.x, -SPUR_SLOT["y"], H_.z)] + [V(H_.x + SPUR_SLOT["r"] * math.cos(mat
                                           for q in [SPUR_SLOT["a"][0] + (SPUR_SLOT["a"][1] - SPUR_SLOT["a"][0]) * k / 12 for k in range(13)]]
 spur_slot = Part.Face(Part.makePolygon(pie + [pie[0]])).extrude(V(0, 2 * SPUR_SLOT["y"], 0))
 frame, skin = frame.cut(spur_slot), skin.cut(spur_slot)
-pilot_hole = cyl_x(16, fx[0] - 1, fx[0] + EVA_T + CAGE_T + 1, 0, Z_FIRE)          # the cap's G1/8 fitting
+pilot_hole = cyl_x(16, fx[0] - 9.0, fx[0] + EVA_T + CAGE_T + 1, 0, Z_FIRE)   # the cap's G1/8 fitting, through the heel
 frame, skin = frame.cut(pilot_hole), skin.cut(pilot_hole)
 
 # ---------------------------------------------------------------- grip, trigger valves
@@ -267,20 +280,21 @@ frame = frame.fuse(cheeks)
 z_sl_top = slider_z(1.0) + 6.0
 slider_stop = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], z_sl_top + 0.05, fz[1] - EVA_T - CAGE_T + 0.5)
 # The mainsprings' fixed legs rest on a rib off the cage's rear wall, below and behind the hammer's hub.
-spring_rib = box(fx[0] + EVA_T + CAGE_T - 0.5, HAMMER_PIVOT.x - 6.0, MAINSPRING["y"][0][0] - 1.0, -6.0,
-                 HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5)
+spring_rib = box(fx[0] + 3.0, HAMMER_PIVOT.x - 6.0, MAINSPRING["y"][0][0] - 1.0, -6.0,
+                 HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5)   # its x0 lands in the wheel's ring wall
 rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] + EVA_T + CAGE_T - 0.5), ZA)   # the guide rod's foot
 frame = frame.fuse(slider_stop).fuse(spring_rib).fuse(rod_boss)
 frame = frame.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2, GUIDE_ROD["z"][1] - GUIDE_ROD["z"][0], V(GUIDE_ROD["x"], GUIDE_ROD["y"], GUIDE_ROD["z"][0]), ZA))
 shaft_holes = Part.makeCylinder(4.0, 2 * fy[1], V(HAMMER_PIVOT.x, -fy[1], HAMMER_PIVOT.z), YA)   # the axle: a press fit
 frame = frame.cut(shaft_holes)
-side_cut = box(fx[0] - 1, fx[1] + 1, -fy[1] - 1, -yi, fz[0] - 1, fz[1] + 1)
+side_cut = box(HEEL_X - 1, fx[1] + 1, -fy[1] - 1, -yi, fz[0] - 1, fz[1] + 1)
 side_plate = frame.common(side_cut).fuse(Part.makeCompound(_standoffs(-1))).cut(detent_bolts)
 frame = frame.cut(side_cut)
 pilots = Part.makeCompound([Part.makeCylinder(1.25, BOSS_L - 1, V(x_, -yi, z_), YA) for x_, z_ in SIDE_BOSSES])
 frame = frame.cut(pilots).removeSplitter()
-side_plate = side_plate.cut(Part.makeCompound([Part.makeCylinder(1.7, 10, V(x_, -fy[1] - 1, z_), YA)
-                                              for x_, z_ in SIDE_BOSSES])).removeSplitter()
+_sp_cut = [Part.makeCylinder(1.7, 10, V(x_, -fy[1] - 1, z_), YA) for x_, z_ in SIDE_BOSSES]
+_sp_cut += [Part.makeCylinder(1.7, 16, V(x_, -fy[1] - 16, z_), YA) for x_, z_ in SIDE_BOSSES]   # out through any slag past the plate
+side_plate = side_plate.cut(Part.makeCompound(_sp_cut)).removeSplitter()
 skin = skin.cut(shaft_holes).cut(detent_box)
 
 # ---------------------------------------------------------------- grip with the tang, on screws; the guard's tab
@@ -351,7 +365,7 @@ s_w, s_t = STRAP["w"] / 2, STRAP["t"]
 top_strap = (box(STRAP["x0"], X_AXLE_END + s_t, -s_w, s_w, STRAP["z"][0], STRAP["z"][1])
              .fuse(box(X_AXLE_END, X_AXLE_END + s_t, -s_w, s_w, 0, STRAP["z"][1]))
              .fuse(Part.makeCylinder(NOSE_OD / 2, s_t, V(X_AXLE_END, 0, 0), XA))
-             .fuse(box(STRAP["x0"], HUB_X0 - 2.5, -s_w, s_w, fz[1] - 2, STRAP["z"][1])))   # its foot on the frame, short of the hub
+             .fuse(box(STRAP["x0"], HUB_X0 - 2.5, -s_w, s_w, fz[1], STRAP["z"][1])))   # its foot on the skin, short of the hub
 top_strap = top_strap.cut(Part.makeCylinder(3.2, 20, V(X_AXLE_END - 1, 0, 0), XA))                 # the stud
 STRAP_BOLTS = (-9.0, -5.0)          # x: 2 x M3 x 40 down through the foot into the cage's top, nuts inside
 strap_bolts = Part.makeCompound([Part.makeCylinder(1.7, STRAP["z"][1] - fz[1] + 12, V(x_, 0, fz[1] - 10), ZA) for x_ in STRAP_BOLTS])
@@ -590,7 +604,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its tab, rear end glued in the grip",
             "Grip_left": "half, with the valve box: glued to the right on 3 x Ø3 x 12 dowels; 2 x ST2.9 x 13 down through the floor",
             "Grip_right": "half: the vent valve on 3 x M3 x 30 + nuts through both; 2 x ST2.9 x 13 down through the floor",
-            "Detent_housing": "with its bracket: 2 x M3 x 12 + nuts to the side plate's outer face",
+            "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
             "Frame_side": "6 x ST2.9 x 13 into the cage's bosses",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 96: the slider's guide, floor to the stop pad", "Trigger": "pivot: M3 x 16 screw + nylock nut"}

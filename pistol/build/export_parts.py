@@ -68,7 +68,7 @@ PARTS = [
     ("sector", sector_base, -X_, "strong", "rear face on the bed (the tongue is its first layer), the ramped pawl tooth up, 6 mm tall; on the axle in front of the lock housing; the slider's pin in its arm"),
     ("slider", SLIDER_H, Y_, "strong_supports", "the bracket's outer face on the bed, 15 mm tall, on supports under the plate and the rod boss (on its x face it stood 54 mm tall and peeled off); runs"),
     ("detent_bolt", detent_bolt_print, X_, "strong", "V tip; a Ø4 pen spring behind it; flat on its x face; %.2f mm smaller than its channel a side (the first print would not go in)" % BOLT_CLEAR),
-    ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 12 + nuts to the side plate"),
+    ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 20 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
     ("frame_cage", frame, Y_, "supports", "right wall on the bed; supports under the cheeks and the spring rib"),
