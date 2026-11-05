@@ -329,6 +329,19 @@ _tick('side plate common')
 frame = frame.cut(side_cut)
 if len(frame.Solids) > 1:            # OCCT sometimes leaves a face-sliver crumb beside the main body
     frame = max(frame.Solids, key=lambda q: q.Volume)
+# The right cover: the slab's right wall, the cheek and the flank band with the slider's tunnels, one
+# plate mirroring the left - both sides open, the mechanism lays in from either side, the valve's
+# socket becomes a through channel. It rides the Ø8 hammer axle (its flank band is the right bearing)
+# and two M3 into the rear wall's strips below and above the socket.
+side_cut_r = box(HEEL_X - 1, fx[1] + 1, SLAB["y"] - 3.0, fy[1] + 3.0, SLAB["z"][0] - 1, fz[1] + 1)
+side_plate_r = (frame.common(side_cut_r).cut(valve_cap).cut(valve_body).cut(lock_housing_h)
+                .cut(Part.makeCompound([Part.makeCylinder(1.7, 8.0, V(HEEL_X + 1.0, 21.5, z_), XA)
+                                        for z_ in (-65.0, -11.0)])))           # 2 x M3 into the rear wall's strips
+if len(side_plate_r.Solids) > 1:
+    side_plate_r = Part.makeCompound([s_ for s_ in side_plate_r.Solids if s_.Volume > 50.0])
+frame = frame.cut(side_cut_r)
+if len(frame.Solids) > 1:
+    frame = max(frame.Solids, key=lambda q: q.Volume)
 _tick('side cut done')
 pilots = Part.makeCompound([Part.makeCylinder(1.25, BOSS_L + 2, V(x_, _boss_base(x_, z_) - 1.0, z_), YA) for x_, z_ in SIDE_BOSSES])
 frame = frame.cut(pilots)          # no removeSplitter here: it has collapsed this body once
@@ -473,7 +486,8 @@ spikes += [spike(V(x_, 0, STRAP["z"][1] - 1), V(0.25, 0, 1), 14, 3.5) for x_ in 
 spikes += [spike(V(X_AXLE_END + s_t / 2, sd_ * s_w, STRAP["z"][1] - 8), V(0.3, sd_ * 1, 0.4), 14, 3.0) for sd_ in (-1, 1)]
 _tick('supports built')
 
-grip, frame, side_plate, skin = grip.cut(air_cut), frame.cut(air_cut), side_plate.cut(air_cut), skin.cut(air_cut)
+grip, frame, side_plate, side_plate_r, skin = (grip.cut(air_cut), frame.cut(air_cut), side_plate.cut(air_cut),
+                                               side_plate_r.cut(air_cut), skin.cut(air_cut))
 if len(frame.Solids) > 1:            # and again after the air lines: keep only the body, drop the crumbs
     frame = max(frame.Solids, key=lambda q: q.Volume)
 grip = max(grip.Solids, key=lambda q: q.Volume) if len(grip.Solids) > 1 else grip
@@ -509,7 +523,7 @@ if CHECKS:
         for tg in (0.0, 1.0):
             st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=tg))
             for n in moving:
-                for other_name, other in (("frame", frame), ("side plate", side_plate), ("skin", skin), ("grip", grip),
+                for other_name, other in (("frame", frame), ("side plate", side_plate), ("right plate", side_plate_r), ("skin", skin), ("grip", grip),
                                           ("detent box", detent_box), ("guard", guard),
                                           ("air lines", Part.makeCompound([supply_line, pilot_line, gauge_line, tee])),
                                           ("vent valve", valve_bodies), ("crest", crest)):
@@ -562,9 +576,11 @@ if CHECKS:
     # ---------------------------------------------------------------- checks: pass or fail, not only numbers
     checks = {}
     checks["frame is one sound solid (%.0f mm3, valid %s)" % (frame.Volume, frame.isValid())] = \
-        frame.isValid() and len(frame.Solids) == 1 and frame.Volume > 150000
+        frame.isValid() and len(frame.Solids) == 1 and frame.Volume > 80000   # both sides gave their bands to the plates
     checks["side plate is one sound solid (%.0f mm3, %d solids)" % (side_plate.Volume, len(side_plate.Solids))] = \
         side_plate.isValid() and len(side_plate.Solids) == 1 and side_plate.Volume > 15000
+    checks["right plate is one sound solid (%.0f mm3, %d solids)" % (side_plate_r.Volume, len(side_plate_r.Solids))] = \
+        side_plate_r.isValid() and len(side_plate_r.Solids) == 1 and side_plate_r.Volume > 15000
     checks["mechanism clears the dress over the hammer and trigger strokes"] = not [v_ for v_ in worst.values() if v_ > 0.05]
     for k_, v_ in fixed_hits.items():
         checks["fixed: %s (%.1f mm3)" % (k_, v_)] = v_ < (2.0 if k_.startswith("slider/stop") else 0.05)   # the stop pad is meant to touch
@@ -577,7 +593,7 @@ if CHECKS:
     # Retention: the valve stack (body, cap, lock housing) must not slide a couple of mm any way without meeting the cage, the
     # side plate, the strap, the chamber tube or the block. A direction with nothing to stop it is a part left to the glue.
     stack = Part.makeCompound([valve_body, valve_cap, lock_housing_h])
-    around = Part.makeCompound([frame, side_plate, top_strap, axle, nose, axle_plug, block])
+    around = Part.makeCompound([frame, side_plate, side_plate_r, top_strap, axle, nose, axle_plug, block])
     for label_, d_ in (("forward", V(2, 0, 0)), ("back", V(-2, 0, 0)), ("left", V(0, -2, 0)), ("right", V(0, 2, 0)),
                        ("up", V(0, 0, 2)), ("down", V(0, 0, -2))):
         v_ = hit(stack.translated(d_), around)
@@ -654,7 +670,8 @@ for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve
 for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
 g_dress = doc.addObject("App::DocumentObjectGroup", "Dress")
-for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_side", side_plate, (0.3, 0.29, 0.28), 0), ("Frame_skin", skin, IRON, 0), ("Trigger_guard", guard, IRON, 0),
+for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_side", side_plate, (0.3, 0.29, 0.28), 0),
+                      ("Frame_right", side_plate_r, (0.32, 0.31, 0.30), 0), ("Frame_skin", skin, IRON, 0), ("Trigger_guard", guard, IRON, 0),
                      ("Detent_housing", detent_box, IRON, 0), ("Grip_left", grip_left, WOOD, 0), ("Grip_right", grip_right, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
                      ("Pommel", pommel, IRON, 0), ("Pommel_claws", Part.makeCompound(claws), DIRTY, 0),
                      ("Warpstone_pommel", warp_pommel, WARP, 0), ("Hose", hose, (0.08, 0.08, 0.08), 0), ("Gauge_line", gauge_line, (0.15, 0.4, 0.8), 0),
@@ -675,7 +692,7 @@ _tick('doc built')
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Frame", "Frame_side", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
+              "Sleeve", "Pusher", "Trigger", "Frame", "Frame_side", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
               "Top_strap", "Axle_plug",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
@@ -697,6 +714,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Grip_right": "half: 2 x ST2.9 x 13 down through the slab's floor into the wood",
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
             "Frame_side": "the whole side in one plate (the flank band and the slab's wall): 5 x ST2.9 x 16 into the flank's bosses",
+            "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 2 x M3 x 10 into the rear wall's strips",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 96: the slider's guide, floor to the stop pad", "Trigger": "pivot: M3 x 16 screw + nylock nut"}
 FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)

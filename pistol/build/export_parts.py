@@ -55,7 +55,7 @@ GROUPS = {
 # about half the time and are no weaker. The rest stays on 0.4: airtight parts (the seal is proven there only), small
 # moving parts and anything with a fit under ~0.5 mm (the detent bolt's 0.25 mm a side, the block's V-notches, the
 # barrel bores).
-NOZZLE_08 = {"frame_cage", "frame_side_plate", "grip_left", "grip_right", "trigger_guard", "top_strap"}
+NOZZLE_08 = {"frame_cage", "frame_side_plate", "frame_right", "grip_left", "grip_right", "trigger_guard", "top_strap"}
 
 # Parts whose pockets are bridged on the bed and print fine: the overhang limit in mm2 (the disc's six ramped notches)
 BRIDGED = {"block_rear_disc": 600.0}
@@ -71,8 +71,9 @@ PARTS = [
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 20 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
-    ("frame_cage", frame, Y_, "supports", "cheek on the bed (0.5 proud of the drum, a flat face): the valve's socket and the pad's pocket open downward, no support inside them"),
+    ("frame_cage", frame, -X_, "supports", "tail on the bed (the slab's rear face): both sides are open plates, the bore's ceiling is a vertical wall - near support-free"),
     ("frame_side_plate", side_plate, -Y_, "supports", "show face down; the band's curve rides a support raft; 5 x ST2.9 x 16 into the flank's bosses"),
+    ("frame_right", side_plate_r, Y_, "supports", "cheek face down (0.5 proud of the drum, flat); the tunnels and the socket's mouth open sideways; Ø8 axle + 2 x M3 x 10 rear"),
     ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the valve box's left half"),
     ("grip_right", grip_right, -Y_, "supports", "cut face on the bed; glued to the left on 3 x Ø3 x 12 dowels"),
     ("trigger_guard", guard, Y_, "supports", "flat; ST2.9 x 13 into its tab through the floor"),
