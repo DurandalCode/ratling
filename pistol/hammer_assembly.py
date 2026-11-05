@@ -65,7 +65,7 @@ BOSS_D, BOSS_L = 8.0, 10.0
 TRIGGER_CHEEKS = dict(x=(-56.0, -48.0), y=(3.3, 7.0))          # the trigger's pivot (an M3 screw and nut) between them
 GRIP_SCREWS = ((-96.0, 29.0), (-96.0, -29.0), (-64.0, 29.0), (-64.0, -29.0))   # x, y: grip/tang to the cage's floor, outside the valve
 VALVE_BOX_Y = 33.0                  # the tang is a box under the frame round the vent valve and its fittings
-GUARD_TAB = dict(x=(-21.0, -17.0), y=5.0, t=11.0)   # the guard's front tab under the floor, in the window
+GUARD_TAB = dict(x=(-9.0, -5.0), y=5.0, t=11.0)   # the guard's front tab, on solid floor clear of the bottom window
 SPUR_SLOT = dict(a=(58.0, 210.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
 FRAME_FILLET = 12.0
 REAR = dict(x=-60.0, top=15.0)      # behind this the frame steps down: the hammer stands up out of it
@@ -104,43 +104,60 @@ def pipe_along(points, r):
 
 
 # ---------------------------------------------------------------- frame shell
-# The frame: the neck box in front of REAR and, behind it, a hinge wheel round the hammer's pivot.
-# The wheel's cage face at r 19 clears the hub by 9 and the swept springs by 2.5; whatever swings
-# out past r 19 (the comb, r 44.5) does it only in the slot band |y| <= 6.5, so the top stays open.
-# The heel wall carries the floor out under the wheel; the collar houses the pilot's fitting.
+# The frame's plan is a teardrop: full width to the knee at x -64, then a straight taper into the
+# wheel round the hammer's pivot. The cage's sides sit at +-42, flush with the barrel block's Ø85;
+# the EVA patches (42..45) stay flush with it too - nothing is wider than the block. The wheel's
+# ring prints at full 19..25 (no EVA on it); its cage face at r 19 clears the hub by 9 and the
+# swept springs by 2.5; whatever swings out past r 19 (the comb, r 44.5) does it only in the slot
+# band |y| <= 6.5. The collar houses the pilot's fitting.
 fx, fy, fz = FRAME["x"], FRAME["y"], FRAME["z"]
 P_ = HAMMER_PIVOT
-WHEEL_R = 25.0                      # sil at r 25, cage face at 25 - i
-HEEL_X, HEEL_Z = fx[0] - 7.0, -12.0                          # the heel's back face, its top under the wheel
+WHEEL_R = 25.0                      # the wheel's rim; the printed ring is 19..25
+HEEL_X, HEEL_Z = fx[0] - 7.0, -12.0                          # the plan's back face, the taper's end
 FIN = dict(x=(fx[0] - 13.0, fx[0] + 4.3), y=14.0, z=(P_.z - 6.0, P_.z + 18.0))
 def envelope(i, open_front=False):
-    """The frame's outline, shrunk by i: the neck box in front of REAR and, behind it, the hinge
-    wheel round the hammer's pivot on a heel wall standing on the floor, with the pilot's collar.
-    open_front: the cavity, run on forward into the block (it is cut away)."""
-    _wheel = Part.makeCylinder(WHEEL_R - i, 2 * (fy[1] - i), V(P_.x, -(fy[1] - i), P_.z), YA)
+    """The frame's outline, shrunk by i: the teardrop prism (round plan corners, soft rims) with the
+    hinge wheel and the pilot's collar. open_front: the cavity, run on forward into the block."""
+    pts = [(-1 + 2.0 * max(i - 3, 0), fy[1] - i), (-64 + 0.5 * i, fy[1] - i), (-107 + 2.2 * i, 28 - 2 * i),
+           (-107 + 2.2 * i, -(28 - 2 * i)), (-64 + 0.5 * i, -(fy[1] - i)), (-1 + 2.0 * max(i - 3, 0), -(fy[1] - i))]
+    z0, z1 = fz[0] + i, fz[1] - i
+    _prism = Part.Face(Part.makePolygon([V(x_, y_, z0) for x_, y_ in pts] + [V(pts[0][0], pts[0][1], z0)])).extrude(V(0, 0, z1 - z0))
+    _prism = _prism.makeFillet(12.0, [e for e in _prism.Edges if abs(e.Vertexes[0].Point.z - e.Vertexes[-1].Point.z) < 1])
+    _prism = _prism.makeFillet(max(6.0 - i / 2, 2.0), [e for e in _prism.Edges if abs(e.Vertexes[0].Point.z - e.Vertexes[-1].Point.z) > 1])
+    _wheel = Part.makeCylinder(WHEEL_R if i < 6 else 19.5, 2 * (45.5 - i), V(P_.x, -(45.5 - i), P_.z), YA)
     if open_front:
-        return (box(REAR["x"] + 1, fx[1] + 10, fy[0] + i, fy[1] - i, fz[0] + i, fz[1] - i)
-                .fuse(box(fx[0] + i, REAR["x"] + 10, fy[0] + i, fy[1] - i, fz[0] + i, REAR["top"] - i))
+        return (_prism
+                .fuse(box(REAR["x"] + 1, fx[1] + 10, fy[0] + i, fy[1] - i, fz[0] + i, REAR["top"] - i))
                 .fuse(_wheel))
-    f_ = box(REAR["x"] - 2, fx[1], fy[0] + i, fy[1] - i, fz[0] + i, fz[1] - i)
-    r = max(FRAME_FILLET - i, 1.0)
-    return (f_.makeFillet(r, f_.Edges)
+    return (_prism
             .fuse(_wheel)
-            .fuse(box(HEEL_X, REAR["x"] - 2, fy[0] + i, fy[1] - i, fz[0] + i, HEEL_Z - i))
             .fuse(box(FIN["x"][0] + i, FIN["x"][1] - i, -FIN["y"] + i, FIN["y"] - i, FIN["z"][0] + i, FIN["z"][1] - i)))
 
 
 outer = envelope(0.0)
 skin_in = envelope(EVA_T)
 inner = envelope(EVA_T + CAGE_T, open_front=True)
-skin = outer.cut(envelope(EVA_T, open_front=True))           # EVA, glued over the cage
-frame = skin_in.cut(inner)                                    # the printed cage, windows cut below
+# EVA covers only the technical openings: patches over the cage's windows, on the outer faces, with a
+# glue border. The wheel, heel and collar stay bare printed frame.
+_b = 5.0                                                     # the glue border round each opening
+_swx, _swz = CAGE_WINDOWS["side"]
+_twx, _twy = CAGE_WINDOWS["top"]
+_bwx, _bwy = CAGE_WINDOWS["bottom"]
+def _side_panel(sg):
+    p_ = box(_swx[0] - _b, _swx[1] + _b, fy[0] - 1, fy[1] + 1, _swz[0] - _b, _swz[1] + _b)
+    p_ = p_.makeFillet(_b + 6.0, [e for e in p_.Edges if abs(e.Vertexes[0].Point.y - e.Vertexes[-1].Point.y) < 1])
+    y0, y1 = (fy[1] - EVA_T, fy[1]) if sg > 0 else (fy[0], fy[0] + EVA_T)
+    return p_.common(box(_swx[0] - _b - 1, _swx[1] + _b + 1, y0, y1, _swz[0] - _b - 1, _swz[1] + _b + 1))
+skin = Part.makeCompound([
+    _side_panel(1), _side_panel(-1),
+    box(_bwx[0] - _b, _bwx[1], -_bwy - _b, _bwy + _b, fz[0], fz[0] + EVA_T)])   # no front border: the guard's tab lands there
+frame = skin_in.cut(inner).removeSplitter()                   # the printed cage; refine kills OCC slag lumps
 y_in = fy[1] - EVA_T - CAGE_T
 (wx, wz), (tx, ty), (bx, by) = CAGE_WINDOWS["side"], CAGE_WINDOWS["top"], CAGE_WINDOWS["bottom"]
 win = box(wx[0], wx[1], fy[0] - 1, fy[1] + 1, wz[0], wz[1])
 win = win.makeFillet(6.0, [e for e in win.Edges if abs(e.Vertexes[0].Point.y - e.Vertexes[-1].Point.y) > 1])
 frame = frame.cut(win.common(box(fx[0], fx[1], -100, -y_in + 0.5, -200, 200).fuse(box(fx[0], fx[1], y_in - 0.5, 100, -200, 200))))
-frame = frame.cut(box(tx[0], tx[1], -ty, ty, fz[1] - 10, fz[1] + 1)).cut(box(bx[0], bx[1], -by, by, fz[0] - 1, fz[0] + 10))
+frame = frame.cut(box(bx[0], bx[1], -by, by, fz[0] - 1, fz[0] + 10))   # the bottom window only: the top stays closed
 def _standoffs(sign):
     out = []
     for x_, z_, sides in STANDOFFS:
@@ -192,13 +209,16 @@ _vv = box(VENT_FRONT - _a["L"] - 0.5, VENT_FRONT + 0.5, -_a["W"] / 2 - _a["elbow
           _a["W"] / 2 + _a["elbow"][1] + _a["elbow"][0] / 2 + 0.5, MINI_Z - _a["T"] / 2 - 0.5, MINI_Z + _a["T"] / 2 + 0.5)
 _vv = _vv.fuse(valve_bodies)                    # the valve pokes up through the cage's floor, its A elbow higher
 frame, skin = frame.cut(_vv), skin.cut(_vv)
-# Tang: the frame runs on back under the valve cap into the grip, round the trigger valves
-pod = box(VENT_FRONT - _a["L"] - 3.0, VENT_FRONT - 2.0, -VALVE_BOX_Y, VALVE_BOX_Y,
-          MINI_Z - _a["T"] / 2 - 7.0, fz[0] + 1.0)
-# Backstrap: closes the gap between the frame's rear wall and the grip's top, over the tang
-strap = box(GRIP_START.x - 14, fx[0] + 4, -19, 19, fz[0] - 4, Z_FIRE - 4)
-strap = strap.makeFillet(min(8.0, strap.BoundBox.XLength / 2 - 1), strap.Edges)
-pod = pod.makeFillet(5.0, pod.Edges).fuse(strap).cut(_vv).cut(inner)
+# Tang: the frame runs on back under the valve cap into the grip, round the trigger valves; full cage
+# width, its top butts the cage's floor directly (the EVA is only window patches now)
+pod = box(HEEL_X, VENT_FRONT - 2.0, -(fy[1] - 13.0), fy[1] - 13.0,
+          MINI_Z - _a["T"] / 2 - 7.0, fz[0] + EVA_T)
+# Backstrap: closes the gap between the frame's rear wall and the grip's top, over the tang; its top
+# hugs the wheel's rim (butt, no lap into the frame print)
+strap = box(GRIP_START.x - 14, fx[0] + 4, -19, 19, fz[0] - 4, P_.z)
+strap = strap.makeFillet(min(8.0, strap.BoundBox.XLength / 2 - 1), strap.Edges).cut(
+    Part.makeCylinder(WHEEL_R, 2 * 19, V(P_.x, -19, P_.z), YA))
+pod = pod.makeFillet(5.0, pod.Edges).fuse(strap).cut(_vv).cut(skin_in)
 pod = pod.cut(Part.makeCompound([trigger_h(i / 6).translated(V(dx_, 0, 0)) for i in range(7) for dx_ in (-1.0, 0.0)]))   # the trigger's swing
 rags = []
 for t, tw in ((0.22, 9), (0.45, 12), (0.68, 8), (0.88, 10)):
@@ -238,7 +258,7 @@ air_cut = pipe_along(supply_pts, 3.6).fuse(pipe_along(pilot_pts, 2.6)).fuse(pipe
 # ---------------------------------------------------------------- trigger guard: from the frame's foot round the trigger into the grip
 # A flat band (ellipse GUARD_SECTION, wide across) swept along a teardrop that leaves the frame's foot
 # going down and forward and runs into the grip's front along it.
-GUARD = [V(-20, 0, fz[0] + 5), V(-18, 0, -86), V(-23, 0, -100), V(-38, 0, -110), V(-58, 0, -109), V(-76, 0, -100),
+GUARD = [V(-7, 0, fz[0] + 5), V(-11, 0, -87), V(-20, 0, -101), V(-38, 0, -110), V(-58, 0, -109), V(-76, 0, -100),
          V(-90, 0, -90), V(-97, 0, -85)]
 GUARD_SECTION = (3.2, 2.2)                      # half-width across (y), half-thickness in the loop's plane
 _gc = Part.BSplineCurve()
@@ -248,9 +268,10 @@ _n0 = _t0.cross(YA).normalize()
 _prof = Part.Ellipse(GUARD[0] + YA * GUARD_SECTION[0], GUARD[0] + _n0 * GUARD_SECTION[1], GUARD[0])
 guard = Part.Wire(_gc.toShape()).makePipeShell([Part.Wire(_prof.toShape())], True, True)   # Frenet: no twist in a plane
 guard = Part.Solid(guard) if guard.ShapeType != "Solid" else guard
-guard = guard.cut(outer)
+guard = guard.cut(skin_in)                               # the guard's arms rise to the cage's floor now
+guard = guard.fuse(box(-78.0, -67.0, -GUARD_SECTION[0], GUARD_SECTION[0], -96.0, fz[0] + EVA_T).cut(pod))   # close the window's rear slit, butt the floor
 _gt = GUARD_TAB
-guard = guard.fuse(box(_gt["x"][0], _gt["x"][1], -_gt["y"], _gt["y"], fz[0] - _gt["t"], fz[0]))            # its front tab, under the skin
+guard = guard.fuse(box(_gt["x"][0], _gt["x"][1], -_gt["y"], _gt["y"], fz[0] - _gt["t"], fz[0] + EVA_T))    # its front tab, under the floor
 guard = guard.cut(Part.makeCylinder(1.25, _gt["t"] + 1, V(sum(_gt["x"]) / 2, 0, fz[0] - _gt["t"] - 0.5), ZA)).removeSplitter()
 
 # ---------------------------------------------------------------- detent housing
@@ -302,7 +323,7 @@ skin = skin.cut(shaft_holes).cut(detent_box)
 # inside the cage (side plate off). An ST2.9 from below holds the vent valve in its bore. The guard's front
 # tab takes one ST2.9 down through the floor; its rear end is glued in a socket in the grip.
 z_floor_top = fz[0] + EVA_T + CAGE_T
-pod = pod.cut(outer)                                     # the tang sits under the skin
+pod = pod.cut(skin_in)                                   # the tang butts the cage's floor, the skin is only patches
 grip = grip.fuse(pod).removeSplitter()
 grip_pilots = Part.makeCompound([Part.makeCylinder(1.25, 9.0, V(x_, y_, fz[0] - 9.0), ZA) for x_, y_ in GRIP_SCREWS])
 floor_holes = Part.makeCompound([Part.makeCylinder(1.7, EVA_T + CAGE_T + 2, V(x_, y_, fz[0] - 1), ZA)
@@ -336,9 +357,9 @@ crest_pts = [(cx0, 0)]
 for k in range(int((fx[1] - 14 - cx0 - 8) // 8.5)):
     crest_pts += [(cx0 + 6 + k * 8.5, 13 + random.uniform(0, 6)), (cx0 + 10 + k * 8.5, 3)]
 crest_pts += [(fx[1] - 14, 0)]
-crest = Part.Face(Part.makePolygon([V(px, -1.5, fz[1] - 1 + pz) for px, pz in crest_pts]
-                                   + [V(crest_pts[0][0], -1.5, fz[1] - 1)])).extrude(V(0, 3, 0))
-vc = V(fx[1] - 22, -16, fz[1] - 1)
+crest = Part.Face(Part.makePolygon([V(px, -1.5, fz[1] - EVA_T - 1 + pz) for px, pz in crest_pts]
+                                   + [V(crest_pts[0][0], -1.5, fz[1] - EVA_T - 1)])).extrude(V(0, 3, 0))
+vc = V(fx[1] - 22, -16, fz[1] - EVA_T - 1)
 vial = Part.makeCylinder(8, 30, vc, ZA)
 vial_caps = Part.makeCylinder(10, 4, vc - V(0, 0, 2), ZA).fuse(Part.makeCylinder(10, 4, vc + V(0, 0, 29), ZA))
 cage = Part.makeCompound([Part.makeCylinder(1.2, 32, vc + V(10 * math.cos(math.radians(q)), 10 * math.sin(math.radians(q)), 0), ZA)
