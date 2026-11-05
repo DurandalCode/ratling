@@ -104,6 +104,11 @@ exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
 MECH_LIBRARY = False
 NAME = "pistol_hammer_layout"
 
+# Stage 2 (2026-11-05): the vent valve stands vertical in the frame's rear column (hammer_assembly.py),
+# so the trigger's pivot moves back under it - the blade still reaches the old place under the guard, and
+# a rear lug with a wide pad lifts the plunger from below. The sketch: exports/body_visual_study/trigger_link.html.
+TRIGGER_PIVOT = V(-80.0, 0, -62.0)
+
 # ---------------------------------------------------------------- pawl and detent: their springs
 # The pawl is a plunger: it slides in a boss on the sector's back, a Ø3 pen spring behind it pushing it into the
 # notches; the boss swings over the lock housing's flat top. The detent bolt is 12 long, with a Ø4 pen spring
@@ -230,7 +235,8 @@ SPUR_OUTLINE = [(5, -8), (14, -8), (24, -6.5), (31, -5), (37, -6), (43, -9), (44
                 (41, 7), (40, 12), (37.5, 17), (33.5, 21), (29, 22), (27, 19), (24, 14), (17, 10.5), (9, 9.5), (4, 8)]
 SPUR_COMB = [(40.6, 3), (40.6, 7.5), (39.7, 12), (37.4, 16.3), (34, 19.8)]     # teeth along the comb
 SPUR_HOLE = (17.0, 1.5, 3.2)        # along, back, radius
-SPUR = (95.0 + math.degrees(math.atan2(12.0, 38.0)), math.hypot(38.0, 12.0))   # where the thumb sits: direction, radius
+SPUR_STRETCH = 1.25                 # stage 2: the spur rides longer out of the ball, more for the thumb to press
+SPUR = (95.0 + math.degrees(math.atan2(12.0, 38.0)), math.hypot(38.0, 12.0) * SPUR_STRETCH)   # where the thumb sits: direction, radius
 CRANK_Y = (32.0, 35.0)              # the crank on the right, outside the valve body (y 31)
 BRACKET_Y = (35.2, 38.2)            # the slider's bracket, outside the crank
 SLIDER_REACH = 48.0                 # slider body: from its pin this far down (the cam slot)
@@ -293,7 +299,7 @@ _e2 = V(math.cos(math.radians(SPUR_AXIS + 90)), 0, math.sin(math.radians(SPUR_AX
 
 
 def _sp(a, b, y=0.0):
-    return V(H.x, y, H.z) + _e1 * a + _e2 * b
+    return V(H.x, y, H.z) + _e1 * (a * SPUR_STRETCH) + _e2 * b
 
 
 spur = Part.Face(Part.makePolygon([_sp(a, b, -4.0) for a, b in SPUR_OUTLINE] + [_sp(*SPUR_OUTLINE[0], y=-4.0)])).extrude(V(0, 8, 0))
@@ -400,23 +406,28 @@ if LOCKLESS:
                                                     Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))) for a in LOCK_BOLTS]))
                       .removeSplitter())
 
-# ---------------------------------------------------------------- trigger: one stage, straight onto the vent valve
-# A crescent: concave finger face in front, the tip curled forward like a claw, grooves across the finger face.
-# Its back at the vent valve's height (12 under the pivot) stays at x -4 from it, where the old blade's was.
-TRIGGER_OUTLINE = [(4.6, 0.5), (5.5, -4.0), (4.0, -11.0), (3.0, -17.0), (3.2, -22.0), (4.6, -26.5), (7.0, -30.0),
-                   (9.5, -31.5), (8.5, -33.5), (5.0, -33.5), (1.5, -31.0), (-1.2, -26.0), (-3.0, -19.0), (-4.0, -12.0),
-                   (-4.0, -4.0), (-3.0, 1.5), (0.5, 3.3)]       # under the valve body: r <= 3.6 round the pivot
+# ---------------------------------------------------------------- trigger: one stage, onto the vertical vent valve
+# A sickle lever hanging down off the back-set pivot at rest: the finger face hollowed (the pad sits
+# in it), the claw curling forward at the end. Behind the hub a lug whose top edge (local z -1.0) is
+# the stop that meets the valve's bottom face, 0.5 above the wide pad's face under the plunger. The
+# pull lifts the pad ~2.8 mm - the first 0.3 closes the gap, ~2.5 pushes (the click is at 2.0).
 TRIGGER_WIDTH = 6.0
+TRIGGER_OUTLINE = [(0.0, 3.3), (9.0, 1.8), (17.0, 0.5), (25.0, 1.5), (32.6, 0.5), (33.5, -4.0), (32.0, -11.0),
+                   (31.0, -17.0), (31.2, -22.0), (32.6, -26.5), (35.0, -30.0), (37.5, -31.5), (36.5, -33.5),
+                   (33.0, -33.5), (29.5, -31.0), (26.8, -26.0), (25.0, -19.0), (24.0, -12.0), (24.0, -4.0),
+                   (16.0, -4.5), (8.0, -5.2), (1.5, -4.6)]   # the spine reaches forward; face and claw at the old spot
 
 
 def _trigger_blank():
+    t = Part.makeCylinder(3.6, TRIGGER_WIDTH, V(0, -TRIGGER_WIDTH / 2, 0), YA)          # round the pivot pin
     pts = [V(x, -TRIGGER_WIDTH / 2, z) for x, z in TRIGGER_OUTLINE]
     c = Part.BSplineCurve()
     c.interpolate(pts, PeriodicFlag=True)
-    t = Part.Face(Part.Wire(c.toShape())).extrude(V(0, TRIGGER_WIDTH, 0))
-    t = t.fuse(Part.makeCylinder(3.6, TRIGGER_WIDTH, V(0, -TRIGGER_WIDTH / 2, 0), YA))          # round the pivot pin
-    for z_ in (-15.0, -18.0, -21.0):                                                            # finger grooves
-        g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(3.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, z_), YA)
+    t = t.fuse(Part.Face(Part.Wire(c.toShape())).extrude(V(0, TRIGGER_WIDTH, 0)))       # the sickle blade
+    t = t.fuse(box(-13.0, -2.0, -TRIGGER_WIDTH / 2, TRIGGER_WIDTH / 2, -5.0, -1.0))     # the rear lug, its top = the stop
+    t = t.fuse(box(-14.0, -7.0, 2.8, 20.0, -5.0, -1.5))                                 # the wide pad under the plunger
+    for z_ in (-15.0, -18.0, -21.0):                                                    # finger grooves in the hollow
+        g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(28.0 + 3.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, z_), YA)
         t = t.cut(g)
     return t.cut(Part.makeCylinder(1.6, TRIGGER_WIDTH + 2, V(0, -TRIGGER_WIDTH / 2 - 1, 0), YA)).removeSplitter()
 
@@ -424,54 +435,55 @@ def _trigger_blank():
 TRIGGER = _trigger_blank()
 
 # ---------------------------------------------------------------- vent valve: an AirTAC M3R110-06 without its roller
-# Body 42.5 (plunger axis) x 27 x 18.5, lying: the plunger forward on the trigger's back, 27 across the pistol.
-# Ports on the 18.5 x 42.5 faces: A left (elbow up: the pilot line straight up to the cap), R right (elbow down:
-# the supply from the grip), P right (a silencer: the exhaust). Its spool shifts in the plunger's 2..3 mm: the
-# trigger pushes it 3 mm, its back meeting the body's face, which is the trigger's stop. Three M3 through it.
+# Stage 2: it stands vertical in the frame's rear column, plunger down, shifted right off the hammer's
+# comb (y +7.5..+26): the body is 42.5 along z (the plunger axis), 27 along x, 18.5 along y. The trigger's
+# rear lug lifts the plunger from below. Ports after the turn: A on the y-min face, its elbow turning
+# forward (the pilot runs up into the room); R on the y-max face, its elbow turning rear (the supply
+# drops outside to the grip); P a silencer out the y-max face. It drops into a close-fit socket in the
+# frame (side plate off) and stands on two printed feet: no fasteners. The spool shifts in the plunger's
+# 2..3 mm; the lug's shoulder meeting the valve's bottom face is the trigger's stop.
 AIRTAC = dict(L=42.5, W=27.0, T=18.5, plunger=(6.0, 3.0), elbow=(11.0, 6.5, 12.0),
               ports={"A": (21.0, -1, +1), "R": (14.0, +1, -1)}, P=(27.0, +1), holes=((14.0, -10.0), (28.0, -10.0), (21.0, 5.8)))
-VENT_GAP = 0.3                      # trigger's back to the plunger at rest
+VENT_X, VENT_Y0, VENT_Z0 = -90.5, 7.5, -60.2     # the body: x centre, y min, bottom face (standing on its feet)
+VENT_GAP = 0.3                      # the pad's face to the plunger's tip at rest
 VENT_SWITCH = 2.0                   # measured on the bench M3R110: it clicks over ~2 mm into the plunger's travel
-_band = lambda h: box(-200, TRIGGER_PIVOT.x, -4, 4, MINI_Z - h, MINI_Z + h)
 
 
-def _back_x(travel, h):
-    return _rot_y(TRIGGER.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, travel).common(_band(h)).BoundBox.XMin
-
-
-VENT_TIP = _back_x(0.0, 1.5) - VENT_GAP
-VENT_FRONT = VENT_TIP - AIRTAC["plunger"][1]
-_lo, _hi = 5.0, 40.0                # the pull that brings the trigger's back to the body's face
-for _ in range(14):
+_LUG_X, _LUG_Z = -13.0, -1.0       # the shoulder's stop edge (local): the lug's flat top, rear corner
+_z_at = lambda deg: TRIGGER_PIVOT.z - _LUG_X * math.sin(math.radians(deg)) + _LUG_Z * math.cos(math.radians(deg))
+_lo, _hi = 5.0, 40.0                # the pull that brings the lug's shoulder onto the valve's bottom face
+for _ in range(20):
     _mid = (_lo + _hi) / 2
-    if _back_x(_mid, AIRTAC["T"] / 2) > VENT_FRONT:
+    if _z_at(_mid) < VENT_Z0:
         _lo = _mid
     else:
         _hi = _mid
 TRIGGER_TRAVEL = _lo
-VENT_PUSH = VENT_TIP - _back_x(TRIGGER_TRAVEL, 1.5)
+VENT_PUSH = _z_at(TRIGGER_TRAVEL) - _z_at(0.0) - VENT_GAP      # the shoulder's rise less the gap it closes first
 
 
 def vent_port(name):
-    """Where the tube goes into the port's fitting, and which way (unit vector, out of the fitting)."""
+    """Where the tube leaves the port's elbow, and which way (unit vector, out of the fitting)."""
     d, side, up = AIRTAC["ports"][name]
     e = AIRTAC["elbow"]
-    return V(VENT_FRONT - d, side * (AIRTAC["W"] / 2 + e[1]), MINI_Z + up * e[2]), V(0, 0, up)
+    y_ = VENT_Y0 if side < 0 else VENT_Y0 + AIRTAC["T"]
+    return V(VENT_X, y_ + side * e[1], VENT_Z0 + d), V(up, 0, 0)     # standing: the elbow turns fore / aft
 
 
 def _vent_valve():
     a, e = AIRTAC, AIRTAC["elbow"]
-    body = box(VENT_FRONT - a["L"], VENT_FRONT, -a["W"] / 2, a["W"] / 2, MINI_Z - a["T"] / 2, MINI_Z + a["T"] / 2)
-    for d, y in a["holes"]:
-        body = body.cut(Part.makeCylinder(1.6, a["T"] + 2, V(VENT_FRONT - d, y, MINI_Z - a["T"] / 2 - 1), ZA))
+    body = box(VENT_X - a["W"] / 2, VENT_X + a["W"] / 2, VENT_Y0, VENT_Y0 + a["T"], VENT_Z0, VENT_Z0 + a["L"])
+    for d, y in a["holes"]:                                   # the M3 holes, along y through the valve
+        body = body.cut(Part.makeCylinder(1.6, a["T"] + 2, V(VENT_X + y, VENT_Y0 - 1, VENT_Z0 + d), YA))
     fit = []
     for name, (d, side, up) in a["ports"].items():
-        x_ = VENT_FRONT - d
-        fit.append(Part.makeCylinder(e[0] / 2, e[1] + e[0] / 2, V(x_, side * a["W"] / 2, MINI_Z), V(0, side, 0)))
-        fit.append(Part.makeCylinder(e[0] / 2, e[2], V(x_, side * (a["W"] / 2 + e[1]), MINI_Z), V(0, 0, up)))
+        y_ = VENT_Y0 if side < 0 else VENT_Y0 + a["T"]
+        fit.append(Part.makeCylinder(e[0] / 2, e[1] + e[0] / 2, V(VENT_X, y_, VENT_Z0 + d), V(0, side, 0)))
+        fit.append(Part.makeCylinder(e[0] / 2, e[2], V(VENT_X, y_ + side * e[1], VENT_Z0 + d), V(up, 0, 0)))
     d, side = a["P"]
-    fit.append(Part.makeCylinder(4.0, 10.0, V(VENT_FRONT - d, side * a["W"] / 2, MINI_Z), V(0, side, 0)))   # silencer
-    plunger = cyl_x(a["plunger"][0], VENT_FRONT - 0.01, VENT_TIP, 0, MINI_Z)
+    fit.append(Part.makeCylinder(4.0, 10.0, V(VENT_X, VENT_Y0 + a["T"], VENT_Z0 + d), V(0, side, 0)))   # silencer
+    plunger = Part.makeCylinder(a["plunger"][0] / 2, a["plunger"][1] + 0.01,
+                                V(VENT_X, VENT_Y0 + a["T"] / 2, VENT_Z0), V(0, 0, -1))   # pointing down at the pad
     return body, Part.makeCompound(fit), plunger
 
 
@@ -565,9 +577,9 @@ report.append("  mainspring: 2 x torsion, wire Ø%.1f, OD %.0f, %d coils: %.1f N
               % (ms["d"], ms["od"], ms["coils"], k_ms, pre, torque, pre + HAMMER_SWING, T_back, stress, T_back * 1000 / SPUR[1]))
 report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: pen spring Ø4, ~6 N on the V (holds the block, "
               "clicks under the thumb)")
-report.append("  vent valve: AirTAC M3R110-06 body %.1f x %.0f x %.1f, front at x %.1f; trigger pull %.1f deg pushes its plunger"
-              " %.1f mm (it clicks at %.1f: %.1f to spare), its back stopping on the body"
-              % (AIRTAC["L"], AIRTAC["W"], AIRTAC["T"], VENT_FRONT, TRIGGER_TRAVEL, VENT_PUSH, VENT_SWITCH, VENT_PUSH - VENT_SWITCH))
+report.append("  vent valve: AirTAC M3R110-06 standing at (%.1f, y %.1f..%.0f, bottom z %.1f); trigger pull %.1f deg"
+              " lifts its plunger %.1f mm (it clicks at %.1f: %.1f to spare), the lug's shoulder stopping on the body"
+              % (VENT_X, VENT_Y0, VENT_Y0 + AIRTAC["T"], VENT_Z0, TRIGGER_TRAVEL, VENT_PUSH, VENT_SWITCH, VENT_PUSH - VENT_SWITCH))
 if FLEX_PAWL:
     _I = (R_T[1] - R_T[0]) * TONGUE_T ** 3 / 12
     report.append("  pawl tongue %.0f x %.1f x %.1f mm: ~%.2f N (PETG) / %.2f N (PLA) at %.1f mm of deflection, strain ~%.1f %%  (a straight-beam estimate)"
