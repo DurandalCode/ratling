@@ -323,6 +323,8 @@ frame = frame.cut(shaft_holes)
 _tick('shaft holes cut')
 side_cut = box(HEEL_X - 1, fx[1] + 1, -fy[1] - 1, -(SLAB["y"] - 3.0), SLAB["z"][0] - 1, fz[1] + 1)   # the flank band plus the slab's left wall: the whole side opens
 side_plate = frame.common(side_cut).fuse(Part.makeCompound(_standoffs(-1))).fuse(spring_rib).cut(detent_bolts)   # + the spring shelf
+if len(side_plate.Solids) > 1:          # OCCT leaves face-sliver crumbs in the cuts' windows: keep the real body
+    side_plate = Part.makeCompound([s_ for s_ in side_plate.Solids if s_.Volume > 50.0])
 _tick('side plate common')
 frame = frame.cut(side_cut)
 if len(frame.Solids) > 1:            # OCCT sometimes leaves a face-sliver crumb beside the main body
@@ -559,6 +561,8 @@ if CHECKS:
     checks = {}
     checks["frame is one sound solid (%.0f mm3, valid %s)" % (frame.Volume, frame.isValid())] = \
         frame.isValid() and len(frame.Solids) == 1 and frame.Volume > 150000
+    checks["side plate is one sound solid (%.0f mm3, %d solids)" % (side_plate.Volume, len(side_plate.Solids))] = \
+        side_plate.isValid() and len(side_plate.Solids) == 1 and side_plate.Volume > 15000
     checks["mechanism clears the dress over the hammer and trigger strokes"] = not [v_ for v_ in worst.values() if v_ > 0.05]
     for k_, v_ in fixed_hits.items():
         checks["fixed: %s (%.1f mm3)" % (k_, v_)] = v_ < (2.0 if k_.startswith("slider/stop") else 0.05)   # the stop pad is meant to touch
