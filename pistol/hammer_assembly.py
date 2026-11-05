@@ -6,13 +6,15 @@ pistol/hammer_layout.py's mechanism (v1.1 valve, lock pusher, block, pawl
 sector, slider, detent, hammer, one-stage trigger) with 200 mm barrels,
 dressed as pistol_assembly.py (the lever variant):
 
-    frame ..... a rounded shell round the valve, the lock, the slider with
-                its bracket and the hammer behind the cap; wide enough for
-                the hammer's crank and the bracket on the right; the spur
-                comes out of the top rear through a slot over its swing,
-                the trigger through the bottom
+    frame ..... the v12 silhouette: a drum O85 running straight to the
+                block and closing in a ball tail over the hammer set (the
+                cage's discs trim flush, the axle's ends read as rivets);
+                a narrow slab under it carries the trigger and the vent
+                valve, the QEV cap crosses the slab in its own window, a
+                right cheek shrouds the slider's bracket; the spur comes
+                out of the ball's top through a slot over its swing
     grip ...... the rag-wrapped wooden grip, warpstone pommel with the
-                hose; the vent valve sits at its top, behind the trigger
+                hose; it butts the slab's and the chin's underside
 
 Shapes for the look and for checking that the mechanism fits; not parts.
 Frame: x forward, y to the right seen from behind, z up.
@@ -28,6 +30,10 @@ import random
 
 import FreeCAD as App
 import Part
+import time as _t
+_T0 = _t.time()
+def _tick(msg):
+    print("[%6.1fs] %s" % (_t.time() - _T0, msg), flush=True)
 
 try:
     REPO
@@ -41,34 +47,42 @@ try:
     VALVE                                       # 'v11' or 'v13', see mech_layout.py
 except NameError:
     VALVE = "v13"
+try:
+    CHECKS                                      # set before exec: False = build + document only, skip the
+except NameError:                               # long validation pass (fast look runs; commit on True runs)
+    CHECKS = True
 HUB_T_HAMMER = 14.0                             # the block's rear disc (hammer_layout.py)
 STUB = BARREL_TUBE - (HUB_T_HAMMER - 9.0)       # the tube from the rear disc's seat (9 deep) to the muzzle
 exec(open(os.path.join(REPO, "pistol", "hammer_layout.py")).read())
+_tick('layout built')
 
 NAME = "pistol_hammer_assembly"
 random.seed(7)
 
 # ---------------------------------------------------------------- parameters
-FRAME = dict(x=(HAMMER_PIVOT.x - HAMMER_R - 8.0, -1.0), y=(-45.0, 45.0), z=(-76.0, 31.0))   # round the hammer and the raised slider
+FRAME = dict(x=(HAMMER_PIVOT.x - HAMMER_R - 8.0, -1.0), y=(-45.0, 45.0), z=(-76.0, 31.0))   # the plan the v12 silhouette hangs on
+DRUM_R, DRUM_X0 = 42.5, -65.5       # the v12 drum: O85 straight to the block, a ball tail to x -108
+SLAB = dict(x=(-108.0, -1.0), y=23.0, z=(-70.0, -5.0))          # the narrow body under the drum
+CHEEK = dict(x=(-96.0, -5.0), y=(23.0, 41.5), z=(-70.0, 18.5))  # the right rail shrouding the slider's bracket
 EVA_T = 3.0                         # the frame's look: an EVA skin this thick over a printed cage
 CAGE_T = 3.0
 CAGE_WINDOWS = dict(side=((-40.0, -16.0), (-60.0, 12.0)), top=((-50.0, -18.0), 24.0), bottom=((-40.0, -10.0), 24.0))
 try:
     STANDOFFS                       # set before exec (the zigzag study moves the left one off the push-rod's height)
 except NameError:
-    STANDOFFS = ((-48.0, -45.0, (1, -1)), (-48.0, -5.0, (-1,)))   # x, z, sides: the cage to the valve body (not where the crank runs)
-# The cage opens on the left: the mechanism goes in from that side, and a side plate closes it on six ST2.9
-# into bosses on the cage's top and bottom walls. The plate is also the hammer shaft's left bearing and
-# carries the detent's bracket.
-SIDE_BOSSES = ((-50.0, 22.0), (-10.0, 22.0), (-90.0, 6.0), (-90.0, -67.0), (-50.0, -67.0), (-10.0, -67.0))   # x, z: 1 mm into the walls
+    STANDOFFS = ((-48.0, -5.0, (-1,)),)   # x, z, sides: the side plate's peg to the QEV body's flank
+                                           # (below z -34 the slab's own mass holds the body: no pegs there)
+# The cage opens on the left above the slab's wall: the mechanism goes in from that side, and a side plate
+# (the drum's and the ball's flank band) closes it on six ST2.9 into bosses standing off the room's wall.
+# The plate is also the hammer shaft's left bearing.
+SIDE_BOSSES = ((-50.0, 22.0), (-10.0, 22.0), (-30.0, 30.0), (-70.0, 30.0), (-90.0, 6.0))   # x, z: clear of the QEV stack and the hammer's swing
 BOSS_D, BOSS_L = 8.0, 10.0
 TRIGGER_CHEEKS = dict(x=(-56.0, -48.0), y=(3.3, 7.0))          # the trigger's pivot (an M3 screw and nut) between them
-GRIP_SCREWS = ((-96.0, 29.0), (-96.0, -29.0), (-64.0, 29.0), (-64.0, -29.0))   # x, y: grip/tang to the cage's floor, outside the valve
+GRIP_SCREWS = ((-104.0, 18.0), (-104.0, -18.0))   # x, y: down through the slab's floor into 24 mm of grip wood
 VALVE_BOX_Y = 33.0                  # the tang is a box under the frame round the vent valve and its fittings
-GUARD_TAB = dict(x=(-9.0, -5.0), y=5.0, t=11.0)   # the guard's front tab, on solid floor clear of the bottom window
+GUARD_TAB = dict(x=(-22.0, -14.0), y=5.0, t=11.0)  # the guard's front tab, under the slab's floor at the ring's front arm
 SPUR_SLOT = dict(a=(58.0, 210.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
 FRAME_FILLET = 12.0
-REAR = dict(x=-60.0, top=15.0)      # behind this the frame steps down: the hammer stands up out of it
 
 RUST, IRON, DIRTY = (0.40, 0.24, 0.14), (0.24, 0.23, 0.22), (0.45, 0.43, 0.40)
 COPPER, BRASS, WOOD, RAG = (0.30, 0.55, 0.44), (0.55, 0.45, 0.22), (0.26, 0.16, 0.09), (0.48, 0.42, 0.30)
@@ -104,86 +118,65 @@ def pipe_along(points, r):
 
 
 # ---------------------------------------------------------------- frame shell
-# The frame's plan is a teardrop: full width to the knee at x -64, then a straight taper into the
-# wheel round the hammer's pivot. The cage's sides sit at +-42, flush with the barrel block's Ø85;
-# the EVA patches (42..45) stay flush with it too - nothing is wider than the block. The wheel's
-# ring prints at full 19..25 (no EVA on it); its cage face at r 19 clears the hub by 9 and the
-# swept springs by 2.5; whatever swings out past r 19 (the comb, r 44.5) does it only in the slot
-# band |y| <= 6.5. The collar houses the pilot's fitting.
+# The v12 silhouette: a drum O85 that runs straight to the block and closes in a ball tail over the
+# hammer set; under it a narrow slab +-23 carries the trigger and the vent valve; a right cheek shrouds
+# the slider's bracket and the crank's swing. The QEV cap crosses the slab in its own window (the wall
+# is cut with the stack's imprint); nothing sticks out past the block's O85 but the cheek's corner.
 fx, fy, fz = FRAME["x"], FRAME["y"], FRAME["z"]
 P_ = HAMMER_PIVOT
-WHEEL_R = 25.0                      # the wheel's rim; the printed ring is 19..25
-HEEL_X, HEEL_Z = fx[0] - 7.0, -12.0                          # the plan's back face, the taper's end
-FIN = dict(x=(fx[0] - 13.0, fx[0] + 4.3), y=14.0, z=(P_.z - 6.0, P_.z + 18.0))
-def envelope(i, open_front=False):
-    """The frame's outline, shrunk by i: the teardrop prism (round plan corners, soft rims) with the
-    hinge wheel and the pilot's collar. open_front: the cavity, run on forward into the block."""
-    pts = [(-1 + 2.0 * max(i - 3, 0), fy[1] - i), (-64 + 0.5 * i, fy[1] - i), (-107 + 2.2 * i, 28 - 2 * i),
-           (-107 + 2.2 * i, -(28 - 2 * i)), (-64 + 0.5 * i, -(fy[1] - i)), (-1 + 2.0 * max(i - 3, 0), -(fy[1] - i))]
-    z0, z1 = fz[0] + i, fz[1] - i
-    _prism = Part.Face(Part.makePolygon([V(x_, y_, z0) for x_, y_ in pts] + [V(pts[0][0], pts[0][1], z0)])).extrude(V(0, 0, z1 - z0))
-    _prism = _prism.makeFillet(12.0, [e for e in _prism.Edges if abs(e.Vertexes[0].Point.z - e.Vertexes[-1].Point.z) < 1])
-    _prism = _prism.makeFillet(max(6.0 - i / 2, 2.0), [e for e in _prism.Edges if abs(e.Vertexes[0].Point.z - e.Vertexes[-1].Point.z) > 1])
-    _wheel = Part.makeCylinder(WHEEL_R if i < 6 else 19.5, 2 * (45.5 - i), V(P_.x, -(45.5 - i), P_.z), YA)
-    if open_front:
-        return (_prism
-                .fuse(box(REAR["x"] + 1, fx[1] + 10, fy[0] + i, fy[1] - i, fz[0] + i, REAR["top"] - i))
-                .fuse(_wheel))
-    return (_prism
-            .fuse(_wheel)
-            .fuse(box(FIN["x"][0] + i, FIN["x"][1] - i, -FIN["y"] + i, FIN["y"] - i, FIN["z"][0] + i, FIN["z"][1] - i)))
+HEEL_X = fx[0] - 7.0                # the plan's back face (the jaw's, the discs' and the collar's)
+FIN = dict(x=(DRUM_X0 - DRUM_R + 2.5, fx[0] + 4.3), y=14.0, z=(P_.z - 6.0, P_.z + 18.0))
+_drum = Part.makeCylinder(DRUM_R, fx[1] - DRUM_X0, V(DRUM_X0, 0, 0), XA)
+_ball = Part.makeSphere(DRUM_R, V(DRUM_X0, 0, 0))                  # the tail: a shell round the hammer set, tip x -108
+_bore = Part.makeCylinder(DRUM_R - 3.0, fx[1] - DRUM_X0, V(DRUM_X0, 0, 0), XA)   # the straight room, a 3 mm wall; behind the
+                                                                   # equator the tail's room is the sphere's own bore
+_ball_bore = Part.makeSphere(DRUM_R - 3.0, V(DRUM_X0, 0, 0))       # the tail's own hollow;
+                                                              # behind x -104.5 the tip is solid, and the pilot's
+                                                              # G1/8 fitting comes through it
+_slab = box(SLAB["x"][0], SLAB["x"][1], -SLAB["y"], SLAB["y"], SLAB["z"][0], SLAB["z"][1])
+_cheek = box(CHEEK["x"][0], CHEEK["x"][1], CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], CHEEK["z"][1])
+# The hammer's axle sockets in two end discs of the cage (y +-39.5..42.5); trimmed common with the drum
+# and the ball they sit flush in the silhouette, their rims print bare, the shaft's ends stand out as
+# rivets. The crank, its pin, the slider bracket and the valve cap all cross the open room between them.
+WHEEL_R = 22.5                      # the discs' radius; their rims print bare
+_disc = lambda y0: Part.makeCylinder(WHEEL_R, 3.0, V(P_.x, y0, P_.z), YA)
+_cage = (_disc(-42.5).fuse(_disc(39.5))
+         .common(_drum.fuse(_ball)))
+_fin = box(FIN["x"][0], FIN["x"][1], -FIN["y"], FIN["y"], FIN["z"][0], FIN["z"][1])
+_room = _bore.fuse(_ball_bore)      # the slab and the cheek butt the room, never enter it
+outer = (_drum.fuse(_ball).fuse(_slab).fuse(_cheek).fuse(_cage).fuse(_fin)).cut(_room).removeSplitter()
+_tick('outer built')
+frame = outer                                       # the pockets and the sweeps cut below shape it
+skin = Part.makeCompound([])                                    # no EVA on the frame: the drum is the look
+def _room_wall(x_, z_):
+    """The radius of the room's wall at this x, z: the drum's bore, or the ball's behind the drum."""
+    if x_ < DRUM_X0:
+        r2 = (DRUM_R - 3.0) ** 2 - (DRUM_X0 - x_) ** 2 - z_ ** 2
+    else:
+        r2 = (DRUM_R - 3.0) ** 2 - min(abs(z_), DRUM_R - 3.5) ** 2
+    return math.sqrt(max(r2, 4.0))
 
 
-outer = envelope(0.0)
-skin_in = envelope(EVA_T)
-inner = envelope(EVA_T + CAGE_T, open_front=True)
-# EVA covers only the technical openings: patches over the cage's windows, on the outer faces, with a
-# glue border. The wheel, heel and collar stay bare printed frame.
-_b = 5.0                                                     # the glue border round each opening
-_swx, _swz = CAGE_WINDOWS["side"]
-_twx, _twy = CAGE_WINDOWS["top"]
-_bwx, _bwy = CAGE_WINDOWS["bottom"]
-def _side_panel(sg):
-    p_ = box(_swx[0] - _b, _swx[1] + _b, fy[0] - 1, fy[1] + 1, _swz[0] - _b, _swz[1] + _b)
-    p_ = p_.makeFillet(_b + 6.0, [e for e in p_.Edges if abs(e.Vertexes[0].Point.y - e.Vertexes[-1].Point.y) < 1])
-    y0, y1 = (fy[1] - EVA_T, fy[1]) if sg > 0 else (fy[0], fy[0] + EVA_T)
-    return p_.common(box(_swx[0] - _b - 1, _swx[1] + _b + 1, y0, y1, _swz[0] - _b - 1, _swz[1] + _b + 1))
-skin = Part.makeCompound([
-    _side_panel(1), _side_panel(-1),
-    box(_bwx[0] - _b, _bwx[1], -_bwy - _b, _bwy + _b, fz[0], fz[0] + EVA_T)])   # no front border: the guard's tab lands there
-frame = skin_in.cut(inner).removeSplitter()                   # the printed cage; refine kills OCC slag lumps
-y_in = fy[1] - EVA_T - CAGE_T
-(wx, wz), (tx, ty), (bx, by) = CAGE_WINDOWS["side"], CAGE_WINDOWS["top"], CAGE_WINDOWS["bottom"]
-win = box(wx[0], wx[1], fy[0] - 1, fy[1] + 1, wz[0], wz[1])
-win = win.makeFillet(6.0, [e for e in win.Edges if abs(e.Vertexes[0].Point.y - e.Vertexes[-1].Point.y) > 1])
-frame = frame.cut(win.common(box(fx[0], fx[1], -100, -y_in + 0.5, -200, 200).fuse(box(fx[0], fx[1], y_in - 0.5, 100, -200, 200))))
-frame = frame.cut(box(bx[0], bx[1], -by, by, fz[0] - 1, fz[0] + 10))   # the bottom window only: the top stays closed
 def _standoffs(sign):
     out = []
     for x_, z_, sides in STANDOFFS:
         if sign in sides:
-            s_ = Part.makeCylinder(5.0, y_in - 20 + 0.5, V(x_, sign * (y_in + 0.5), z_), V(0, -sign, 0)).cut(valve_body)
+            _b = sign * (_room_wall(x_, z_) + 0.5)
+            s_ = Part.makeCylinder(5.0, abs(_b) - 13.5 + 1.0, V(x_, _b + sign * 1.0, z_), V(0, -sign, 0)).cut(valve_body)
             out.append(max(s_.Solids, key=lambda q: q.Volume))          # up to the valve's face, no crumbs past it
     return out
 
 
 standoffs = Part.makeCompound(_standoffs(1) + _standoffs(-1))
-frame = frame.fuse(Part.makeCompound(_standoffs(1))).removeSplitter()      # the left ones go on the side plate
-# A pillar from the floor behind the cap, 0.3 mm off its rear face, in the clear between the mainsprings (y < -6.6) and
-# the slider (y > 23): the shot pushes the valve stack back (~90 N at 2 bar) and only the standoffs' friction held it.
-_cap_back = valve_cap.BoundBox.XMin
-rear_stop = box(_cap_back - 9.0, _cap_back - 0.3, -8.0, 8.0, fz[0] + EVA_T + CAGE_T - 0.5, -50.0)
-frame = frame.fuse(rear_stop).removeSplitter()
-# Slot in the bottom wall for the trigger over its stroke
-slab = box(fx[0], fx[1], -16, 16, fz[0] - 1, fz[0] + EVA_T + CAGE_T + 1)
-xs = []
-for tg in (0.0, 0.5, 1.0):
-    c_ = trigger_h(tg).common(slab)
-    if c_.Volume > 1e-3:
-        xs += [c_.BoundBox.XMin, c_.BoundBox.XMax]
-if xs:
-    t_slot = box(min(xs) - 1.5, max(xs) + 1.5, -5, 5, fz[0] - 1, fz[0] + EVA_T + CAGE_T + 1)
-    frame, skin = frame.cut(t_slot), skin.cut(t_slot)
+if _standoffs(1):
+    frame = frame.fuse(Part.makeCompound(_standoffs(1))).removeSplitter()  # the right ones, if any, stay on the frame
+# (The old rear-stop pillar behind the valve cap is gone: the vent valve's socket pierces the floor
+# right under it, so it never had a footing in any build - the cap is held by the block's straps fit.)
+# The trigger's slot through the slab's mass and the chin: a plain slot over its swing, y +-3.8 for the
+# blade's 0.8 mm play, down through the chin's floor into the open air under it
+t_slot = box(-61.5, -40.5, -3.8, 3.8, -89.0, -56.0)
+frame, skin = frame.cut(t_slot), skin.cut(t_slot)
+_tick('trigger slot cut')
 # Slot in the top rear for the spur: a pie over its swing, round the pivot
 H_ = HAMMER_PIVOT
 pie = [V(H_.x, -SPUR_SLOT["y"], H_.z)] + [V(H_.x + SPUR_SLOT["r"] * math.cos(math.radians(q)), -SPUR_SLOT["y"],
@@ -191,7 +184,7 @@ pie = [V(H_.x, -SPUR_SLOT["y"], H_.z)] + [V(H_.x + SPUR_SLOT["r"] * math.cos(mat
                                           for q in [SPUR_SLOT["a"][0] + (SPUR_SLOT["a"][1] - SPUR_SLOT["a"][0]) * k / 12 for k in range(13)]]
 spur_slot = Part.Face(Part.makePolygon(pie + [pie[0]])).extrude(V(0, 2 * SPUR_SLOT["y"], 0))
 frame, skin = frame.cut(spur_slot), skin.cut(spur_slot)
-pilot_hole = cyl_x(16, fx[0] - 9.0, fx[0] + EVA_T + CAGE_T + 1, 0, Z_FIRE)   # the cap's G1/8 fitting, through the heel
+pilot_hole = cyl_x(16, fx[0] - 9.0, fx[0] + EVA_T + CAGE_T + 1, 0, Z_FIRE)   # the cap's G1/8 fitting, through the tail's solid tip
 frame, skin = frame.cut(pilot_hole), skin.cut(pilot_hole)
 
 # ---------------------------------------------------------------- grip, trigger valves
@@ -207,19 +200,8 @@ mini_valves = valves                            # hammer_layout's AirTAC vent va
 _a = AIRTAC
 _vv = box(VENT_FRONT - _a["L"] - 0.5, VENT_FRONT + 0.5, -_a["W"] / 2 - _a["elbow"][1] - _a["elbow"][0] / 2 - 0.5,
           _a["W"] / 2 + _a["elbow"][1] + _a["elbow"][0] / 2 + 0.5, MINI_Z - _a["T"] / 2 - 0.5, MINI_Z + _a["T"] / 2 + 0.5)
-_vv = _vv.fuse(valve_bodies)                    # the valve pokes up through the cage's floor, its A elbow higher
+_vv = _vv.fuse(valve_bodies)                    # the valve sits in the chin's throat, its A elbow higher
 frame, skin = frame.cut(_vv), skin.cut(_vv)
-# Tang: the frame runs on back under the valve cap into the grip, round the trigger valves; full cage
-# width, its top butts the cage's floor directly (the EVA is only window patches now)
-pod = box(HEEL_X, VENT_FRONT - 2.0, -(fy[1] - 13.0), fy[1] - 13.0,
-          MINI_Z - _a["T"] / 2 - 7.0, fz[0] + EVA_T)
-# Backstrap: closes the gap between the frame's rear wall and the grip's top, over the tang; its top
-# hugs the wheel's rim (butt, no lap into the frame print)
-strap = box(GRIP_START.x - 14, fx[0] + 4, -19, 19, fz[0] - 4, P_.z)
-strap = strap.makeFillet(min(8.0, strap.BoundBox.XLength / 2 - 1), strap.Edges).cut(
-    Part.makeCylinder(WHEEL_R, 2 * 19, V(P_.x, -19, P_.z), YA))
-pod = pod.makeFillet(5.0, pod.Edges).fuse(strap).cut(_vv).cut(skin_in)
-pod = pod.cut(Part.makeCompound([trigger_h(i / 6).translated(V(dx_, 0, 0)) for i in range(7) for dx_ in (-1.0, 0.0)]))   # the trigger's swing
 rags = []
 for t, tw in ((0.22, 9), (0.45, 12), (0.68, 8), (0.88, 10)):
     c = GRIP_START + gd * (GRIP_LEN * t)
@@ -238,100 +220,135 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
                                  crystal(c_end + gd * 11 + V(0, -8, -3), gd + V(0.3, -0.7, -0.3), 24, 6)])
 # ---------------------------------------------------------------- air: supply up the grip, pilot to the cap, a tee to the gauge
 # Supply (6/4 hose from the receiver) in through the pommel, up a channel in the grip to the vent valve's R
-# port. Pilot (4/2.5 PU) from its A port back, up a channel in the backstrap, in through the cage's rear wall
-# to the cap's G1/8 push-in. The pilot is the chamber's pressure once charged: a tee on it feeds the gauge,
-# out through the side plate on the left, where the shooter sees it.
+# port. Pilot (4/2.5 PU) from its A elbow out to the left and up past the chin and the flank, in through the
+# shell by the tee, along the room to the cap's G1/8 push-in - no printed channels: the tube runs in the
+# air and crosses only the shell (a plain hole) and the side plate's notch. The tee feeds the gauge, out
+# through the drum's upper-left flank, where the shooter sees it.
 r_end, _ = vent_port("R")
 a_end, _ = vent_port("A")
 supply_pts = [c_end + gd * 70, c_end + gd * 15, GRIP_START + gd * (GRIP_LEN * 0.6), GRIP_START + gd * (GRIP_LEN * 0.3),
               V(-104, 6, -89), V(r_end.x - 10, r_end.y - 2, r_end.z - 3), V(r_end.x, r_end.y, r_end.z - 0.5)]
 supply_line = pipe_along(supply_pts, 3.0)
-pilot_pts = [V(a_end.x, a_end.y, a_end.z + 0.5), V(a_end.x, a_end.y, -50), V(-82, -14, -38), V(-82, -5, -31), V(-82, 0, Z_FIRE)]
+pilot_pts = [V(a_end.x, a_end.y, a_end.z + 0.5), V(a_end.x - 0.5, a_end.y - 6, a_end.z), V(-82, -28, -52),
+             V(-82, -30, -38), V(-82, -28, -28), V(-82, -11, -33), V(-82, -5, -31), V(-82, 0, Z_FIRE)]
 pilot_line = pipe_along(pilot_pts, 2.0)
-TEE = V(-82, -14, -38)
-gauge_pts = [TEE, V(-83, -24, -40), V(-84, -fy[1] + 1, -40), V(-84, -fy[1] - 2, -40)]
+TEE = V(-82, -11, -33)
+gauge_pts = [TEE, V(-80, -30, -26), V(-70, -35, -12), V(-52, -37, 2), V(-30, -37, 15)]
 gauge_line = pipe_along(gauge_pts, 2.0)
 tee = Part.makeSphere(4.0, TEE)
 hose = supply_line
 air_cut = pipe_along(supply_pts, 3.6).fuse(pipe_along(pilot_pts, 2.6)).fuse(pipe_along(gauge_pts, 2.6)).fuse(Part.makeSphere(5.0, TEE))
 
-# ---------------------------------------------------------------- trigger guard: from the frame's foot round the trigger into the grip
-# A flat band (ellipse GUARD_SECTION, wide across) swept along a teardrop that leaves the frame's foot
-# going down and forward and runs into the grip's front along it.
-GUARD = [V(-7, 0, fz[0] + 5), V(-11, 0, -87), V(-20, 0, -101), V(-38, 0, -110), V(-58, 0, -109), V(-76, 0, -100),
-         V(-90, 0, -90), V(-97, 0, -85)]
-GUARD_SECTION = (3.2, 2.2)                      # half-width across (y), half-thickness in the loop's plane
-_gc = Part.BSplineCurve()
-_gc.interpolate(GUARD)
-_t0 = _gc.tangent(_gc.FirstParameter)[0]
-_n0 = _t0.cross(YA).normalize()
-_prof = Part.Ellipse(GUARD[0] + YA * GUARD_SECTION[0], GUARD[0] + _n0 * GUARD_SECTION[1], GUARD[0])
-guard = Part.Wire(_gc.toShape()).makePipeShell([Part.Wire(_prof.toShape())], True, True)   # Frenet: no twist in a plane
-guard = Part.Solid(guard) if guard.ShapeType != "Solid" else guard
-guard = guard.cut(skin_in)                               # the guard's arms rise to the cage's floor now
-guard = guard.fuse(box(-78.0, -67.0, -GUARD_SECTION[0], GUARD_SECTION[0], -96.0, fz[0] + EVA_T).cut(pod))   # close the window's rear slit, butt the floor
+# ---------------------------------------------------------------- the chin, then the trigger guard
+# Stage 1 keeps the vent valve in its validated spot under the QEV cap (there is no other horizontal
+# room), so a local throat in the slab's floor - the chin - houses the valve and its fittings, with the
+# trigger's swing and the guard's ring passing through it. Stage 2 stands the valve up in the rear
+# column and removes it.
+chin = (box(-107.0, -54.5, -SLAB["y"], SLAB["y"], -88.0, SLAB["z"][0])
+        .cut(_vv).cut(t_slot).removeSplitter())
+frame = frame.fuse(chin).removeSplitter()
+grip = grip.cut(chin)                           # the grip's wood rises into the chin's notch
+# The guard: a round bar (torus R39.5 x r3) round the trigger's swing. Cut with the frame, the ring's
+# arms end wherever they meet the body's underside - the slab's floor in front, the chin's floor at the
+# rear - so the loop always butts it, whatever the floor's depth. The front tab takes the screw.
+_g_ring = Part.makeTorus(39.5, 3.0)
+_g_ring.rotate(V(0, 0, 0), V(1, 0, 0), 90.0)    # the ring into the x-z plane
+_g_ring.translate(V(-50.5, 0, -92.6))
+guard = _g_ring.cut(outer).cut(chin)
 _gt = GUARD_TAB
-guard = guard.fuse(box(_gt["x"][0], _gt["x"][1], -_gt["y"], _gt["y"], fz[0] - _gt["t"], fz[0] + EVA_T))    # its front tab, under the floor
-guard = guard.cut(Part.makeCylinder(1.25, _gt["t"] + 1, V(sum(_gt["x"]) / 2, 0, fz[0] - _gt["t"] - 0.5), ZA)).removeSplitter()
+guard = guard.fuse(box(_gt["x"][0], _gt["x"][1], -_gt["y"], _gt["y"], SLAB["z"][0] - _gt["t"], SLAB["z"][0]))    # its front tab, under the floor
+guard = guard.cut(Part.makeCylinder(1.25, _gt["t"] + 1, V(sum(_gt["x"]) / 2, 0, SLAB["z"][0] - _gt["t"] - 0.5), ZA)).removeSplitter()
+_tick('chin + guard built')
 
 # ---------------------------------------------------------------- detent housing
 detent_box = turned(box(HUB_X0 + BOLT_X0 - 2, HUB_X0 + BOLT_X0 + BOLT[0] + 2, -BOLT[1] / 2 - 2, BOLT[1] / 2 + 2,
                         -HUB_R - 24, -HUB_R - 1.5), DETENT_ANGLE + 90)
 detent_box = detent_box.cut(Part.makeCompound([bolt_shape(0.0), bolt_shape(30.0)])).cut(detent_spring_pocket())
 _db = detent_box.BoundBox                       # a bracket from the cage's left side forward to it, clear of the block
-# Its bracket is part of it and bolts to the side plate's outer face (2 x M3 x 12 + nuts): the plate prints flat.
-detent_bracket = box(fx[1] - 8, _db.XMin + 0.9, _db.YMin + 2, -(fy[1] - EVA_T), _db.ZMax - 10, _db.ZMax)
+# Its bracket is part of it and bolts to a flat pad on the drum's left (2 x M3 x 20 + nuts): the pad
+# reaches from the detent's box in over the drum's flank (the slab is too narrow to butt).
+detent_bracket = box(fx[1] - 8, _db.XMin + 0.9, _db.YMin + 2, -44.5, _db.ZMax - 10, _db.ZMax)
 detent_bracket = detent_bracket.cut(cyl_x(2 * 47.6, HUB_X0, 50)).cut(detent_box)
 detent_bolts = Part.makeCompound([Part.makeCylinder(1.7, 30, V(fx[1] - 5.0, -fy[1] - 10, z_), YA)
                                   for z_ in (_db.ZMax - 2.5, _db.ZMax - 7.5)])
 detent_box = detent_box.fuse(detent_bracket).cut(detent_bolts).removeSplitter()
+_tick('detent built')
 
 # ---------------------------------------------------------------- the cage: open on the left, a side plate on screws
-yi = fy[1] - EVA_T - CAGE_T                         # the cage walls' inner faces at y = +-yi
-bosses = Part.makeCompound([Part.makeCylinder(BOSS_D / 2, BOSS_L, V(x_, -yi - 0.5, z_), YA) for x_, z_ in SIDE_BOSSES])
-frame = frame.fuse(bosses)
+def _boss_base(x_, z_):
+    """The y of the room's wall at this boss: the drum's bore, or the ball's behind the drum."""
+    return -(_room_wall(x_, z_) + 0.5)
+bosses = Part.makeCompound([Part.makeCylinder(BOSS_D / 2, BOSS_L, V(x_, _boss_base(x_, z_), z_), YA) for x_, z_ in SIDE_BOSSES])
+frame = frame.fuse(bosses).fuse(box(-60, -8, -44.5, -31, _db.ZMax - 10, _db.ZMax - 3)).cut(detent_bolts)   # the detent's pad, on the drum's flank
 tc = TRIGGER_CHEEKS
+_tick('bosses + detent pad fused')
 cheek_top = TRIGGER_PIVOT.z + 3.5
 cheeks = Part.makeCompound([box(tc["x"][0], tc["x"][1], sg * tc["y"][0] if sg > 0 else -tc["y"][1],
                                 tc["y"][1] if sg > 0 else -tc["y"][0], fz[0] + EVA_T + CAGE_T - 0.5, cheek_top)
                             for sg in (1, -1)])
 cheeks = cheeks.cut(Part.makeCylinder(1.6, 2 * tc["y"][1] + 2, V(TRIGGER_PIVOT.x, -tc["y"][1] - 1, TRIGGER_PIVOT.z), YA))
 frame = frame.fuse(cheeks)
-# The slider's top meets a pad on the cage's ceiling at full cock: the hammer's back stop.
+_tick('cheeks fused')
+# The slider's top meets a stop on the drum's ceiling at full cock: the hammer's back stop. The stop
+# grows up to the drum's wall (its top is clipped to r 40, 0.5 mm into the 3 mm shell) and hangs a
+# nook print from it. The guide rod anchors at it: the rod runs to the stop pad, not to the old flat cage.
 z_sl_top = slider_z(1.0) + 6.0
-slider_stop = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], z_sl_top + 0.05, fz[1] - EVA_T - CAGE_T + 0.5)
+_stop_prism = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], z_sl_top + 0.05, 44.0)
+slider_stop = _stop_prism.common(Part.makeCylinder(40.0, 96.0, V(-96, 0, 0), XA))   # keep the top 0.5 into the 3 mm shell
 # The mainsprings' fixed legs rest on a rib off the cage's rear wall, below and behind the hammer's hub.
 spring_rib = box(fx[0] + 3.0, HAMMER_PIVOT.x - 6.0, MAINSPRING["y"][0][0] - 1.0, -6.0,
-                 HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5)   # its x0 lands in the wheel's ring wall
+                 HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5)   # its x0 reaches the ball's shell (a small blister if it pokes)
 rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] + EVA_T + CAGE_T - 0.5), ZA)   # the guide rod's foot
 frame = frame.fuse(slider_stop).fuse(spring_rib).fuse(rod_boss)
+_tick('stop + rib + rod fused')
 frame = frame.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2, GUIDE_ROD["z"][1] - GUIDE_ROD["z"][0], V(GUIDE_ROD["x"], GUIDE_ROD["y"], GUIDE_ROD["z"][0]), ZA))
 shaft_holes = Part.makeCylinder(4.0, 2 * fy[1], V(HAMMER_PIVOT.x, -fy[1], HAMMER_PIVOT.z), YA)   # the axle: a press fit
 frame = frame.cut(shaft_holes)
-side_cut = box(HEEL_X - 1, fx[1] + 1, -fy[1] - 1, -yi, fz[0] - 1, fz[1] + 1)
+_tick('shaft holes cut')
+side_cut = box(HEEL_X - 1, fx[1] + 1, -fy[1] - 1, -SLAB["y"], SLAB["z"][0] - 1, fz[1] + 1)   # the flank band above the slab's wall
 side_plate = frame.common(side_cut).fuse(Part.makeCompound(_standoffs(-1))).cut(detent_bolts)
+_tick('side plate common')
 frame = frame.cut(side_cut)
-pilots = Part.makeCompound([Part.makeCylinder(1.25, BOSS_L - 1, V(x_, -yi, z_), YA) for x_, z_ in SIDE_BOSSES])
+_tick('side cut done')
+pilots = Part.makeCompound([Part.makeCylinder(1.25, BOSS_L + 2, V(x_, _boss_base(x_, z_) - 1.0, z_), YA) for x_, z_ in SIDE_BOSSES])
 frame = frame.cut(pilots).removeSplitter()
+_tick('pilots cut')
+# The slider rides outside the slab, the cheek its printed shroud: the body's tunnel (up its rod
+# sleeve's travel), the bracket arm's tunnel and the crank pin's stub through the cheek's inner band
+# are plain boxes over their swept zones - the worst-case checks verify the cover over the stroke.
+# (The hammer's own sweep needs no cut on the big solids: the room and the spur's pie clear it -
+# the probes behind this measured 0.0 on the fin, the bosses and the spring rib - which keeps the
+# build fast.)
+frame = frame.cut(Part.makeCompound([box(-59.5, -4.4, 22.4, 38.8, -65.1, 19.0),      # the slider's tunnel, body to bracket arm
+                                     box(-90.5, -44.0, 28.5, 39.0, -26.0, 18.0)]))  # the crank and its pin past the cheek's inner face
+# The mainsprings' fixed legs rest on a rib reaching x -97, where the ball's taper would pinch them:
+# a local notch in the flank opens the shelf's zone - the rib fills its floor, the tips rest on it in
+# the open, and the side plate gets a small window over it.
+frame = frame.cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0))
+_tick('sweeps + notch cut')
+# The vent valve's stack (cap disc O62) is taller than the drum's bore: its rim crosses the drum's wall
+# bottom in a pocket, and through the slab it cuts its own window (a 12 mm bridge under it ties the front
+# and rear together with the drum above). The lock seats in the slab's front, flush with its sides.
+frame = frame.cut(valve_cap).cut(valve_body).cut(lock_housing_h).removeSplitter()
 _sp_cut = [Part.makeCylinder(1.7, 10, V(x_, -fy[1] - 1, z_), YA) for x_, z_ in SIDE_BOSSES]
 _sp_cut += [Part.makeCylinder(1.7, 16, V(x_, -fy[1] - 16, z_), YA) for x_, z_ in SIDE_BOSSES]   # out through any slag past the plate
-side_plate = side_plate.cut(Part.makeCompound(_sp_cut)).removeSplitter()
+side_plate = side_plate.cut(valve_cap).cut(valve_body).cut(lock_housing_h).cut(
+    Part.makeCompound(_sp_cut)).removeSplitter()   # the flank band covers the QEV stack's rim: cut its imprint too
+_tick('side plate cut')
 skin = skin.cut(shaft_holes).cut(detent_box)
 
-# ---------------------------------------------------------------- grip with the tang, on screws; the guard's tab
-# The tang is part of the grip: one print, under the cage's floor, four ST2.9 down through the floor from
-# inside the cage (side plate off). An ST2.9 from below holds the vent valve in its bore. The guard's front
-# tab takes one ST2.9 down through the floor; its rear end is glued in a socket in the grip.
-z_floor_top = fz[0] + EVA_T + CAGE_T
-pod = pod.cut(skin_in)                                   # the tang butts the cage's floor, the skin is only patches
-grip = grip.fuse(pod).removeSplitter()
+# ---------------------------------------------------------------- grip on screws; the guard's tab; the valve's screws
+# The grip butts the slab's and the chin's underside (its wood rises into the chin's notch), held by two
+# ST2.9 down through the slab's floor into 24 mm of wood, plus the glue faces. The vent valve bolts to
+# the chin's floor: 3 x M3 x 30 with the nuts under it. The guard's front tab takes one ST2.9 down
+# through the floor; its rear stub glues to the chin.
 grip_pilots = Part.makeCompound([Part.makeCylinder(1.25, 9.0, V(x_, y_, fz[0] - 9.0), ZA) for x_, y_ in GRIP_SCREWS])
-floor_holes = Part.makeCompound([Part.makeCylinder(1.7, EVA_T + CAGE_T + 2, V(x_, y_, fz[0] - 1), ZA)
+floor_holes = Part.makeCompound([Part.makeCylinder(1.7, 6.0, V(x_, y_, SLAB["z"][0] - 1.0), ZA)
                                  for x_, y_ in GRIP_SCREWS + ((sum(GUARD_TAB["x"]) / 2, 0.0),)])
 vent_screw = Part.makeCompound([Part.makeCylinder(1.6, 30.0, V(VENT_FRONT - d_, y_, MINI_Z - 20.0), ZA)
-                                for d_, y_ in AIRTAC["holes"]])         # 3 x M3 x 30 through the valve into the tang, nuts below
-grip = grip.cut(grip_pilots).cut(vent_screw)
-frame, skin = frame.cut(floor_holes), skin.cut(floor_holes)
+                                for d_, y_ in AIRTAC["holes"]])         # 3 x M3 x 30 through the valve into the chin's floor, nuts below
+grip = grip.cut(grip_pilots)
+frame, skin = frame.cut(floor_holes).cut(vent_screw), skin.cut(floor_holes)
 
 
 # ---------------------------------------------------------------- dress: block straps, frame plates, crest, hammer, vial, gauge, pilot pipe
@@ -346,31 +363,32 @@ for x0, w, tilt in ((HUB_X0 + 12, 12, 0), ((HUB_X0 + HUB_T + STUB) / 2, 8, 4), (
         strap_rivets.append(V(x0 + w / 2, (block_d / 2 + 2.6) * math.cos(q), (block_d / 2 + 2.6) * math.sin(q)))
 plates, plate_rivets = [], []
 for side, rot, dx, dz in ((1, 7, 4, 6), (-1, -5, -2, -4)):
-    y0 = fy[1] if side > 0 else fy[0] - 3
-    p_ = box(REAR["x"] + 2 + dx, REAR["x"] + 44 + dx, y0, y0 + 3, Z_FIRE - 16 + dz, Z_FIRE + 22 + dz)
-    p_.rotate(V(REAR["x"] + 23, 0, Z_FIRE), YA, rot)
+    y0 = DRUM_R if side > 0 else -(DRUM_R + 3.0)
+    p_ = box(-58.0 + dx, -16.0 + dx, y0, y0 + 3, Z_FIRE - 16 + dz, Z_FIRE + 22 + dz)
+    p_.rotate(V(-37.0, 0, Z_FIRE), YA, rot)
     plates.append(p_)
     yb = y0 + (3.5 if side > 0 else -0.5)
-    plate_rivets += [V(REAR["x"] + 2 + dx + px, yb, Z_FIRE - 16 + dz + pz) for px, pz in ((5, 4), (37, 6), (5, 34), (37, 32))]
+    plate_rivets += [V(-58.0 + dx + px, yb, Z_FIRE - 16 + dz + pz) for px, pz in ((5, 4), (37, 6), (5, 34), (37, 32))]
 cx0 = H_.x + SPUR_SLOT["r"] * 0.35 + 8                 # the crest starts in front of the spur's slot
 crest_pts = [(cx0, 0)]
 for k in range(int((fx[1] - 14 - cx0 - 8) // 8.5)):
     crest_pts += [(cx0 + 6 + k * 8.5, 13 + random.uniform(0, 6)), (cx0 + 10 + k * 8.5, 3)]
 crest_pts += [(fx[1] - 14, 0)]
-crest = Part.Face(Part.makePolygon([V(px, -1.5, fz[1] - EVA_T - 1 + pz) for px, pz in crest_pts]
-                                   + [V(crest_pts[0][0], -1.5, fz[1] - EVA_T - 1)])).extrude(V(0, 3, 0))
-vc = V(fx[1] - 22, -16, fz[1] - EVA_T - 1)
+crest = Part.Face(Part.makePolygon([V(px, -1.5, 41.0 + pz) for px, pz in crest_pts]
+                                   + [V(crest_pts[0][0], -1.5, 41.0)])).extrude(V(0, 3, 0))
+vc = V(fx[1] - 22, -16, 41.0)                      # the vial on the drum's top, clear of the crest
 vial = Part.makeCylinder(8, 30, vc, ZA)
 vial_caps = Part.makeCylinder(10, 4, vc - V(0, 0, 2), ZA).fuse(Part.makeCylinder(10, 4, vc + V(0, 0, 29), ZA))
 cage = Part.makeCompound([Part.makeCylinder(1.2, 32, vc + V(10 * math.cos(math.radians(q)), 10 * math.sin(math.radians(q)), 0), ZA)
                           for q in (0, 120, 240)])
 vial_stone = crystal(vc + V(0, 0, 14), V(0.2, 0.1, 1), 24, 5)
-gp = V(-84, -fy[1] - 4, -40)                    # the gauge on the left side, facing the shooter's side
+gp = V(-30.0, -38.0, 15.0)                 # the gauge on the drum's upper-left flank (below it the wall over the QEV body is 1.4 mm)
 gauge = Part.makeCylinder(12.5, 8, gp, -YA).fuse(Part.makeCylinder(3, 6, gp + V(0, 2, 0), -YA))
 gauge_glass = Part.makeCylinder(11, 1, gp - V(0, 8, 0), -YA)
 needle = box(gp.x, gp.x + 9, gp.y - 9.8, gp.y - 9, gp.z - 0.6, gp.z + 0.6)
 needle.rotate(gp, YA, -35)
 pilot_pipe = pilot_line
+_tick('dress built')
 # ---------------------------------------------------------------- block supports: top strap to the axle's front end
 # The block turns on the axle (hub bore at the back, the front plate's bore at the front). The axle is held
 # by the valve alone, and the lock pushes the block forward at the shot: a top strap from the frame, over the
@@ -420,14 +438,16 @@ axle_cap = Part.makeCylinder(3.0, PLUG_HOLE - 1 + s_t + 6, V(X_AXLE_END - PLUG_H
 strap_rivets += [V(x_, 0, STRAP["z"][1] + 0.3) for x_ in range(int(STRAP["x0"]) + 8, int(X_AXLE_END), 24)]
 spikes += [spike(V(x_, 0, STRAP["z"][1] - 1), V(0.25, 0, 1), 14, 3.5) for x_ in (X_MUZZLE * 0.3, X_MUZZLE * 0.7)]
 spikes += [spike(V(X_AXLE_END + s_t / 2, sd_ * s_w, STRAP["z"][1] - 8), V(0.3, sd_ * 1, 0.4), 14, 3.0) for sd_ in (-1, 1)]
+_tick('supports built')
 
 grip, frame, side_plate, skin = grip.cut(air_cut), frame.cut(air_cut), side_plate.cut(air_cut), skin.cut(air_cut)
 grip = max(grip.Solids, key=lambda q: q.Volume) if len(grip.Solids) > 1 else grip
 # The grip prints as two halves split on y = 0, each flat on its cut face: the hose lies in the open channel,
-# the halves close on it and on the vent valve, glued on three Ø3 steel dowels (6 mm into each half).
-GRIP_DOWELS = [GRIP_START + gd * (GRIP_LEN * t) + gn * 13.0 for t in (0.3, 0.75)] + [V(VENT_FRONT - 36.0, 0, MINI_Z - 13.5)]
+# the halves close on it, glued on two Ø3 steel dowels (6 mm into each half).
+GRIP_DOWELS = [GRIP_START + gd * (GRIP_LEN * t) + gn * 13.0 for t in (0.3, 0.75)]
 dowels = Part.makeCompound([Part.makeCylinder(1.6, 12.0, V(p_.x, -6.0, p_.z), YA) for p_ in GRIP_DOWELS])
 grip = grip.cut(dowels)
+_tick('grip split')
 grip_left = grip.common(box(-400, 100, -100, 0, -400, 100)).removeSplitter()
 grip_right = grip.common(box(-400, 100, 0, 100, -400, 100)).removeSplitter()
 for _g in (grip_left, grip_right):
@@ -437,128 +457,138 @@ for _g in (grip_left, grip_right):
 # ---------------------------------------------------------------- checks
 def hit(a, b):
     try:
+        ba, bb = a.BoundBox, b.BoundBox
+        if ba.XMax < bb.XMin or bb.XMax < ba.XMin or ba.YMax < bb.YMin or bb.YMax < ba.YMin \
+                or ba.ZMax < bb.ZMin or bb.ZMax < ba.ZMin:
+            return 0.0                           # disjoint boxes cannot share a volume: skip the common
         return a.common(b).Volume
     except ValueError:                           # OCCT gives up on touching faces: nudge it
         return a.translated(V(0, 0.01, 0.01)).common(b).Volume
 
 
 rest = pose(REST)
-moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Hammer", "Sleeve", "Pusher", "Trigger") if n_ in rest)
-worst = {}
-for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
-    for tg in (0.0, 1.0):
-        st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=tg))
-        for n in moving:
-            for other_name, other in (("frame", frame), ("side plate", side_plate), ("skin", skin), ("grip", grip),
-                                      ("detent box", detent_box), ("guard", guard),
-                                      ("air lines", Part.makeCompound([supply_line, pilot_line, gauge_line, tee])),
-                                      ("vent valve", valve_bodies), ("crest", crest)):
-                if n == "Bolt" and other_name == "detent box":
-                    continue                     # it slides in it
-                v_ = hit(st[n], other)
-                worst[(n, other_name)] = max(worst.get((n, other_name), 0.0), v_)
-sup = top_strap.fuse(nose).fuse(washer)
-blk_hit = max(hit(turned(block, a_), sup) + hit(turned(Part.makeCompound(straps), a_), top_strap) for a_ in (0.0, 15.0, 30.0, 45.0))
-fixed_hits = {"air lines/valve": hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_body)
-              + hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_cap)
-              + hit(Part.makeCompound([pilot_line, gauge_line, tee, supply_line]), vent_body),   # (their ends sit in the fittings)
-              "air lines/springs+rib": hit(Part.makeCompound([pilot_line, gauge_line, tee]), mainsprings.fuse(spring_rib)),
-              "slider/stop at full cock": hit(slider_h(1.0)[0], slider_stop.translated(V(0, 0, -0.1))),
-              "side plate/valve": hit(side_plate, valve_body) + hit(side_plate, valve_cap) + hit(side_plate, lock_housing_h),
-              "bosses/valve": hit(bosses, valve_body) + hit(bosses, valve_cap),
-              "cheeks/valve": hit(cheeks, valve_body) + hit(cheeks, mini_valves),
-              "block/supports": blk_hit, "strap/vial": hit(top_strap, vial.fuse(cage)) + hit(top_strap, crest),
-              "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
-              "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume,
-              "plug/axle+nose+strap": hit(axle_plug, axle) + hit(axle_plug, nose) + hit(axle_plug, top_strap)}
-inside = mini_valves.common(grip.fuse(outer).fuse(pod).fuse(_vv)).Volume / mini_valves.Volume
-spur_out = lambda c: hammer_shape(c).cut(outer).Volume
-report = [NAME, "  mechanism vs dress (worst over the hammer and trigger strokes, mm3):"]
-report += ["    %-8s / %-11s %.1f" % (k[0], k[1], v_) for k, v_ in sorted(worst.items()) if v_ > 0.05] or ["    none"]
-report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
-           "  vent valve inside grip/frame: %.0f %%" % (inside * 100),
-           "  trigger guard: %.0f mm from the trigger at rest, %.0f pulled; loop %.0f x %.0f mm inside"
-           % (trigger_h(0.0).distToShape(guard)[0], trigger_h(1.0).distToShape(guard)[0],
-              max(p_.x for p_ in GUARD[:2]) - min(p_.x for p_ in GUARD) - 5.2, fz[0] - min(p_.z for p_ in GUARD) - 2.6),
-           "  hammer outside the frame: %.0f mm3 forward, %.0f back" % (spur_out(0.0), spur_out(1.0)),
-           "  overall: %.0f mm long (pommel to muzzle), %.0f mm high, block Ø%.0f"
-           % (X_AXLE_END + s_t + 9 - min((c_end + gd * 30).x, spur_c.x), STRAP["z"][1] + 14 - (c_end + gd * 30).z, block_d),
-           "  front support: strap %.0f x %.0f over the block (%.1f mm clear of its straps), down %.0f mm ahead of the muzzles;"
-           " nose Ø%.0f clears the firing bore by %.1f mm"
-           % (STRAP["w"], STRAP["t"], STRAP["z"][0] - (block_d / 2 + 2.5), X_AXLE_END - X_MUZZLE,
-              NOSE_OD, R_RING - 23.8 / 2 - NOSE_OD / 2),
-           "  barrels: tube %.0f, breech face to muzzle %.0f; chamber (the axle) %.0f mm of tube, ~%.0f cm3"
-           % (BARREL_TUBE, HUB_T + STUB, axle.BoundBox.XLength,
-              19.6 + (axle.BoundBox.XLength - 60) * math.pi / 4 * 23.8 ** 2 / 1000),
-           "  axle plug: %d x %.1f O-ring, groove Ø%.1f (stretch %.1f %%, squeeze %.0f %%), flange Ø%.1f x %.0f on the tube's end"
-           % (PLUG_ORING + (2 * _gr, plug_stretch * 100, PLUG_SQUEEZE * 100, BARREL_OD, PLUG_FLANGE))]
-print("\n".join(report))
+if CHECKS:
+    moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Hammer", "Sleeve", "Pusher", "Trigger") if n_ in rest)
+    worst = {}
+    for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
+        for tg in (0.0, 1.0):
+            st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=tg))
+            for n in moving:
+                for other_name, other in (("frame", frame), ("side plate", side_plate), ("skin", skin), ("grip", grip),
+                                          ("detent box", detent_box), ("guard", guard),
+                                          ("air lines", Part.makeCompound([supply_line, pilot_line, gauge_line, tee])),
+                                          ("vent valve", valve_bodies), ("crest", crest)):
+                    if n == "Bolt" and other_name == "detent box":
+                        continue                     # it slides in it
+                    v_ = hit(st[n], other)
+                    worst[(n, other_name)] = max(worst.get((n, other_name), 0.0), v_)
+    sup = top_strap.fuse(nose).fuse(washer)
+    blk_hit = max(hit(turned(block, a_), sup) + hit(turned(Part.makeCompound(straps), a_), top_strap) for a_ in (0.0, 15.0, 30.0, 45.0))
+    fixed_hits = {"air lines/valve": hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_body)
+                  + hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_cap)
+                  + hit(Part.makeCompound([pilot_line, gauge_line, tee, supply_line]), vent_body),   # (their ends sit in the fittings)
+                  "air lines/springs+rib": hit(Part.makeCompound([pilot_line, gauge_line, tee]), mainsprings.fuse(spring_rib)),
+                  "slider/stop at full cock": hit(slider_h(1.0)[0], slider_stop.translated(V(0, 0, -0.1))),
+                  "side plate/valve": hit(side_plate, valve_body) + hit(side_plate, valve_cap) + hit(side_plate, lock_housing_h),
+                  "bosses/valve": hit(bosses, valve_body) + hit(bosses, valve_cap),
+                  "cheeks/valve": hit(cheeks, valve_body) + hit(cheeks, mini_valves),
+                  "block/supports": blk_hit, "strap/vial": hit(top_strap, vial.fuse(cage)) + hit(top_strap, crest),
+                  "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
+                  "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume,
+                  "springs/frame": hit(mainsprings, frame),   # the ball's taper is tighter than the old drum ever was
+                  "plug/axle+nose+strap": hit(axle_plug, axle) + hit(axle_plug, nose) + hit(axle_plug, top_strap)}
+    inside = mini_valves.common(grip.fuse(outer).fuse(chin).fuse(_vv)).Volume / mini_valves.Volume
+    spur_out = lambda c: hammer_shape(c).cut(outer).Volume
+    report = [NAME, "  mechanism vs dress (worst over the hammer and trigger strokes, mm3):"]
+    report += ["    %-8s / %-11s %.1f" % (k[0], k[1], v_) for k, v_ in sorted(worst.items()) if v_ > 0.05] or ["    none"]
+    report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
+               "  vent valve inside grip/frame: %.0f %%" % (inside * 100),
+               "  trigger guard: torus R39.5 x r3 at (-50.5, -92.6); %.1f mm from the trigger at rest, %.1f pulled"
+               % (trigger_h(0.0).distToShape(guard)[0],
+                   trigger_h(1.0).distToShape(guard)[0]),
+               "  hammer outside the frame: %.0f mm3 forward, %.0f back" % (spur_out(0.0), spur_out(1.0)),
+               "  overall: %.0f mm long (pommel to muzzle), %.0f mm high, block Ø%.0f"
+               % (X_AXLE_END + s_t + 9 - min((c_end + gd * 30).x, spur_c.x), STRAP["z"][1] + 14 - (c_end + gd * 30).z, block_d),
+               "  front support: strap %.0f x %.0f over the block (%.1f mm clear of its straps), down %.0f mm ahead of the muzzles;"
+               " nose Ø%.0f clears the firing bore by %.1f mm"
+               % (STRAP["w"], STRAP["t"], STRAP["z"][0] - (block_d / 2 + 2.5), X_AXLE_END - X_MUZZLE,
+                  NOSE_OD, R_RING - 23.8 / 2 - NOSE_OD / 2),
+               "  barrels: tube %.0f, breech face to muzzle %.0f; chamber (the axle) %.0f mm of tube, ~%.0f cm3"
+               % (BARREL_TUBE, HUB_T + STUB, axle.BoundBox.XLength,
+                  19.6 + (axle.BoundBox.XLength - 60) * math.pi / 4 * 23.8 ** 2 / 1000),
+               "  axle plug: %d x %.1f O-ring, groove Ø%.1f (stretch %.1f %%, squeeze %.0f %%), flange Ø%.1f x %.0f on the tube's end"
+               % (PLUG_ORING + (2 * _gr, plug_stretch * 100, PLUG_SQUEEZE * 100, BARREL_OD, PLUG_FLANGE))]
+    print("\n".join(report))
+else:
+    report = [NAME, "  fast run: CHECKS off - geometry, document and weights only"]
+    print("\n".join(report))
 
-# ---------------------------------------------------------------- checks: pass or fail, not only numbers
-checks = {}
-checks["mechanism clears the dress over the hammer and trigger strokes"] = not [v_ for v_ in worst.values() if v_ > 0.05]
-for k_, v_ in fixed_hits.items():
-    checks["fixed: %s (%.1f mm3)" % (k_, v_)] = v_ < (2.0 if k_.startswith("slider/stop") else 0.05)   # the stop pad is meant to touch
-# Sliding fits need air: a part cut to its neighbour's exact size will not go in once printed (the detent bolt did not).
-for label_, a_, b_ in (("detent bolt in its channel", turned(detent_bolt_print, DETENT_ANGLE + 90), detent_box), ("slider on the guide rod", rest["Slider"], guide_rod),
-                       ("hammer on its axle", rest["Hammer"], shaft), ("sector on the chamber tube", rest["Sector"], axle),
-                       ("block on the chamber tube", block, axle)):
-    d_ = a_.distToShape(b_)[0]
-    checks["clearance %s: %.2f mm (>= 0.10)" % (label_, d_)] = d_ >= 0.10
-# Retention: the valve stack (body, cap, lock housing) must not slide a couple of mm any way without meeting the cage, the
-# side plate, the strap, the chamber tube or the block. A direction with nothing to stop it is a part left to the glue.
-stack = Part.makeCompound([valve_body, valve_cap, lock_housing_h])
-around = Part.makeCompound([frame, side_plate, top_strap, axle, nose, axle_plug, block])
-for label_, d_ in (("forward", V(2, 0, 0)), ("back", V(-2, 0, 0)), ("left", V(0, -2, 0)), ("right", V(0, 2, 0)),
-                   ("up", V(0, 0, 2)), ("down", V(0, 0, -2))):
-    v_ = hit(stack.translated(d_), around)
-    checks["valve stack stopped when pushed 2 mm %s (%.0f mm3)" % (label_, v_)] = v_ > 0.5
-if not globals().get("NO_PAWL", False):          # the zigzag study has no pawl at all
-    # The pawl (a flexure in the sector, or a plunger in its boss on a steel spring): one solid; no clash with the disc over the drive; the return needs at most the
-    # tongue's travel (PAWL_BACK) of retraction at the tooth; and that travel, plus a margin, is free behind the tongue.
-    checks["sector is one valid solid (%d solids)" % len(sector_base.Solids)] = len(sector_base.Solids) == 1 and sector_base.isValid()
-    _sec_all = sector_base if FLEX_PAWL else sector_base.fuse(pawl_tooth)       # the plunger rides in the sector
-    _w = max(hit(turned(_sec_all, sector_turn(i_ / 20)), turned(hub, block_drive(i_ / 20))) for i_ in range(21))
-    if not FLEX_PAWL:
-        _d = pawl_tooth.translated(V(-0.5, 0, 0)).distToShape(sector_base)[0]            # 0.5 mm off its stop: the radial play
-        checks["pawl: plunger in its channel: %.2f mm of play (>= 0.10), spring %.1f long at rest, %.1f at full travel (solid %.1f)"
-               % (_d, PL_SPRING_L, PL_SPRING_L - PAWL_BACK, SPRING["solid"])] = _d >= 0.10 and PL_SPRING_L - PAWL_BACK >= SPRING["solid"] + 0.3
-    checks["pawl: no clash with the disc over the drive (%.2f mm3)" % _w] = _w < 0.05
-    def _need(a_, blk_):
-        lo_, hi_ = 0.0, PAWL_BACK + 0.3
-        if hit(turned(pawl_tooth.translated(V(-hi_, 0, 0)), a_), turned(hub, blk_)) > 0.05:
-            return 9.9
-        if hit(turned(pawl_tooth, a_), turned(hub, blk_)) <= 0.05:
-            return 0.0
-        for _ in range(12):
-            m_ = (lo_ + hi_) / 2
-            lo_, hi_ = (m_, hi_) if hit(turned(pawl_tooth.translated(V(-m_, 0, 0)), a_), turned(hub, blk_)) > 0.05 else (lo_, m_)
-        return hi_
-    if FLEX_PAWL or RAMP_IN_DISC or TOOTH_RAMP:
-        _n = max(_need(-a_, 60.0) for a_ in range(0, 69, 4))
-        checks["pawl: the return needs %.2f mm of retraction (tongue travel %.1f mm)" % (_n, PAWL_BACK)] = _n <= PAWL_BACK + 0.1
-    else:
-        print("  [n/a] pawl return: the disc's notches are square, the ramp is filed in by hand; the rigid tooth is a blank (%.1f wide, tip %.1f past the face)"
-              % (TOOTH_W, TIP_RISE))
-    _back = PAWL_MOVER.translated(V(-(PAWL_BACK + 0.3), 0, 0))
-    _bh = max(hit(turned(_back, sector_turn(c_ / 4)), o_) for c_ in range(5)
-              for o_ in (lock_housing_h, valve_body, valve_cap, frame, side_plate, slider_h(c_ / 4)[0], slider_h(c_ / 4)[1], axle))
-    if FLEX_PAWL:
-        _gap = PAWL_FLEX_FREE.distToShape(RING_POCKETED)[0]
-        checks["pawl: the tongue is %.2f mm clear of the ring all round (>= 0.5, a narrower slit fuses shut in print)" % _gap] = _gap >= 0.5
-    checks["pawl: room behind it for %.1f mm of travel (%.2f mm3 hit)" % (PAWL_BACK + 0.3, _bh)] = _bh < 0.05
-# The slider must wrap its guide rod, not lie in a groove on it: a ring 1 mm thick round the rod's hole must be solid.
-_ring = Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15 + 1.0, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA).cut(
-    Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA))
-_wrap = SLIDER_H.common(_ring).Volume / _ring.Volume
-checks["slider wraps its guide rod: %.0f %% of a 1 mm ring round the hole is solid (>= 98)" % (_wrap * 100)] = _wrap >= 0.98
-# The slider's steel pin must have a hole to sit in: drawn over solid plastic it only looked fixed.
-_sl0, _pin0 = slider_h(0.5)
-checks["slider pin sits in its hole (%.1f mm3 of it inside solid plastic)" % hit(_sl0, _pin0)] = hit(_sl0, _pin0) < 0.05
-for k_, ok_ in checks.items():
-    print("  [%s] %s" % ("OK " if ok_ else "FAIL", k_))
-print("  valve stack rear face x %.1f, cage rear wall inside x %.1f (%.1f mm between)"
-      % (stack.BoundBox.XMin, fx[0] + EVA_T + CAGE_T, stack.BoundBox.XMin - (fx[0] + EVA_T + CAGE_T)))
+if CHECKS:
+    # ---------------------------------------------------------------- checks: pass or fail, not only numbers
+    checks = {}
+    checks["mechanism clears the dress over the hammer and trigger strokes"] = not [v_ for v_ in worst.values() if v_ > 0.05]
+    for k_, v_ in fixed_hits.items():
+        checks["fixed: %s (%.1f mm3)" % (k_, v_)] = v_ < (2.0 if k_.startswith("slider/stop") else 0.05)   # the stop pad is meant to touch
+    # Sliding fits need air: a part cut to its neighbour's exact size will not go in once printed (the detent bolt did not).
+    for label_, a_, b_ in (("detent bolt in its channel", turned(detent_bolt_print, DETENT_ANGLE + 90), detent_box), ("slider on the guide rod", rest["Slider"], guide_rod),
+                           ("hammer on its axle", rest["Hammer"], shaft), ("sector on the chamber tube", rest["Sector"], axle),
+                           ("block on the chamber tube", block, axle)):
+        d_ = a_.distToShape(b_)[0]
+        checks["clearance %s: %.2f mm (>= 0.10)" % (label_, d_)] = d_ >= 0.10
+    # Retention: the valve stack (body, cap, lock housing) must not slide a couple of mm any way without meeting the cage, the
+    # side plate, the strap, the chamber tube or the block. A direction with nothing to stop it is a part left to the glue.
+    stack = Part.makeCompound([valve_body, valve_cap, lock_housing_h])
+    around = Part.makeCompound([frame, side_plate, top_strap, axle, nose, axle_plug, block])
+    for label_, d_ in (("forward", V(2, 0, 0)), ("back", V(-2, 0, 0)), ("left", V(0, -2, 0)), ("right", V(0, 2, 0)),
+                       ("up", V(0, 0, 2)), ("down", V(0, 0, -2))):
+        v_ = hit(stack.translated(d_), around)
+        checks["valve stack stopped when pushed 2 mm %s (%.0f mm3)" % (label_, v_)] = v_ > 0.5
+    if not globals().get("NO_PAWL", False):          # the zigzag study has no pawl at all
+        # The pawl (a flexure in the sector, or a plunger in its boss on a steel spring): one solid; no clash with the disc over the drive; the return needs at most the
+        # tongue's travel (PAWL_BACK) of retraction at the tooth; and that travel, plus a margin, is free behind the tongue.
+        checks["sector is one valid solid (%d solids)" % len(sector_base.Solids)] = len(sector_base.Solids) == 1 and sector_base.isValid()
+        _sec_all = sector_base if FLEX_PAWL else sector_base.fuse(pawl_tooth)       # the plunger rides in the sector
+        _w = max(hit(turned(_sec_all, sector_turn(i_ / 20)), turned(hub, block_drive(i_ / 20))) for i_ in range(21))
+        if not FLEX_PAWL:
+            _d = pawl_tooth.translated(V(-0.5, 0, 0)).distToShape(sector_base)[0]            # 0.5 mm off its stop: the radial play
+            checks["pawl: plunger in its channel: %.2f mm of play (>= 0.10), spring %.1f long at rest, %.1f at full travel (solid %.1f)"
+                   % (_d, PL_SPRING_L, PL_SPRING_L - PAWL_BACK, SPRING["solid"])] = _d >= 0.10 and PL_SPRING_L - PAWL_BACK >= SPRING["solid"] + 0.3
+        checks["pawl: no clash with the disc over the drive (%.2f mm3)" % _w] = _w < 0.05
+        def _need(a_, blk_):
+            lo_, hi_ = 0.0, PAWL_BACK + 0.3
+            if hit(turned(pawl_tooth.translated(V(-hi_, 0, 0)), a_), turned(hub, blk_)) > 0.05:
+                return 9.9
+            if hit(turned(pawl_tooth, a_), turned(hub, blk_)) <= 0.05:
+                return 0.0
+            for _ in range(12):
+                m_ = (lo_ + hi_) / 2
+                lo_, hi_ = (m_, hi_) if hit(turned(pawl_tooth.translated(V(-m_, 0, 0)), a_), turned(hub, blk_)) > 0.05 else (lo_, m_)
+            return hi_
+        if FLEX_PAWL or RAMP_IN_DISC or TOOTH_RAMP:
+            _n = max(_need(-a_, 60.0) for a_ in range(0, 69, 4))
+            checks["pawl: the return needs %.2f mm of retraction (tongue travel %.1f mm)" % (_n, PAWL_BACK)] = _n <= PAWL_BACK + 0.1
+        else:
+            print("  [n/a] pawl return: the disc's notches are square, the ramp is filed in by hand; the rigid tooth is a blank (%.1f wide, tip %.1f past the face)"
+                  % (TOOTH_W, TIP_RISE))
+        _back = PAWL_MOVER.translated(V(-(PAWL_BACK + 0.3), 0, 0))
+        _bh = max(hit(turned(_back, sector_turn(c_ / 4)), o_) for c_ in range(5)
+                  for o_ in (lock_housing_h, valve_body, valve_cap, frame, side_plate, slider_h(c_ / 4)[0], slider_h(c_ / 4)[1], axle))
+        if FLEX_PAWL:
+            _gap = PAWL_FLEX_FREE.distToShape(RING_POCKETED)[0]
+            checks["pawl: the tongue is %.2f mm clear of the ring all round (>= 0.5, a narrower slit fuses shut in print)" % _gap] = _gap >= 0.5
+        checks["pawl: room behind it for %.1f mm of travel (%.2f mm3 hit)" % (PAWL_BACK + 0.3, _bh)] = _bh < 0.05
+    # The slider must wrap its guide rod, not lie in a groove on it: a ring 1 mm thick round the rod's hole must be solid.
+    _ring = Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15 + 1.0, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA).cut(
+        Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA))
+    _wrap = SLIDER_H.common(_ring).Volume / _ring.Volume
+    checks["slider wraps its guide rod: %.0f %% of a 1 mm ring round the hole is solid (>= 98)" % (_wrap * 100)] = _wrap >= 0.98
+    # The slider's steel pin must have a hole to sit in: drawn over solid plastic it only looked fixed.
+    _sl0, _pin0 = slider_h(0.5)
+    checks["slider pin sits in its hole (%.1f mm3 of it inside solid plastic)" % hit(_sl0, _pin0)] = hit(_sl0, _pin0) < 0.05
+    for k_, ok_ in checks.items():
+        print("  [%s] %s" % ("OK " if ok_ else "FAIL", k_))
+    print("  valve stack rear face x %.1f, cage rear wall inside x %.1f (%.1f mm between)"
+          % (stack.BoundBox.XMin, fx[0] + EVA_T + CAGE_T, stack.BoundBox.XMin - (fx[0] + EVA_T + CAGE_T)))
 
 # ---------------------------------------------------------------- document
 if NAME in App.listDocuments():
@@ -600,6 +630,7 @@ for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_side", side_plate, (0.3,
                      ("Thrust_washer", washer, (0.85, 0.85, 0.8), 0)):
     add(g_dress, n, s_, c, tr)
 doc.recompute()
+_tick('doc built')
 
 # ---------------------------------------------------------------- what is printed, cut from EVA, or bought
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
@@ -614,7 +645,7 @@ MATERIAL = {
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
-            "Vent_valve": "AirTAC M3R110-06 with its roller off (or M3PP110-06): G1/8 elbows for A (4 mm) and R (6 mm), a G1/8 silencer on P", "Pin": "steel pin Ø3",
+            "Vent_valve": "AirTAC M3R110-06 with its roller off (or M3PP110-06): G1/8 elbows for A (4 mm) and R (6 mm), a G1/8 silencer on P; bolts to the chin's floor, 3 x M3 x 30 + nuts under it", "Pin": "steel pin Ø3",
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
             "Pilot_pipe": "PU tube 4/2.5: vent valve A -> cap G1/8 push-in, up the backstrap",
@@ -622,11 +653,11 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Axle_plug": "in the axle's front end on a 19 x 2.5 O-ring, its flange on the tube's end: it closes the chamber",
             "Top_strap": "2 x M3 x 40 + nuts down through its foot into the cage's top",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
-            "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its tab, rear end glued in the grip",
-            "Grip_left": "half, with the valve box: glued to the right on 3 x Ø3 x 12 dowels; 2 x ST2.9 x 13 down through the floor",
-            "Grip_right": "half: the vent valve on 3 x M3 x 30 + nuts through both; 2 x ST2.9 x 13 down through the floor",
+            "Trigger_guard": "printed round bar; ST2.9 x 13 through the floor into its front tab, rear stub glued to the chin",
+            "Grip_left": "half: glued to the right on 2 x Ø3 x 12 dowels",
+            "Grip_right": "half: 2 x ST2.9 x 13 down through the slab's floor into the wood",
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
-            "Frame_side": "6 x ST2.9 x 13 into the cage's bosses",
+            "Frame_side": "5 x ST2.9 x 16 into the flank's bosses",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 96: the slider's guide, floor to the stop pad", "Trigger": "pivot: M3 x 16 screw + nylock nut"}
 FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)
