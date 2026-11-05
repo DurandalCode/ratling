@@ -72,7 +72,7 @@ PARTS = [
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
     ("frame_cage", frame, Y_, "supports", "right wall on the bed; supports under the cheeks and the spring rib"),
-    ("frame_side_plate", side_plate, -Y_, "supports", "outer face on the bed; 6 x ST2.9 x 13 into the cage"),
+    ("frame_side_plate", side_plate, -Y_, "supports", "outer face on the bed; 5 x ST2.9 x 16 into the flank's bosses"),
     ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the valve box's left half"),
     ("grip_right", grip_right, -Y_, "supports", "cut face on the bed; glued to the left on 3 x Ø3 x 12 dowels"),
     ("trigger_guard", guard, Y_, "supports", "flat; ST2.9 x 13 into its tab through the floor"),
