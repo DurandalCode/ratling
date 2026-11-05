@@ -71,7 +71,7 @@ PARTS = [
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 20 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
-    ("frame_cage", frame, -X_, "supports", "tail on the bed (the slab's rear face); supports in the socket, the slot and the cheek's tunnels"),
+    ("frame_cage", frame, Y_, "supports", "cheek on the bed (0.5 proud of the drum, a flat face): the valve's socket and the pad's pocket open downward, no support inside them"),
     ("frame_side_plate", side_plate, -Y_, "supports", "show face down; the band's curve rides a support raft; 5 x ST2.9 x 16 into the flank's bosses"),
     ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the valve box's left half"),
     ("grip_right", grip_right, -Y_, "supports", "cut face on the bed; glued to the left on 3 x Ø3 x 12 dowels"),

@@ -65,7 +65,7 @@ random.seed(7)
 FRAME = dict(x=(HAMMER_PIVOT.x - HAMMER_R - 8.0, -1.0), y=(-45.0, 45.0), z=(-76.0, 31.0))   # the plan the v12 silhouette hangs on
 DRUM_R, DRUM_X0 = 42.5, -65.5       # the v12 drum: O85 straight to the block, a ball tail to x -108
 SLAB = dict(x=(-108.0, -1.0), y=23.0, z=(-70.0, -5.0))          # the narrow body under the drum
-CHEEK = dict(x=(-96.0, -5.0), y=(23.0, 41.5), z=(-70.0, 18.5))  # the right rail shrouding the slider's bracket
+CHEEK = dict(x=(-96.0, -5.0), y=(23.0, 43.0), z=(-70.0, 18.5))  # 0.5 proud of the drum: its outer face is the frame's bed face
 EVA_T = 3.0                         # the frame's look: an EVA skin this thick over a printed cage
 CAGE_T = 3.0
 CAGE_WINDOWS = dict(side=((-40.0, -16.0), (-60.0, 12.0)), top=((-50.0, -18.0), 24.0), bottom=((-40.0, -10.0), 24.0))
@@ -393,7 +393,7 @@ plates.append(box(SLAB["x"][0], SLAB["x"][1], SLAB["y"], SLAB["y"] + 3.0, SLAB["
 plates.append(box(SLAB["x"][0], SLAB["x"][1], -SLAB["y"] - 3.0, -SLAB["y"], SLAB["z"][0], SLAB["z"][1])
               .cut(valve_cap).cut(valve_body).cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0)))
 plates.append(box(-90.0, -8.0, CHEEK["y"][1], CHEEK["y"][1] + 3.0, -60.0, 12.0))
-plate_rivets += [V(x_, 44.5, z_) for x_ in (-84.0, -46.0, -14.0) for z_ in (-52.0, 2.0)]               # the cheek pad
+plate_rivets += [V(x_, CHEEK["y"][1] + 3.0, z_) for x_ in (-84.0, -46.0, -14.0) for z_ in (-52.0, 2.0)]   # the cheek pad
 plate_rivets += [V(x_, -(SLAB["y"] + 3.0), z_) for x_ in (-100.0, -64.0, -30.0) for z_ in (-62.0, -14.0)]   # the left pad
 plate_rivets += [V(x_, SLAB["y"] + 3.0, z_) for x_, z_ in ((-64.0, -62.0), (-30.0, -62.0), (-30.0, -14.0), (-12.0, -62.0), (-12.0, -14.0))]
 plate_rivets += [V(x_, 44.0, 12.0) for x_ in (-50.0, -28.0, -8.0)] + [V(x_, 34.0, 30.0) for x_ in (-50.0, -28.0, -8.0)]   # the right shell
