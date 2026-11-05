@@ -371,13 +371,32 @@ for x0, w, tilt in ((HUB_X0 + 12, 12, 0), ((HUB_X0 + HUB_T + STUB) / 2, 8, 4), (
         q = math.radians(360.0 / 7 * k + random.uniform(-10, 10))
         strap_rivets.append(V(x0 + w / 2, (block_d / 2 + 2.6) * math.cos(q), (block_d / 2 + 2.6) * math.sin(q)))
 plates, plate_rivets = [], []
-for side, rot, dx, dz in ((1, 7, 4, 6), (-1, -5, -2, -4)):
-    y0 = DRUM_R if side > 0 else -(DRUM_R + 3.0)
-    p_ = box(-58.0 + dx, -16.0 + dx, y0, y0 + 3, Z_FIRE - 16 + dz, Z_FIRE + 22 + dz)
-    p_.rotate(V(-37.0, 0, Z_FIRE), YA, rot)
-    plates.append(p_)
-    yb = y0 + (3.5 if side > 0 else -0.5)
-    plate_rivets += [V(-58.0 + dx + px, yb, Z_FIRE - 16 + dz + pz) for px, pz in ((5, 4), (37, 6), (5, 34), (37, 32))]
+# The drum's upper flanks: curved shells hugging the body (r 42.5..46), above the QEV window and
+# under the vial; the left one sits behind the gauge and rides on the removable side plate, the
+# right one is clipped by the cheek's top band.
+def _flank_shell(x0, x1, sign):
+    ring = Part.makeCylinder(46.0, x1 - x0, V(x0, 0, 0), XA).cut(
+        Part.makeCylinder(DRUM_R, x1 - x0 + 2.0, V(x0 - 1.0, 0, 0), XA))
+    y_lo, y_hi = sorted((sign * 21.0, sign * 46.0))
+    seg = ring.common(box(x0, x1, y_lo, y_hi, 5.0, 38.0))
+    if sign > 0:
+        seg = seg.cut(box(CHEEK["x"][0] - 0.3, CHEEK["x"][1] + 0.3, CHEEK["y"][0] - 0.3, CHEEK["y"][1] + 0.3,
+                          CHEEK["z"][0] - 0.3, CHEEK["z"][1] + 0.3))
+    return seg.cut(valve_cap).cut(valve_body)
+plates.append(_flank_shell(-59.0, -48.0, -1))
+plates.append(_flank_shell(-59.0, -5.0, +1))
+# The slab's sides and the cheek's outer face: flat riveted armor; the left side's dress all rides
+# on the removable side plate (glued), with a window over the spring shelf's notch.
+plates.append(box(SLAB["x"][0], SLAB["x"][1], SLAB["y"], SLAB["y"] + 3.0, SLAB["z"][0], SLAB["z"][1])
+              .cut(_vv).cut(valve_cap).cut(valve_body))
+plates.append(box(SLAB["x"][0], SLAB["x"][1], -SLAB["y"] - 3.0, -SLAB["y"], SLAB["z"][0], SLAB["z"][1])
+              .cut(valve_cap).cut(valve_body).cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0)))
+plates.append(box(-90.0, -8.0, CHEEK["y"][1], CHEEK["y"][1] + 3.0, -60.0, 12.0))
+plate_rivets += [V(x_, 44.5, z_) for x_ in (-84.0, -46.0, -14.0) for z_ in (-52.0, 2.0)]               # the cheek pad
+plate_rivets += [V(x_, -(SLAB["y"] + 3.0), z_) for x_ in (-100.0, -64.0, -30.0) for z_ in (-62.0, -14.0)]   # the left pad
+plate_rivets += [V(x_, SLAB["y"] + 3.0, z_) for x_, z_ in ((-64.0, -62.0), (-30.0, -62.0), (-30.0, -14.0), (-12.0, -62.0), (-12.0, -14.0))]
+plate_rivets += [V(x_, 44.0, 12.0) for x_ in (-50.0, -28.0, -8.0)] + [V(x_, 34.0, 30.0) for x_ in (-50.0, -28.0, -8.0)]   # the right shell
+plate_rivets += [V(-54.0, -44.0, 12.0), V(-54.0, -34.0, 30.0)]                                           # the left shell
 cx0 = H_.x + SPUR_SLOT["r"] * 0.35 + 8                 # the crest starts in front of the spur's slot
 crest_pts = [(cx0, 0)]
 for k in range(int((fx[1] - 14 - cx0 - 8) // 8.5)):
