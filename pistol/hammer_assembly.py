@@ -150,7 +150,7 @@ _room = _bore.fuse(_ball_bore)      # the slab and the cheek butt the room, neve
 outer = (_drum.fuse(_ball).fuse(_slab).fuse(_cheek).fuse(_cage).fuse(_fin)).cut(_room).removeSplitter()
 # The mainsprings' fixed legs rest on a rib reaching x -97, where the ball's taper would pinch them:
 # a local notch in the flank opens the shelf's zone (cut here, while the body is still simple).
-outer = outer.cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0))
+outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the shelf's zone, keep a bond strip for the rib at x -90.5..-88
 # The slider rides outside the slab, the cheek its printed shroud: the body's tunnel (up its rod
 # sleeve's travel) and the bracket arm's tunnel are plain boxes over their swept zones, and the crank
 # with its pin crosses the cheek's inner band - cut here for the same reason (simple body, fast and
@@ -347,7 +347,9 @@ frame = frame.cut(valve_cap).cut(valve_body).cut(lock_housing_h)
 _sp_cut = [Part.makeCylinder(1.7, 10, V(x_, -fy[1] - 1, z_), YA) for x_, z_ in SIDE_BOSSES]
 _sp_cut += [Part.makeCylinder(1.7, 16, V(x_, -fy[1] - 16, z_), YA) for x_, z_ in SIDE_BOSSES]   # out through any slag past the plate
 side_plate = side_plate.cut(valve_cap).cut(valve_body).cut(lock_housing_h).cut(
-    Part.makeCompound(_sp_cut)).removeSplitter()   # the flank band covers the QEV stack's rim: cut its imprint too
+    Part.makeCompound(_sp_cut))   # the flank band covers the QEV stack's rim: cut its imprint too (no splitter: it splits the plate)
+if len(side_plate.Solids) > 1:            # and the crumbs it used to leave: keep the real body
+    side_plate = Part.makeCompound([s_ for s_ in side_plate.Solids if s_.Volume > 50.0])
 _tick('side plate cut')
 skin = skin.cut(shaft_holes).cut(detent_box)
 
