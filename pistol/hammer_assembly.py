@@ -143,7 +143,8 @@ _cheek = box(CHEEK["x"][0], CHEEK["x"][1], CHEEK["y"][0], CHEEK["y"][1], CHEEK["
 WHEEL_R = 22.5                      # the discs' radius; their rims print bare
 _disc = lambda y0: Part.makeCylinder(WHEEL_R, 3.0, V(P_.x, y0, P_.z), YA)
 _cage = (_disc(-42.5).fuse(_disc(39.5))
-         .common(_drum.fuse(_ball)))
+         .common(_drum.fuse(_ball))
+         .common(Part.makeCylinder(41.3, 200.0, V(-200, 0, 0), XA)))   # rims flush under the cheek: it is the bed face
 _fin = box(FIN["x"][0], FIN["x"][1], -FIN["y"], FIN["y"], FIN["z"][0], FIN["z"][1])
 _room = _bore.fuse(_ball_bore)      # the slab and the cheek butt the room, never enter it
 outer = (_drum.fuse(_ball).fuse(_slab).fuse(_cheek).fuse(_cage).fuse(_fin)).cut(_room).removeSplitter()
