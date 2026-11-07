@@ -70,6 +70,7 @@ PARTS = [
     ("detent_bolt", detent_bolt_print, X_, "strong", "V tip; a Ø4 pen spring behind it; flat on its x face; %.2f mm smaller than its channel a side (the first print would not go in)" % BOLT_CLEAR),
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 20 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
+    ("sector_spacer", sector_spacer, X_, "strong", "the ring on the tube between the sector and the QEV body; bore Ø25.6, the wedge is the pawl boss's road; file to fit the stack"),
     ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
     ("frame_cage", frame, -X_, "supports", "tail on the bed (the slab's rear face): both sides are open plates, the bore's ceiling is a vertical wall - near support-free"),
     ("frame_side_plate", side_plate, -Y_, "supports", "show face down; the band's curve rides a support raft; 5 x ST2.9 x 16 into the flank's bosses"),
