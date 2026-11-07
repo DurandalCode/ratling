@@ -205,6 +205,17 @@ sector_base = sector_base.fuse(_thrust).removeSplitter()
 if FLEX_PAWL:
     sector_base_blank = sector_base_blank.fuse(_thrust).removeSplitter()
 
+# The sector's rear stop: a plain spacer washer on the chamber tube between the lock housing's front
+# face and the sector's ring - the LOWER half only: the pawl's boss rides the ring's back at the top
+# and sweeps 2..90 deg as the sector turns, so a full ring would hit it. The housing's face is an
+# annulus round the valve's axis, so the washer's lower part does the butting. In the model the gap
+# is 0.4 (the ring stops GAP+0.4, the housing at GAP); printed stacks sit wider - SPACER_L is one
+# number to tune to the bench.
+SPACER_L = 0.25                     # the model's gap less clearances: 0.1 off the ring, 0.05 off the housing
+sector_spacer = (cyl_x(31.0, -GAP + 0.05, -GAP + 0.05 + SPACER_L, 0, 0)
+                 .cut(cyl_x(25.6, -GAP - 1.0, -GAP + 2.0, 0, 0))    # bore over the tube, past the housing's nose
+                 .cut(box(-GAP - 2.0, -GAP + 3.0, -50.0, 50.0, 0.0, 50.0)))   # the top half away for the pawl's boss
+
 
 def bolt_shape(block_deg):
     top = -HUB_R + bolt_depth(block_deg)
@@ -405,6 +416,28 @@ if LOCKLESS:
                                                     -BREECH_BOLT_R * math.sin(math.radians(a)),
                                                     Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))) for a in LOCK_BOLTS]))
                       .removeSplitter())
+
+# The sector's rear stop: a FULL ring on the chamber tube, from the sector's ring back to the QEV
+# body's face (x -28), with the sector's road carved through it as one revolved wedge - its swept
+# footprint in polar: the angles the pawl's boss covers over the stroke (the rest at -68 deg with its
+# own spread, to the cocked 0), from the bore out past the boss's outer corner. One revolve, no
+# pose-compound scallops; the plunger's retraction rides the same wedge. Bore slips the tube; the QEV
+# body's nose and the lock housing's flange (both centred 27 below the axis) carve their passages at
+# the rear; the ring's rear face and the body's face are its stops, so the sector's axial float is
+# the two 0.05 gaps. The length is the model's ring-to-body span - file to fit on a printed stack.
+SECTOR_SPACER = dict(x_rear=X_BODY_TOP + 0.05, x_front=SECTOR_X[0] - 0.05, od=31.0, bore=25.6)
+_ROAD_A0, _ROAD_A1, _ROAD_R = -92.0, 80.0, 24.5     # the boss's angular road: -44 at rest to 73 at full cock, with margins
+def _pol(r, a):
+    return V(0, r * math.cos(math.radians(a)), r * math.sin(math.radians(a)))
+_road_pts = ([V(0, 0, 0)]
+             + [_pol(_ROAD_R, a) for a in [_ROAD_A0 + (_ROAD_A1 - _ROAD_A0) * k / 16.0 for k in range(17)]])
+_road = Part.Face(Part.makePolygon(_road_pts + [_road_pts[0]])).extrude(
+    V(SECTOR_SPACER["x_front"] - SECTOR_SPACER["x_rear"] + 2.0, 0, 0)).translate(
+    V(SECTOR_SPACER["x_rear"] - 1.0, 0, 0))
+sector_spacer = (cyl_x(SECTOR_SPACER["od"], SECTOR_SPACER["x_rear"], SECTOR_SPACER["x_front"], 0, 0)
+                 .cut(cyl_x(SECTOR_SPACER["bore"], SECTOR_SPACER["x_rear"] - 1.0, SECTOR_SPACER["x_front"] + 1.0, 0, 0))
+                 .cut(_road)                                # the sector's road: one revolved wedge, its polar footprint
+                 .cut(valve_body).cut(lock_housing_h))      # their noses carve their own passages
 
 # ---------------------------------------------------------------- trigger: one stage, onto the vertical vent valve
 # A sickle lever hanging down off the back-set pivot at rest: the finger face hollowed (the pad sits
