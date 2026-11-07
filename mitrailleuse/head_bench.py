@@ -12,8 +12,7 @@ work. Bench frame: x along the slider, y across it, z up; the block's bottom fac
                    core at -ROW_Y (R42), 18 apart as there. Inside, all channels printed in:
                      supply: G1/8 on the +y side -> the charge core's tyre side;
                      pilot:  the charge core's pin side (the cavity under it) -> a riser -> G1/8 on top (hose
-                             to the module's pilot) and across to the vent core's tyre side -> G1/8 on the -x end
-                             (a gauge);
+                             to the module's pilot) and across to the vent core's tyre side;
                      exhaust: the vent core's pin side -> out of the -y side, Ø EXH_D.
                    The charge cavity is closed by an O-ring 3 x 1.5 round the pusher pin, in a gland at the
                    bottom face (the guide plate under it is its floor); the vent cavity needs none.
@@ -32,7 +31,8 @@ work. Bench frame: x along the slider, y across it, z up; the block's bottom fac
 
 Use (docs/test-plan.md, "Mitrailleuse head, bench B"): supply on the side through a tee with the dump valve
 (a G1/8 ball valve into a plug drilled Ø0.5), the pilot G1/8 on top to the module's pilot port by a 4 mm
-hose, a gauge on the end. Stop by stop: hold at a charging stop for a measured time, push through "both
+hose (a gauge, if ever bought, goes on the supply tee - the pilot gauge port was removed, there is no gauge
+to fill it). Stop by stop: hold at a charging stop for a measured time, push through "both
 shut" (does the module hold?) to "venting" (does it fire?).
 Core numbers are typical (as in stage4v2_schrader.py), not measured: the grub screw is there for that.
 
@@ -165,9 +165,7 @@ net = {
                          cyl(CH_D, Z_LINK - CH_D / 2, bz - G18_TAP_DEPTH + 0.5, RISER_X, ROW_Y),
                          tap(RISER_X, ROW_Y, bz, (0, 0, -1)),
                          rod(CH_D, (RISER_X, ROW_Y, Z_PIL), (0, -ROW_Y, Z_PIL)),
-                         cyl(CORE_BORE_D, z_bore1 - 0.1, Z_PIL + CH_D / 2, 0, -ROW_Y),
-                         rod(CH_D, (0, -ROW_Y, Z_PIL), (-bx + G18_TAP_DEPTH - 0.5, -ROW_Y, Z_PIL)),
-                         tap(-bx, -ROW_Y, Z_PIL, (1, 0, 0))]),
+                         cyl(CORE_BORE_D, z_bore1 - 0.1, Z_PIL + CH_D / 2, 0, -ROW_Y)]),
     "exhaust": rod(EXH_D, (0, -ROW_Y, Z_EXH), (0, -by - 1, Z_EXH)),
 }
 bolts = G.fuse_all([cyl(BOLT_HOLE, z_plate - 1, bz + 1, sx * BOLT_XY[0], sy * BOLT_XY[1])
@@ -259,8 +257,6 @@ fit_top = G.push_in_fitting(RISER_X, ROW_Y, bz)
 fit_sup = G.push_in_fitting(0, 0, 0)
 fit_sup.rotate(V(0, 0, 0), X, -90)
 fit_sup.translate(V(0, by, Z_SUP))
-gauge = G.fuse_all([rod(9.7, (-bx + G18_TAP_DEPTH, -ROW_Y, Z_PIL), (-bx - 12, -ROW_Y, Z_PIL)),
-                    rod(40.0, (-bx - 12, -ROW_Y, Z_PIL), (-bx - 27, -ROW_Y, Z_PIL))])
 screws = G.fuse_all([cyl(3.0, z_plate - 12, bz, sx * BOLT_XY[0], sy * BOLT_XY[1])
                      .fuse(cyl(5.5, bz, bz + 3, sx * BOLT_XY[0], sy * BOLT_XY[1]))
                      for sx in (-1, 1) for sy in (-1, 1)])
@@ -324,7 +320,7 @@ check(ramp_c <= 32.0, "ramps %.0f deg on the bench pitch %.1f (rotor: %.0f / %.0
 a_exh = math.pi * EXH_D ** 2 / 4
 check(a_exh >= math.pi * CORE_BORE_D ** 2 / 4, "exhaust Ø%.1f: %.1f mm2, over the core's bore Ø%.1f"
       % (EXH_D, a_exh, CORE_BORE_D))
-pil_v = (net["pilot"].Volume - 2 * math.pi * G18_TAP_D ** 2 / 4 * G18_TAP_DEPTH) / 1000 \
+pil_v = (net["pilot"].Volume - math.pi * G18_TAP_D ** 2 / 4 * G18_TAP_DEPTH) / 1000 \
     + math.pi * (CAV_D ** 2 / 4) * (CAV_TOP - GLAND[1]) / 1000
 hose_v = math.pi * 2.5 ** 2 / 4 * 110 / 1000
 gl_sq = (STEM_ORING[1] - GLAND[1]) / STEM_ORING[1]
@@ -336,7 +332,7 @@ report = [
     "Mitrailleuse head, bench B: one barrel's head on a hand slider",
     "  head block %.0f x %.0f x %.0f, %.1f cm3; cores 5V1 at y %+.0f (charge) / %+.0f (vent), pins down"
     % (BLOCK + (block.Volume / 1000, ROW_Y, -ROW_Y)),
-    "  ports: supply G1/8 on +y, pilot G1/8 on top (hose 4 mm to the module), gauge G1/8 on -x, exhaust Ø%.1f on -y"
+    "  ports: supply G1/8 on +y, pilot G1/8 on top (hose 4 mm to the module), exhaust Ø%.1f on -y"
     % EXH_D,
     "  pilot volume in the block %.2f cm3, + %.2f cm3 in 110 mm of 4 x 2.5 hose" % (pil_v, hose_v),
     "  pushers: Ø%.0f pins, gap %.1f under the core's pin at rest (grub screw), stroke %.1f, pitch %.1f"
@@ -363,7 +359,7 @@ if not HEAD_BENCH_LIBRARY:
         add("Printed", n, s, st)
     for n, s, st in (("Valve_cores", cores, "steel"), ("Pins", pins, "steel"), ("Return_springs", springs, "steel"),
                      ("Stem_oring", oring, "oring"), ("Pilot_fitting", fit_top, "steel"),
-                     ("Supply_fitting", fit_sup, "steel"), ("Gauge", gauge, "steel_ghost"), ("Screws", screws, "steel")):
+                     ("Supply_fitting", fit_sup, "steel"), ("Screws", screws, "steel")):
         add("Bought", n, s, st)
     half = Part.makeBox(200, 200, 200, V(0, -100, -100))
     add("Section", "Sec_block", block.cut(half), "stator")
