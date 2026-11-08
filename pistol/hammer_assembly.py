@@ -16,7 +16,10 @@ dressed as pistol_assembly.py (the lever variant):
                 stack's envelope +2 mm (the built valve is sealed over its
                 seam) with the tie rods' and lock bolts' pockets cast in;
                 a right cheek shrouds the slider's bracket; the spur comes
-                out of the ball's top through a slot over its swing
+                out of the ball's top through a slot over its swing; the
+                frame splits at z = 8 into a lower and an upper half, and
+                the four printed parts (the halves and the two side plates)
+                register on small tongue/groove pairs for gluing
     grip ...... the rag-wrapped wooden grip, warpstone pommel with the
                 hose; it butts the slab's underside
 
@@ -337,8 +340,11 @@ z_sl_top = slider_z(1.0) + 6.0
 _stop_prism = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], z_sl_top + 0.05, 44.0)
 slider_stop = _stop_prism.common(Part.makeCylinder(40.0, 96.0, V(-96, 0, 0), XA))   # keep the top 0.5 into the 3 mm shell
 # The mainsprings' fixed legs rest on a rib off the cage's rear wall, below and behind the hammer's hub.
-spring_rib = box(fx[0] + 3.0, HAMMER_PIVOT.x - 6.0, MAINSPRING["y"][0][0] - 1.0, -5.0,
-                 HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5)   # its x0 reaches the ball's shell (a small blister if it pokes)
+spring_rib = box(-92.0, -85.0, MAINSPRING["y"][0][0] - 1.0, -5.0,
+                 HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5).cut(box(-93.0, -91.0, -20.5, -18.5, -24.0, -20.5))
+# x fixed at the springs' rear legs: in the room's air (NOT pivot-following: 3 mm back with the pivot
+# it ploughed into the tail's shell and the slab's rear); the inner-bottom-left corner is cut off:
+# it clipped the ball's shell at (x -92, y -20, z -23)
 rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] + EVA_T + CAGE_T - 0.5), ZA)   # the guide rod's foot
 # The spring rib is NOT fused into the frame: its inner reach (y -23..-6) hangs in the room's air and
 # would be a floating island once the side band is cut away - the side plate carries it as a cantilever.
@@ -532,6 +538,49 @@ for _g in (grip_left, grip_right):
     if not _g.isValid():
         _g.fix(0.01, 0.001, 0.1)                 # the split leaves a sliver edge on the loft: heal it
 
+# ---------------------------------------------------------------- the frame in two halves, tongue/groove joints
+# The frame splits at z = SPLIT_Z into a bottom tray and a top cover, stepped at the front: the front
+# slab's wall (x >= -28) belongs to the tray entirely, else its band above the tray would hang in the
+# room's air, detached from the drum's arch. The QEV, the vent and the lock drop into the tray from
+# above (its floor keeps the front and back joined under the QEV window). Small tongue/groove pairs at
+# the joints so the printed parts self-register for gluing: the tongues on the tray's top face and on
+# the plates' inner faces (they print up, clean), the grooves on the mating parts, TG_CLEAR a side.
+# The plates' grooves are cut before the split, the halves' joints after it.
+SPLIT_Z = -45.0
+TG_W, TG_H, TG_CLEAR = 3.0, 3.0, 0.20
+
+
+def tg_box(x_, y_, z_, wx, wy, h_):
+    return box(x_ - wx / 2, x_ + wx / 2, y_ - wy / 2, y_ + wy / 2, z_, z_ + h_)
+
+
+# x, z on the frame's side faces (y = +-20): on the slab's wall, clear of the QEV window, the vent's
+# socket, the lock's pocket and the trigger's slot. The right side differs: the vent's socket owns
+# (x -90, z -25) there, so the rear pair moves to (-75, -35).
+PLATE_JOINTS = dict(left=((-90.0, -25.0), (-60.0, -62.0), (-15.0, -62.0)),
+                    right=((-75.0, -35.0), (-60.0, -62.0), (-15.0, -62.0)))
+for x_, z_ in PLATE_JOINTS["left"]:
+    side_plate = side_plate.fuse(box(x_ - TG_W / 2, x_ + TG_W / 2, -20.0, -20.0 + TG_H, z_ - TG_W / 2, z_ + TG_W / 2))
+    frame = frame.cut(box(x_ - TG_W / 2 - TG_CLEAR, x_ + TG_W / 2 + TG_CLEAR,
+                          -20.0 - 0.1, -20.0 + TG_H + 0.3, z_ - TG_W / 2 - TG_CLEAR, z_ + TG_W / 2 + TG_CLEAR))
+for x_, z_ in PLATE_JOINTS["right"]:
+    side_plate_r = side_plate_r.fuse(box(x_ - TG_W / 2, x_ + TG_W / 2, 20.0 - TG_H, 20.0, z_ - TG_W / 2, z_ + TG_W / 2))
+    frame = frame.cut(box(x_ - TG_W / 2 - TG_CLEAR, x_ + TG_W / 2 + TG_CLEAR,
+                          20.0 - TG_H - 0.3, 20.0 + 0.1, z_ - TG_W / 2 - TG_CLEAR, z_ + TG_W / 2 + TG_CLEAR))
+
+frame_lower = frame.common(box(-400, 100, -100, 100, -400, SPLIT_Z))
+frame_upper = frame.common(box(-400, 100, -100, 100, SPLIT_Z, 400))
+# The split's pairs on the slab's top face at z = SPLIT_Z: the rear column (behind the QEV window and
+# the vent's socket) and the centre. No front pairs: the front slab's wall is the tray's, and the
+# tongues there would rise into the lock housing's rear-bottom corner.
+SPLIT_JOINTS = ((-95.0, -15.0), (-85.0, -15.0), (-90.0, 0.0), (-90.0, 5.0), (-75.0, 12.0))
+for x_, y_ in SPLIT_JOINTS:
+    frame_lower = frame_lower.fuse(tg_box(x_, y_, SPLIT_Z, TG_W, TG_W, TG_H))
+    frame_upper = frame_upper.cut(tg_box(x_, y_, SPLIT_Z - 0.1, TG_W + 2 * TG_CLEAR, TG_W + 2 * TG_CLEAR, TG_H + 0.4))
+frame_lower = frame_lower.fuse(frame.common(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0)))   # the front slab's wall to the tray
+frame_upper = frame_upper.cut(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0))
+frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
+
 # ---------------------------------------------------------------- checks
 def hit(a, b):
     try:
@@ -575,6 +624,7 @@ if CHECKS:
                   "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
                   "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume,
                   "springs/frame": hit(mainsprings, frame),   # the ball's taper is tighter than the old drum ever was
+                  "spring rib/frame": hit(spring_rib, frame),   # the rib is a cantilever on the left plate, in the room's air
                   "tie rods/frame+plates": hit(valve_rods, frame) + hit(valve_rods, side_plate) + hit(valve_rods, side_plate_r),
                   "lock bolts/frame+plates": hit(lock_bolts, frame) + hit(lock_bolts, side_plate) + hit(lock_bolts, side_plate_r),
                   "tie rods/springs": hit(valve_rods, mainsprings),   # the coils sit outside the heads' reach now
@@ -611,8 +661,14 @@ else:
 if CHECKS:
     # ---------------------------------------------------------------- checks: pass or fail, not only numbers
     checks = {}
-    checks["frame is one sound solid (%.0f mm3, valid %s)" % (frame.Volume, frame.isValid())] = \
-        frame.isValid() and len(frame.Solids) == 1 and frame.Volume > 80000   # both sides gave their bands to the plates
+    checks["frame lower half is one sound solid (%.0f mm3, valid %s)" % (frame_lower.Volume, frame_lower.isValid())] = \
+        frame_lower.isValid() and len(frame_lower.Solids) == 1 and frame_lower.Volume > 60000   # both sides gave their bands to the plates
+    checks["frame upper half is one sound solid (%.0f mm3, valid %s)" % (frame_upper.Volume, frame_upper.isValid())] = \
+        frame_upper.isValid() and len(frame_upper.Solids) == 1 and frame_upper.Volume > 10000
+    checks["the frame's halves do not overlap when assembled (%.2f mm3)" % hit(frame_lower, frame_upper)] = \
+        hit(frame_lower, frame_upper) < 0.05
+    checks["the plates' tongues clear the frame's grooves (%.2f mm3)" % (hit(frame, side_plate) + hit(frame, side_plate_r))] = \
+        hit(frame, side_plate) + hit(frame, side_plate_r) < 0.05
     checks["side plate is one sound solid (%.0f mm3, %d solids)" % (side_plate.Volume, len(side_plate.Solids))] = \
         side_plate.isValid() and len(side_plate.Solids) == 1 and side_plate.Volume > 15000
     checks["right plate is one sound solid (%.0f mm3, %d solids)" % (side_plate_r.Volume, len(side_plate_r.Solids))] = \
@@ -719,7 +775,7 @@ for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve
 for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
 g_dress = doc.addObject("App::DocumentObjectGroup", "Dress")
-for n, s_, c, tr in (("Frame", frame, IRON, 0), ("Frame_side", side_plate, (0.3, 0.29, 0.28), 0),
+for n, s_, c, tr in (("Frame_lower", frame_lower, IRON, 0), ("Frame_upper", frame_upper, IRON, 0), ("Frame_side", side_plate, (0.3, 0.29, 0.28), 0),
                       ("Frame_right", side_plate_r, (0.32, 0.31, 0.30), 0), ("Frame_skin", skin, IRON, 0), ("Trigger_guard", guard, IRON, 0),
                      ("Detent_housing", detent_box, IRON, 0), ("Grip_left", grip_left, WOOD, 0), ("Grip_right", grip_right, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
                      ("Pommel", pommel, IRON, 0), ("Pommel_claws", Part.makeCompound(claws), DIRTY, 0),
@@ -741,7 +797,7 @@ _tick('doc built')
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Frame", "Frame_side", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
+              "Sleeve", "Pusher", "Trigger", "Frame_lower", "Frame_upper", "Frame_side", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
               "Top_strap", "Axle_plug", "Sector_spacer",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",

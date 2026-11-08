@@ -55,7 +55,7 @@ GROUPS = {
 # about half the time and are no weaker. The rest stays on 0.4: airtight parts (the seal is proven there only), small
 # moving parts and anything with a fit under ~0.5 mm (the detent bolt's 0.25 mm a side, the block's V-notches, the
 # barrel bores).
-NOZZLE_08 = {"frame_cage", "frame_side_plate", "frame_right", "grip_left", "grip_right", "trigger_guard", "top_strap"}
+NOZZLE_08 = {"frame_lower", "frame_upper", "frame_side_plate", "frame_right", "grip_left", "grip_right", "trigger_guard", "top_strap"}
 
 # Parts whose pockets are bridged on the bed and print fine: the overhang limit in mm2 (the disc's six ramped notches)
 BRIDGED = {"block_rear_disc": 600.0}
@@ -72,7 +72,8 @@ PARTS = [
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("sector_spacer", sector_spacer, X_, "strong", "the ring on the tube between the sector and the QEV body; bore Ø25.6, the wedge is the pawl boss's road; file to fit the stack"),
     ("trigger", TRIGGER, Y_, "strong_supports", "pivot: M3 x 16 + nylock nut between the cage's cheeks; supports under the pad and the lug"),
-    ("frame_cage", frame, -X_, "supports", "tail on the bed (the slab's rear face): both sides are open plates, the bore's ceiling is a vertical wall - near support-free"),
+    ("frame_lower", frame_lower, -X_, "supports", "the lower half: the slab (the QEV socket, the vent, the lock, the trigger) and the tail, on the bed; the tongues to the upper half"),
+    ("frame_upper", frame_upper, -X_, "supports", "the upper half: the drum's top (the gauge, the vial, the strap's foot); the grooves to the lower half's tongues"),
     ("frame_side_plate", side_plate, -Y_, "supports", "show face down; the band's curve rides a support raft; 5 x ST2.9 x 16 into the flank's bosses"),
     ("frame_right", side_plate_r, Y_, "supports", "cheek face down (0.5 proud of the drum, flat); the tunnels and the socket's mouth open sideways; Ø8 axle + 2 x M3 x 10 rear"),
     ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the valve box's left half"),
