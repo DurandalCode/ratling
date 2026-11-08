@@ -71,7 +71,7 @@ PARTS = [
     ("detent_housing", detent_box, Y_, "strong", "with its bracket: 2 x M3 x 20 + nuts to the side plate"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("sector_spacer", sector_spacer, X_, "strong", "the ring on the tube between the sector and the QEV body; bore Ø25.6, the wedge is the pawl boss's road; file to fit the stack"),
-    ("trigger", TRIGGER, Y_, "strong", "pivot: M3 x 16 + nylock nut between the cage's cheeks"),
+    ("trigger", TRIGGER, Y_, "strong_supports", "pivot: M3 x 16 + nylock nut between the cage's cheeks; supports under the pad and the lug"),
     ("frame_cage", frame, -X_, "supports", "tail on the bed (the slab's rear face): both sides are open plates, the bore's ceiling is a vertical wall - near support-free"),
     ("frame_side_plate", side_plate, -Y_, "supports", "show face down; the band's curve rides a support raft; 5 x ST2.9 x 16 into the flank's bosses"),
     ("frame_right", side_plate_r, Y_, "supports", "cheek face down (0.5 proud of the drum, flat); the tunnels and the socket's mouth open sideways; Ø8 axle + 2 x M3 x 10 rear"),

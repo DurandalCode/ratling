@@ -12,9 +12,11 @@ dressed as pistol_assembly.py (the lever variant):
                 a narrow slab under it carries the trigger, and its rear
                 column holds the vent valve standing vertical in a socket
                 (stage 2: the trigger's rear lug lifts its plunger); the
-                QEV cap crosses the slab in its own window, a right cheek
-                shrouds the slider's bracket; the spur comes out of the
-                ball's top through a slot over its swing
+                QEV cap crosses the slab in its own window - cut to the
+                stack's envelope +2 mm (the built valve is sealed over its
+                seam) with the tie rods' and lock bolts' pockets cast in;
+                a right cheek shrouds the slider's bracket; the spur comes
+                out of the ball's top through a slot over its swing
     grip ...... the rag-wrapped wooden grip, warpstone pommel with the
                 hose; it butts the slab's underside
 
@@ -119,6 +121,26 @@ def pipe_along(points, r):
     return Part.Wire(c.toShape()).makePipeShell([Part.Wire(Part.makeCircle(r, points[0], t0))], True, True)
 
 
+# ---------------------------------------------------------------- the QEV socket: envelope + VALVE_SOCK
+# The built valve is sealed over its seam and rod washers (a couple of mm of plastic), and the exact
+# imprint would grow four pillars inside the rod holes (the imprint is the body/cap solids, whose own
+# holes are already cut out of them). So the window is cut to the stack's cross-section envelopes plus
+# VALVE_SOCK all round - the sealant's room. The ends stay exact (the body's face and the cap's rear
+# face are the socket's axial stops), and the lock housing's pocket stays exact: that is the valve's
+# seat, it sets the stack's position. The tie rods and the lock bolts carve their own pockets.
+VALVE_SOCK = 2.0
+_B, _r2 = BODY_R + VALVE_SOCK, TUBE_OD / 2 + 1.5 + VALVE_SOCK
+_phi = math.acos((_B - _r2) / chamber_x)     # the hull's tangent angle: the +VALVE_SOCK cancels in the numerator
+sock_cap = cyl_x(2 * _B, X_BODY_TOP - BODY_H - CAP_T, X_BODY_TOP - BODY_H, 0, Z_FIRE)
+sock_body = (cyl_x(2 * _B, X_BODY_TOP - BODY_H, X_BODY_TOP, 0, Z_FIRE)
+             .fuse(cyl_x(2 * _r2, X_BODY_TOP - BODY_H, X_BODY_TOP, 0, Z_FIRE + chamber_x))
+             .fuse(prism_x([(-_B * math.sin(_phi), _B * math.cos(_phi) + Z_FIRE),
+                            (-_r2 * math.sin(_phi), chamber_x + _r2 * math.cos(_phi) + Z_FIRE),
+                            (_r2 * math.sin(_phi), chamber_x + _r2 * math.cos(_phi) + Z_FIRE),
+                            (_B * math.sin(_phi), _B * math.cos(_phi) + Z_FIRE)],
+                           X_BODY_TOP - BODY_H, X_BODY_TOP)))
+
+
 # ---------------------------------------------------------------- frame shell
 # The v12 silhouette: a drum O85 that runs straight to the block and closes in a ball tail over the
 # hammer set; under it a narrow slab +-23 carries the trigger and the vent valve; a right cheek shrouds
@@ -155,8 +177,10 @@ outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the sh
 # sleeve's travel) and the bracket arm's tunnel are plain boxes over their swept zones, and the crank
 # with its pin crosses the cheek's inner band - cut here for the same reason (simple body, fast and
 # robust booleans); the worst-case checks verify the cover over the stroke.
-outer = outer.cut(box(-59.5, -4.4, 22.4, 38.8, -65.1, 19.0))     # the slider's tunnel, body to bracket arm
-outer = outer.cut(box(-90.5, -44.0, 28.5, 39.0, -26.0, 18.0))   # the crank and its pin past the cheek's inner face
+outer = outer.cut(box(-64.0, -4.4, 22.4, 38.8, -65.1, 19.0))     # the slider's tunnel, body to bracket arm (the
+                                                                    # pivot's 3 mm move back lengthened the arm)
+outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, 18.0))   # the crank, its pin and the sleeve past the cheek's
+                                                                    # inner face (the sleeve's rear corner reaches y 27)
 _tick('outer built')
 frame = outer                                       # the pockets and the sweeps cut below shape it
 skin = Part.makeCompound([])                                    # no EVA on the frame: the drum is the look
@@ -174,8 +198,8 @@ def _standoffs(sign):
     for x_, z_, sides in STANDOFFS:
         if sign in sides:
             _b = sign * (_room_wall(x_, z_) + 0.5)
-            s_ = Part.makeCylinder(5.0, abs(_b) - 13.5 + 1.0, V(x_, _b + sign * 1.0, z_), V(0, -sign, 0)).cut(valve_body)
-            out.append(max(s_.Solids, key=lambda q: q.Volume))          # up to the valve's face, no crumbs past it
+            s_ = Part.makeCylinder(5.0, abs(_b) - 13.5 + 1.0, V(x_, _b + sign * 1.0, z_), V(0, -sign, 0)).cut(sock_body)
+            out.append(max(s_.Solids, key=lambda q: q.Volume))    # up to the socket's envelope: the sealed body bears on it
     return out
 
 
@@ -196,7 +220,10 @@ pie = [V(H_.x, -SPUR_SLOT["y"], H_.z)] + [V(H_.x + SPUR_SLOT["r"] * math.cos(mat
                                           for q in [SPUR_SLOT["a"][0] + (SPUR_SLOT["a"][1] - SPUR_SLOT["a"][0]) * k / 12 for k in range(13)]]
 spur_slot = Part.Face(Part.makePolygon(pie + [pie[0]])).extrude(V(0, 2 * SPUR_SLOT["y"], 0))
 frame, skin = frame.cut(spur_slot), skin.cut(spur_slot)
-pilot_hole = cyl_x(16, fx[0] - 9.0, fx[0] + EVA_T + CAGE_T + 1, 0, Z_FIRE)   # the cap's G1/8 fitting, through the tail's solid tip
+pilot_hole = cyl_x(16, fx[0] - 9.0, DRUM_X0 - math.sqrt((DRUM_R - 3.0) ** 2 - Z_FIRE ** 2) + 1.5,
+                   0, Z_FIRE)   # the cap's G1/8 fitting, through the tail's solid tip to the room's wall at the
+                                 # pilot's line (the front end is bore-anchored, not fx[0]-anchored: fx[0] moved
+                                 # with the hammer's pivot, the fitting did not)
 frame, skin = frame.cut(pilot_hole), skin.cut(pilot_hole)
 
 # ---------------------------------------------------------------- grip, trigger valves
@@ -212,7 +239,7 @@ mini_valves = valves                            # hammer_layout's AirTAC vent va
 _a = AIRTAC
 _vv = (box(VENT_X - _a["W"] / 2 - 0.5, VENT_X + _a["W"] / 2 + 0.5, VENT_Y0 - 0.5, VENT_Y0 + _a["T"] + 0.5,
            VENT_Z0, VENT_Z0 + _a["L"] + 0.5)                    # the valve's socket, its floor at the body's face
-       .fuse(box(-96.0, -86.5, 2.5, 21.0, SLAB["z"][0] - 0.5, VENT_Z0 + 0.5))   # the plunger's and the pad's swing (overlaps the socket: no coplanar seam)
+       .fuse(box(-96.7, -86.5, 2.5, 21.0, SLAB["z"][0] - 0.5, VENT_Z0 + 0.5))   # the plunger's and the pad's swing (overlaps the socket: no coplanar seam)
        .fuse(valve_bodies))                     # the elbows and the silencer carve their own ways out
 frame, skin = frame.cut(_vv), skin.cut(_vv)
 # The socket's own floor is the valve's seat: the pad's swing box carves the floor's middle away, and
@@ -310,7 +337,7 @@ z_sl_top = slider_z(1.0) + 6.0
 _stop_prism = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], z_sl_top + 0.05, 44.0)
 slider_stop = _stop_prism.common(Part.makeCylinder(40.0, 96.0, V(-96, 0, 0), XA))   # keep the top 0.5 into the 3 mm shell
 # The mainsprings' fixed legs rest on a rib off the cage's rear wall, below and behind the hammer's hub.
-spring_rib = box(fx[0] + 3.0, HAMMER_PIVOT.x - 6.0, MAINSPRING["y"][0][0] - 1.0, -6.0,
+spring_rib = box(fx[0] + 3.0, HAMMER_PIVOT.x - 6.0, MAINSPRING["y"][0][0] - 1.0, -5.0,
                  HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5)   # its x0 reaches the ball's shell (a small blister if it pokes)
 rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] + EVA_T + CAGE_T - 0.5), ZA)   # the guide rod's foot
 # The spring rib is NOT fused into the frame: its inner reach (y -23..-6) hangs in the room's air and
@@ -334,7 +361,8 @@ if len(frame.Solids) > 1:            # OCCT sometimes leaves a face-sliver crumb
 # socket becomes a through channel. It rides the Ø8 hammer axle (its flank band is the right bearing)
 # and two M3 into the rear wall's strips below and above the socket.
 side_cut_r = box(HEEL_X - 1, fx[1] + 1, SLAB["y"] - 3.0, fy[1] + 3.0, SLAB["z"][0] - 1, fz[1] + 1)
-side_plate_r = (frame.common(side_cut_r).cut(valve_cap).cut(valve_body).cut(lock_housing_h)
+side_plate_r = (frame.common(side_cut_r).cut(sock_cap).cut(sock_body).cut(lock_housing_h)
+                .cut(valve_rods_cut).cut(lock_bolts_cut)
                 .cut(Part.makeCompound([Part.makeCylinder(1.7, 8.0, V(HEEL_X + 1.0, 21.5, z_), XA)
                                         for z_ in (-65.0, -11.0)])))           # 2 x M3 into the rear wall's strips
 if len(side_plate_r.Solids) > 1:
@@ -354,13 +382,14 @@ _tick('pilots cut')
 # build fast.)
 _tick('sweeps + notch cut')
 # The vent valve's stack (cap disc O62) is taller than the drum's bore: its rim crosses the drum's wall
-# bottom in a pocket, and through the slab it cuts its own window (a 12 mm bridge under it ties the front
-# and rear together with the drum above). The lock seats in the slab's front, flush with its sides.
-frame = frame.cut(valve_cap).cut(valve_body).cut(lock_housing_h)
+# bottom in a pocket, and through the slab it cuts its own window - cut to the stack's envelope +
+# VALVE_SOCK (a 10 mm bridge under it ties the front and rear together with the drum above). The lock
+# seats in the slab's front, flush with its sides; the tie rods and the lock bolts carve their pockets.
+frame = frame.cut(sock_cap).cut(sock_body).cut(lock_housing_h).cut(valve_rods_cut).cut(lock_bolts_cut)
 _sp_cut = [Part.makeCylinder(1.7, 10, V(x_, -fy[1] - 1, z_), YA) for x_, z_ in SIDE_BOSSES]
 _sp_cut += [Part.makeCylinder(1.7, 16, V(x_, -fy[1] - 16, z_), YA) for x_, z_ in SIDE_BOSSES]   # out through any slag past the plate
-side_plate = side_plate.cut(valve_cap).cut(valve_body).cut(lock_housing_h).cut(
-    Part.makeCompound(_sp_cut))   # the flank band covers the QEV stack's rim: cut its imprint too (no splitter: it splits the plate)
+side_plate = side_plate.cut(sock_cap).cut(sock_body).cut(lock_housing_h).cut(valve_rods_cut).cut(lock_bolts_cut).cut(
+    Part.makeCompound(_sp_cut))   # the flank band covers the QEV stack's rim: cut the socket's imprint too (no splitter: it splits the plate)
 if len(side_plate.Solids) > 1:            # and the crumbs it used to leave: keep the real body
     side_plate = Part.makeCompound([s_ for s_ in side_plate.Solids if s_.Volume > 50.0])
 _tick('side plate cut')
@@ -400,15 +429,15 @@ def _flank_shell(x0, x1, sign):
     if sign > 0:
         seg = seg.cut(box(CHEEK["x"][0] - 0.3, CHEEK["x"][1] + 0.3, CHEEK["y"][0] - 0.3, CHEEK["y"][1] + 0.3,
                           CHEEK["z"][0] - 0.3, CHEEK["z"][1] + 0.3))
-    return seg.cut(valve_cap).cut(valve_body)
+    return seg.cut(sock_cap).cut(sock_body)
 plates.append(_flank_shell(-59.0, -48.0, -1))
 plates.append(_flank_shell(-59.0, -5.0, +1))
 # The slab's sides and the cheek's outer face: flat riveted armor; the left side's dress all rides
 # on the removable side plate (glued), with a window over the spring shelf's notch.
 plates.append(box(SLAB["x"][0], SLAB["x"][1], SLAB["y"], SLAB["y"] + 3.0, SLAB["z"][0], SLAB["z"][1])
-              .cut(_vv).cut(valve_cap).cut(valve_body))
+              .cut(_vv).cut(sock_cap).cut(sock_body).cut(valve_rods_cut))
 plates.append(box(SLAB["x"][0], SLAB["x"][1], -SLAB["y"] - 3.0, -SLAB["y"], SLAB["z"][0], SLAB["z"][1])
-              .cut(valve_cap).cut(valve_body).cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0)))
+              .cut(sock_cap).cut(sock_body).cut(valve_rods_cut).cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0)))
 plates.append(box(-90.0, -8.0, CHEEK["y"][1], CHEEK["y"][1] + 3.0, -60.0, 12.0))
 plate_rivets += [V(x_, CHEEK["y"][1] + 3.0, z_) for x_ in (-84.0, -46.0, -14.0) for z_ in (-52.0, 2.0)]   # the cheek pad
 plate_rivets += [V(x_, -(SLAB["y"] + 3.0), z_) for x_ in (-100.0, -64.0, -30.0) for z_ in (-62.0, -14.0)]   # the left pad
@@ -526,7 +555,8 @@ if CHECKS:
                 for other_name, other in (("frame", frame), ("side plate", side_plate), ("right plate", side_plate_r), ("skin", skin), ("grip", grip),
                                           ("detent box", detent_box), ("guard", guard), ("spacer", sector_spacer),
                                           ("air lines", Part.makeCompound([supply_line, pilot_line, gauge_line, tee])),
-                                          ("vent valve", valve_bodies), ("crest", crest)):
+                                          ("vent valve", valve_bodies), ("crest", crest),
+                                      ("tie rods", valve_rods), ("lock bolts", lock_bolts)):
                     if n == "Bolt" and other_name == "detent box":
                         continue                     # it slides in it
                     v_ = hit(st[n], other)
@@ -545,12 +575,18 @@ if CHECKS:
                   "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
                   "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume,
                   "springs/frame": hit(mainsprings, frame),   # the ball's taper is tighter than the old drum ever was
+                  "tie rods/frame+plates": hit(valve_rods, frame) + hit(valve_rods, side_plate) + hit(valve_rods, side_plate_r),
+                  "lock bolts/frame+plates": hit(lock_bolts, frame) + hit(lock_bolts, side_plate) + hit(lock_bolts, side_plate_r),
+                  "tie rods/springs": hit(valve_rods, mainsprings),   # the coils sit outside the heads' reach now
+                  "tie rods/housing+spacer": hit(valve_rods, lock_housing_h) + hit(valve_rods, sector_spacer),
                   "plug/axle+nose+strap": hit(axle_plug, axle) + hit(axle_plug, nose) + hit(axle_plug, top_strap)}
     inside = mini_valves.common(grip.fuse(outer).fuse(_vv)).Volume / mini_valves.Volume
     spur_out = lambda c: hammer_shape(c).cut(outer).Volume
     report = [NAME, "  mechanism vs dress (worst over the hammer and trigger strokes, mm3):"]
     report += ["    %-8s / %-11s %.1f" % (k[0], k[1], v_) for k, v_ in sorted(worst.items()) if v_ > 0.05] or ["    none"]
     report += ["  fixed: " + ", ".join("%s %.1f" % kv for kv in fixed_hits.items()),
+               "  QEV socket: +%.1f mm round the stack (the sealed valve drops in); the tie rods' heads %.1f mm off the cap's rear face"
+               % (VALVE_SOCK, WASHERS_UNDER_HEAD + ROD_HEAD_H),
                "  vent valve inside grip/frame: %.0f %%" % (inside * 100),
             "  trigger guard: %.0f mm from the trigger at rest, %.0f pulled; loop %.0f x %.0f mm inside"
             % (trigger_h(0.0).distToShape(guard)[0], trigger_h(1.0).distToShape(guard)[0],
@@ -581,6 +617,16 @@ if CHECKS:
         side_plate.isValid() and len(side_plate.Solids) == 1 and side_plate.Volume > 15000
     checks["right plate is one sound solid (%.0f mm3, %d solids)" % (side_plate_r.Volume, len(side_plate_r.Solids))] = \
         side_plate_r.isValid() and len(side_plate_r.Solids) == 1 and side_plate_r.Volume > 15000
+    _gap = VALVE_SOCK - 0.2
+    checks["QEV socket: the stack meets nothing %.1f mm off its seat sideways (room for the sealant)" % _gap] = \
+        all(v_ < 0.05 for v_ in (valve_cap.translated(V(0, _gap, 0)).common(frame).Volume,
+                                 valve_cap.translated(V(0, -_gap, 0)).common(frame).Volume,
+                                 valve_cap.translated(V(0, 0, _gap)).common(frame).Volume,
+                                 valve_cap.translated(V(0, 0, -_gap)).common(frame).Volume,
+                                 valve_body.translated(V(0, _gap, 0)).common(frame).Volume,
+                                 valve_body.translated(V(0, -_gap, 0)).common(frame).Volume,
+                                 valve_body.translated(V(0, 0, _gap)).common(frame).Volume,
+                                 valve_body.translated(V(0, 0, -_gap)).common(frame).Volume))
     checks["mechanism clears the dress over the hammer and trigger strokes"] = not [v_ for (n_, o_), v_ in worst.items()
                                                                                       if v_ > 0.05 and not (o_ == "spacer" and v_ < 5.0)]   # the spacer touches by design; OCCT's common of its 0.1-gap faces returns junk (the bbox falls outside both parts)
     for k_, v_ in fixed_hits.items():
@@ -667,7 +713,8 @@ for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve
                      ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 0), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 0),
                      ("Vent_valve", mini_valves, (0.3, 0.3, 0.8), 0), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0),
                      ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0), ("Guide_rod", guide_rod, (0.75, 0.75, 0.78), 0),
-                     ("Sector_spacer", sector_spacer, (0.8, 0.8, 0.82), 0)):
+                     ("Sector_spacer", sector_spacer, (0.8, 0.8, 0.82), 0),
+                     ("Tie_rods", valve_rods, (0.72, 0.72, 0.75), 0), ("Lock_bolts", lock_bolts, (0.72, 0.72, 0.75), 0)):
     add(g_mech, n, s_, c, tr)
 for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
@@ -700,7 +747,7 @@ MATERIAL = {
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
     "buy": ("Chamber_axle", "Vent_valve", "Pin", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
-            "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer"),
+            "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
             "Vent_valve": "AirTAC M3R110-06 with its roller off (or M3PP110-06): G1/8 elbows for A (4 mm) and R (6 mm), a G1/8 silencer on P; drops into its socket in the rear column from the room (side plate off), stands on two feet - no fasteners", "Pin": "steel pin Ø3",
@@ -719,7 +766,9 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 2 x M3 x 10 into the rear wall's strips",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
-            "Guide_rod": "steel rod Ø3 x 96: the slider's guide, floor to the stop pad", "Trigger": "pivot: M3 x 16 screw + nylock nut"}
+            "Guide_rod": "steel rod Ø3 x 96: the slider's guide, floor to the stop pad", "Trigger": "pivot: M3 x 16 screw + nylock nut",
+            "Tie_rods": "4 x M4 x 50 socket head + nut, rubber O7 x 1.5 + steel O9 x 0.8 washer under each head (as v1.1); the heads stand 6.3 mm off the cap's back face - the frame's pockets are cast for them",
+            "Lock_bolts": "2 x M3 x 30 self-tappers into the body's face pilots, heads in the frame's front pockets (drawn as a O5.5 x 3 envelope)"}
 FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)
 mat_of = {n: m for m, ns in MATERIAL.items() for n in ns}
 lines, grams = [], 0.0

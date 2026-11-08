@@ -236,7 +236,9 @@ def detent_spring_pocket():
 
 # ---------------------------------------------------------------- parameters
 PIN_Y = PIN_R0 * math.cos(math.radians(ARM_A0))                     # slider pin's y (24.5)
-HAMMER_PIVOT = V(-82.0, 0, -8.0)    # behind the v1.1 cap, above the grip
+HAMMER_PIVOT = V(-85.0, 0, -8.0)    # behind the v1.1 cap, above the grip. 3 mm further back since 2026-11-08: the
+                                    # upper M4 tie-rod heads (6.3 mm off the cap's back face, on the diagonals at
+                                    # the pivot's height) then pass outside the sleeve's and the coils' O14
 HAMMER_ARM = PIN_Y * math.tan(math.radians(SECTOR_SWING / 2)) / math.sin(math.radians(HAMMER_SWING / 2))
 HAMMER_R = 10.0                     # its hub
 SPUR_AXIS = 95.0                    # the hammer's outline is drawn along this direction at rest (deg from +x)
@@ -261,8 +263,11 @@ PUSHER_T = 3.0
 CAM_RISE = 3.0                      # slider rise that opens the lock
 TRIGGER_TRAVEL = 23.0               # deg; reset below: the pull that brings the trigger onto the vent valve's face
 LOCK_SEAT_N = 20.0                  # sleeve onto the breech's O-ring before the shot (the shot adds ~41 N): bench it
-MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-30.2, -18.6), (-18.2, -6.6)))   # music wire torsion springs, x2, both left
-SPRING_PEG = (30.0, 9.5, 1.5)       # on the hammer's hub, left face: direction at rest, radius, pin radius (the springs' legs)
+MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-27.5, -16.7), (-16.3, -5.6)))   # music wire torsion springs, x2, both left.
+# 2026-11-08: with the pivot at -85 the ball's shell pinches at the coils' rear corner, so the pair sits
+# ~2.7 further in and each spring's pitch closes ~0.9 (still 6 coils each: the pair's rate is unchanged).
+SPRING_PEG = (45.0, 9.5, 1.5)       # on the hammer's hub, left face: direction at rest, radius, pin radius (the springs' legs);
+                                    # 45 deg since 2026-11-08: at 30 the peg's rim grazed the upper-left rod head's washer
 SLEEVE_R = 7.0                      # the hammer's sleeve on the axle, hub to crank: one printed part
 GUIDE_ROD = dict(x=-8.5, y=28.6, d=3.0, z=(-70.5, 25.5))   # the slider runs on a fixed Ø3 steel rod, floor to ceiling
 
@@ -437,7 +442,9 @@ _road = Part.Face(Part.makePolygon(_road_pts + [_road_pts[0]])).extrude(
 sector_spacer = (cyl_x(SECTOR_SPACER["od"], SECTOR_SPACER["x_rear"], SECTOR_SPACER["x_front"], 0, 0)
                  .cut(cyl_x(SECTOR_SPACER["bore"], SECTOR_SPACER["x_rear"] - 1.0, SECTOR_SPACER["x_front"] + 1.0, 0, 0))
                  .cut(_road)                                # the sector's road: one revolved wedge, its polar footprint
-                 .cut(valve_body).cut(lock_housing_h))      # their noses carve their own passages
+                 .cut(valve_body).cut(lock_housing_h)       # their noses carve their own passages
+                 .cut(valve_rods_cut))                     # and the tie rods' tips (M4 x 50 run 4.7 mm past the body's face):
+                                                            # the top pair crosses the ring at r 20.5 off the axle, past the road
 
 # ---------------------------------------------------------------- trigger: one stage, onto the vertical vent valve
 # A sickle lever hanging down off the back-set pivot at rest: the finger face hollowed (the pad sits
@@ -477,7 +484,9 @@ TRIGGER = _trigger_blank()
 # 2..3 mm; the lug's shoulder meeting the valve's bottom face is the trigger's stop.
 AIRTAC = dict(L=42.5, W=27.0, T=18.5, plunger=(6.0, 3.0), elbow=(11.0, 6.5, 12.0),
               ports={"A": (21.0, -1, +1), "R": (14.0, +1, -1)}, P=(27.0, +1), holes=((14.0, -10.0), (28.0, -10.0), (21.0, 5.8)))
-VENT_X, VENT_Y0, VENT_Z0 = -90.5, 7.5, -60.2     # the body: x centre, y min, bottom face (standing on its feet)
+VENT_X, VENT_Y0, VENT_Z0 = -91.5, 7.5, -60.2     # the body: x centre, y min, bottom face (standing on its feet).
+# 1 mm further back since 2026-11-08: the AirTAC's front face was 0.3 mm into the bottom-right tie-rod
+# head's pocket (the head stands 6.3 mm off the cap's back face at y +18.7, z -45.7)
 VENT_GAP = 0.3                      # the pad's face to the plunger's tip at rest
 VENT_SWITCH = 2.0                   # measured on the bench M3R110: it clicks over ~2 mm into the plunger's travel
 
@@ -555,7 +564,9 @@ guide_rod = Part.makeCylinder(GUIDE_ROD["d"] / 2, GUIDE_ROD["z"][1] - GUIDE_ROD[
                               V(GUIDE_ROD["x"], GUIDE_ROD["y"], GUIDE_ROD["z"][0]), ZA)
 FIXED = {"body": valve_body, "cap": valve_cap, "lock": lock_housing_h, "axle": axle, "vent": valve_bodies, "hammer axle": shaft,
          "guide rod": guide_rod,
-         "mainsprings": mainsprings}
+         "mainsprings": mainsprings,
+         "tie rods": valve_rods, "lock bolts": lock_bolts}   # the valve's own fasteners, drawn since 2026-11-08: every
+                                                             # moving part is checked against them over the stroke
 report = [NAME]
 worst = {}
 for i in range(11):

@@ -213,9 +213,31 @@ def body_frame_to_pistol(shape):
 # ---------------------------------------------------------------- fixed: valve, lock, axle
 valve_body = body_frame_to_pistol(body)
 valve_cap = body_frame_to_pistol(cap_a)
+# The valve's own fasteners, drawn as built (2026-11-08): the 4 M4 tie rods out of stage3_qev's tie_rods() - the
+# washer stacks stand 6.3 mm off the cap's back face and the tips run 4.7 mm past the body's face. valve_rods is
+# for the document and the checks; valve_rods_cut additionally opens the head pockets to O10 (print clearance).
+valve_rods = body_frame_to_pistol(tie_rods())
+valve_rods_cut = valve_rods.fuse(G.fuse_all(
+    [cyl_x(10.0, X_BODY_TOP - BODY_H - CAP_T - WASHERS_UNDER_HEAD - ROD_HEAD_H - 0.5,
+           X_BODY_TOP - BODY_H - CAP_T, -p.y, Z_FIRE + p.x) for p in rod_pts]))
 # Bolts into the body's breech pilots (body frame (x, y) -> pistol (y, z) = (-y, Z_FIRE + x)). Two: the hammer
 # variant's pusher lug runs where v1.1's third, at 270 deg, would go (v1.3's body has only these two).
+# M3 x 30 self-tappers (as the build guide's list): shank into the 10 mm pilot through the housing, head
+# O5.5 x 3 (drawn as an envelope) on its front face. The frame's relief (lock_bolts_cut) takes the pillar
+# the exact imprint leaves inside each hole plus the head pocket at O6.5 - a bolt must slide in a printed hole.
 LOCK_BOLTS = (90.0, 180.0)
+lock_bolts = Part.makeCompound([
+    cyl_x(3.0, X_BODY_TOP - BREECH_PILOT_DEPTH, -GAP,
+          -BREECH_BOLT_R * math.sin(math.radians(a)), Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))).fuse(
+        cyl_x(5.5, -GAP, -GAP + 3.0,
+              -BREECH_BOLT_R * math.sin(math.radians(a)), Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))))
+    for a in LOCK_BOLTS])
+lock_bolts_cut = Part.makeCompound([
+    cyl_x(3.4, X_BODY_TOP - BREECH_PILOT_DEPTH, -GAP + 0.01,
+          -BREECH_BOLT_R * math.sin(math.radians(a)), Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))).fuse(
+        cyl_x(6.5, -GAP - 0.01, -GAP + 4.0,
+              -BREECH_BOLT_R * math.sin(math.radians(a)), Z_FIRE + BREECH_BOLT_R * math.cos(math.radians(a))))
+    for a in LOCK_BOLTS])
 lock_housing_plain = (cyl_x(BREECH_FLANGE_D, -GAP - LOCK_H, -GAP, 0, Z_FIRE)
                       .common(box(-GAP - LOCK_H - 1, -GAP + 1, -30, 30, Z_FIRE - 30, Z_FIRE + BREECH_FLAT_X))
                       .cut(cyl_x(LOCK_PISTON_D, -GAP - 12, -GAP + 1, 0, Z_FIRE))

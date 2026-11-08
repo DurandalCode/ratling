@@ -657,11 +657,17 @@ def flipped(shape, z):
 
 
 def tie_rods():
+    """As installed: a rubber + steel washer stack (WASHERS_UNDER_HEAD) under each head, the head on
+    top of it and the shank running rod_len from under the head - so the stack's rear protrusion
+    (2.3 + 4.0 mm off the cap's back face) and the rod tip match the hardware the valve was built
+    with. Anything the valve drops into must clear the washers (O9), not just the O7 head."""
     rods = []
     for i, p in enumerate(rod_pts):
         long_rod = PLUG_YOKE and i in yoke_rods
-        rods += [cyl(ROD_HEAD_D / 2, -CAP_T - ROD_HEAD_H, -CAP_T, p),
-                 cyl(2.0, -CAP_T, -CAP_T + (yoke_rod_len if long_rod else rod_len), p),
+        rods += [cyl(4.5, -CAP_T - WASHERS_UNDER_HEAD, -CAP_T, p),              # washer stack: steel O9 x 0.8 + rubber O7 x 1.5
+                 cyl(ROD_HEAD_D / 2, -CAP_T - WASHERS_UNDER_HEAD - ROD_HEAD_H, -CAP_T - WASHERS_UNDER_HEAD, p),
+                 cyl(2.0, -CAP_T - WASHERS_UNDER_HEAD, -CAP_T - WASHERS_UNDER_HEAD
+                     + (yoke_rod_len if long_rod else rod_len), p),
                  *([G.hex_prism(NUT_AF, yoke_z + YOKE_T, yoke_z + YOKE_T + YOKE_NUT_T, p.x, p.y)] if long_rod else []),
                  G.hex_prism(NUT_AF, BODY_H - NUT_POCKET_DEPTH, BODY_H - NUT_POCKET_DEPTH + NUT_T, p.x, p.y)]
     return G.fuse_all(rods)
