@@ -107,7 +107,8 @@ NAME = "pistol_hammer_layout"
 # Stage 2 (2026-11-05): the vent valve stands vertical in the frame's rear column (hammer_assembly.py),
 # so the trigger's pivot moves back under it - the blade still reaches the old place under the guard, and
 # a rear lug with a wide pad lifts the plunger from below. The sketch: exports/body_visual_study/trigger_link.html.
-TRIGGER_PIVOT = V(-80.0, 0, -62.0)
+TRIGGER_PIVOT = V(-80.0, 0, -64.0)    # the trigger's pivot: 2 mm lower with the vent valve (2026-11-08, the
+                                       # real body is 46.5 tall), so the pad's gap to the plunger is unchanged
 
 # ---------------------------------------------------------------- pawl and detent: their springs
 # The pawl is a plunger: it slides in a boss on the sector's back, a Ø3 pen spring behind it pushing it into the
@@ -482,11 +483,14 @@ TRIGGER = _trigger_blank()
 # drops outside to the grip); P a silencer out the y-max face. It drops into a close-fit socket in the
 # frame (side plate off) and stands on two printed feet: no fasteners. The spool shifts in the plunger's
 # 2..3 mm; the lug's shoulder meeting the valve's bottom face is the trigger's stop.
-AIRTAC = dict(L=42.5, W=27.0, T=18.5, plunger=(6.0, 3.0), elbow=(11.0, 6.5, 12.0),
+AIRTAC = dict(L=46.5, W=27.0, T=18.0, plunger=(6.0, 3.0), elbow=(11.0, 6.5, 12.0),
               ports={"A": (21.0, -1, +1), "R": (14.0, +1, -1)}, P=(27.0, +1), holes=((14.0, -10.0), (28.0, -10.0), (21.0, 5.8)))
-VENT_X, VENT_Y0, VENT_Z0 = -91.5, 7.5, -60.2     # the body: x centre, y min, bottom face (standing on its feet).
+VENT_X, VENT_Y0, VENT_Z0 = -91.5, 7.5, -62.2     # the body: x centre, y min, bottom face (standing on its feet).
 # 1 mm further back since 2026-11-08: the AirTAC's front face was 0.3 mm into the bottom-right tie-rod
-# head's pocket (the head stands 6.3 mm off the cap's back face at y +18.7, z -45.7)
+# head's pocket (the head stands 6.3 mm off the cap's back face at y +18.7, z -45.7). And 2 mm lower:
+# the real body is 46.5 tall (the catalog's D) - at -60.2 its top-right corner sat inside the sleeve's
+# bottom segment; a notch there would not survive the swing (the sleeve's material rotates into it).
+# At -62.2 the valve's top (-15.7) is below the sleeve's bottom (-15) over the whole swing.
 VENT_GAP = 0.3                      # the pad's face to the plunger's tip at rest
 VENT_SWITCH = 2.0                   # measured on the bench M3R110: it clicks over ~2 mm into the plunger's travel
 
