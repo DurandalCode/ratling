@@ -808,7 +808,7 @@ MATERIAL = {
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
-            "Vent_valve": "AirTAC M3R110-06, roller off, normally closed. PT1/8 (a G body is the same holes). Turned so the narrow faces point sideways: A on the left, elbow forward; P and R on the right (P above R). Supply hose into R, silencer on P, 4 mm pilot out of A. Drops into its socket from the room (side plate off), stands on two feet - no fasteners", "Pin": "steel pin Ø3",
+            "Vent_valve": "AirTAC M3R110-06, roller off. PT1/8 (a G body is the same holes). Stamped R next to the stem, P at the far end of that face, A opposite. Supply and exhaust are swapped, so it is normally open: supply hose into R, silencer on P, 4 mm pilot out of A. Turned plunger-down, narrow faces sideways (A left, elbow forward; P above R on the right). Drops into its socket from the room (side plate off), stands on two feet - no fasteners", "Pin": "steel pin Ø3",
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
             "Pilot_pipe": "PU tube 4/2.5: vent valve A -> cap G1/8 push-in, up the backstrap",

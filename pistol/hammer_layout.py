@@ -483,8 +483,11 @@ TRIGGER = _trigger_blank()
 #   PA = 16 between centres, so the upper centre is 31.5. That upper port is the exhaust: the catalog
 #   puts the exhaust over the body so a silencer screws on there.
 #   the opposite narrow face carries one, PC = 23.5 from the same end.
-# Normally closed (rest A–R, pressed P–A). This gun feeds the receiver into R and puts the silencer
-# on P, so the pilot on A is charged at rest and dumps when the plunger is pushed.
+# The owner's valve (roller already off) is stamped: R is the hole next to the stem, P the far hole
+# on that same narrow face, A the single hole on the opposite face. The sticker's symbol is the
+# closed one (at rest A–R, pressed P–A). Supply and exhaust are swapped, so the valve is normally
+# open: the receiver feeds R and the silencer sits on P. The pilot on A is charged at rest and dumps
+# when the plunger is pushed.
 # Stood plunger-down, the catalog's stem end is z = VENT_Z0, so a catalog height h sits D - h above
 # the plunger face: R 15.0, P 31.0, A 23.0.
 # The ports are on the narrow faces (the face is B = 18 wide); the wide face (A = 27) has the three
