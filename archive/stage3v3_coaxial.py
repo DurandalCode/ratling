@@ -43,7 +43,7 @@ on the cap, P open. Pressing the roller vents the pilot and the module fires.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/module/stage3v3_coaxial.py').read())
+    exec(open(REPO + '/archive/stage3v3_coaxial.py').read())
 """
 
 import importlib
