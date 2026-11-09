@@ -34,7 +34,7 @@ Use (docs/test-plan.md, "Mitrailleuse head, bench B"): supply on the side throug
 hose (a gauge, if ever bought, goes on the supply tee - the pilot gauge port was removed, there is no gauge
 to fill it). Stop by stop: hold at a charging stop for a measured time, push through "both
 shut" (does the module hold?) to "venting" (does it fire?).
-Core numbers are typical (as in stage4v2_schrader.py), not measured: the grub screw is there for that.
+Core numbers are typical (as in archive/stage4v2_schrader.py), not measured: the grub screw is there for that.
 
 Run inside FreeCAD (or freecadcmd):
     REPO = '/Users/<you>/ratling'
@@ -84,7 +84,7 @@ X_STOPS = ((2.5, "ждёт"), (1.5, "зарядка"), (0.5, "зарядка"), 
            (-1.5, "выстрелил"))
 X_HOME = X_STOPS[0][0]
 
-# tyre valve core, 5V1 (typical, as in stage4v2_schrader.py)
+# tyre valve core, 5V1 (typical, as in archive/stage4v2_schrader.py)
 TAP_5V1_D, TAP_5V1_LEN = 4.5, 4.0
 CORE_SEAT = (4.5, 3.4, 0.6)
 CORE_BORE_D, CORE_BELOW_SEAT = 3.4, 9.0

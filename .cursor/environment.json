@@ -1,0 +1,4 @@
+{
+  "name": "Ratling",
+  "install": "sh tools/install_freecad.sh"
+}

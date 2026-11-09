@@ -14,7 +14,7 @@ the model's +x as up, so everything is turned into that frame when added.
 The gun is carried and cranked by one (top handle, rear grip, a sling); the
 receiver goes separately with the second crew member, on a hose into the back.
 Each module fires when its pilot is vented; the pilots are fed all the time
-through jets (as in stage4v2_schrader.py).
+through jets (as in archive/stage4v2_schrader.py).
 
 A. "Montigny": the pack stands still between a front and a rear plate on
    four aluminium rails. Behind it a firing head on tyre valve cores only

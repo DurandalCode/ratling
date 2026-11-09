@@ -4,7 +4,7 @@ Ratling six-barrel pistol: the lever-action mechanism inside the Skaven look.
 
 pistol/mech_layout.py's mechanism (v1.1 valve, lock, block, pawl sector,
 slider, detent, lever, trigger) with full-length barrels, dressed after
-pistol_look_skaven.py and fitted round it:
+archive/pistol_look_skaven.py and fitted round it:
 
     frame ..... a rounded shell round the valve, the lock, the slider and
                 the lever's pivot, open towards the block; slots for the
@@ -21,7 +21,7 @@ Frame: x forward, y to the right seen from behind, z up.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/pistol/pistol_assembly.py').read())
+    exec(open(REPO + '/archive/pistol_assembly.py').read())
 """
 
 import math

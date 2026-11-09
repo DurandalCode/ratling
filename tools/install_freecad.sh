@@ -9,18 +9,24 @@ set -e
 DEST=${FREECAD_DIR:-/opt/freecad}
 VER=1.0.2
 URL=https://github.com/FreeCAD/FreeCAD/releases/download/$VER/FreeCAD_$VER-conda-Linux-x86_64-py311.AppImage
+# Cloud agents run as ubuntu. /opt and /usr/local/bin need root; the download does not.
+if [ "$(id -u)" -eq 0 ]; then
+  AS_ROOT=
+else
+  AS_ROOT=sudo
+fi
 if [ ! -x "$DEST/usr/bin/freecadcmd" ]; then
   TMP=$(mktemp -d)
   curl -fsSL -o "$TMP/fc.AppImage" "$URL"
   chmod +x "$TMP/fc.AppImage"
   (cd "$TMP" && ./fc.AppImage --appimage-extract >/dev/null)
-  mkdir -p "$(dirname "$DEST")"
-  rm -rf "$DEST"
-  mv "$TMP/squashfs-root" "$DEST"
+  $AS_ROOT mkdir -p "$(dirname "$DEST")"
+  $AS_ROOT rm -rf "$DEST"
+  $AS_ROOT mv "$TMP/squashfs-root" "$DEST"
   rm -rf "$TMP"
 fi
 for b in freecadcmd freecad; do
-  ln -sf "$DEST/usr/bin/$b" "/usr/local/bin/$b" 2>/dev/null || true
+  $AS_ROOT ln -sf "$DEST/usr/bin/$b" "/usr/local/bin/$b"
 done
 # The generators print Ø, °, Cyrillic: without a UTF-8 locale FreeCAD's Python fails on the first one.
 LANG=C.UTF-8 LC_ALL=C.UTF-8 "$DEST/usr/bin/freecadcmd" --version | tail -1

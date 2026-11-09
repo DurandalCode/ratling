@@ -4,7 +4,7 @@ Ratling six-barrel pistol: the thumb-hammer mechanism inside the Skaven look.
 
 pistol/hammer_layout.py's mechanism (v1.1 valve, lock pusher, block, pawl
 sector, slider, detent, hammer, one-stage trigger) with 200 mm barrels,
-dressed as pistol_assembly.py (the lever variant):
+dressed as archive/pistol_assembly.py (the lever variant):
 
     frame ..... the v12 silhouette: a drum O85 running straight to the
                 block and closing in a ball tail over the hammer set (the

@@ -2,7 +2,7 @@
 """
 Ratling six-barrel pistol: the Skaven look, over concept A ("Nagant").
 
-Same layout as pistol_look.py (v1.1 valve behind the bottom barrel inside
+Same layout as archive/pistol_look.py (v1.1 valve behind the bottom barrel inside
 the lock, chamber tube as the block's axle, trigger valve in the grip, hose
 out of the butt), dressed as Clan Skryre work: rusty iron, barrels in iron
 and rust, riveted straps with spikes, plates bolted on crooked, a jagged
@@ -15,7 +15,7 @@ Frame: x forward (muzzle at +x), z up, y to the side.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/pistol/pistol_look_skaven.py').read())
+    exec(open(REPO + '/archive/pistol_look_skaven.py').read())
 """
 
 import math

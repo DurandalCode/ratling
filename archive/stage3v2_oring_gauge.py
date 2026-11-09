@@ -10,7 +10,7 @@ bottom face down; PLA is fine.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/module/stage3v2_oring_gauge.py').read())
+    exec(open(REPO + '/archive/stage3v2_oring_gauge.py').read())
 """
 
 import math
@@ -28,7 +28,7 @@ except NameError:
         REPO = os.path.expanduser("~/ratling")
 
 M = {"REPO": REPO, "STAGE3V2_LIBRARY": True}
-exec(open(os.path.join(REPO, "module", "stage3v2_inline.py")).read(), M)
+exec(open(os.path.join(REPO, "archive", "stage3v2_inline.py")).read(), M)
 
 NAME = "stage3v2_oring_gauge"
 OUT_DIR = os.path.join(REPO, "exports", NAME)

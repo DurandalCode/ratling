@@ -13,7 +13,7 @@ the rear view (ratchet) left, the side view right, the phase below.
 
 Run inside FreeCAD (GUI); it takes a few minutes:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/pistol/mech_anim.py').read())
+    exec(open(REPO + '/archive/mech_anim.py').read())
 """
 
 import os

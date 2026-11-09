@@ -2,7 +2,7 @@
 """
 Ratling mitrailleuse concept A: the firing head's rotor, worked out on paper (plain Python, no FreeCAD).
 
-Valve cores only (tyre valve cores, 5V1, as in stage4v2_schrader.py): each barrel's pilot line meets two
+Valve cores only (tyre valve cores, 5V1, as in archive/stage4v2_schrader.py): each barrel's pilot line meets two
 cores in the fixed head, both pressed through printed buttons from behind.
 
     charge core (CHARGE_R) .. supply ring on its inner (tyre) side, the pilot line on its pin side, under
@@ -37,7 +37,7 @@ Cam profiles are in pitches along the core circles: x is how far a port is ahead
 between the two rails (CHARGE_TOP and VENT_TOP are the rails' flat tops in x); the rotor turns so that x
 falls, and at the detent the ports sit at x = j + 0.5.
 
-Core numbers are typical, not measured (as in stage4v2_schrader.py): check them on the cores.
+Core numbers are typical, not measured (as in archive/stage4v2_schrader.py): check them on the cores.
 Run:  python3 mitrailleuse/rotor_timing.py      -> the numbers, and docs/img/rotor_timing.svg
 mitrailleuse_concepts.py reads the constants and cams() from here.
 """

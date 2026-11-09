@@ -136,7 +136,7 @@ LEVER_BAR_Z = -82.0                 # the lever's bar runs back under the frame 
 DETENT_HALF = math.degrees(BOLT_DEPTH / HUB_R)   # ~5 deg either side of a notch: a 45 deg flank lifts the tip BOLT_DEPTH over this arc
 DETENT_ANGLE = -150.0               # under the lower left barrel: the lever's bar has the bottom
 
-# Grip (shared with pistol_assembly.py; the lever's finger loop follows its front)
+# Grip (shared with archive/pistol_assembly.py; the lever's finger loop follows its front)
 GRIP_START = V(-92.0, 0, -62.0)
 GRIP_ANGLE = 36.0
 GRIP_LEN = 118.0

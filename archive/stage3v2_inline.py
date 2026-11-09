@@ -41,7 +41,7 @@ face down, the housing cap socket mouth down, the plug flange down; PETG 100 %.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/module/stage3v2_inline.py').read())
+    exec(open(REPO + '/archive/stage3v2_inline.py').read())
 """
 
 import importlib

@@ -24,7 +24,7 @@ the cores once bought. Frame: z along the barrels, +z forward, z = 0 the
 block's front face (tube ends), +X up, +Y to the side.
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/mitrailleuse/stage4v2_schrader.py').read())
+    exec(open(REPO + '/archive/stage4v2_schrader.py').read())
 """
 
 import importlib
@@ -49,7 +49,7 @@ for _m in (P, G, FV, GR):
     importlib.reload(_m)
 
 M = {"REPO": REPO, "STAGE3V2_LIBRARY": True}
-exec(open(os.path.join(REPO, "module", "stage3v2_inline.py")).read(), M)
+exec(open(os.path.join(REPO, "archive", "stage3v2_inline.py")).read(), M)
 
 NAME = "stage4v2_schrader"
 OUT_DIR = os.path.join(REPO, "exports", NAME)

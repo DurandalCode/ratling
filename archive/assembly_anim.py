@@ -2,14 +2,14 @@
 """
 Ratling six-barrel pistol: full-cycle animation of the dressed assembly.
 
-Six shots, the block one full turn, as pistol/mech_anim.py, but with the
+Six shots, the block one full turn, as archive/mech_anim.py, but with the
 Skaven frame, grip and lever: the whole pistol from the side on the left,
 the ratchet from behind on the right (frame and grip hidden there).
 
 Writes exports/pistol_assembly_cycle.gif. Run inside FreeCAD (GUI); a few
 minutes:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/pistol/assembly_anim.py').read())
+    exec(open(REPO + '/archive/assembly_anim.py').read())
 """
 
 import os
@@ -23,7 +23,7 @@ try:
     REPO
 except NameError:
     REPO = os.path.expanduser("~/ratling")
-exec(open(os.path.join(REPO, "pistol", "pistol_assembly.py")).read())
+exec(open(os.path.join(REPO, "archive", "pistol_assembly.py")).read())
 
 OUT = os.path.join(REPO, "exports", "pistol_assembly_cycle.gif")
 TMP = os.path.join(REPO, "exports", "_anim_tmp")

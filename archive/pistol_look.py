@@ -5,7 +5,7 @@ Ratling six-barrel pistol: the look, over concept A ("Nagant").
 A pepperbox in the manner of the Vermintide repeater handgun: six barrels
 nearly touching, brass bands at the breech and the muzzle, a rounded lock
 housing with a hammer on top, a curved wooden grip flaring to a metal butt
-cap. Everything sits where concept A's parts are (pistol_concepts.py): the
+cap. Everything sits where concept A's parts are (archive/pistol_concepts.py): the
 v1.1 valve (body and cap, Ø62) behind the bottom barrel inside the lock
 housing, its cap under the round boss on the side; the chamber tube as the
 block's axle; the trigger valve in the grip; the hose out through a brass
@@ -16,7 +16,7 @@ Frame: x forward (muzzle at +x), z up, y to the side.
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/pistol/pistol_look.py').read())
+    exec(open(REPO + '/archive/pistol_look.py').read())
 """
 
 import math

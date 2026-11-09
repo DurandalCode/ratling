@@ -26,7 +26,7 @@ B. "Six valves": six modules of the v4 kind (barrel inside its own 38 x 1.2
 
 Run inside FreeCAD:
     REPO = '/Users/<you>/ratling'
-    exec(open(REPO + '/pistol/pistol_concepts.py').read())
+    exec(open(REPO + '/archive/pistol_concepts.py').read())
 """
 
 import importlib
