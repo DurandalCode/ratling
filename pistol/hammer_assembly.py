@@ -243,7 +243,7 @@ _a = AIRTAC
 _vv = (box(VENT_X - _a["W"] / 2 - 0.5, VENT_X + _a["W"] / 2 + 0.5, VENT_Y0 - 0.5, VENT_Y0 + _a["T"] + 0.5,
            VENT_Z0, VENT_Z0 + _a["L"] + 0.5)                    # the valve's socket, its floor at the body's face
        .fuse(box(-96.7, -86.5, 2.5, 28.0, SLAB["z"][0] - 0.5, VENT_Z0 + 0.5))   # the plunger's and the pad's swing (the pad reaches y 26; overlaps the socket: no coplanar seam)
-       .fuse(valve_bodies))                     # the elbows and the silencer carve their own ways out
+       .fuse(valve_bodies))                     # the straight fittings and the silencer carve their own ways out
 frame, skin = frame.cut(_vv), skin.cut(_vv)
 # The socket's own floor is the valve's seat: the pad's swing box carves the floor's middle away, and
 # what remains at either side of it are the two feet the valve stands on - no extra fuses needed.
@@ -264,18 +264,18 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
                                  crystal(c_end + gd * 11 + V(0, 8, 5), gd + V(-0.2, 0.8, 0.5), 28, 7),
                                  crystal(c_end + gd * 11 + V(0, -8, -3), gd + V(0.3, -0.7, -0.3), 24, 6)])
 # ---------------------------------------------------------------- air: supply up the grip, pilot to the cap, a tee to the gauge
-# Supply (6/4 hose from the receiver) in through the pommel, up the grip, then out to the right and
-# into R from behind: R and the silencer on P are both on the right narrow face. Pilot (4/2.5 PU)
-# leaves A's elbow forward into the room and up to the cap's G1/8 push-in. No printed channels: the
-# tubes run in the air and only cut the shell where they cross it.
+# Supply (6/4 hose from the receiver) in through the pommel, up the grip, out to the right and into
+# the straight R1/8 on R along its axis. The silencer on P is the straight fitting above it. Pilot
+# (4/2.5 PU) leaves the straight R1/8 on A to the left, then forward into the room to the cap's G1/8
+# push-in. No printed channels: the tubes run in the air and only cut the shell where they cross it.
 # The tee on the pilot feeds the gauge, out through the drum's upper-left flank, where the shooter sees it.
-r_end, _ = vent_port("R")
-a_end, _ = vent_port("A")
+r_end, r_dir = vent_port("R")
+a_end, a_dir = vent_port("A")
 supply_pts = [c_end + gd * 70, c_end + gd * 15, GRIP_START + gd * (GRIP_LEN * 0.6), GRIP_START + gd * (GRIP_LEN * 0.3),
-              V(-104, 8, -76), V(-110, 24, -74), V(-112, r_end.y, -68),
-              V(r_end.x - 16, r_end.y, r_end.z), V(r_end.x, r_end.y, r_end.z)]
+              V(-104, 8, -76), V(-108, 30, -72), V(r_end.x, r_end.y + 28, r_end.z - 18),
+              r_end + r_dir * 16, r_end]
 supply_line = pipe_along(supply_pts, 3.0)
-pilot_pts = [V(a_end.x, a_end.y, a_end.z), V(-84, -1, -36), V(-78, -3, -32),
+pilot_pts = [a_end, a_end + a_dir * 14, V(-86, -20, -36), V(-78, -3, -32),
              V(-80, -2, -28), V(-82, 0, Z_FIRE)]
 pilot_line = pipe_along(pilot_pts, 2.0)
 TEE = V(-78, -3, -32)
@@ -573,8 +573,8 @@ frame_upper = frame.common(box(-400, 100, -100, 100, SPLIT_Z, 400))
 # The split's pairs on the slab's top face at z = SPLIT_Z: the rear column (behind the QEV window and
 # the vent's socket) and the centre. No front pairs: the front slab's wall is the tray's, and the
 # tongues there would rise into the lock housing's rear-bottom corner.
-# The centre pair used to sit at (-90, 0) and (-90, 5). A's elbow now leaves the left face and turns
-# forward through y -6..+5, z -45..-34, and those two tongues rose into it. They sit at y -12 instead.
+# The centre pair used to sit at (-90, 0) and (-90, 5), under the valve. They sit at y -12, clear of
+# the straight fitting on A (it leaves the left face along -y).
 SPLIT_JOINTS = ((-95.0, -15.0), (-85.0, -15.0), (-100.0, -12.0), (-80.0, -12.0), (-75.0, 12.0))
 for x_, y_ in SPLIT_JOINTS:
     frame_lower = frame_lower.fuse(tg_box(x_, y_, SPLIT_Z, TG_W, TG_W, TG_H))
@@ -808,7 +808,7 @@ MATERIAL = {
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
-            "Vent_valve": "AirTAC M3R110-06, roller off. PT1/8 (a G body is the same holes). Stamped R next to the stem, P at the far end of that face, A opposite. Supply and exhaust are swapped, so it is normally open: supply hose into R, silencer on P, 4 mm pilot out of A. Turned plunger-down, narrow faces sideways (A left, elbow forward; P above R on the right). Drops into its socket from the room (side plate off), stands on two feet - no fasteners", "Pin": "steel pin Ø3",
+            "Vent_valve": "AirTAC M3R110-06, roller off. Straight R1/8 push-ins (a G body is the same holes): Ø10 x 20 on A for the 4 mm pilot, Ø12 x 22 on R for the 6 mm supply, a silencer on P. Stamped R next to the stem, P at the far end of that face, A opposite. Supply and exhaust are swapped, so it is normally open. Turned plunger-down, narrow faces sideways (A left, P above R on the right). Drops into its socket from the room (side plate off), stands on two feet - no fasteners", "Pin": "steel pin Ø3",
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
             "Pilot_pipe": "PU tube 4/2.5: vent valve A -> cap G1/8 push-in, up the backstrap",
