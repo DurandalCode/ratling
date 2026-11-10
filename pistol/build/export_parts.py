@@ -55,7 +55,7 @@ GROUPS = {
 # about half the time and are no weaker. The rest stays on 0.4: airtight parts (the seal is proven there only), small
 # moving parts and anything with a fit under ~0.5 mm (the detent bolt's 0.25 mm a side, the block's V-notches, the
 # barrel bores).
-NOZZLE_08 = {"frame_lower", "frame_upper", "frame_side_plate", "frame_right", "grip_left", "grip_right", "trigger_guard", "top_strap"}
+NOZZLE_08 = {"frame_lower", "frame_upper", "frame_side_wall", "frame_side_band", "frame_right", "grip_left", "grip_right", "trigger_guard", "top_strap"}
 
 # Parts whose pockets are bridged on the bed and print fine: the overhang limit in mm2 (the disc's six ramped notches)
 BRIDGED = {"block_rear_disc": 600.0}
@@ -74,7 +74,8 @@ PARTS = [
     ("trigger", TRIGGER, Y_, "strong_supports", "pivot: M3 x 16 + nylock nut between the cage's cheeks; supports under the pad and the lug"),
     ("frame_lower", frame_lower, -X_, "supports", "the lower half: the slab (the QEV socket, the vent, the lock, the trigger) and the tail, on the bed; the tongues to the upper half"),
     ("frame_upper", frame_upper, -X_, "supports", "the upper half: the drum's top (the gauge, the vial, the strap's foot); the grooves to the lower half's tongues"),
-    ("frame_side_plate", side_plate, -Y_, "supports", "show face down; the band's curve rides a support raft; 5 x ST2.9 x 16 into the flank's bosses"),
+    ("frame_side_wall", side_wall, -Y_, "standard", "joint face on the bed, no raft; the dovetail grooves open on the bed and widen upward; the band slides in from the rear"),
+    ("frame_side_band", side_band, X_, "supports", "front end on the bed (the rear face is only the ball's tip): the cylinder's walls are vertical; supports only under the 5 bosses; 5 x ST2.9 x 16; slides onto the wall from the rear"),
     ("frame_right", side_plate_r, Y_, "supports", "cheek face down (0.5 proud of the drum, flat); the tunnels and the socket's mouth open sideways; Ø8 axle + 2 x M3 x 10 rear"),
     ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the valve box's left half"),
     ("grip_right", grip_right, -Y_, "supports", "cut face on the bed; glued to the left on 3 x Ø3 x 12 dowels"),
