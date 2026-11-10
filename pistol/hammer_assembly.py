@@ -350,16 +350,18 @@ spring_rib = box(-92.0, -85.0, MAINSPRING["y"][0][0] - 1.0, -5.0,
 # x fixed at the springs' rear legs: in the room's air (NOT pivot-following: 3 mm back with the pivot
 # it ploughed into the tail's shell and the slab's rear); the inner-bottom-left corner is cut off:
 # it clipped the ball's shell at (x -92, y -20, z -23)
-rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] + EVA_T + CAGE_T - 0.5), ZA)   # the guide rod's foot
+rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] + EVA_T + CAGE_T + 0.1), ZA)   # the guide rod's foot, inside the floor: the old -0.5 stuck a peg out of the underside
 # The spring rib is NOT fused into the frame: its inner reach (y -23..-6) hangs in the room's air and
 # would be a floating island once the side band is cut away - the side plate carries it as a cantilever.
 frame = frame.fuse(slider_stop).fuse(rod_boss)
 _tick('stop + rib + rod fused')
-# The rod is Ø3 x 96 and ends in the stop (z 25.5). The hole used to end there too, so the ceiling
+# The rod is Ø3 x 94 and ends in the stop (z 25.5). The hole used to end there too, so the ceiling
 # closed over it: a blind pocket in the stop instead of a way through. Keep going out the top of the
-# shell (the crown here is about z 32) so the rod drops in from above and the bore is open at both ends.
-frame = frame.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2, 40.0 - GUIDE_ROD["z"][0],
-                                    V(GUIDE_ROD["x"], GUIDE_ROD["y"], GUIDE_ROD["z"][0]), ZA))
+# shell (the crown here is about z 32) so the rod drops in from above. The foot stays blind: the bore
+# starts 0.3 mm under the rod and 1.2 mm above the underside (z -70), so nothing breaks the bottom.
+_bore_z0 = GUIDE_ROD["z"][0] - 0.3
+frame = frame.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2, 40.0 - _bore_z0,
+                                    V(GUIDE_ROD["x"], GUIDE_ROD["y"], _bore_z0), ZA))
 shaft_holes = Part.makeCylinder(4.0, 2 * fy[1], V(HAMMER_PIVOT.x, -fy[1], HAMMER_PIVOT.z), YA)   # the axle: a press fit
 frame = frame.cut(shaft_holes)
 _tick('shaft holes cut')
@@ -895,7 +897,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 1 x M3 x 10 into the rear wall's lower strip",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
-            "Guide_rod": "steel rod Ø3 x 96: the slider's guide. The bore is through: in from the ceiling, down to the floor boss, the rod ends in the stop", "Trigger": "pivot: M3 x 16 screw + nylock nut",
+            "Guide_rod": "steel rod Ø3 x 94: the slider's guide. The bore is open at the ceiling and blind in the foot (1.2 mm of floor under the rod, the underside stays closed), the rod ends in the stop", "Trigger": "pivot: M3 x 16 screw + nylock nut",
             "Tie_rods": "4 x M4 x 50 socket head + nut, rubber O7 x 1.5 + steel O9 x 0.8 washer under each head (as v1.1); the heads stand 6.3 mm off the cap's back face - the frame's pockets are cast for them",
             "Lock_bolts": "2 x M3 x 30 self-tappers into the body's face pilots, heads in the frame's front pockets (drawn as a O5.5 x 3 envelope)"}
 FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)
