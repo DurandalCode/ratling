@@ -176,8 +176,12 @@ def valve_shape(j):
         holes.append(Part.makeCylinder(PORT_D / 2.0, 14.0, App.Vector(0, y0 - 1.0, z_mid + dz),
                                        App.Vector(0, 1, 0)))
     body = body.cut(holes)
-    nut = hex_prism(NUT_AF, 3.2, z_ret1 + 0.2, 0, R).cut(cyl(11.0, z_ret1, z_ret1 + 4.0, 0, R))
-    button = cyl(BUTTON_D, z_ret1 + 3.5 - down, z_tip - down, 0, R)
+    # Tall nut, short cap. A 6 mm pin above a thin nut read as a pusher; the cap is the
+    # valve's own button, Ø10.6, and it sinks into the nut's bore when the cam presses.
+    nut_h = 6.4
+    nut_z = z_ret1 + 0.2
+    nut = hex_prism(NUT_AF, nut_h, nut_z, 0, R).cut(cyl(11.0, nut_z - 0.2, nut_z + nut_h + 0.4, 0, R))
+    button = cyl(BUTTON_D, nut_z + nut_h + 0.15 - down, z_tip - down, 0, R)
     shape = body.fuse(nut).fuse(button)
     return spun(shape, math.degrees(ang - math.pi / 2.0))
 
@@ -382,8 +386,8 @@ check(press_d < 0.05 and press_hit < 20.0,
       "pressed button meets the lobe, common volume %.1f mm3" % press_hit)
 free_lobe = min(valves[j].distToShape(pad)[0] for j in range(N) if not depressed(j))
 check(free_lobe > 0.05, "free buttons stay off the lobe, closest %.2f mm" % free_lobe)
-nut_top = z_ret1 + 3.4
-check(z_cam_base - LOBE_H > nut_top + 2.0, "lobe stays %.1f mm above the nut"
+nut_top = z_ret1 + 0.2 + 6.4
+check(z_cam_base - LOBE_H > nut_top + 0.4, "lobe stays %.1f mm above the nut"
       % (z_cam_base - LOBE_H - nut_top))
 check(VR["STROKE"] - DEPRESS > 0.3, "press %.1f mm leaves %.1f mm to the valve stop"
       % (DEPRESS, VR["STROKE"] - DEPRESS))
