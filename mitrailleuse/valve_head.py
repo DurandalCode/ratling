@@ -243,12 +243,53 @@ def cam():
     return disc, pad.fuse(climb).fuse(fire), (r0, r1, a_hold, a_fire)
 
 
-def opened_disc(disc, r0, r1, a_hold, a_fire):
-    """Picture only: half the disc and a window over the lobe, so the rise can be seen."""
-    disc = disc.cut(Part.makeBox(r1 + 5.0, 2 * r1 + 10.0, CAM_T + 4.0,
-                                 App.Vector(-r1 - 5.0, -r1 - 5.0, z_cam_base - 1.0)))
-    return disc.cut(sector(r0 - 1.0, r1 + 1.0, a_hold - 0.02, a_fire + 0.02,
-                           z_cam_base - 0.2, z_cam_back + 1.0))
+def shift(obj, vec):
+    s = obj.Shape.copy()
+    s.translate(App.Vector(*vec))
+    obj.Shape = s
+
+
+def ghost():
+    """See through the disc, the clamp and the plate. The valves, pushers and lobe stay solid."""
+    fade = {"Cam": 82, "Guide": 78, "Retainer": 68, "Head_plate": 55, "Cage": 40}
+    for o in doc.Objects:
+        vo = getattr(o, "ViewObject", None)
+        if vo is None or not hasattr(vo, "Transparency"):
+            continue
+        if o.Name in fade:
+            vo.Transparency = fade[o.Name]
+
+
+def explode():
+    """Pull the stack apart along the bore axis. Elbows also step out radially.
+
+    The shaft stays on the axis and is lengthened so it still reaches the cam.
+    The disc is transparent in this view: the blue lobe is on its underside.
+    """
+    valve_z, retainer_z, guide_z, pusher_z, cam_z = 55.0, 90.0, 108.0, 130.0, 160.0
+    for o in list(doc.Objects):
+        name = o.Name
+        if name in ("Cage",) or name.startswith("Valve_"):
+            shift(o, (0, 0, valve_z))
+        elif name.startswith("Elbow_"):
+            bb = o.Shape.BoundBox
+            cx = (bb.XMin + bb.XMax) / 2.0
+            cy = (bb.YMin + bb.YMax) / 2.0
+            r = math.hypot(cx, cy) or 1.0
+            shift(o, (22.0 * cx / r, 22.0 * cy / r, valve_z))
+        elif name == "Retainer":
+            shift(o, (0, 0, retainer_z))
+        elif name == "Guide":
+            shift(o, (0, 0, guide_z))
+        elif name.startswith("Pusher_"):
+            shift(o, (0, 0, pusher_z))
+        elif name in ("Cam", "Cam_lobe"):
+            shift(o, (0, 0, cam_z))
+        elif name == "Shaft":
+            o.Shape = cyl(SHAFT_D, -4.0, z_cam_back + 18.0 + cam_z)
+    cam = doc.getObject("Cam")
+    if cam is not None and getattr(cam, "ViewObject", None) is not None:
+        cam.ViewObject.Transparency = 72
 
 
 plate = tube(2 * PLATE_R, PLATE_BORE, 0.0, PLATE_T)
@@ -327,7 +368,8 @@ add("Guide", ring_guide, (0.45, 0.50, 0.55), printed)
 add("Cam", disc, (0.55, 0.62, 0.72), printed)
 add("Cam_lobe", pad, (0.16, 0.45, 0.78), printed)
 for j, v in enumerate(valves):
-    add("Valve_%02d" % j, v, (0.72, 0.74, 0.76), bought)
+    color = (0.45, 0.62, 0.82) if depressed(j) else (0.72, 0.74, 0.76)
+    add("Valve_%02d" % j, v, color, bought)
 for j, e in enumerate(elbows):
     add("Elbow_%02d" % j, e, (0.72, 0.55, 0.28), bought)
 add("Shaft", shaft, (0.35, 0.38, 0.42), steel)
@@ -342,8 +384,13 @@ try:
         os.makedirs(out_dir)
     doc.saveAs(os.path.join(out_dir, "valve_head.FCStd"))
     if App.GuiUp:
-        doc.getObject("Cam").Shape = opened_disc(disc, *cam_win)
-        doc.recompute()
+        show = os.environ.get("SHOW", "")
+        if show == "ghost":
+            ghost()
+        elif show == "explode":
+            explode()
+        if show:
+            doc.recompute()
 except Exception:
     import traceback
     traceback.print_exc()
