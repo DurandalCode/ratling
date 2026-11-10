@@ -23,15 +23,18 @@ Two cams, same ring:
   hold   the lobe keeps ~1.5 valves switched (two charging, as the nipple rotor did).
          A barrel is pressed for the fill time, ~0.5 s, then released and fires. The lobe
          is longer than the pitch, so a parked rotor still holds a button down. The trigger
-         therefore owns a master valve: held, supply is on; released, the manifold vents
-         through a Ø0.5 jet and those chambers drain back without firing (the nipple head's
-         quiet dump, still to be repeated on this valve).
+         therefore has its own cock, not one of the twenty valves: held, supply is on;
+         released, the manifold vents through a Ø0.5 jet and those chambers drain back
+         without firing (the nipple head's quiet dump, still to be repeated on this valve).
   gap    the lobe is shorter than the pitch, so the rotor can park with every button up
          and the supply can stay connected. The fill still takes ~0.5 s, and the ramps eat
          most of the pitch, so the volley is slow. Printed so the trade is visible.
 
+The gun drawn here has 19 barrels. Twenty valves were bought, so one is a spare.
+
 Run:  python3 mitrailleuse/valve_rotor.py
-Writes docs/img/valve_rotor.svg. rotor_timing.py remains the nipple rotor's numbers.
+Writes docs/img/valve_rotor.svg, a sketch of the 19-barrel head. rotor_timing.py remains
+the nipple rotor's numbers.
 """
 
 import math
@@ -81,6 +84,7 @@ CRANK_R = 70.0                       # mm, same crank as the nipple rotor, so th
 MU = 0.2                             # greased printed dome on a printed cam, as rotor_timing.py
 FORCES = (15.0, 25.0, 40.0)          # N, a sensitivity sweep: the button force is not measured
 BOUGHT = 20
+GUN_N = 19                           # the head being drawn; 16 stays in the tables
 JET_D = 0.5                          # quiet-dump jet, the nipple head's
 
 PACKS = (16, 19, 20)
@@ -378,10 +382,8 @@ def report():
             for row in sc["forces"]:
                 print("     button %.0f N -> rotor %.2f N·m, crank %.1f N, axial %.0f N"
                       % (row["f"], row["tq"], row["crank"], row["axial"]))
-    print("spares out of %d, one master valve on the trigger (hold scheme):" % BOUGHT)
-    for n in (16, 19):
-        print("  %d barrels: %d valves + 1 master, %d spare" % (n, n, BOUGHT - n - 1))
-    print("  20 on the ring and no master: the supply stays on, only the gap cam parks empty")
+    print("the head is %d barrels; %d valves bought, %d spare. The trigger's supply valve is separate."
+          % (GUN_N, BOUGHT, BOUGHT - GUN_N))
     return rings, built
 
 
@@ -414,91 +416,187 @@ def checks(rings, built):
 
 
 def svg(path, rg, sc_hold):
-    """Top view of the 20-valve ring and a side of one valve under the cam."""
-    W, H = 980, 640
-    ink, ink2, grid, surf = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb"
-    blue, orange, body, plate = "#2a78d6", "#eb6834", "#d9d6cf", "#c8c4ba"
-    cx, cy, sc = 330.0, 330.0, 2.55
+    """Sketch sheet of the 19-barrel head: plan from the rotor, section along the axis.
+
+    Radii, the body and the cam rise are the calculated ones. The axial gap, the pusher
+    length and the cam-disc thickness are only there so the stack can be read; they are
+    not a design yet.
+    """
+    W, H = 1180, 820
+    ink, ink2, surf = "#0b0b0b", "#52514e", "#fcfcfb"
+    blue, orange, body_c, plate_c, down_c = "#2a78d6", "#eb6834", "#d9d6cf", "#c8c4ba", "#c5d9f2"
+    cx, cy, sc = 340.0, 430.0, 2.05
     lobe = sc_hold["lobe"]
 
-    def X(x, y):
+    def P(x, y):
         return cx + sc * x, cy - sc * y
 
     o = ['<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" '
          'font-family="Helvetica, Arial, sans-serif" font-size="13">' % (W, H, W, H),
          '<rect width="100%%" height="100%%" fill="%s"/>' % surf,
-         '<text x="28" y="32" font-size="18" fill="%s">Ротор на 20 клапанах</text>' % ink,
-         '<text x="28" y="52" fill="%s">кнопки на R %.0f, корпуса внутри плиты R %.0f, '
-         'полоса переключения %.1f шага — на остановке нажаты два</text>'
-         % (ink2, rg["R"], HEAD_PLATE_R, HOLD_PITCHES)]
+         '<text x="28" y="34" font-size="20" fill="%s">Головка на 19 клапанов, эскиз</text>' % ink,
+         '<text x="28" y="56" fill="%s">Куплено 20, один запасной. Кольцо посчитано, клапаны ещё не '
+         'обмерены. Разрез: зазоры, толкатель и толщина кулачка условные.</text>' % ink2]
 
     def circle(r, color, width, dash=None):
         extra = "" if dash is None else ' stroke-dasharray="%s"' % dash
         o.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" stroke="%s" stroke-width="%s"%s/>'
                  % (cx, cy, sc * r, color, width, extra))
 
-    circle(HEAD_PLATE_R, plate, 1.5, "4 3")
-    circle(rg["R"], blue, 1.2)
-    # the lobe, along the button circle, sitting at the top (angle 90 deg, x up in the math frame)
-    # cam coordinate x=0 is the trailing edge of the plateau. Draw from -lr to lp+lr.
-    def arc(x0, x1, color, width):
-        pts = []
-        for i in range(48):
-            x = x0 + (x1 - x0) * i / 47.0
-            ang = math.pi / 2.0 - x / rg["R"]
-            pts.append("%.1f,%.1f" % (cx + sc * rg["R"] * math.cos(ang), cy - sc * rg["R"] * math.sin(ang)))
-        o.append('<polyline points="%s" fill="none" stroke="%s" stroke-width="%s" '
-                 'stroke-linecap="round"/>' % (" ".join(pts), color, width))
-
-    arc(-lobe["lr"], 0.0, orange, 6)          # release: the barrel fires
-    arc(0.0, lobe["lp"], blue, 6)             # plateau: charging
-    arc(lobe["lp"], lobe["lp"] + lobe["lr"], ink2, 4)
+    circle(HEAD_PLATE_R, plate_c, 1.4, "5 4")
+    circle(rg["R"], "#c5d4ea", 0.8)
 
     step = 2.0 * math.pi / rg["n"]
     for j in range(rg["n"]):
         ang = math.pi / 2.0 - j * step
         poly = spin(rect(rg["R"], rg["tangential"], rg["radial"]), ang)
-        # a valve is "down" when its cam coordinate (0 at the top, falling clockwise) is on the plateau
         x = j * rg["pitch"]
-        down = 0.0 <= x <= lobe["lp"] or 0.0 <= x - rg["n"] * rg["pitch"] <= lobe["lp"]
-        fill = "#c5d9f2" if down else body
-        pts = " ".join("%.1f,%.1f" % X(px, py) for px, py in poly)
-        o.append('<polygon points="%s" fill="%s" stroke="%s" stroke-width="1"/>' % (pts, fill, ink2))
-        bx, by = X(rg["R"] * math.cos(ang), rg["R"] * math.sin(ang))
-        o.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>' % (bx, by, sc * 1.6, orange if down else ink2))
+        down = 0.0 <= x <= lobe["lp"]
+        pts = " ".join("%.1f,%.1f" % P(px, py) for px, py in poly)
+        o.append('<polygon points="%s" fill="%s" stroke="%s" stroke-width="1"/>'
+                 % (pts, down_c if down else body_c, ink))
+        bx, by = P(rg["R"] * math.cos(ang), rg["R"] * math.sin(ang))
+        o.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>'
+                 % (bx, by, max(2.4, sc * 1.6), orange if down else ink2))
 
-    # callouts
-    o.append('<text x="28" y="600" fill="%s">Пунктир — нынешняя плита головки R %.0f. '
-             'Синие корпуса кулачок держит нажатыми, оранжевая точка — кнопка.</text>'
-             % (ink2, HEAD_PLATE_R))
-    o.append('<text x="28" y="620" fill="%s">Сход с синей дуги (оранжевый скос) — выстрел. '
-             'В покое гашетка стравливает подачу: нажатый клапан не остаётся под давлением.</text>' % ink2)
+    # lobe outside the bodies, so the release ramp is not hidden under a valve
+    def arc(x0, x1, color, width, rad):
+        pts = []
+        for i in range(80):
+            x = x0 + (x1 - x0) * i / 79.0
+            ang = math.pi / 2.0 - x / rg["R"]
+            px, py = P(rad * math.cos(ang), rad * math.sin(ang))
+            pts.append("%.1f,%.1f" % (px, py))
+        o.append('<polyline points="%s" fill="none" stroke="%s" stroke-width="%s" stroke-linecap="round"/>'
+                 % (" ".join(pts), color, width))
 
-    # side view
-    x0, y0 = 690, 150
-    o.append('<text x="%d" y="%d" font-size="15" fill="%s">Один клапан, сбоку</text>' % (x0, y0 - 28, ink))
-    # body
-    bw, bh = 78, 120
-    o.append('<rect x="%d" y="%d" width="%d" height="%d" fill="%s" stroke="%s"/>' % (x0, y0, bw, bh, body, ink))
-    o.append('<text x="%d" y="%d" fill="%s">Rc1/8</text>' % (x0 + 8, y0 + 28, ink2))
-    for i, lab in enumerate(("1 P", "2 A", "3 R")):
-        yy = y0 + 48 + i * 22
-        o.append('<circle cx="%d" cy="%d" r="7" fill="none" stroke="%s"/>' % (x0 + bw - 16, yy, ink))
-        o.append('<text x="%d" y="%d" fill="%s">%s</text>' % (x0 + 8, yy + 4, ink2, lab))
-    # button
-    o.append('<rect x="%d" y="%d" width="28" height="16" fill="%s" stroke="%s"/>' % (x0 + 25, y0 - 16, orange, ink))
-    o.append('<text x="%d" y="%d" fill="%s">кнопка, ход %.1f</text>' % (x0 + 58, y0 - 4, ink2, STROKE))
-    # pusher and cam to the left of the button (the rotor is behind, -z; drawn to the left)
-    o.append('<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="3"/>' % (x0 - 36, y0 - 8, x0 + 25, y0 - 8, ink))
-    o.append('<circle cx="%d" cy="%d" r="5" fill="%s"/>' % (x0 - 36, y0 - 8, ink))
-    o.append('<path d="M %d %d l 18 -14 l 36 0 l 18 14" fill="none" stroke="%s" stroke-width="3"/>'
-             % (x0 - 108, y0 - 4, blue))
-    o.append('<text x="%d" y="%d" fill="%s">кулачок %.1f мм</text>' % (x0 - 108, y0 + 18, ink2, PRESS))
-    o.append('<text x="%d" y="%d" fill="%s">толкатель</text>' % (x0 - 70, y0 - 16, ink2))
-    o.append('<text x="%d" y="%d" fill="%s">Покой: P закрыт, A–R.</text>' % (x0, y0 + bh + 28, ink))
-    o.append('<text x="%d" y="%d" fill="%s">Нажат: P–A, камера</text>' % (x0, y0 + bh + 46, ink))
-    o.append('<text x="%d" y="%d" fill="%s">набирает %.1f с.</text>' % (x0, y0 + bh + 64, ink, T_FILL))
-    o.append('<text x="%d" y="%d" fill="%s">Отпущен — выстрел.</text>' % (x0, y0 + bh + 82, ink))
+    arc_r = rg["r_out"] + 4.0
+    arc(-lobe["lr"], 0.0, orange, 5, arc_r)
+    arc(0.0, lobe["lp"], blue, 5, arc_r)
+    arc(lobe["lp"], lobe["lp"] + lobe["lr"], ink2, 3, arc_r)
+
+    # radius line along +x, through the gap between two bodies; labels sit in the hole
+    x0, y0 = P(42.0, 0)
+    x1, y1 = P(HEAD_PLATE_R, 0)
+    o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="0.7"/>' % (x0, y0, x1, y1, ink2))
+    for r in (rg["R"], rg["r_out"], HEAD_PLATE_R):
+        xt, yt = P(r, 0)
+        o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s"/>' % (xt, yt - 4, xt, yt + 4, ink))
+    o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12" text-anchor="middle">R %.0f  кнопки</text>'
+             % (cx, cy - 40, ink, rg["R"]))
+    o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12" text-anchor="middle">R %.0f  корпус</text>'
+             % (cx, cy - 24, ink, rg["r_out"]))
+    o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12" text-anchor="middle">R %.0f  плита</text>'
+             % (cx, cy - 8, ink, HEAD_PLATE_R))
+    o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12" text-anchor="middle">шаг %.1f</text>'
+             % (cx, cy + 18, ink, rg["pitch"]))
+    # names for the two arcs, outside the plate
+    def arc_name(x_cam, text, anchor):
+        ang = math.pi / 2.0 - x_cam / rg["R"]
+        rad = HEAD_PLATE_R + 14.0
+        px, py = P(rad * math.cos(ang), rad * math.sin(ang))
+        o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12" text-anchor="%s">%s</text>'
+                 % (px, py, ink, anchor, text))
+
+    arc_name(-lobe["lr"], "выстрел", "end")
+    arc_name(lobe["lp"] * 0.55, "набор", "start")
+    o.append('<text x="28" y="78" fill="%s" font-size="15">А — со стороны ротора</text>' % ink)
+    o.append('<text x="28" y="786" fill="%s">Синие корпуса кулачок держит нажатыми. Дуга снаружи: синяя — набор, '
+             'оранжевая слева — отпускание, там ствол стреляет. Пунктир — плита.</text>' % ink2)
+
+    # --- local section of the pressed valve. The shaft is on the axis, off this view. ---
+    s = 4.0
+    ox, by = 700.0, 430.0
+    plate_t, gap, pusher_l, cam_t = 10.0, 4.0, 12.0, 14.0
+    valve_s0 = plate_t + gap
+    valve_s1 = valve_s0 + OVERALL_H
+    cam_s = valve_s1 + pusher_l
+    btn = BUTTON_D / 2.0
+    rad_lo = rg["r_in"] - 8.0
+    rad_hi = HEAD_PLATE_R
+
+    def S(along, rad):
+        return ox + s * along, by - s * (rad - rg["R"])
+
+    o.append('<text x="%.0f" y="168" fill="%s" font-size="15">Б — нажатый клапан, к стволам слева</text>' % (ox, ink))
+    o.append('<text x="%.0f" y="188" fill="%s" font-size="12">обрыв к оси. Зазор, толкатель и толщина диска '
+             'условные.</text>' % (ox, ink2))
+
+    def block(along, rad_top, along_w, rad_h, fill):
+        x, y = S(along, rad_top)
+        o.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s"/>'
+                 % (x, y, s * along_w, s * rad_h, fill, ink))
+
+    block(0, rad_hi, plate_t, rad_hi - rad_lo, "#eeeae4")
+    px, py = S(0, rad_hi)
+    o.append('<clipPath id="plate"><rect x="%.1f" y="%.1f" width="%.1f" height="%.1f"/></clipPath>'
+             % (px, py, s * plate_t, s * (rad_hi - rad_lo)))
+    for i in range(16):
+        y = py + i * 16
+        o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="0.6" clip-path="url(#plate)"/>'
+                 % (px - 10, y, px + s * plate_t + 24, y - 22, plate_c))
+    # break toward the axis
+    br = S(0, rad_lo)
+    o.append('<path d="M %.1f %.1f l 6 -5 l 6 10 l 6 -10 l 6 10 l 6 -5" fill="none" stroke="%s"/>'
+             % (br[0], br[1], ink))
+
+    block(valve_s0, rg["r_out"], OVERALL_H, rg["r_out"] - rg["r_in"], down_c)
+    block(valve_s1 - 6.0, rg["R"] + btn, 6.0, BUTTON_D, orange)
+    # ports on the outer face; their pitch is not measured, so they are only marks
+    for i, lab in enumerate(("1P", "2A", "3R")):
+        cxp, cyp = S(valve_s0 + 11.0 + i * 12.0, rg["r_out"] - 1.5)
+        o.append('<circle cx="%.1f" cy="%.1f" r="4" fill="%s" stroke="%s"/>' % (cxp, cyp, surf, ink))
+        o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="11" text-anchor="middle">%s</text>'
+                 % (cxp, cyp + 16, ink2, lab))
+    ax, ay = S(valve_s0 + 23.0, rg["r_out"] - 1.5)
+    up = S(valve_s0 + 23.0, HEAD_PLATE_R + 4.0)
+    left = S(plate_t, HEAD_PLATE_R + 4.0)
+    o.append('<path d="M %.1f %.1f L %.1f %.1f L %.1f %.1f" fill="none" stroke="%s" stroke-width="1.6"/>'
+             % (ax, ay, up[0], up[1], left[0], left[1], blue))
+    o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12">пилот к модулю</text>'
+             % (left[0], left[1] - 6, blue))
+
+    # cam disc at this radius, with the 2 mm pad in contact
+    block(cam_s, rg["R"] + 12.0, cam_t, (rg["R"] + 12.0) - rad_lo, "#d6e4f4")
+    br2 = S(cam_s, rad_lo)
+    o.append('<path d="M %.1f %.1f l 8 -5 l 8 10 l 8 -10 l 8 10 l 8 -5" fill="none" stroke="%s"/>'
+             % (br2[0], br2[1], ink))
+    block(cam_s - PRESS, rg["R"] + 8.0, PRESS, 16.0, blue)
+    btip = S(valve_s1, rg["R"])
+    tip = S(cam_s - PRESS, rg["R"])
+    o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="3"/>'
+             % (btip[0], btip[1], tip[0], tip[1], ink))
+    o.append('<circle cx="%.1f" cy="%.1f" r="4.5" fill="%s"/>' % (tip[0], tip[1], ink))
+    # button centerline
+    c0, c1 = S(valve_s0, rg["R"]), S(cam_s + cam_t + 6.0, rg["R"])
+    o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="0.6" stroke-dasharray="7 3 1.5 3"/>'
+             % (c0[0], c0[1], c1[0], c1[1], ink2))
+    o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12">R %.0f</text>' % (c1[0] + 4, c1[1] + 4, ink, rg["R"]))
+
+    def dim_along(s0, s1, rad, label):
+        x0, y0 = S(s0, rad)
+        x1, _ = S(s1, rad)
+        o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s"/>' % (x0, y0, x1, y0, ink))
+        o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s"/>' % (x0, y0 - 4, x0, y0 + 4, ink))
+        o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s"/>' % (x1, y0 - 4, x1, y0 + 4, ink))
+        o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12" text-anchor="middle">%s</text>'
+                 % ((x0 + x1) / 2.0, y0 - 6, ink, label))
+
+    dim_along(0, plate_t, HEAD_PLATE_R + 18.0, "10")
+    dim_along(valve_s0, valve_s1, HEAD_PLATE_R + 18.0, "%.1f" % OVERALL_H)
+    pad_top = S(cam_s - PRESS, rg["R"] + 14.0)
+    o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12">2.0</text>' % (pad_top[0] - 4, pad_top[1] - 2, blue))
+    kn = S(valve_s1 - 22.0, rg["R"] - btn - 5.0)
+    o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12">кнопка</text>' % (kn[0], kn[1], ink2))
+    o.append('<text x="%.0f" y="582" fill="%s">плита 10 — размер нынешней. 45.8 и ход 2.4 — с чертежа заказа.</text>'
+             % (ox, ink2))
+    o.append('<text x="%.0f" y="602" fill="%s">синяя площадка 2.0 мм держит кнопку. У свободного её нет —</text>'
+             % (ox, ink))
+    o.append('<text x="%.0f" y="620" fill="%s">между кнопкой и диском зазор 2 мм. Диск сидит на валу Ø8.</text>'
+             % (ox, ink))
+    o.append('<text x="%.0f" y="646" fill="%s">Покой: P закрыт, пилот в R. Нажали — P в A, камера %.1f с.</text>'
+             % (ox, ink, T_FILL))
+    o.append('<text x="%.0f" y="666" fill="%s">Отпустили — выстрел. Шаг трёх Rc1/8 ещё не снят.</text>' % (ox, ink))
     o.append('</svg>')
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(o) + "\n")
@@ -509,8 +607,8 @@ if __name__ == "__main__":
     ok = checks(rings, built)
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out = os.path.join(here, "docs", "img", "valve_rotor.svg")
-    hold20 = next(sc for rg, sc in built if rg["n"] == 20 and sc["name"] == "hold")
-    ring20 = next(rg for rg in rings if rg["n"] == 20)
-    svg(out, ring20, hold20)
+    hold = next(sc for rg, sc in built if rg["n"] == GUN_N and sc["name"] == "hold")
+    ring = next(rg for rg in rings if rg["n"] == GUN_N)
+    svg(out, ring, hold)
     print(out)
     sys.exit(0 if ok else 1)
