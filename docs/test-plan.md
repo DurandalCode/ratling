@@ -193,6 +193,11 @@ charged ones without firing them. Both rest on numbers to check:
 
 ## Mitrailleuse head, bench B — one barrel on a hand slider
 
+**Result, 2026-11-10: failed.** The 5V1 cores leak badly. The nipple head does not go into
+the gun; do not reprint this bench and do not print bench C. The steps below are the record
+of what was built. The next head is bought 3/2 push-button valves, one per barrel
+(`mitrailleuse/valve_rotor.py`, `docs/rotor.md`).
+
 *Test article: `mitrailleuse/head_bench.py`* with a v4.4 module: one port of
 concept A's firing head (two tyre valve cores, pushers with return springs,
 the printed channels) and the rotor's cam laid flat on a slider that clicks
@@ -234,8 +239,9 @@ stop disc's notches; the trigger's arm drives it through a coupling pin
 that a trip cam under the gear knocks out once a turn (one volley a pull);
 the pinion slips on the layshaft between rubber washers while the rotor is
 stopped. All but the base, the lever and the
-bevel box are the final head's parts. Do bench B first: the pushers and
-cores are set the same way.
+bevel box are the final head's parts. Bench B failed (cores leak, 2026-11-10),
+so this bench is not printed: the nipple head is dropped. The crank, stop and
+slip clutch are still the ones a valve head would reuse.
 
 0. **Slip.** No cores. Trigger held, crank: the rotor turns. Let go: it
    stops and the crank slips. Set the nut so it does not slip while
