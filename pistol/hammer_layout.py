@@ -270,7 +270,8 @@ MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-27.5, -16.7), (-16.3, -5.6)))   
 SPRING_PEG = (45.0, 9.5, 1.5)       # on the hammer's hub, left face: direction at rest, radius, pin radius (the springs' legs);
                                     # 45 deg since 2026-11-08: at 30 the peg's rim grazed the upper-left rod head's washer
 SLEEVE_R = 7.0                      # the hammer's sleeve on the axle, hub to crank: one printed part
-GUIDE_ROD = dict(x=-8.5, y=28.6, d=3.0, z=(-70.5, 25.5))   # the slider runs on a fixed Ø3 steel rod, floor to ceiling
+GUIDE_ROD = dict(x=-8.5, y=28.6, d=3.0, z=(-68.5, 25.5))   # Ø3 rod, 94 mm: drops in from the ceiling and
+                                                             # stops 1.2 mm short of the underside (z -70)
 
 
 def hammer_rot(c):                  # rotation about +y: cocking turns the spur back (negative)
