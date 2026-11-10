@@ -135,8 +135,13 @@ def pipe_along(points, r):
 # coat; the coat came out uneven and thicker, so the radial room is 3.5 mm and each end is open
 # another 1.5 mm (the body's face and the cap's rear were flush, and the coat sits on them too).
 # The lock housing's pocket stays the seat. The tie rods and the lock bolts carve their own pockets.
+# The M4 tips stick 4.7 mm out of the body's face, past the nut. The bolt holes locate the stack, so
+# the floor stays; only those stubs get a deeper pocket, Ø8, 2 mm past the tip.
 VALVE_SOCK = 3.5
 SOCK_AXIAL = 1.5
+TIP_PAST_FACE = 4.7
+TIP_POCKET_EXTRA = 2.0
+TIP_POCKET_D = 8.0
 _B, _r2 = BODY_R + VALVE_SOCK, TUBE_OD / 2 + 1.5 + VALVE_SOCK
 _phi = math.acos((_B - _r2) / chamber_x)     # the hull's tangent angle: the +VALVE_SOCK cancels in the numerator
 _x_cap0 = X_BODY_TOP - BODY_H - CAP_T - SOCK_AXIAL
@@ -148,7 +153,10 @@ sock_body = (cyl_x(2 * _B, X_BODY_TOP - BODY_H, _x_body1, 0, Z_FIRE)
                             (-_r2 * math.sin(_phi), chamber_x + _r2 * math.cos(_phi) + Z_FIRE),
                             (_r2 * math.sin(_phi), chamber_x + _r2 * math.cos(_phi) + Z_FIRE),
                             (_B * math.sin(_phi), _B * math.cos(_phi) + Z_FIRE)],
-                           X_BODY_TOP - BODY_H, _x_body1)))
+                           X_BODY_TOP - BODY_H, _x_body1))
+             .fuse(Part.makeCompound([cyl_x(TIP_POCKET_D, X_BODY_TOP,
+                                           X_BODY_TOP + TIP_PAST_FACE + TIP_POCKET_EXTRA,
+                                           -_p.y, Z_FIRE + _p.x) for _p in rod_pts])))
 
 
 # ---------------------------------------------------------------- frame shell
