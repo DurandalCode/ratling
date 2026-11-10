@@ -13,8 +13,10 @@ dressed as archive/pistol_assembly.py (the lever variant):
                 column holds the vent valve standing vertical in a socket
                 (stage 2: the trigger's rear lug lifts its plunger); the
                 QEV cap crosses the slab in its own window - cut to the
-                stack's envelope +2 mm (the built valve is sealed over its
-                seam) with the tie rods' and lock bolts' pockets cast in;
+                stack's envelope +3.5 mm radially, the cap's rear +1.5 mm.
+                Past the body's face only the M4 tips, Ø4.0, on toward the
+                barrel. The tie rods' and lock bolts'
+                pockets cast in;
                 a right cheek shrouds the slider's bracket; the spur comes
                 out of the ball's top through a slot over its swing; the
                 frame splits at z = 8 into a lower and an upper half, and
@@ -128,23 +130,34 @@ def pipe_along(points, r):
 
 
 # ---------------------------------------------------------------- the QEV socket: envelope + VALVE_SOCK
-# The built valve is sealed over its seam and rod washers (a couple of mm of plastic), and the exact
-# imprint would grow four pillars inside the rod holes (the imprint is the body/cap solids, whose own
-# holes are already cut out of them). So the window is cut to the stack's cross-section envelopes plus
-# VALVE_SOCK all round - the sealant's room. The ends stay exact (the body's face and the cap's rear
-# face are the socket's axial stops), and the lock housing's pocket stays exact: that is the valve's
-# seat, it sets the stack's position. The tie rods and the lock bolts carve their own pockets.
-VALVE_SOCK = 2.0
+# The built valve is sealed over its seam and rod washers. The exact imprint would grow four pillars
+# inside the rod holes (the imprint is the body/cap solids, whose own holes are already cut out of
+# them), so the window is the stack's cross-section plus VALVE_SOCK all round. That 2 mm was the
+# coat; the coat came out uneven and thicker, so the radial room is 3.5 mm. The cap's rear is
+# open another 1.5 mm. The body's face stays the stop: past it the only holes are the rod tips.
+# The lock housing's pocket stays the seat. The tie rods and the lock bolts carve their own pockets.
+# The M4 tips stick 4.7 mm out of the body's face, past the nut. The hole there is the thread
+# itself, Ø4.0, and runs on toward the barrel to x -10 so the tip does not bottom out.
+VALVE_SOCK = 3.5
+SOCK_AXIAL = 1.5
+TIP_PAST_FACE = 4.7
+TIP_POCKET_EXTRA = 13.0                         # tip at x -23.3, pocket ends at x -10.3
+TIP_POCKET_D = 4.0
 _B, _r2 = BODY_R + VALVE_SOCK, TUBE_OD / 2 + 1.5 + VALVE_SOCK
 _phi = math.acos((_B - _r2) / chamber_x)     # the hull's tangent angle: the +VALVE_SOCK cancels in the numerator
-sock_cap = cyl_x(2 * _B, X_BODY_TOP - BODY_H - CAP_T, X_BODY_TOP - BODY_H, 0, Z_FIRE)
-sock_body = (cyl_x(2 * _B, X_BODY_TOP - BODY_H, X_BODY_TOP, 0, Z_FIRE)
-             .fuse(cyl_x(2 * _r2, X_BODY_TOP - BODY_H, X_BODY_TOP, 0, Z_FIRE + chamber_x))
+_x_cap0 = X_BODY_TOP - BODY_H - CAP_T - SOCK_AXIAL
+_x_body1 = X_BODY_TOP                              # the body's face stays the stop; no big mouth past it
+sock_cap = cyl_x(2 * _B, _x_cap0, X_BODY_TOP - BODY_H, 0, Z_FIRE)
+sock_body = (cyl_x(2 * _B, X_BODY_TOP - BODY_H, _x_body1, 0, Z_FIRE)
+             .fuse(cyl_x(2 * _r2, X_BODY_TOP - BODY_H, _x_body1, 0, Z_FIRE + chamber_x))
              .fuse(prism_x([(-_B * math.sin(_phi), _B * math.cos(_phi) + Z_FIRE),
                             (-_r2 * math.sin(_phi), chamber_x + _r2 * math.cos(_phi) + Z_FIRE),
                             (_r2 * math.sin(_phi), chamber_x + _r2 * math.cos(_phi) + Z_FIRE),
                             (_B * math.sin(_phi), _B * math.cos(_phi) + Z_FIRE)],
-                           X_BODY_TOP - BODY_H, X_BODY_TOP)))
+                           X_BODY_TOP - BODY_H, _x_body1))
+             .fuse(Part.makeCompound([cyl_x(TIP_POCKET_D, X_BODY_TOP,
+                                           X_BODY_TOP + TIP_PAST_FACE + TIP_POCKET_EXTRA,
+                                           -_p.y, Z_FIRE + _p.x) for _p in rod_pts])))
 
 
 # ---------------------------------------------------------------- frame shell
