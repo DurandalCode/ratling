@@ -22,9 +22,10 @@ dressed as archive/pistol_assembly.py (the lever variant):
                 frame splits at z = 8 into a lower and an upper half, and
                 the five printed parts (the halves, the right plate, and the
                 left plate split into a wall and a flank band). The halves
-                and the plates register on tongue/groove pairs; the band
-                takes the ball's semicircle (above the slab) and locks to
-                the wall on one tongue at the slab's top (x -101..-98)
+                and the plates register on tongue/groove pairs, including one
+                on the crown seam at x -32; the band takes the ball's
+                semicircle (above the slab) and locks to the wall on one
+                tongue at the slab's top (x -101..-98)
     grip ...... the rag-wrapped wooden grip, warpstone pommel with the
                 hose; it butts the slab's underside
 
@@ -656,8 +657,11 @@ frame_upper = frame_upper.cut(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0))
 # The side assemblies come off. Glue the left wall to its band (that tongue stays);
 # the right cover is already one piece. Both bolt to the centre, they are not glued
 # to it. The tongues stay as locators, 0.2 mm a side, and slide off along y.
-# One more tongue a side up on the ball's rear shell (x -100, z 12), the only place
-# the top of the side and the top of the centre both have a wall.
+# One tongue a side on the ball's rear shell (x -100, z 12), and one more forward
+# on the crown's seam (x -32, z 29..32), where the lid sits on the sides. The left
+# lid already has a wall beside the band there. The right shell sits further out,
+# so a pad hangs off the lid's shoulder and the tongue enters that. Both slide off
+# along y, 0.2 mm clear, same as the rear pair.
 for _side, _x, _z in (("left", -100.0, 12.0), ("right", -100.0, 12.0)):
     if _side == "left":
         side_band = side_band.fuse(box(_x - TG_W / 2, _x + TG_W / 2, -20.0, -17.0, _z - TG_W / 2, _z + TG_W / 2))
@@ -667,6 +671,12 @@ for _side, _x, _z in (("left", -100.0, 12.0), ("right", -100.0, 12.0)):
         side_plate_r = side_plate_r.fuse(box(_x - TG_W / 2, _x + TG_W / 2, 17.0, 20.0, _z - TG_W / 2, _z + TG_W / 2))
         frame_upper = frame_upper.cut(box(_x - TG_W / 2 - TG_CLEAR, _x + TG_W / 2 + TG_CLEAR,
                                           20.0 - TG_H - 0.3, 20.1, _z - TG_W / 2 - TG_CLEAR, _z + TG_W / 2 + TG_CLEAR))
+_CX = -32.0
+frame_upper = frame_upper.fuse(box(_CX - 2.2, _CX + 2.2, 19.2, 23.2, 28.6, 34.8))
+side_plate_r = side_plate_r.fuse(box(_CX - 1.5, _CX + 1.5, 20.2, 27.0, 29.4, 32.0))
+frame_upper = frame_upper.cut(box(_CX - 1.7, _CX + 1.7, 20.0, 23.6, 29.2, 32.05))
+side_band = side_band.fuse(box(_CX - 1.5, _CX + 1.5, -23.0, -17.4, 29.4, 32.0))
+frame_upper = frame_upper.cut(box(_CX - 1.7, _CX + 1.7, -20.05, -17.2, 29.2, 32.05))
 # M3 bolts, head on the outside, nut in the centre. The pocket opens on the joint
 # face, so the plate keeps the nut. Lower pair in the tray: the right ones pass
 # the cheek (x -78 and -70 sit between the AirTAC, which ends at x -82.5, and the
@@ -825,6 +835,17 @@ if CHECKS:
     checks["the left dress plate clears the tongue (%.2f mm3)" % _dv] = _dv < 0.05
     checks["right plate is one sound solid (%.0f mm3, %d solids)" % (side_plate_r.Volume, len(side_plate_r.Solids))] = \
         side_plate_r.isValid() and len(side_plate_r.Solids) == 1 and side_plate_r.Volume > 15000
+    _tip_r = side_plate_r.common(box(-33.5, -30.5, 19.8, 23.2, 29.4, 32.0))
+    _tip_l = side_band.common(box(-33.5, -30.5, -20.0, -17.4, 29.4, 32.0))
+    checks["crown tongues seat in the lid (R %.1f, L %.1f mm3) and clear it (%.3f)" % (
+        _tip_r.Volume, _tip_l.Volume, hit(_tip_r, frame_upper) + hit(_tip_l, frame_upper))] = \
+        _tip_r.Volume > 8 and _tip_l.Volume > 8 and hit(_tip_r, frame_upper) + hit(_tip_l, frame_upper) < 0.05
+    checks["crown tongues slide off along y (%.3f mm3)" % (
+        hit(_tip_r.translated(V(0, 6, 0)), frame_upper) + hit(_tip_l.translated(V(0, -6, 0)), frame_upper))] = \
+        hit(_tip_r.translated(V(0, 6, 0)), frame_upper) + hit(_tip_l.translated(V(0, -6, 0)), frame_upper) < 0.05
+    checks["crown tongues locate along x (%.1f mm3)" % (
+        hit(_tip_r.translated(V(1.5, 0, 0)), frame_upper) + hit(_tip_l.translated(V(1.5, 0, 0)), frame_upper))] = \
+        hit(_tip_r.translated(V(1.5, 0, 0)), frame_upper) > 2 and hit(_tip_l.translated(V(1.5, 0, 0)), frame_upper) > 2
     _gap = VALVE_SOCK - 0.2
     checks["QEV socket: the stack meets nothing %.1f mm off its seat sideways (room for the sealant)" % _gap] = \
         all(v_ < 0.05 for v_ in (valve_cap.translated(V(0, _gap, 0)).common(frame).Volume,
@@ -976,8 +997,8 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Grip_right": "half: 2 x ST2.9 x 13 down through the slab's floor into the wood",
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
             "Frame_side": "the slab's wall: joint face down, no raft. Glued to the band; the pair bolts to the centre (not glued to it). 2 x M3 x 8 into the tray, nuts in the tray, x -88 and -48, z -58. The band's tongue at the slab's top, x -101..-98",
-            "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into the bosses. Glued to the wall, slides on from the rear before the glue. 1 x M3 x 8 into the lid (nut in a pad, x -100, z 0) and a 3 mm tongue into the lid at x -100, z 12",
-            "Frame_right": "the right cover, one piece, bolts to the centre: 2 x M3 x 30 through the cheek into the tray (x -78 and -70, z -58, head seat Ø6.2) and 1 x M3 x 8 into the lid (x -100, z 0, nut in a pad), plus a 3 mm tongue into the lid at z 12. Also the Ø8 axle and 1 x M3 x 10 through the rear wall into the tray (x -104, z -65)",
+            "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into the bosses. Glued to the wall, slides on from the rear before the glue. 1 x M3 x 8 into the lid (nut in a pad, x -100, z 0), a 3 mm tongue into the lid at x -100, z 12, and another at the crown seam, x -32, z 29..32",
+            "Frame_right": "the right cover, one piece, bolts to the centre: 2 x M3 x 30 through the cheek into the tray (x -78 and -70, z -58, head seat Ø6.2) and 1 x M3 x 8 into the lid (x -100, z 0, nut in a pad), plus a 3 mm tongue into the lid at z 12 and another into a pad on the lid's shoulder at x -32, z 29..32. Also the Ø8 axle and 1 x M3 x 10 through the rear wall into the tray (x -104, z -65)",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 94: the slider's guide. The bore is open at the ceiling and blind in the foot (1.2 mm of floor under the rod, the underside stays closed), the rod ends in the stop", "Trigger": "pivot: M3 x 16 screw + nylock nut",
