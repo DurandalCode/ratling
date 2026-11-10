@@ -272,3 +272,41 @@ slip clutch are still the ones a valve head would reuse.
    on its step; let go before it, it does not.
 6. **Life.** 1000 steps by crank with stops in between; then 1 and 2
    again.
+
+## Mitrailleuse head, bench D — one bought valve, by hand
+
+*Test article: `mitrailleuse/valve_bench.py`* and one v4.4 module. One of the
+twenty push-button valves, strapped down button-up, and a slider that is the
+rotor's cam laid flat: 0.5 mm off the cap at rest, then a 12 mm ramp that
+presses 2.0 of the drawing's 2.4 stroke and presses no deeper however far
+you push. Pull it back and the button is free. Nothing printed carries air.
+A barb in P from the regulator, a barb in A to the module's pilot on a 4 mm
+hose, R left open. That is the head's piping on a single valve: supply from
+outside, exhaust local, A to the pilot. It does not test nineteen in a ring,
+the plate tunnel, the 8 mm bend or the header.
+
+0. **The valve, before it is bolted in.** The free button must come back by
+   itself. If it stays down, the cam cannot release it and the head is
+   wrong. Blow the three ports. Rest has to be A joined to R and P shut, so
+   the pilot is empty until the button is down. Supply in P and exhaust out
+   of R is the piping drawn. If that is backwards and only supply in R gives
+   an empty pilot, write it down: the head's P and R swap. If neither way
+   gives an empty pilot at rest and a charged pilot when pressed, the valves
+   do not fit the rotor.
+1. **Hold.** Bolted in, 2 bar, slider at rest: soap on A and on the open R,
+   the module stays empty.
+2. **Charge.** Push onto the dwell and hold. Time until the module is full.
+   The v1.1 bench was about 0.5 s through the Ø1.0 bleed; write this one down.
+3. **Fire.** Pull the slider back. The module fires, as cleanly as it did
+   from the valve on the v1.1 bench. A slow hiss means the open R, or the
+   hose, is holding the pilot up.
+4. **Force.** A spring scale on the slider as it climbs the ramp, with no
+   air and at 2 bar. This is the number the rotor torque is waiting on.
+5. **Quiet dump.** Charge, shut the supply, open the Ø0.5 jet on the supply
+   tee (the same bought fitting as bench B): the module must not fire. A
+   parked rotor still holds two buttons down, and this is how those chambers
+   empty.
+6. **Stroke.** The dwell is 2.0 mm on the drawing's 12.5 mm stack. If the
+   real cap is high and the slider bottoms without switching, file the pad.
+   If it is low and 2.0 does not switch, tape the pad. Write how far off
+   the drawing was.
