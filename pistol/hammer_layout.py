@@ -466,7 +466,7 @@ def _trigger_blank():
     c.interpolate(pts, PeriodicFlag=True)
     t = t.fuse(Part.Face(Part.Wire(c.toShape())).extrude(V(0, TRIGGER_WIDTH, 0)))       # the sickle blade
     t = t.fuse(box(-13.0, -2.0, -TRIGGER_WIDTH / 2, TRIGGER_WIDTH / 2, -5.0, -1.0))     # the rear lug, its top = the stop
-    t = t.fuse(box(-14.0, -7.0, 2.8, 20.0, -5.0, -1.5))                                 # the wide pad under the plunger
+    t = t.fuse(box(-14.0, -7.0, 2.8, 26.0, -5.0, -1.5))                                 # the wide pad under the plunger (y 21)
     for z_ in (-15.0, -18.0, -21.0):                                                    # finger grooves in the hollow
         g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(28.0 + 3.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, z_), YA)
         t = t.cut(g)
@@ -476,21 +476,44 @@ def _trigger_blank():
 TRIGGER = _trigger_blank()
 
 # ---------------------------------------------------------------- vent valve: an AirTAC M3R110-06 without its roller
-# Stage 2: it stands vertical in the frame's rear column, plunger down, shifted right off the hammer's
-# comb (y +7.5..+26): the body is 42.5 along z (the plunger axis), 27 along x, 18.5 along y. The trigger's
-# rear lug lifts the plunger from below. Ports after the turn: A on the y-min face, its elbow turning
-# forward (the pilot runs up into the room); R on the y-max face, its elbow turning rear (the supply
-# drops outside to the grip); P a silencer out the y-max face. It drops into a close-fit socket in the
-# frame (side plate off) and stands on two printed feet: no fasteners. The spool shifts in the plunger's
-# 2..3 mm; the lug's shoulder meeting the valve's bottom face is the trigger's stop.
-AIRTAC = dict(L=46.5, W=27.0, T=18.0, plunger=(6.0, 3.0), elbow=(11.0, 6.5, 12.0),
-              ports={"A": (21.0, -1, +1), "R": (14.0, +1, -1)}, P=(27.0, +1), holes=((14.0, -10.0), (28.0, -10.0), (21.0, 5.8)))
+# Catalog drawing of the M3B110-06 body (the R head is only the roller), stem end up on the sheet:
+# A 27 wide, B 18 thick, D 46.5 the rectangle, C 52 out to the stem boss. Three PT1/8 ports, and they
+# are on the narrow faces (width B), not on the wide faces:
+#   one narrow face carries two, PB = 15.5 from the end opposite the stem up to the lower centre and
+#   PA = 16 between centres, so the upper centre is 31.5. That upper port is the exhaust: the catalog
+#   puts the exhaust over the body so a silencer screws on there.
+#   the opposite narrow face carries one, PC = 23.5 from the same end.
+# The owner's valve (roller already off) is stamped: R is the hole next to the stem, P the far hole
+# on that same narrow face, A the single hole on the opposite face. The sticker's symbol is the
+# closed one (at rest A–R, pressed P–A). Supply and exhaust are swapped, so the valve is normally
+# open: the receiver feeds R and the silencer sits on P. The pilot on A is charged at rest and dumps
+# when the plunger is pushed.
+# Stood plunger-down, the catalog's stem end is z = VENT_Z0, so a catalog height h sits D - h above
+# the plunger face: R 15.0, P 31.0, A 23.0.
+# The ports are on the narrow faces (the face is B = 18 wide); the wide face (A = 27) has the three
+# Ø3.3 holes. The fittings are straight R1/8 push-ins (thread inside the port): Ø10 x 20 on A for the
+# 4 mm pilot, Ø12 x 22 on R for the 6 mm supply. The silencer on P is straight too. An elbow on the
+# forward face would meet the QEV cap 7 mm ahead of it, so the valve is turned about the plunger and
+# the narrow faces point left and right: along x the body is the 18 mm thickness, along y the 27 mm
+# width. A leaves straight to the left, P and R straight to the right (P above R). The left face stays
+# at y = VENT_Y0, clear of the hammer, so the plunger sits at y 21 and the trigger's pad reaches y 26.
+# The holes run through the 18 mm thickness (KA 18, KB 15.5, KC 16): the pair 18 apart across the
+# width, one on the centre. The valve is not screwed down. It drops into a close-fit socket (side
+# plate off) and stands on two printed feet. The spool shifts in the plunger's 2..3 mm; the lug's
+# shoulder on the valve's bottom face is the trigger's stop.
+AIRTAC = dict(L=46.5, W=18.0, T=27.0, plunger=(6.0, 3.0),
+              straight={"A": (10.0, 20.0), "R": (12.0, 22.0)},   # (od, stick-out) of a straight R1/8 push-in
+              silencer=(8.0, 14.0),
+              ports={"A": 23.0, "R": 15.0, "P": 31.0},
+              holes=((-9.0, 31.0), (9.0, 31.0), (0.0, 15.0)))   # (offset across the width, height from the plunger face)
 VENT_X, VENT_Y0, VENT_Z0 = -91.5, 7.5, -62.2     # the body: x centre, y min, bottom face (standing on its feet).
 # 1 mm further back since 2026-11-08: the AirTAC's front face was 0.3 mm into the bottom-right tie-rod
 # head's pocket (the head stands 6.3 mm off the cap's back face at y +18.7, z -45.7). And 2 mm lower:
 # the real body is 46.5 tall (the catalog's D) - at -60.2 its top-right corner sat inside the sleeve's
 # bottom segment; a notch there would not survive the swing (the sleeve's material rotates into it).
 # At -62.2 the valve's top (-15.7) is below the sleeve's bottom (-15) over the whole swing.
+# Turned about the plunger (2026-11-09) the body is 18 along x, so the front face sits at x -82.5,
+# 4.5 mm further from that tie-rod head than the 27 mm body was.
 VENT_GAP = 0.3                      # the pad's face to the plunger's tip at rest
 VENT_SWITCH = 2.0                   # measured on the bench M3R110: it clicks over ~2 mm into the plunger's travel
 
@@ -509,27 +532,36 @@ VENT_PUSH = _z_at(TRIGGER_TRAVEL) - _z_at(0.0) - VENT_GAP      # the shoulder's 
 
 
 def vent_port(name):
-    """Where the tube leaves the port's elbow, and which way (unit vector, out of the fitting)."""
-    d, side, up = AIRTAC["ports"][name]
-    e = AIRTAC["elbow"]
-    y_ = VENT_Y0 if side < 0 else VENT_Y0 + AIRTAC["T"]
-    return V(VENT_X, y_ + side * e[1], VENT_Z0 + d), V(up, 0, 0)     # standing: the elbow turns fore / aft
+    """Where the tube leaves the straight fitting, and which way (unit vector, out of the fitting)."""
+    a = AIRTAC
+    z = VENT_Z0 + a["ports"][name]
+    y0, y1 = VENT_Y0, VENT_Y0 + a["T"]
+    if name == "A":                                          # left face, the push-in points left
+        return V(VENT_X, y0 - a["straight"]["A"][1], z), V(0, -1, 0)
+    if name == "R":                                          # right face, the push-in points right
+        return V(VENT_X, y1 + a["straight"]["R"][1], z), V(0, 1, 0)
+    return V(VENT_X, y1 + a["silencer"][1], z), V(0, 1, 0)   # the silencer, straight out
 
 
 def _vent_valve():
-    a, e = AIRTAC, AIRTAC["elbow"]
-    body = box(VENT_X - a["W"] / 2, VENT_X + a["W"] / 2, VENT_Y0, VENT_Y0 + a["T"], VENT_Z0, VENT_Z0 + a["L"])
-    for d, y in a["holes"]:                                   # the M3 holes, along y through the valve
-        body = body.cut(Part.makeCylinder(1.6, a["T"] + 2, V(VENT_X + y, VENT_Y0 - 1, VENT_Z0 + d), YA))
+    a = AIRTAC
+    x0, x1 = VENT_X - a["W"] / 2, VENT_X + a["W"] / 2
+    y0, y1 = VENT_Y0, VENT_Y0 + a["T"]
+    yc = (y0 + y1) / 2
+    body = box(x0, x1, y0, y1, VENT_Z0, VENT_Z0 + a["L"])
+    for hy, hz in a["holes"]:                                # Ø3.3 through the 18 mm thickness
+        body = body.cut(Part.makeCylinder(1.65, a["W"] + 2, V(x0 - 1, yc + hy, VENT_Z0 + hz), XA))
     fit = []
-    for name, (d, side, up) in a["ports"].items():
-        y_ = VENT_Y0 if side < 0 else VENT_Y0 + a["T"]
-        fit.append(Part.makeCylinder(e[0] / 2, e[1] + e[0] / 2, V(VENT_X, y_, VENT_Z0 + d), V(0, side, 0)))
-        fit.append(Part.makeCylinder(e[0] / 2, e[2], V(VENT_X, y_ + side * e[1], VENT_Z0 + d), V(up, 0, 0)))
-    d, side = a["P"]
-    fit.append(Part.makeCylinder(4.0, 10.0, V(VENT_X, VENT_Y0 + a["T"], VENT_Z0 + d), V(0, side, 0)))   # silencer
+    od, stick = a["straight"]["A"]
+    za = VENT_Z0 + a["ports"]["A"]
+    fit.append(Part.makeCylinder(od / 2, stick, V(VENT_X, y0, za), V(0, -1, 0)))
+    od, stick = a["straight"]["R"]
+    zr = VENT_Z0 + a["ports"]["R"]
+    fit.append(Part.makeCylinder(od / 2, stick, V(VENT_X, y1, zr), V(0, 1, 0)))
+    zp = VENT_Z0 + a["ports"]["P"]
+    fit.append(Part.makeCylinder(a["silencer"][0] / 2, a["silencer"][1], V(VENT_X, y1, zp), V(0, 1, 0)))
     plunger = Part.makeCylinder(a["plunger"][0] / 2, a["plunger"][1] + 0.01,
-                                V(VENT_X, VENT_Y0 + a["T"] / 2, VENT_Z0), V(0, 0, -1))   # pointing down at the pad
+                                V(VENT_X, yc, VENT_Z0), V(0, 0, -1))   # pointing down at the pad
     return body, Part.makeCompound(fit), plunger
 
 

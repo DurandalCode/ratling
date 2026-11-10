@@ -99,8 +99,12 @@ O = V(0, 0, 0)
 _pin_at = V(X_OPEN + LOCK_STROKE, 0, 0)
 pusher_body = ring.fuse(lug).translated(_pin_at)
 pusher_pin = cam_pin.translated(_pin_at)
-_fx = {"A": VENT_FRONT - AIRTAC["ports"]["A"][0], "R": VENT_FRONT - AIRTAC["ports"]["R"][0], "P": VENT_FRONT - AIRTAC["P"][0]}
-fit = {k: Part.makeCompound([f for f in vent_fittings.Solids if abs(f.BoundBox.Center.x - x_) < 3.0]) for k, x_ in _fx.items()}
+_pz = {k: VENT_Z0 + AIRTAC["ports"][k] for k in ("A", "R", "P")}
+fit = {}
+for _f in vent_fittings.Solids:                              # an elbow's two cylinders share the port's height
+    _k = min(_pz, key=lambda n: abs(_f.BoundBox.Center.z - _pz[n]))
+    fit.setdefault(_k, []).append(_f)
+fit = {k: Part.makeCompound(v) for k, v in fit.items()}
 stack = [(valve_body, PRINT), (valve_cap, PRINT2), (lock_housing_h, PRINT), (sleeve_r, PRINT3), (pusher_r, PRINT), (axle, METAL),
          (axle_plug, PRINT2)]
 SUBS = [
