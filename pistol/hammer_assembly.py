@@ -27,7 +27,7 @@ dressed as archive/pistol_assembly.py (the lever variant):
                 semicircle (above the slab) and locks to the wall on one
                 tongue at the slab's top (x -101..-98)
     grip ...... the rag-wrapped wooden grip, warpstone pommel with the
-                hose; it butts the slab's underside
+                hose; it glues up under the slab, registered by two tongues
 
 Shapes for the look and for checking that the mechanism fits; not parts.
 Frame: x forward, y to the right seen from behind, z up.
@@ -91,7 +91,9 @@ except NameError:
 SIDE_BOSSES = ((-50.0, 22.0), (-10.0, 22.0), (-30.0, 30.0), (-70.0, 30.0), (-90.0, 6.0))   # x, z: clear of the QEV stack and the hammer's swing
 BOSS_D, BOSS_L = 8.0, 10.0
 TRIGGER_CHEEKS = dict(x=(-84.0, -76.0), y=(3.3, 7.0))          # the trigger's pivot (an M3 screw and nut) between them
-GRIP_SCREWS = ((-104.0, 18.0), (-104.0, -18.0))   # x, y: down through the slab's floor into 24 mm of grip wood
+# The grip glues up under the slab. Two tongues (one in each half) locate it;
+# see GRIP_TONGUES below. No screws: the rear slab is solid, and the old pair
+# at y ±18 missed the wood.
 VALVE_BOX_Y = 33.0                  # the tang is a box under the frame round the vent valve and its fittings
 GUARD_TAB = dict(x=(-9.0, -5.0), y=5.0, t=11.0)   # the guard's front tab, under the slab's floor
 SPUR_SLOT = dict(a=(58.0, 210.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
@@ -443,15 +445,11 @@ if len(side_plate.Solids) > 1:            # and the crumbs it used to leave: kee
 _tick('side plate cut')
 skin = skin.cut(shaft_holes).cut(detent_box)
 
-# ---------------------------------------------------------------- grip on screws; the guard's tab
-# The grip butts the slab's underside, held by two ST2.9 down through the slab's floor into 24 mm of
-# wood, plus the glue faces. The vent valve needs no fasteners: it drops into its socket from the room
+# ---------------------------------------------------------------- the guard's tab
+# The vent valve needs no fasteners: it drops into its socket from the room
 # (side plate off) and stands on the two feet. The guard's front tab takes one ST2.9 down through the
 # floor; its rear end glues into the grip's wood.
-grip_pilots = Part.makeCompound([Part.makeCylinder(1.25, 9.0, V(x_, y_, fz[0] - 9.0), ZA) for x_, y_ in GRIP_SCREWS])
-floor_holes = Part.makeCompound([Part.makeCylinder(1.7, 6.0, V(x_, y_, SLAB["z"][0] - 1.0), ZA)
-                                 for x_, y_ in GRIP_SCREWS + ((sum(GUARD_TAB["x"]) / 2, 0.0),)])
-grip = grip.cut(grip_pilots)
+floor_holes = Part.makeCompound([Part.makeCylinder(1.7, 6.0, V(sum(GUARD_TAB["x"]) / 2, 0.0, SLAB["z"][0] - 1.0), ZA)])
 frame, skin = frame.cut(floor_holes), skin.cut(floor_holes)
 
 
@@ -564,6 +562,15 @@ spikes += [spike(V(X_AXLE_END + s_t / 2, sd_ * s_w, STRAP["z"][1] - 8), V(0.3, s
 _tick('supports built')
 
 grip = grip.cut(air_cut)            # the shell is not grooved: a soft tube will not sit in a printed channel
+# Two 3 mm tongues, one in each half, up into the tray's floor. The right one sits
+# out at y 12: the supply hose owns the centre of that face, and the valve socket
+# starts just forward of it, so that tongue is open toward +x. The left one stops
+# the glued pair both ways. 0.2 mm clear, and the grip lifts off downward. The
+# groove stops 4 mm short of the valve's socket floor.
+GRIP_TONGUES = ((-102.0, -10.0), (-98.0, 12.0))    # x, y, on the floor's underside
+for _x, _y in GRIP_TONGUES:
+    grip = grip.fuse(box(_x - 1.5, _x + 1.5, _y - 1.5, _y + 1.5, -73.0, -67.0))
+    frame = frame.cut(box(_x - 1.7, _x + 1.7, _y - 1.7, _y + 1.7, -70.3, -66.8))
 if len(frame.Solids) > 1:            # crumbs from the earlier cuts: keep only the body
     frame = max(frame.Solids, key=lambda q: q.Volume)
 grip = max(grip.Solids, key=lambda q: q.Volume) if len(grip.Solids) > 1 else grip
@@ -846,6 +853,21 @@ if CHECKS:
     checks["crown tongues locate along x (%.1f mm3)" % (
         hit(_tip_r.translated(V(1.5, 0, 0)), frame_upper) + hit(_tip_l.translated(V(1.5, 0, 0)), frame_upper))] = \
         hit(_tip_r.translated(V(1.5, 0, 0)), frame_upper) > 2 and hit(_tip_l.translated(V(1.5, 0, 0)), frame_upper) > 2
+    _gL = grip_left.common(box(-103.5, -100.5, -11.5, -8.5, -70.05, -67.0))
+    _gR = grip_right.common(box(-99.5, -96.5, 10.5, 13.5, -70.05, -67.0))
+    checks["grip tongues seat in the tray (L %.1f, R %.1f mm3) and clear it (%.3f)" % (
+        _gL.Volume, _gR.Volume, hit(_gL, frame_lower) + hit(_gR, frame_lower))] = \
+        _gL.Volume > 15 and _gR.Volume > 15 and hit(_gL, frame_lower) + hit(_gR, frame_lower) < 0.05
+    checks["grip tongues lift off downward (%.3f mm3)" % (
+        hit(_gL.translated(V(0, 0, -4)), frame_lower) + hit(_gR.translated(V(0, 0, -4)), frame_lower))] = \
+        hit(_gL.translated(V(0, 0, -4)), frame_lower) + hit(_gR.translated(V(0, 0, -4)), frame_lower) < 0.05
+    # The right tongue is open forward: the valve socket starts just ahead of it.
+    # The left one stops the glued pair both ways.
+    _lx = hit(_gL.translated(V(1.5, 0, 0)), frame_lower) + hit(_gL.translated(V(-1.5, 0, 0)), frame_lower)
+    _rx = hit(_gR.translated(V(-1.5, 0, 0)), frame_lower)
+    checks["grip tongues locate along x (left %.1f both ways, right %.1f rearward)" % (_lx, _rx)] = _lx > 8 and _rx > 2
+    checks["grip halves are one solid each (%d, %d)" % (len(grip_left.Solids), len(grip_right.Solids))] = \
+        grip_left.isValid() and grip_right.isValid() and len(grip_left.Solids) == 1 and len(grip_right.Solids) == 1
     _gap = VALVE_SOCK - 0.2
     checks["QEV socket: the stack meets nothing %.1f mm off its seat sideways (room for the sealant)" % _gap] = \
         all(v_ < 0.05 for v_ in (valve_cap.translated(V(0, _gap, 0)).common(frame).Volume,
@@ -993,8 +1015,8 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Top_strap": "2 x M3 x 40 + nuts down through its foot into the cage's top",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its front tab, rear end glued into the grip's wood",
-            "Grip_left": "half: glued to the right on 2 x Ø3 x 12 dowels",
-            "Grip_right": "half: 2 x ST2.9 x 13 down through the slab's floor into the wood",
+            "Grip_left": "half: glued to the right on 2 x Ø3 x 12 dowels, then glued up under the tray. A 3 mm tongue into the floor at x -102, y -10",
+            "Grip_right": "half: glued up under the tray. A 3 mm tongue into the floor at x -98, y 12 (clear of the supply hose)",
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
             "Frame_side": "the slab's wall: joint face down, no raft. Glued to the band; the pair bolts to the centre (not glued to it). 2 x M3 x 8 into the tray, nuts in the tray, x -88 and -48, z -58. The band's tongue at the slab's top, x -101..-98",
             "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into the bosses. Glued to the wall, slides on from the rear before the glue. 1 x M3 x 8 into the lid (nut in a pad, x -100, z 0), a 3 mm tongue into the lid at x -100, z 12, and another at the crown seam, x -32, z 29..32",
