@@ -8,10 +8,14 @@ The ring numbers come from valve_rotor.py. Ports, from the order drawing and the
 holes and no ports.
 
 Stack, muzzle at z = 0, breech toward +z. The head plate is the existing disc (R 98, 10 mm). On its
-breech face a cage of ribs holds the bodies, a retainer clamps them, and a guide ring limits each
-pusher to 2.2 mm so it cannot drive the button past the valve's 2.4 mm stop. The face cam rises
-2.3 mm: 0.3 mm of that is running clearance, so a free button is not rubbed and a pressed one is
-down 2.0 mm.
+breech face a cage of ribs holds the bodies and a retainer clamps them. The face cam bears on the
+buttons themselves: its face sits 0.3 mm off a free button and the lobe presses 2.0 mm, short of
+the valve's own 2.4 mm stop. No separate pushers.
+
+Tubes are straight. A leaves the outer face radially, past the plate rim. P and R run inward to
+two rings (supply is the upper ring, exhaust the lower one). Each ring has its own straight pipe
+down through the plate, so the supply and the exhaust both come out under the head. The cam is a
+solid disc, so those pipes cannot rise through it.
 
   freecadcmd -c "REPO='$PWD'; exec(open('mitrailleuse/valve_head.py').read())"
 """
@@ -43,18 +47,21 @@ PLATE_R, PLATE_T = VR["HEAD_PLATE_R"], 10.0
 PLATE_BORE = 12.0
 SHAFT_D = 8.0
 DEPRESS = VR["PRESS"]        # button travel under the lobe
-APPROACH = 0.3               # base circle stays this clear of a free pusher
+APPROACH = 0.3               # disc face stays this clear of a free button
 LOBE_H = DEPRESS + APPROACH  # 2.3; the valve's own stop is 2.4
-HARD = 2.2                   # pusher flange hits the guide here, short of 2.4
-PUSHER_L = 18.0
-PUSHER_D, NOSE_D = 4.0, 3.0
 PORT_D = 8.0                 # Rc1/8, shown as a plain hole; the thread is not modelled
 PORT_PITCH = 9.5             # order drawing, P to R along the button axis
+SPOKE_OD = 6.0               # straight tubes, P and R; thinner than the port so they clear
+A_OD = 8.0                   # straight tube on A
+A_STICKOUT = 22.0            # past the outer face; the plate rim is inside this
+MAN_R_P, MAN_R_R = 36.0, 48.0
+MAN_TUBE_R = 3.0             # ring tube radius; the two rings stay 9.5 mm apart in z
+FEED_OD = 4.0
+FEED_DOWN = 22.0             # both pipes stick out of the muzzle face of the plate
 POCKET_CLEAR = 0.4           # valve drops into the cage
 RIB_T = 2.2                  # thinner than the 3 mm inner-corner gap
 RETAINER_T = 3.0
 RETAINER_HOLE = 18.0         # clears the nut's corners (14 mm across flats is 16.2 across corners)
-GUIDE_T = 3.0
 CAM_T = 8.0
 FITS = []
 
@@ -129,14 +136,12 @@ z_body1 = z_body0 + BODY_H
 z_tip = z_body0 + OVERALL          # free button tip
 z_ret0 = z_body1
 z_ret1 = z_body1 + RETAINER_T
-# pusher nose sits on the button. Free tail clears the cam base by APPROACH.
-z_tail_free = z_tip + PUSHER_L
-z_cam_base = z_tail_free + APPROACH          # the disc's valve-side face
+z_mid = z_body0 + BODY_H / 2.0
+z_port_r = z_mid - PORT_PITCH / 2.0          # R, toward the muzzle, as on the sketch
+z_port_p = z_mid + PORT_PITCH / 2.0          # P, toward the button
+# disc face clears a free button by APPROACH; the lobe reaches the pressed tip
+z_cam_base = z_tip + APPROACH
 z_cam_back = z_cam_base + CAM_T
-# guide: the flange has HARD mm of travel before it hits, and the working press uses DEPRESS.
-z_guide1 = z_tip + 7.0
-z_guide0 = z_guide1 - GUIDE_T
-z_flange_free = z_guide1 + HARD              # flange's valve-side face, button fully out
 
 
 def valve_angle(j):
@@ -171,35 +176,50 @@ def valve_shape(j):
         holes.append(Part.makeCylinder(PORT_D / 2.0, 14.0, App.Vector(0, y0 - 1.0, z_mid + dz),
                                        App.Vector(0, 1, 0)))
     body = body.cut(holes)
-    stubs = [Part.makeCylinder(PORT_D / 2.0, 5.0, App.Vector(0, y0 + RADIAL, z_mid), App.Vector(0, 1, 0))]
-    for dz in (-PORT_PITCH / 2.0, PORT_PITCH / 2.0):
-        stubs.append(Part.makeCylinder(PORT_D / 2.0, 6.0, App.Vector(0, y0, z_mid + dz), App.Vector(0, -1, 0)))
     nut = hex_prism(NUT_AF, 3.2, z_ret1 + 0.2, 0, R).cut(cyl(11.0, z_ret1, z_ret1 + 4.0, 0, R))
     button = cyl(BUTTON_D, z_ret1 + 3.5 - down, z_tip - down, 0, R)
-    shape = body.fuse(stubs).fuse(nut).fuse(button)
+    shape = body.fuse(nut).fuse(button)
     return spun(shape, math.degrees(ang - math.pi / 2.0))
 
 
-def elbow_shape(j):
-    """Rc1/8 elbow on A: out, then toward the muzzle, past the plate rim."""
-    ang = valve_angle(j)
-    y0 = R + RADIAL / 2.0
-    z_mid = z_body0 + BODY_H / 2.0
-    radial = Part.makeCylinder(4.5, 16.0, App.Vector(0, y0, z_mid), App.Vector(0, 1, 0))
-    out_y = y0 + 16.0
-    down = Part.makeCylinder(4.5, 22.0, App.Vector(0, out_y, z_mid - 22.0), App.Vector(0, 0, 1))
-    return spun(radial.fuse(down), math.degrees(ang - math.pi / 2.0))
+def radial_tube(r0, r1, z, od):
+    """Straight tube along +Y from r0 to r1. r1 may be inside r0."""
+    lo, hi = (r0, r1) if r1 > r0 else (r1, r0)
+    return Part.makeCylinder(od / 2.0, hi - lo, App.Vector(0, lo, z), App.Vector(0, 1, 0))
 
 
-def pusher_shape(j):
-    ang = valve_angle(j)
-    down = DEPRESS if depressed(j) else 0.0
-    x, y = polar(R, ang)
-    nose = z_tip - down
-    tail = nose + PUSHER_L
-    pin = cyl(NOSE_D, nose, nose + 3.0, x, y).fuse(cyl(PUSHER_D, nose + 3.0, tail, x, y))
-    flange = cyl(8.0, z_flange_free - down, z_flange_free - down + 2.0, x, y)
-    return pin.fuse(flange)
+def spun_at(shape, j):
+    return spun(shape, math.degrees(valve_angle(j) - math.pi / 2.0))
+
+
+def outlet_shape(j):
+    """Straight tube on A, radially out, past the plate rim. No turn toward the muzzle."""
+    face = R + RADIAL / 2.0
+    tube = radial_tube(face, face + A_STICKOUT, z_mid, A_OD)
+    return spun_at(tube, j)
+
+
+def spoke_shape(j, z, ring_r):
+    """Straight tube from inside the ring tube to 3 mm into the Ø8 hole."""
+    face = R - RADIAL / 2.0
+    tube = radial_tube(ring_r + 1.0, face + 3.0, z, SPOKE_OD)
+    return spun_at(tube, j)
+
+
+def ring_shape(major, z):
+    ring = Part.makeTorus(major, MAN_TUBE_R)
+    ring.translate(App.Vector(0, 0, z))
+    return ring
+
+
+def feed_angle(k):
+    """Between two valves, so the riser misses the spokes. Opposite sides for P and R."""
+    return valve_angle(0) - step / 2.0 + k * math.pi
+
+
+def feed_shape(k, major, z0, z1):
+    x, y = polar(major, feed_angle(k))
+    return cyl(FEED_OD, z0, z1, x, y)
 
 
 def cage():
@@ -221,26 +241,20 @@ def retainer():
     return s
 
 
-def guide():
-    s = tube(2 * (R + 9.0), 2 * (R - 9.0), z_guide0, z_guide1)
-    for j in range(N):
-        x, y = polar(R, valve_angle(j))
-        s = s.cut(cyl(5.0, z_guide0 - 0.5, z_guide1 + 0.5, x, y))
-    return s
-
-
 def cam():
+    # disc is the rotor; the lobe is only as wide as the button it presses
     r0, r1 = R - 8.0, R + 10.0
+    b0, b1 = R - 6.0, R + 6.0
     disc = tube(2 * r1, SHAFT_D + 0.4, z_cam_base, z_cam_back)
     # angles: x = (pi/2 - ang) * R, plateau x in [0, lp]
     a_rel = math.pi / 2.0                       # release edge, x = 0
     a_hold = math.pi / 2.0 - lobe["lp"] / R     # far end of the plateau
     a_climb = a_hold - lobe["lr"] / R
     a_fire = a_rel + lobe["lr"] / R
-    pad = sector(r0, r1, a_hold, a_rel, z_cam_base - LOBE_H, z_cam_base + 0.05)
-    climb = ramp(r0, r1, a_climb, a_hold, z_cam_base, 0.0, LOBE_H)
-    fire = ramp(r0, r1, a_rel, a_fire, z_cam_base, LOBE_H, 0.0)
-    return disc, pad.fuse(climb).fuse(fire), (r0, r1, a_hold, a_fire)
+    pad = sector(b0, b1, a_hold, a_rel, z_cam_base - LOBE_H, z_cam_base + 0.05)
+    climb = ramp(b0, b1, a_climb, a_hold, z_cam_base, 0.0, LOBE_H, n=16)
+    fire = ramp(b0, b1, a_rel, a_fire, z_cam_base, LOBE_H, 0.0, n=16)
+    return disc, pad.fuse(climb).fuse(fire), (b0, b1, a_hold, a_fire)
 
 
 def shift(obj, vec):
@@ -250,8 +264,8 @@ def shift(obj, vec):
 
 
 def ghost():
-    """See through the disc, the clamp and the plate. The valves, pushers and lobe stay solid."""
-    fade = {"Cam": 82, "Guide": 78, "Retainer": 68, "Head_plate": 55, "Cage": 40}
+    """See through the disc, the clamp and the plate. Valves, tubes, rings and the lobe stay solid."""
+    fade = {"Cam": 82, "Retainer": 68, "Head_plate": 72, "Cage": 40}
     for o in doc.Objects:
         vo = getattr(o, "ViewObject", None)
         if vo is None or not hasattr(vo, "Transparency"):
@@ -261,46 +275,62 @@ def ghost():
 
 
 def explode():
-    """Pull the stack apart along the bore axis. Elbows also step out radially.
+    """Pull the stack apart along the bore axis.
 
-    The shaft stays on the axis and is lengthened so it still reaches the cam.
-    The disc is transparent in this view: the blue lobe is on its underside.
+    Outlets step out, inlet spokes step in, the two rings and their pipes lift off the plate.
+    The shaft stays on the axis and is lengthened so it still reaches the cam. The disc is
+    transparent here: the blue lobe is on its underside.
     """
-    valve_z, retainer_z, guide_z, pusher_z, cam_z = 55.0, 90.0, 108.0, 130.0, 160.0
+    # rings sit clear of the plate; spokes stay on the valves and are not pulled inward
+    valve_z, ring_z, retainer_z, cam_z = 108.0, 56.0, 150.0, 188.0
     for o in list(doc.Objects):
         name = o.Name
         if name in ("Cage",) or name.startswith("Valve_"):
             shift(o, (0, 0, valve_z))
-        elif name.startswith("Elbow_"):
+        elif name.startswith("Outlet_"):
             bb = o.Shape.BoundBox
             cx = (bb.XMin + bb.XMax) / 2.0
             cy = (bb.YMin + bb.YMax) / 2.0
             r = math.hypot(cx, cy) or 1.0
-            shift(o, (22.0 * cx / r, 22.0 * cy / r, valve_z))
+            shift(o, (18.0 * cx / r, 18.0 * cy / r, valve_z))
+        elif name.startswith("Spoke_"):
+            shift(o, (0, 0, valve_z))
+        elif name.startswith("Ring_") or name.startswith("Feed_"):
+            shift(o, (0, 0, ring_z))
         elif name == "Retainer":
             shift(o, (0, 0, retainer_z))
-        elif name == "Guide":
-            shift(o, (0, 0, guide_z))
-        elif name.startswith("Pusher_"):
-            shift(o, (0, 0, pusher_z))
         elif name in ("Cam", "Cam_lobe"):
             shift(o, (0, 0, cam_z))
         elif name == "Shaft":
             o.Shape = cyl(SHAFT_D, -4.0, z_cam_back + 18.0 + cam_z)
-    cam = doc.getObject("Cam")
-    if cam is not None and getattr(cam, "ViewObject", None) is not None:
-        cam.ViewObject.Transparency = 72
+    cam_obj = doc.getObject("Cam")
+    if cam_obj is not None and getattr(cam_obj, "ViewObject", None) is not None:
+        cam_obj.ViewObject.Transparency = 72
 
 
-plate = tube(2 * PLATE_R, PLATE_BORE, 0.0, PLATE_T)
+def head_plate(feeds):
+    s = tube(2 * PLATE_R, PLATE_BORE, 0.0, PLATE_T)
+    for feed in feeds:
+        bb = feed.BoundBox
+        cx = (bb.XMin + bb.XMax) / 2.0
+        cy = (bb.YMin + bb.YMax) / 2.0
+        s = s.cut(cyl(FEED_OD + 3.0, -1.0, PLATE_T + 1.0, cx, cy))
+    return s
+
+
 ribs = cage()
 hold = retainer()
-ring_guide = guide()
 disc, pad, cam_win = cam()
 shaft = cyl(SHAFT_D, -4.0, z_cam_back + 18.0)
 valves = [valve_shape(j) for j in range(N)]
-elbows = [elbow_shape(j) for j in range(N)]
-pushers = [pusher_shape(j) for j in range(N)]
+outlets = [outlet_shape(j) for j in range(N)]
+spokes_p = [spoke_shape(j, z_port_p, MAN_R_P) for j in range(N)]
+spokes_r = [spoke_shape(j, z_port_r, MAN_R_R) for j in range(N)]
+ring_p = ring_shape(MAN_R_P, z_port_p)
+ring_r = ring_shape(MAN_R_R, z_port_r)
+feed_p = feed_shape(0, MAN_R_P, -FEED_DOWN, z_port_p)
+feed_r = feed_shape(1, MAN_R_R, -FEED_DOWN, z_port_r)
+plate = head_plate((feed_p, feed_r))
 
 
 # ---------------------------------------------------------------- checks
@@ -317,28 +347,46 @@ rib_gap = min(valves[j].distToShape(ribs)[0] for j in (0, 1, 5))
 check(rib_gap > 0.1, "cage rib clears the bodies by %.2f mm" % rib_gap)
 check(valves[0].common(plate).Volume < 1.0, "valves sit on the plate, common volume %.1f mm3"
       % valves[0].common(plate).Volume)
-check(elbows[0].distToShape(plate)[0] > 1.0, "the A elbow clears the plate by %.1f mm"
-      % elbows[0].distToShape(plate)[0])
-check(elbows[0].distToShape(elbows[1])[0] > 2.0, "neighbouring A elbows clear by %.1f mm"
-      % elbows[0].distToShape(elbows[1])[0])
+check(outlets[0].distToShape(plate)[0] > 2.0, "the straight A tube clears the plate by %.1f mm"
+      % outlets[0].distToShape(plate)[0])
+check(outlets[0].distToShape(outlets[1])[0] > 2.0, "neighbouring A tubes clear by %.1f mm"
+      % outlets[0].distToShape(outlets[1])[0])
+check(outlets[0].BoundBox.YMax > PLATE_R + 8.0, "A tube ends at R %.0f, past the plate"
+      % outlets[0].BoundBox.YMax)
+check(spokes_p[0].distToShape(spokes_p[1])[0] > 1.0, "neighbouring P tubes clear by %.1f mm"
+      % spokes_p[0].distToShape(spokes_p[1])[0])
+check(spokes_p[0].distToShape(spokes_r[0])[0] > 1.0, "P and R tubes on one valve clear by %.1f mm"
+      % spokes_p[0].distToShape(spokes_r[0])[0])
+check(ring_p.distToShape(ring_r)[0] > 1.0, "supply and exhaust rings clear by %.1f mm"
+      % ring_p.distToShape(ring_r)[0])
+check(ring_r.distToShape(ribs)[0] > 0.5, "exhaust ring clears the cage by %.1f mm"
+      % ring_r.distToShape(ribs)[0])
+check(spokes_p[0].common(ring_p).Volume > 1.0, "P tube joins the supply ring")
+check(spokes_r[0].common(ring_r).Volume > 1.0, "R tube joins the exhaust ring")
+check(feed_p.common(ring_p).Volume > 1.0 and feed_r.common(ring_r).Volume > 1.0,
+      "each ring has its own pipe")
+check(feed_p.distToShape(ring_r)[0] > 1.0, "the supply pipe clears the exhaust ring by %.1f mm"
+      % feed_p.distToShape(ring_r)[0])
+spoke_feed = min(feed_p.distToShape(spokes_p[j])[0] for j in (0, 1))
+check(spoke_feed > 0.4, "supply pipe clears the nearest P tubes by %.1f mm" % spoke_feed)
+check(min(feed_p.distToShape(plate)[0], feed_r.distToShape(plate)[0]) > 0.4,
+      "both pipes clear the holes in the plate")
 
 free_j = next(j for j in range(N) if not depressed(j))
 press_j = next(j for j in range(N) if depressed(j))
-# tail to cam: free pusher ends APPROACH short of the base, pressed tail meets the lobe
-free_tail_z = z_tip + PUSHER_L
-press_tail_z = z_tip - DEPRESS + PUSHER_L
-check(abs((z_cam_base - free_tail_z) - APPROACH) < 1e-6,
-      "free pusher clears the cam base by %.1f mm" % APPROACH)
-check(abs((z_cam_base - LOBE_H) - press_tail_z) < 1e-6,
-      "pressed pusher meets the lobe, button down %.1f mm" % DEPRESS)
-check(LOBE_H < VR["STROKE"] + 1e-9 and DEPRESS > VR["SWITCH"],
-      "lobe %.1f mm is under the %.1f stop and the button passes the %.1f switch"
-      % (LOBE_H, VR["STROKE"], VR["SWITCH"]))
-# hard stop: after DEPRESS mm the flange still has HARD - DEPRESS before the guide
-left = HARD - DEPRESS
-check(0.1 < left < 0.5, "hard stop leaves %.1f mm before the flange, short of the 2.4 stop" % left)
-check(z_guide1 < z_flange_free - 1.0 and z_cam_base > z_tail_free,
-      "guide, pusher and cam are in that order from the button")
+free_disc = valves[free_j].distToShape(disc)[0]
+check(abs(free_disc - APPROACH) < 0.05, "free button clears the disc face by %.2f mm" % free_disc)
+press_d = valves[press_j].distToShape(pad)[0]
+press_hit = valves[press_j].common(pad).Volume
+check(press_d < 0.05 and press_hit < 20.0,
+      "pressed button meets the lobe, common volume %.1f mm3" % press_hit)
+free_lobe = min(valves[j].distToShape(pad)[0] for j in range(N) if not depressed(j))
+check(free_lobe > 0.05, "free buttons stay off the lobe, closest %.2f mm" % free_lobe)
+nut_top = z_ret1 + 3.4
+check(z_cam_base - LOBE_H > nut_top + 2.0, "lobe stays %.1f mm above the nut"
+      % (z_cam_base - LOBE_H - nut_top))
+check(VR["STROKE"] - DEPRESS > 0.3, "press %.1f mm leaves %.1f mm to the valve stop"
+      % (DEPRESS, VR["STROKE"] - DEPRESS))
 check(shaft.distToShape(disc)[0] > 0.1, "shaft clears the cam bore")
 check(hold.distToShape(valves[free_j])[0] < 0.2, "retainer lands on the body")
 check(hold.common(valves[free_j]).Volume < 1.0, "retainer does not cut the valve")
@@ -364,17 +412,22 @@ steel = doc.addObject("App::DocumentObjectGroup", "Steel")
 add("Head_plate", plate, (0.62, 0.60, 0.55), printed)
 add("Cage", ribs, (0.78, 0.74, 0.66), printed)
 add("Retainer", hold, (0.55, 0.62, 0.70), printed)
-add("Guide", ring_guide, (0.45, 0.50, 0.55), printed)
 add("Cam", disc, (0.55, 0.62, 0.72), printed)
 add("Cam_lobe", pad, (0.16, 0.45, 0.78), printed)
+add("Ring_P", ring_p, (0.78, 0.62, 0.28), bought)
+add("Ring_R", ring_r, (0.45, 0.38, 0.30), bought)
+add("Feed_P", feed_p, (0.78, 0.62, 0.28), bought)
+add("Feed_R", feed_r, (0.45, 0.38, 0.30), bought)
 for j, v in enumerate(valves):
     color = (0.45, 0.62, 0.82) if depressed(j) else (0.72, 0.74, 0.76)
     add("Valve_%02d" % j, v, color, bought)
-for j, e in enumerate(elbows):
-    add("Elbow_%02d" % j, e, (0.72, 0.55, 0.28), bought)
+for j, tube_a in enumerate(outlets):
+    add("Outlet_%02d" % j, tube_a, (0.72, 0.55, 0.28), bought)
+for j, sp in enumerate(spokes_p):
+    add("SpokeP_%02d" % j, sp, (0.78, 0.62, 0.28), bought)
+for j, sp in enumerate(spokes_r):
+    add("SpokeR_%02d" % j, sp, (0.45, 0.38, 0.30), bought)
 add("Shaft", shaft, (0.35, 0.38, 0.42), steel)
-for j, p in enumerate(pushers):
-    add("Pusher_%02d" % j, p, (0.15, 0.15, 0.16), steel)
 
 sys.stdout.flush()
 try:
@@ -399,8 +452,9 @@ except Exception:
 
 print("valve head, %d barrels, buttons on R %.1f" % (N, R))
 print("  plate R %.0f x %.0f, cage ribs %.1f mm, retainer clamps the body top" % (PLATE_R, PLATE_T, RIB_T))
-print("  two buttons down, lobe %.1f mm = %.1f approach + %.1f press, hard stop %.1f" % (LOBE_H, APPROACH, DEPRESS, HARD))
-print("  A elbows outward, P and R stubs inward %.1f mm apart" % PORT_PITCH)
+print("  disc on the buttons, lobe %.1f mm = %.1f clearance + %.1f press, %.1f left to the stop"
+      % (LOBE_H, APPROACH, DEPRESS, VR["STROKE"] - DEPRESS))
+print("  straight A tubes out, P and R tubes in to rings at R %.0f and %.0f" % (MAN_R_P, MAN_R_R))
 print("concept only: valves are not measured, do not slice")
 ok = all(FITS)
 print("checks: %s" % ("OK" if ok else "FAIL"))
