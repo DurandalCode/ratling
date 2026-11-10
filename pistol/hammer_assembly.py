@@ -653,6 +653,73 @@ for x_, y_ in SPLIT_JOINTS:
     frame_upper = frame_upper.cut(tg_box(x_, y_, SPLIT_Z - 0.1, TG_W + 2 * TG_CLEAR, TG_W + 2 * TG_CLEAR, TG_H + 0.4))
 frame_lower = frame_lower.fuse(frame.common(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0)))   # the front slab's wall to the tray
 frame_upper = frame_upper.cut(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0))
+# The side assemblies come off. Glue the left wall to its band (that tongue stays);
+# the right cover is already one piece. Both bolt to the centre, they are not glued
+# to it. The tongues stay as locators, 0.2 mm a side, and slide off along y.
+# One more tongue a side up on the ball's rear shell (x -100, z 12), the only place
+# the top of the side and the top of the centre both have a wall.
+for _side, _x, _z in (("left", -100.0, 12.0), ("right", -100.0, 12.0)):
+    if _side == "left":
+        side_band = side_band.fuse(box(_x - TG_W / 2, _x + TG_W / 2, -20.0, -17.0, _z - TG_W / 2, _z + TG_W / 2))
+        frame_upper = frame_upper.cut(box(_x - TG_W / 2 - TG_CLEAR, _x + TG_W / 2 + TG_CLEAR,
+                                          -20.1, -20.0 + TG_H + 0.3, _z - TG_W / 2 - TG_CLEAR, _z + TG_W / 2 + TG_CLEAR))
+    else:
+        side_plate_r = side_plate_r.fuse(box(_x - TG_W / 2, _x + TG_W / 2, 17.0, 20.0, _z - TG_W / 2, _z + TG_W / 2))
+        frame_upper = frame_upper.cut(box(_x - TG_W / 2 - TG_CLEAR, _x + TG_W / 2 + TG_CLEAR,
+                                          20.0 - TG_H - 0.3, 20.1, _z - TG_W / 2 - TG_CLEAR, _z + TG_W / 2 + TG_CLEAR))
+# M3 bolts, head on the outside, nut in the centre. The pocket opens on the joint
+# face, so the plate keeps the nut. Lower pair in the tray: the right ones pass
+# the cheek (x -78 and -70 sit between the AirTAC, which ends at x -82.5, and the
+# slider tunnel, which starts at x -64). The upper one is on the ball, where the
+# shell is too thin for a nut, so a pad carries it.
+NUT_AF, NUT_T = 5.7, 2.7
+
+
+def _hex_y(x_, z_, y0, y1, af):
+    r_ = af / math.sqrt(3.0)
+    pts = [V(x_ + r_ * math.cos(math.radians(30 + 60 * k)), y0, z_ + r_ * math.sin(math.radians(30 + 60 * k)))
+           for k in range(6)]
+    return Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(0, y1 - y0, 0))
+
+
+# (x, z, side, which half). Pads only on the upper bolts.
+SIDE_BOLTS = ((-88.0, -58.0, "left", "lower"), (-48.0, -58.0, "left", "lower"),
+              (-78.0, -58.0, "right", "lower"), (-70.0, -58.0, "right", "lower"),
+              (-100.0, 0.0, "left", "upper"), (-100.0, 0.0, "right", "upper"))
+for _x, _z, _side, _half in SIDE_BOLTS:
+    _sign = -1 if _side == "left" else 1
+    _face = -20.0 if _sign < 0 else 20.0
+    if _half == "upper":
+        # 4.2 mm pad inboard of the joint: 2.7 mm pocket, 1.5 mm floor
+        _pad_y0, _pad_y1 = (_face, _face - _sign * 4.2) if _sign < 0 else (_face - 4.2, _face)
+        frame_upper = frame_upper.fuse(box(_x - 3.4, _x + 3.4, min(_pad_y0, _pad_y1), max(_pad_y0, _pad_y1), _z - 3.4, _z + 3.4))
+    _host = frame_lower if _half == "lower" else frame_upper
+    if _sign < 0:
+        _pocket = _hex_y(_x, _z, _face - 0.05, _face + NUT_T, NUT_AF)
+        _hole = Part.makeCylinder(1.7, (_face + NUT_T) - (-30.0), V(_x, -30.0, _z), YA)
+        _plate = side_wall if _half == "lower" else side_band
+    else:
+        _pocket = _hex_y(_x, _z, _face - NUT_T, _face + 0.05, NUT_AF)
+        _hole = Part.makeCylinder(1.7, 48.0 - (_face - NUT_T), V(_x, _face - NUT_T, _z), YA)
+        _plate = side_plate_r
+        if _half == "lower":
+            _hole = _hole.fuse(Part.makeCylinder(3.1, 3.2, V(_x, 40.4, _z), YA))   # head seat in the cheek
+    if _half == "lower":
+        frame_lower = frame_lower.cut(_pocket).cut(_hole)
+    else:
+        frame_upper = frame_upper.cut(_pocket).cut(_hole)
+    _plate = _plate.cut(_hole)
+    if _side == "left" and _half == "lower":
+        side_wall = _plate
+    elif _side == "left":
+        side_band = _plate
+    else:
+        side_plate_r = _plate
+side_wall, side_band = _biggest(side_wall), _biggest(side_band)
+side_plate_r = _biggest(side_plate_r)
+frame_lower = _biggest(frame_lower, vmin=1000.0)
+frame_upper = _biggest(frame_upper, vmin=1000.0)
+side_plate = Part.makeCompound([side_wall, side_band])          # tongues and bolt holes included
 frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
 
 # ---------------------------------------------------------------- checks
@@ -908,9 +975,9 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Grip_left": "half: glued to the right on 2 x Ø3 x 12 dowels",
             "Grip_right": "half: 2 x ST2.9 x 13 down through the slab's floor into the wood",
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
-            "Frame_side": "the slab's wall: joint face down, no raft. The flank band (with the ball's semicircle) slides on from the rear; one tongue at the slab's top, x -101..-98",
-            "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into them. Slides onto the wall from the rear",
-            "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 1 x M3 x 10 through the rear wall into the tray (head on y 23, Ø2.5 pilot 6 mm, x -104, z -65)",
+            "Frame_side": "the slab's wall: joint face down, no raft. Glued to the band; the pair bolts to the centre (not glued to it). 2 x M3 x 8 into the tray, nuts in the tray, x -88 and -48, z -58. The band's tongue at the slab's top, x -101..-98",
+            "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into the bosses. Glued to the wall, slides on from the rear before the glue. 1 x M3 x 8 into the lid (nut in a pad, x -100, z 0) and a 3 mm tongue into the lid at x -100, z 12",
+            "Frame_right": "the right cover, one piece, bolts to the centre: 2 x M3 x 30 through the cheek into the tray (x -78 and -70, z -58, head seat Ø6.2) and 1 x M3 x 8 into the lid (x -100, z 0, nut in a pad), plus a 3 mm tongue into the lid at z 12. Also the Ø8 axle and 1 x M3 x 10 through the rear wall into the tray (x -104, z -65)",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 94: the slider's guide. The bore is open at the ceiling and blind in the foot (1.2 mm of floor under the rod, the underside stays closed), the rod ends in the stop", "Trigger": "pivot: M3 x 16 screw + nylock nut",
