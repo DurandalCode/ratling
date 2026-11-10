@@ -199,13 +199,15 @@ outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the sh
 outer = outer.cut(box(-64.0, CHEEK["x"][1], 22.4, 38.8, -65.1, 19.0))  # the slider's tunnel, body to bracket arm.
                                                                           # It stops on the cheek's front face (x -5): the
                                                                           # plate ends there, and the cut does not enter the drum.
-# Only the lower part of that mouth. The plate stays at x -5; the cap is the 0.8 mm in
-# front of it (x -4.7..-3.9, the sector ring starts at x -3.6). It runs from the floor up
-# to z -19, 1 mm under the pin's lowest point (z -18), and it crosses the bore: that is
-# where the rod showed. Above z -19 the cheek face stays at x -5 and the mouth stays open.
-# The lip bites the cheek's borders (back to x -5.4) so it is one solid with them.
-_lip = box(-5.4, -3.9, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], -19.0)
-_lip = _lip.cut(box(-5.6, -4.7, 22.4, 38.8, -65.1, -18.7))
+# Only the lower part of that mouth. The plate stays at x -5; the wall in front of the
+# slider is 5 mm (x -4.7..0.3, 0.3 mm clear of the slider's front face at x -5). It runs
+# from the floor up to z -19, 1 mm under the pin's lowest point (z -18). The sector, the
+# block and the barrels stay clear of it. Above z -19 the cheek face stays at x -5 and
+# the mouth stays open. The wall laps 0.4 mm back into the cheek (to x -5.4) so it is
+# one solid with it.
+_LIP_X0, _LIP_T = -4.7, 5.0
+_lip = box(-5.4, _LIP_X0 + _LIP_T, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], -19.0)
+_lip = _lip.cut(box(-5.6, _LIP_X0, 22.4, 38.8, -65.1, -18.7))
 outer = outer.fuse(_lip)
 outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, 18.0))   # the crank, its pin and the sleeve past the cheek's
                                                                     # inner face (the sleeve's rear corner reaches y 27)
@@ -397,15 +399,20 @@ if len(frame.Solids) > 1:            # OCCT sometimes leaves a face-sliver crumb
 # The right cover: the slab's right wall, the cheek and the flank band with the slider's tunnels, one
 # plate mirroring the left - both sides open, the mechanism lays in from either side, the valve's
 # socket becomes a through channel. It rides the Ø8 hammer axle (its flank band is the right bearing)
-# and one M3 into the rear wall's lower strip. The upper hole (z -11) sat on the step where the slab
-# meets the drum and held nothing.
-side_cut_r = box(HEEL_X - 1, fx[1] + 1, SLAB["y"] - 3.0, fy[1] + 3.0, SLAB["z"][0] - 1, fz[1] + 1)
+# and one M3 x 10 through its rear wall into the tray. The upper hole (z -11) sat on the
+# step where the slab meets the drum and held nothing. The lower one used to run along x
+# at y 21.5, outboard of the tray (the strip ends at y 20), so the thread never entered.
+# It now runs along y: clearance Ø3.4 through the wall (outer face y 23), a Ø2.5 pilot
+# 6 mm into the strip, at x -104, z -65.
+COVER_SCREW = (-104.0, -65.0)
+side_cut_r = box(HEEL_X - 1, _LIP_X0 + _LIP_T + 0.1, SLAB["y"] - 3.0, fy[1] + 3.0, SLAB["z"][0] - 1, fz[1] + 1)
 side_plate_r = (frame.common(side_cut_r).cut(sock_cap).cut(sock_body).cut(lock_housing_h)
                 .cut(valve_rods_cut).cut(lock_bolts_cut)
-                .cut(Part.makeCylinder(1.7, 8.0, V(HEEL_X + 1.0, 21.5, -65.0), XA)))   # M3 x 10 into the lower strip
+                .cut(Part.makeCylinder(1.7, 4.0, V(COVER_SCREW[0], 23.5, COVER_SCREW[1]), V(0, -1, 0))))
 if len(side_plate_r.Solids) > 1:
     side_plate_r = Part.makeCompound([s_ for s_ in side_plate_r.Solids if s_.Volume > 50.0])
 frame = frame.cut(side_cut_r)
+frame = frame.cut(Part.makeCylinder(1.25, 6.2, V(COVER_SCREW[0], 20.0, COVER_SCREW[1]), V(0, -1, 0)))
 if len(frame.Solids) > 1:
     frame = max(frame.Solids, key=lambda q: q.Volume)
 _tick('side cut done')
@@ -901,7 +908,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
             "Frame_side": "the slab's wall: joint face down, no raft. The flank band (with the ball's semicircle) slides on from the rear; one tongue at the slab's top, x -101..-98",
             "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into them. Slides onto the wall from the rear",
-            "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 1 x M3 x 10 into the rear wall's lower strip",
+            "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 1 x M3 x 10 through the rear wall into the tray (head on y 23, Ø2.5 pilot 6 mm, x -104, z -65)",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 94: the slider's guide. The bore is open at the ceiling and blind in the foot (1.2 mm of floor under the rod, the underside stays closed), the rod ends in the stop", "Trigger": "pivot: M3 x 16 screw + nylock nut",
