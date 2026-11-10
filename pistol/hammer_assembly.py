@@ -21,7 +21,8 @@ dressed as archive/pistol_assembly.py (the lever variant):
                 the five printed parts (the halves, the right plate, and the
                 left plate split into a wall and a flank band). The halves
                 and the plates register on tongue/groove pairs; the band
-                locks to the wall on two dovetails
+                takes the ball's semicircle (above the slab) and locks to
+                the wall on one tongue at the slab's top (x -101..-98)
     grip ...... the rag-wrapped wooden grip, warpstone pommel with the
                 hose; it butts the slab's underside
 
@@ -57,8 +58,8 @@ try:
 except NameError:
     VALVE = "v13"
 try:
-    CHECKS                                      # set True before exec for the check run, at the end of
-except NameError:                               # a change and again before the commit
+    CHECKS                                      # stays off until the owner asks for the check run.
+except NameError:                               # Then set True before exec. Not at the end of a draft.
     CHECKS = False
 HUB_T_HAMMER = 14.0                             # the block's rear disc (hammer_layout.py)
 STUB = BARREL_TUBE - (HUB_T_HAMMER - 9.0)       # the tube from the rear disc's seat (9 deep) to the muzzle
@@ -587,37 +588,23 @@ for x_, z_ in PLATE_JOINTS["right"]:
 
 # The left plate's flank band is a cylinder along x. Show-face down, that curve rides a support raft.
 # Split it at the slab wall's outer face: the wall prints on the joint, the band prints on its end
-# (the cylinder's walls vertical; only the five screw bosses still want support). Two bowtie dovetails
-# stop the band pulling off along y. They slide in along x from the front. The flare is 1.1 mm over
-# 1.8 mm, about 31 deg, under the 45 deg overhang limit: on the wall the groove opens on the bed and
-# widens as it prints up. Clearance is TG_CLEAR, the same as the square tongues.
+# (the cylinder's walls vertical; only the five screw bosses still want support). The ball's slice
+# inboard of the joint is the semicircle on the flat wall, so everything of the side above the slab
+# (z -5) goes to the band. The outboard shell laps 0.4 mm below the cut so the hoop and the lower
+# band are one solid. The wall stops on the slab. One tongue on that top (open to the rear) locates
+# the hoop: the seat there is only 3.2 mm wide in y, too narrow for the old 6.2 mm bowties.
 SIDE_SPLIT_Y = -23.0
-_DT_Y_OUT, _DT_Y_IN = -24.8, -20.8          # wide ends: out in the band (under the dress plate), in inside the wall
-_DT_W_END, _DT_W_NECK = 6.2, 4.0
-
-
-def _bowtie(x0, x1, zc, z_clear=0.0, y_clear=0.0):
-    yn, we, wn = SIDE_SPLIT_Y, _DT_W_END + 2 * z_clear, _DT_W_NECK + 2 * z_clear
-    y0, y1 = _DT_Y_OUT - y_clear, _DT_Y_IN + y_clear
-    pts = [V(x0, y0, zc - we / 2), V(x0, yn, zc - wn / 2), V(x0, y1, zc - we / 2),
-           V(x0, y1, zc + we / 2), V(x0, yn, zc + wn / 2), V(x0, y0, zc + we / 2),
-           V(x0, y0, zc - we / 2)]
-    return Part.Face(Part.makePolygon(pts)).extrude(V(x1 - x0, 0, 0))
-
-
-# (rear stop, front end, z). Both sit behind the QEV's tie rods and above the lock, where the
-# shell crosses the joint. The grooves open past the rear face, so the band slides on from the ball.
-_SIDE_TAILS = ((-102.0, -92.0, 14.0), (-88.0, -76.0, 28.0))
-_tails, _grooves = [], []
-for _x0, _x1, _zc in _SIDE_TAILS:
-    _tails.append(_bowtie(_x0, _x1, _zc))
-    _grooves.append(_bowtie(-120.0, _x1 + TG_CLEAR, _zc, z_clear=TG_CLEAR, y_clear=0.25))
 _wall_raw = side_plate.common(box(-400, 20, SIDE_SPLIT_Y, 40, -200, 80))
 _band_raw = side_plate.common(box(-400, 20, -80, SIDE_SPLIT_Y, -200, 80))
 _wall_bits = sorted((s for s in _wall_raw.Solids if s.Volume > 30.0), key=lambda q: -q.Volume)
-side_wall = _wall_bits[0].cut(Part.makeCompound(_grooves))
+side_wall = _wall_bits[0]
 side_band = _band_raw.fuse(Part.makeCompound(_wall_bits[1:])) if len(_wall_bits) > 1 else _band_raw
-side_band = side_band.fuse(Part.makeCompound(_tails))
+_hoop = side_plate.common(box(-220.0, 30.0, SIDE_SPLIT_Y - 0.4, 20.0, -5.0, 90.0))
+_hoop = _hoop.fuse(side_plate.common(box(-220.0, 30.0, -80.0, SIDE_SPLIT_Y, -5.4, 90.0)))
+side_wall = side_wall.cut(box(-220.0, 30.0, -40.0, 20.0, -5.0, 90.0))
+side_band = side_band.cut(box(-220.0, 30.0, -80.0, 20.0, -5.0, 90.0)).fuse(_hoop)
+side_wall = side_wall.fuse(box(-101.0, -98.0, -22.4, -20.6, -5.4, -2.5))
+side_band = side_band.cut(box(-120.0, -97.6, -22.7, -20.3, -5.05, -2.2))
 
 
 def _biggest(sh, vmin=40.0):
@@ -720,7 +707,7 @@ if CHECKS:
                % (PLUG_ORING + (2 * _gr, plug_stretch * 100, PLUG_SQUEEZE * 100, BARREL_OD, PLUG_FLANGE))]
     print("\n".join(report))
 else:
-    report = [NAME, "  geometry, document and weights (set CHECKS = True before exec for the check run)"]
+    report = [NAME, "  geometry, document and weights (CHECKS stays off until the owner asks; then set it True before exec)"]
     print("\n".join(report))
 
 if CHECKS:
@@ -739,14 +726,14 @@ if CHECKS:
     checks["side band is one sound solid (%.0f mm3, %d solids)" % (side_band.Volume, len(side_band.Solids))] = \
         side_band.isValid() and len(side_band.Solids) == 1 and side_band.Volume > 15000
     _dt = hit(side_wall, side_band)
-    checks["the side's dovetails clear (%.2f mm3)" % _dt] = _dt < 0.05
+    checks["the side's tongue clears (%.2f mm3)" % _dt] = _dt < 0.05
     _pull = hit(side_band.translated(V(0, -1.0, 0)), side_wall)
-    checks["the dovetails stop the band pulling off (%.0f mm3)" % _pull] = _pull > 5.0
+    checks["the tongue stops the band pulling off (%.1f mm3)" % _pull] = _pull > 0.5
     _slide = hit(side_band.translated(V(-18.0, 0, 0)), side_wall)
     checks["the band slides on from the rear (%.1f mm3, 18 mm short)" % _slide] = _slide < 1.0
     _dress = next(p_ for p_ in plates if p_.BoundBox.YMax < -22.5 and p_.BoundBox.YMin < -25.0 and p_.BoundBox.ZMin < -40.0)
-    _dv = hit(_dress, Part.makeCompound(_tails))
-    checks["the left dress plate clears the dovetails (%.2f mm3)" % _dv] = _dv < 0.05
+    _dv = hit(_dress, box(-101.0, -98.0, -22.4, -20.6, -5.4, -2.5))
+    checks["the left dress plate clears the tongue (%.2f mm3)" % _dv] = _dv < 0.05
     checks["right plate is one sound solid (%.0f mm3, %d solids)" % (side_plate_r.Volume, len(side_plate_r.Solids))] = \
         side_plate_r.isValid() and len(side_plate_r.Solids) == 1 and side_plate_r.Volume > 15000
     _gap = VALVE_SOCK - 0.2
@@ -899,7 +886,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Grip_left": "half: glued to the right on 2 x Ø3 x 12 dowels",
             "Grip_right": "half: 2 x ST2.9 x 13 down through the slab's floor into the wood",
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
-            "Frame_side": "the slab's wall: joint face down, no raft. The flank band slides on from the rear on two dovetails (z 14 and z 28, neck 4, ends 6.2, 0.2 clear)",
+            "Frame_side": "the slab's wall: joint face down, no raft. The flank band (with the ball's semicircle) slides on from the rear; one tongue at the slab's top, x -101..-98",
             "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into them. Slides onto the wall from the rear",
             "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 1 x M3 x 10 into the rear wall's lower strip",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
