@@ -27,7 +27,8 @@ dressed as archive/pistol_assembly.py (the lever variant):
                 semicircle (above the slab) and locks to the wall on one
                 tongue at the slab's top (x -101..-98)
     grip ...... the rag-wrapped wooden grip, warpstone pommel with the
-                hose; it glues up under the slab, registered by two tongues
+                hose; the halves bolt together (2 x M3 x 16, dowels locate)
+                and the pair glues up under the slab on two tongues
 
 Shapes for the look and for checking that the mechanism fits; not parts.
 Frame: x forward, y to the right seen from behind, z up.
@@ -92,8 +93,8 @@ SIDE_BOSSES = ((-50.0, 22.0), (-10.0, 22.0), (-30.0, 30.0), (-70.0, 30.0), (-90.
 BOSS_D, BOSS_L = 8.0, 10.0
 TRIGGER_CHEEKS = dict(x=(-84.0, -76.0), y=(3.3, 7.0))          # the trigger's pivot (an M3 screw and nut) between them
 # The grip glues up under the slab. Two tongues (one in each half) locate it;
-# see GRIP_TONGUES below. No screws: the rear slab is solid, and the old pair
-# at y ±18 missed the wood.
+# see GRIP_TONGUES below. The halves bolt to each other (GRIP_BOLTS); no screws
+# into the tray: the rear slab is solid, and the old pair at y ±18 missed the wood.
 VALVE_BOX_Y = 33.0                  # the tang is a box under the frame round the vent valve and its fittings
 GUARD_TAB = dict(x=(-9.0, -5.0), y=5.0, t=11.0)   # the guard's front tab, under the slab's floor
 SPUR_SLOT = dict(a=(58.0, 210.0), r=SPUR[1] + 10.0, y=6.5)    # the spur's swing out of the top rear
@@ -565,7 +566,7 @@ grip = grip.cut(air_cut)            # the shell is not grooved: a soft tube will
 # Two 3 mm tongues, one in each half, up into the tray's floor. The right one sits
 # out at y 12: the supply hose owns the centre of that face, and the valve socket
 # starts just forward of it, so that tongue is open toward +x. The left one stops
-# the glued pair both ways. 0.2 mm clear, and the grip lifts off downward. The
+# the bolted pair both ways. 0.2 mm clear, and the grip lifts off downward. The
 # groove stops 4 mm short of the valve's socket floor.
 GRIP_TONGUES = ((-102.0, -10.0), (-98.0, 12.0))    # x, y, on the floor's underside
 for _x, _y in GRIP_TONGUES:
@@ -574,8 +575,10 @@ for _x, _y in GRIP_TONGUES:
 if len(frame.Solids) > 1:            # crumbs from the earlier cuts: keep only the body
     frame = max(frame.Solids, key=lambda q: q.Volume)
 grip = max(grip.Solids, key=lambda q: q.Volume) if len(grip.Solids) > 1 else grip
-# The grip prints as two halves split on y = 0, each flat on its cut face: the hose lies in the open channel,
-# the halves close on it, glued on two Ø3 steel dowels (6 mm into each half).
+# The grip prints as two halves split on y = 0, each flat on its cut face: the hose lies in the open channel.
+# Two Ø3 dowels (6 mm into each half) locate the halves and slide out along y. Two M3 x 16 clamp them:
+# head on the right, nut in a pocket in the left half that opens on the joint, so the right half keeps it.
+# The bolts sit off the hose, which runs on the grip's axis, on the palm side of the section.
 GRIP_DOWELS = [GRIP_START + gd * (GRIP_LEN * t) + gn * 13.0 for t in (0.3, 0.75)]
 dowels = Part.makeCompound([Part.makeCylinder(1.6, 12.0, V(p_.x, -6.0, p_.z), YA) for p_ in GRIP_DOWELS])
 grip = grip.cut(dowels)
@@ -585,6 +588,25 @@ grip_right = grip.common(box(-400, 100, 0, 100, -400, 100)).removeSplitter()
 for _g in (grip_left, grip_right):
     if not _g.isValid():
         _g.fix(0.01, 0.001, 0.1)                 # the split leaves a sliver edge on the loft: heal it
+# (x, z) on the grip. Head counterbore opens the right face (about y 14); the nut
+# pocket is 2.7 mm into the left half. M3 x 16: the tip room is the Ø3.4 past the nut.
+GRIP_BOLTS = tuple(GRIP_START + gd * (GRIP_LEN * _t) + gn * -10.0 for _t in (0.42, 0.70))
+
+
+def _grip_hex(x_, z_, y0, y1, af):
+    r_ = af / math.sqrt(3.0)
+    pts = [V(x_ + r_ * math.cos(math.radians(30 + 60 * k)), y0, z_ + r_ * math.sin(math.radians(30 + 60 * k)))
+           for k in range(6)]
+    return Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(0, y1 - y0, 0))
+
+
+for _p in GRIP_BOLTS:
+    grip_right = grip_right.cut(Part.makeCylinder(1.7, 16.0, V(_p.x, -0.2, _p.z), YA))
+    grip_right = grip_right.cut(Part.makeCylinder(3.1, 4.2, V(_p.x, 10.6, _p.z), YA))
+    grip_left = grip_left.cut(_grip_hex(_p.x, _p.z, -2.7, 0.15, 5.7))
+    grip_left = grip_left.cut(Part.makeCylinder(1.7, 4.0, V(_p.x, -6.2, _p.z), YA))
+grip_left = max(grip_left.Solids, key=lambda q: q.Volume)
+grip_right = max(grip_right.Solids, key=lambda q: q.Volume)
 
 # ---------------------------------------------------------------- the frame in two halves, tongue/groove joints
 # The frame splits at z = SPLIT_Z into a bottom tray and a top cover, stepped at the front: the front
@@ -862,12 +884,24 @@ if CHECKS:
         hit(_gL.translated(V(0, 0, -4)), frame_lower) + hit(_gR.translated(V(0, 0, -4)), frame_lower))] = \
         hit(_gL.translated(V(0, 0, -4)), frame_lower) + hit(_gR.translated(V(0, 0, -4)), frame_lower) < 0.05
     # The right tongue is open forward: the valve socket starts just ahead of it.
-    # The left one stops the glued pair both ways.
+    # The left one stops the bolted pair both ways.
     _lx = hit(_gL.translated(V(1.5, 0, 0)), frame_lower) + hit(_gL.translated(V(-1.5, 0, 0)), frame_lower)
     _rx = hit(_gR.translated(V(-1.5, 0, 0)), frame_lower)
     checks["grip tongues locate along x (left %.1f both ways, right %.1f rearward)" % (_lx, _rx)] = _lx > 8 and _rx > 2
     checks["grip halves are one solid each (%d, %d)" % (len(grip_left.Solids), len(grip_right.Solids))] = \
         grip_left.isValid() and grip_right.isValid() and len(grip_left.Solids) == 1 and len(grip_right.Solids) == 1
+    _bh = _bn = _bo = _bd = 0.0
+    for _p in GRIP_BOLTS:
+        _shank = Part.makeCylinder(1.7, 12.0, V(_p.x, 0.2, _p.z), YA)
+        _nutv = Part.makeCylinder(2.4, 2.4, V(_p.x, -2.6, _p.z), YA)
+        _open = Part.makeCylinder(2.0, 2.0, V(_p.x, 13.6, _p.z), YA)
+        _wide = Part.makeCylinder(3.4, 20.0, V(_p.x, -8.0, _p.z), YA)
+        _bh += hit(_shank, air_cut) + hit(_nutv, air_cut)
+        _bn += hit(_nutv, grip_left) + hit(_shank, grip_right)
+        _bo += hit(_open, grip_right)
+        _bd += hit(_wide, dowels)
+    checks["grip bolts miss the hose (%.2f) and the nut and shank are open (%.2f)" % (_bh, _bn)] = _bh < 0.05 and _bn < 0.05
+    checks["grip bolt heads open the right face (%.2f mm3) and miss the dowels (%.2f)" % (_bo, _bd)] = _bo < 0.05 and _bd < 0.05
     _gap = VALVE_SOCK - 0.2
     checks["QEV socket: the stack meets nothing %.1f mm off its seat sideways (room for the sealant)" % _gap] = \
         all(v_ < 0.05 for v_ in (valve_cap.translated(V(0, _gap, 0)).common(frame).Volume,
@@ -1015,8 +1049,8 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Top_strap": "2 x M3 x 40 + nuts down through its foot into the cage's top",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its front tab, rear end glued into the grip's wood",
-            "Grip_left": "half: glued to the right on 2 x Ø3 x 12 dowels, then glued up under the tray. A 3 mm tongue into the floor at x -102, y -10",
-            "Grip_right": "half: glued up under the tray. A 3 mm tongue into the floor at x -98, y 12 (clear of the supply hose)",
+            "Grip_left": "half: 2 x M3 x 16 into the right half, nuts in hex pockets on this joint face; 2 x Ø3 x 12 dowels locate and slide out. Then glued up under the tray: 3 mm tongue at x -102, y -10",
+            "Grip_right": "half: the two M3 x 16 heads sit in Ø6.2 seats on the outer face. Glued up under the tray: 3 mm tongue at x -98, y 12 (clear of the supply hose)",
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
             "Frame_side": "the slab's wall: joint face down, no raft. Glued to the band; the pair bolts to the centre (not glued to it). 2 x M3 x 8 into the tray, nuts in the tray, x -88 and -48, z -58. The band's tongue at the slab's top, x -101..-98",
             "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into the bosses. Glued to the wall, slides on from the rear before the glue. 1 x M3 x 8 into the lid (nut in a pad, x -100, z 0), a 3 mm tongue into the lid at x -100, z 12, and another at the crown seam, x -32, z 29..32",
