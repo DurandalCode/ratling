@@ -135,13 +135,14 @@ def pipe_along(points, r):
 # coat; the coat came out uneven and thicker, so the radial room is 3.5 mm and each end is open
 # another 1.5 mm (the body's face and the cap's rear were flush, and the coat sits on them too).
 # The lock housing's pocket stays the seat. The tie rods and the lock bolts carve their own pockets.
-# The M4 tips stick 4.7 mm out of the body's face, past the nut. The bolt holes locate the stack, so
-# the floor stays; only those stubs get a deeper pocket, Ø8, 2 mm past the tip.
+# The M4 tips stick 4.7 mm out of the body's face, past the nut, and the lower pair then
+# dead-ends in the slab. That hole is a tight fit (the valve's own Ø4.4) and runs on toward
+# the barrel, to x -10, so the tip does not bottom out.
 VALVE_SOCK = 3.5
 SOCK_AXIAL = 1.5
 TIP_PAST_FACE = 4.7
-TIP_POCKET_EXTRA = 2.0
-TIP_POCKET_D = 8.0
+TIP_POCKET_EXTRA = 13.0                         # tip at x -23.3, pocket ends at x -10.3
+TIP_POCKET_D = 4.4
 _B, _r2 = BODY_R + VALVE_SOCK, TUBE_OD / 2 + 1.5 + VALVE_SOCK
 _phi = math.acos((_B - _r2) / chamber_x)     # the hull's tangent angle: the +VALVE_SOCK cancels in the numerator
 _x_cap0 = X_BODY_TOP - BODY_H - CAP_T - SOCK_AXIAL
