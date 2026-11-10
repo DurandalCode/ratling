@@ -185,14 +185,13 @@ outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the sh
 outer = outer.cut(box(-64.0, CHEEK["x"][1], 22.4, 38.8, -65.1, 19.0))  # the slider's tunnel, body to bracket arm.
                                                                           # It stops on the cheek's front face (x -5): the
                                                                           # plate ends there, and the cut does not enter the drum.
-# The mouth of that cut is the rectangle seen from the muzzle. Cap it with a wall moved
-# forward of the slider, so the plate stays at x -5. The sector ring starts at x -3.6, so the
-# cap is the 0.8 mm between them (x -4.7..-3.9, 0.3 mm clear of both). It crosses the bore:
-# that is the hole. A slot (y 22.6..26.4, z -18.5..18.5) lets the Ø3 pin sweep. The lip bites
-# the cheek's borders (back to x -5.4) so it is one solid with them, and it does not notch the drum.
-_lip = box(-5.4, -3.9, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], CHEEK["z"][1])
-_lip = _lip.cut(box(-5.6, -4.7, 22.4, 38.8, -65.1, 19.0))
-_lip = _lip.cut(box(-5.6, -3.7, 22.6, 26.4, -18.5, 18.5))
+# Only the lower part of that mouth. The plate stays at x -5; the cap is the 0.8 mm in
+# front of it (x -4.7..-3.9, the sector ring starts at x -3.6). It runs from the floor up
+# to z -19, 1 mm under the pin's lowest point (z -18), and it crosses the bore: that is
+# where the rod showed. Above z -19 the cheek face stays at x -5 and the mouth stays open.
+# The lip bites the cheek's borders (back to x -5.4) so it is one solid with them.
+_lip = box(-5.4, -3.9, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], -19.0)
+_lip = _lip.cut(box(-5.6, -4.7, 22.4, 38.8, -65.1, -18.7))
 outer = outer.fuse(_lip)
 outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, 18.0))   # the crank, its pin and the sleeve past the cheek's
                                                                     # inner face (the sleeve's rear corner reaches y 27)
