@@ -199,14 +199,16 @@ outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the sh
 outer = outer.cut(box(-64.0, CHEEK["x"][1], 22.4, 38.8, -65.1, 19.0))  # the slider's tunnel, body to bracket arm.
                                                                           # It stops on the cheek's front face (x -5): the
                                                                           # plate ends there, and the cut does not enter the drum.
-# Only the lower part of that mouth. The plate stays at x -5; the wall in front of the
-# slider is 5 mm (x -4.7..0.3, 0.3 mm clear of the slider's front face at x -5). It runs
-# from the floor up to z -19, 1 mm under the pin's lowest point (z -18). The sector, the
-# block and the barrels stay clear of it. Above z -19 the cheek face stays at x -5 and
-# the mouth stays open. The wall laps 0.4 mm back into the cheek (to x -5.4) so it is
-# one solid with it.
-_LIP_X0, _LIP_T = -4.7, 5.0
-_lip = box(-5.4, _LIP_X0 + _LIP_T, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], -19.0)
+# Only the lower part of that mouth. The plate stays at x -5. The closing wall stays
+# 0.8 mm thick and is shifted forward, up to 0.3 mm short of the block (the block
+# starts at x 0.5; a full 5 mm shift would run into it). It runs from the floor up
+# to z -19, 1 mm under the pin's lowest point (z -18). Above z -19 the cheek face
+# stays at x -5 and the mouth stays open. On the borders the wall laps back into
+# the cheek (to x -5.4) so it is one solid with it.
+_LIP_T = 0.8
+_LIP_X1 = 0.2                               # front face, 0.3 mm clear of the block
+_LIP_X0 = _LIP_X1 - _LIP_T
+_lip = box(-5.4, _LIP_X1, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], -19.0)
 _lip = _lip.cut(box(-5.6, _LIP_X0, 22.4, 38.8, -65.1, -18.7))
 outer = outer.fuse(_lip)
 outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, 18.0))   # the crank, its pin and the sleeve past the cheek's
