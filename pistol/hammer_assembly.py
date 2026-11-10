@@ -57,9 +57,9 @@ try:
 except NameError:
     VALVE = "v13"
 try:
-    CHECKS                                      # set before exec: False = build + document only, skip the
-except NameError:                               # long validation pass (fast look runs; commit on True runs)
-    CHECKS = True
+    CHECKS                                      # set True before exec for the check run, at the end of
+except NameError:                               # a change and again before the commit
+    CHECKS = False
 HUB_T_HAMMER = 14.0                             # the block's rear disc (hammer_layout.py)
 STUB = BARREL_TUBE - (HUB_T_HAMMER - 9.0)       # the tube from the rear disc's seat (9 deep) to the muzzle
 exec(open(os.path.join(REPO, "pistol", "hammer_layout.py")).read())
@@ -713,7 +713,7 @@ if CHECKS:
                % (PLUG_ORING + (2 * _gr, plug_stretch * 100, PLUG_SQUEEZE * 100, BARREL_OD, PLUG_FLANGE))]
     print("\n".join(report))
 else:
-    report = [NAME, "  fast run: CHECKS off - geometry, document and weights only"]
+    report = [NAME, "  geometry, document and weights (set CHECKS = True before exec for the check run)"]
     print("\n".join(report))
 
 if CHECKS:
