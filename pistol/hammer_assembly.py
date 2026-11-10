@@ -182,8 +182,10 @@ outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the sh
 # sleeve's travel) and the bracket arm's tunnel are plain boxes over their swept zones, and the crank
 # with its pin crosses the cheek's inner band - cut here for the same reason (simple body, fast and
 # robust booleans); the worst-case checks verify the cover over the stroke.
-outer = outer.cut(box(-64.0, -4.4, 22.4, 38.8, -65.1, 19.0))     # the slider's tunnel, body to bracket arm (the
-                                                                    # pivot's 3 mm move back lengthened the arm)
+outer = outer.cut(box(-64.0, CHEEK["x"][1], 22.4, 38.8, -65.1, 19.0))  # the slider's tunnel, body to bracket arm.
+                                                                          # It used to run 0.6 mm past the cheek's front
+                                                                          # face and notch the drum at that joint; the
+                                                                          # slider stops on the face (x -5) and never enters
 outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, 18.0))   # the crank, its pin and the sleeve past the cheek's
                                                                     # inner face (the sleeve's rear corner reaches y 27)
 _tick('outer built')
@@ -269,8 +271,9 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
 # Supply (6/4 hose from the receiver) in through the pommel, up the grip, out to the right and into
 # the straight R1/8 on R along its axis. The silencer on P is the straight fitting above it. Pilot
 # (4/2.5 PU) leaves the straight R1/8 on A to the left, then forward into the room to the cap's G1/8
-# push-in. No printed channels: the tubes run in the air and only cut the shell where they cross it.
-# The tee on the pilot feeds the gauge, out through the drum's upper-left flank, where the shooter sees it.
+# push-in. No printed channels in the shell: the tubes are soft and will not find a groove. The grip
+# keeps the supply channel (the halves close on it). Rigid fittings still cut their own exits.
+# The tee on the pilot feeds the gauge, out past the drum's upper-left flank, where the shooter sees it.
 r_end, r_dir = vent_port("R")
 a_end, a_dir = vent_port("A")
 supply_pts = [c_end + gd * 70, c_end + gd * 15, GRIP_START + gd * (GRIP_LEN * 0.6), GRIP_START + gd * (GRIP_LEN * 0.3),
@@ -371,12 +374,12 @@ if len(frame.Solids) > 1:            # OCCT sometimes leaves a face-sliver crumb
 # The right cover: the slab's right wall, the cheek and the flank band with the slider's tunnels, one
 # plate mirroring the left - both sides open, the mechanism lays in from either side, the valve's
 # socket becomes a through channel. It rides the Ø8 hammer axle (its flank band is the right bearing)
-# and two M3 into the rear wall's strips below and above the socket.
+# and one M3 into the rear wall's lower strip. The upper hole (z -11) sat on the step where the slab
+# meets the drum and held nothing.
 side_cut_r = box(HEEL_X - 1, fx[1] + 1, SLAB["y"] - 3.0, fy[1] + 3.0, SLAB["z"][0] - 1, fz[1] + 1)
 side_plate_r = (frame.common(side_cut_r).cut(sock_cap).cut(sock_body).cut(lock_housing_h)
                 .cut(valve_rods_cut).cut(lock_bolts_cut)
-                .cut(Part.makeCompound([Part.makeCylinder(1.7, 8.0, V(HEEL_X + 1.0, 21.5, z_), XA)
-                                        for z_ in (-65.0, -11.0)])))           # 2 x M3 into the rear wall's strips
+                .cut(Part.makeCylinder(1.7, 8.0, V(HEEL_X + 1.0, 21.5, -65.0), XA)))   # M3 x 10 into the lower strip
 if len(side_plate_r.Solids) > 1:
     side_plate_r = Part.makeCompound([s_ for s_ in side_plate_r.Solids if s_.Volume > 50.0])
 frame = frame.cut(side_cut_r)
@@ -527,9 +530,8 @@ spikes += [spike(V(x_, 0, STRAP["z"][1] - 1), V(0.25, 0, 1), 14, 3.5) for x_ in 
 spikes += [spike(V(X_AXLE_END + s_t / 2, sd_ * s_w, STRAP["z"][1] - 8), V(0.3, sd_ * 1, 0.4), 14, 3.0) for sd_ in (-1, 1)]
 _tick('supports built')
 
-grip, frame, side_plate, side_plate_r, skin = (grip.cut(air_cut), frame.cut(air_cut), side_plate.cut(air_cut),
-                                               side_plate_r.cut(air_cut), skin.cut(air_cut))
-if len(frame.Solids) > 1:            # and again after the air lines: keep only the body, drop the crumbs
+grip = grip.cut(air_cut)            # the shell is not grooved: a soft tube will not sit in a printed channel
+if len(frame.Solids) > 1:            # crumbs from the earlier cuts: keep only the body
     frame = max(frame.Solids, key=lambda q: q.Volume)
 grip = max(grip.Solids, key=lambda q: q.Volume) if len(grip.Solids) > 1 else grip
 # The grip prints as two halves split on y = 0, each flat on its cut face: the hose lies in the open channel,
@@ -890,7 +892,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
             "Frame_side": "the slab's wall: joint face down, no raft. The flank band slides on from the rear on two dovetails (z 14 and z 28, neck 4, ends 6.2, 0.2 clear)",
             "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into them. Slides onto the wall from the rear",
-            "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 2 x M3 x 10 into the rear wall's strips",
+            "Frame_right": "the right cover (the slab's wall, the cheek with the slider's tunnels, the flank band): on the Ø8 axle + 1 x M3 x 10 into the rear wall's lower strip",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 96: the slider's guide. The bore is through: in from the ceiling, down to the floor boss, the rod ends in the stop", "Trigger": "pivot: M3 x 16 screw + nylock nut",

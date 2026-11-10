@@ -76,7 +76,7 @@ PARTS = [
     ("frame_upper", frame_upper, -X_, "supports", "the upper half: the drum's top (the gauge, the vial, the strap's foot); the grooves to the lower half's tongues"),
     ("frame_side_wall", side_wall, -Y_, "standard", "joint face on the bed, no raft; the dovetail grooves open on the bed and widen upward; the band slides in from the rear"),
     ("frame_side_band", side_band, X_, "supports", "front end on the bed (the rear face is only the ball's tip): the cylinder's walls are vertical; supports only under the 5 bosses; 5 x ST2.9 x 16; slides onto the wall from the rear"),
-    ("frame_right", side_plate_r, Y_, "supports", "cheek face down (0.5 proud of the drum, flat); the tunnels and the socket's mouth open sideways; Ø8 axle + 2 x M3 x 10 rear"),
+    ("frame_right", side_plate_r, Y_, "supports", "cheek face down (0.5 proud of the drum, flat); the tunnels and the socket's mouth open sideways; Ø8 axle + 1 x M3 x 10 into the rear wall's lower strip"),
     ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the valve box's left half"),
     ("grip_right", grip_right, -Y_, "supports", "cut face on the bed; glued to the left on 3 x Ø3 x 12 dowels"),
     ("trigger_guard", guard, Y_, "supports", "flat; ST2.9 x 13 into its tab through the floor"),
