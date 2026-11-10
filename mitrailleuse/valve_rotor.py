@@ -10,9 +10,12 @@ spring-return push button, Rc1/8, NC and NO by piping). Catalog numbers below ar
 valve's; a clone can differ, and nothing here is drawn in FreeCAD until the real parts are
 measured (docs/human-todo.md).
 
-One valve per barrel. The button faces the rotor. The body is turned so the port column
-faces outward: 16 mm tangential, 31.8 mm radial (the drawing's port face is the 16 mm one;
-the other way round is computed too, in case the column is on the wide face). A face cam
+One valve per barrel. The button faces the rotor. The order drawing and the body photo put
+the ports on opposite ends of the 31.8 mm length: 1(P) and 3(R) on one 16 mm face, 2(A)
+alone on the other. The wide faces carry the Ø5.2 mounting holes and no ports. Turned with
+16 mm tangential and 31.8 radial, A points out to the module and P+R point into the hole
+of the plate. The other way round points the ports at the neighbours and does not fit the
+plate; that ring is only printed as a check. A face cam
 presses a small pusher into the button and lets go. Pressed, supply feeds the pilot and the
 chamber fills through the module's Ø1.0 bleed. Released, the pilot vents and the module
 fires. At rest the pilot is open to exhaust, so a barrel is under pressure only while its
@@ -64,7 +67,8 @@ BLEED_D = 1.0                        # module v4.4, mm; charge time is this hole
 T_FILL = 0.5                         # s, v1.1 bench, Ø1.0, chamber 100 cm3, 2 bar
 CHAMBER_V = 100.0                    # cm3
 
-# Ring. Ports face out, so the 16 mm thickness is tangential and 31.8 is radial.
+# Ring. Port faces are the ends of the 31.8 mm length, so that length is radial:
+# A outward, P and R inward. 16 mm is tangential.
 # WALL is the plastic between neighbouring inner corners (a pocket; the M5 holes are not
 # used). SCREW_WALL is the same ring if those holes take an M5 into the wall.
 TANGENTIAL, RADIAL = BODY_T, BODY_W
@@ -350,7 +354,7 @@ def report():
           % (AREA, BLEED_D, bleed_area(), AREA / bleed_area(), MASS_G, P_MIN, P_MAX, F_HZ))
     print("  pilot dump estimate: %.2f ms per cm3 through the valve at 2 bar (not a bench number)"
           % pilot_ms(1.0))
-    print("rings, ports outward, %.1f mm between inner corners:" % WALL)
+    print("rings, A outward and P+R inward, %.1f mm between inner corners:" % WALL)
     rings = []
     for n in PACKS:
         rg = ring(n, TANGENTIAL, RADIAL, WALL)
@@ -359,7 +363,7 @@ def report():
     print("same ring with an M5 wall of %.0f mm (the drawing's Ø%.1f holes):" % (SCREW_WALL, MOUNT_D))
     for n in PACKS:
         report_ring(ring(n, TANGENTIAL, RADIAL, SCREW_WALL), "screwed")
-    print("if the port column is on the wide face instead, pocket wall %.0f mm, 31.8 tangential:" % WALL)
+    print("turned so the ports face the neighbours, pocket wall %.0f mm, 31.8 tangential:" % WALL)
     for n in PACKS:
         report_ring(ring(n, BODY_W, BODY_T, WALL), "flipped")
     print("cams on the pocket ring (ramp %.0f mm, fill %.2f s):" % (RAMP_MM, T_FILL))
@@ -435,8 +439,8 @@ def svg(path, rg, sc_hold):
          'font-family="Helvetica, Arial, sans-serif" font-size="13">' % (W, H, W, H),
          '<rect width="100%%" height="100%%" fill="%s"/>' % surf,
          '<text x="28" y="34" font-size="20" fill="%s">Головка на 19 клапанов, эскиз</text>' % ink,
-         '<text x="28" y="56" fill="%s">Куплено 20, один запасной. Кольцо посчитано, клапаны ещё не '
-         'обмерены. Разрез: зазоры, толкатель и толщина кулачка условные.</text>' % ink2]
+         '<text x="28" y="56" fill="%s">Куплено 20, один запасной. Снаружи один порт A, внутри два — P и R. '
+         'Зазоры, толкатель и толщина диска условные.</text>' % ink2]
 
     def circle(r, color, width, dash=None):
         extra = "" if dash is None else ' stroke-dasharray="%s"' % dash
@@ -501,8 +505,8 @@ def svg(path, rg, sc_hold):
     arc_name(-lobe["lr"], "выстрел", "end")
     arc_name(lobe["lp"] * 0.55, "набор", "start")
     o.append('<text x="28" y="78" fill="%s" font-size="15">А — со стороны ротора</text>' % ink)
-    o.append('<text x="28" y="786" fill="%s">Синие корпуса кулачок держит нажатыми. Дуга снаружи: синяя — набор, '
-             'оранжевая слева — отпускание, там ствол стреляет. Пунктир — плита.</text>' % ink2)
+    o.append('<text x="28" y="786" fill="%s">Синие корпуса нажаты. Дуга: синяя — набор, оранжевая — выстрел. '
+             'Пунктир — плита. На корпусе снаружи A, внутри P и R.</text>' % ink2)
 
     # --- local section of the pressed valve. The shaft is on the axis, off this view. ---
     s = 4.0
@@ -542,14 +546,19 @@ def svg(path, rg, sc_hold):
 
     block(valve_s0, rg["r_out"], OVERALL_H, rg["r_out"] - rg["r_in"], down_c)
     block(valve_s1 - 6.0, rg["R"] + btn, 6.0, BUTTON_D, orange)
-    # ports on the outer face; their pitch is not measured, so they are only marks
-    for i, lab in enumerate(("1P", "2A", "3R")):
-        cxp, cyp = S(valve_s0 + 11.0 + i * 12.0, rg["r_out"] - 1.5)
-        o.append('<circle cx="%.1f" cy="%.1f" r="4" fill="%s" stroke="%s"/>' % (cxp, cyp, surf, ink))
-        o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="11" text-anchor="middle">%s</text>'
-                 % (cxp, cyp + 16, ink2, lab))
-    ax, ay = S(valve_s0 + 23.0, rg["r_out"] - 1.5)
-    up = S(valve_s0 + 23.0, HEAD_PLATE_R + 4.0)
+    # A alone on the outer face; P and R on the inner face, stacked along the button axis
+    def port_mark(along, rad, lab, below):
+        x, y = S(along, rad)
+        o.append('<circle cx="%.1f" cy="%.1f" r="4.5" fill="%s" stroke="%s"/>' % (x, y, surf, ink))
+        o.append('<text x="%.1f" y="%.1f" fill="%s" font-size="12" text-anchor="middle">%s</text>'
+                 % (x, y + (16 if below else -8), ink, lab))
+
+    a_along = valve_s0 + OVERALL_H * 0.48
+    port_mark(a_along, rg["r_out"] - 1.0, "A", True)
+    port_mark(valve_s0 + 12.0, rg["r_in"] + 1.0, "R", True)
+    port_mark(valve_s1 - 14.0, rg["r_in"] + 1.0, "P", True)
+    ax, ay = S(a_along, rg["r_out"] - 1.0)
+    up = S(a_along, HEAD_PLATE_R + 4.0)
     left = S(plate_t, HEAD_PLATE_R + 4.0)
     o.append('<path d="M %.1f %.1f L %.1f %.1f L %.1f %.1f" fill="none" stroke="%s" stroke-width="1.6"/>'
              % (ax, ay, up[0], up[1], left[0], left[1], blue))
@@ -596,7 +605,8 @@ def svg(path, rg, sc_hold):
              % (ox, ink))
     o.append('<text x="%.0f" y="646" fill="%s">Покой: P закрыт, пилот в R. Нажали — P в A, камера %.1f с.</text>'
              % (ox, ink, T_FILL))
-    o.append('<text x="%.0f" y="666" fill="%s">Отпустили — выстрел. Шаг трёх Rc1/8 ещё не снят.</text>' % (ox, ink))
+    o.append('<text x="%.0f" y="666" fill="%s">Отпустили — выстрел. P и R смотрят внутрь кольца, A одно наружу.</text>'
+             % (ox, ink))
     o.append('</svg>')
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(o) + "\n")

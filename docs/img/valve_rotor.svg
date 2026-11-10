@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1180" height="820" viewBox="0 0 1180 820" font-family="Helvetica, Arial, sans-serif" font-size="13">
 <rect width="100%" height="100%" fill="#fcfcfb"/>
 <text x="28" y="34" font-size="20" fill="#0b0b0b">Головка на 19 клапанов, эскиз</text>
-<text x="28" y="56" fill="#52514e">Куплено 20, один запасной. Кольцо посчитано, клапаны ещё не обмерены. Разрез: зазоры, толкатель и толщина кулачка условные.</text>
+<text x="28" y="56" fill="#52514e">Куплено 20, один запасной. Снаружи один порт A, внутри два — P и R. Зазоры, толкатель и толщина диска условные.</text>
 <circle cx="340.0" cy="430.0" r="200.9" fill="none" stroke="#c8c4ba" stroke-width="1.4" stroke-dasharray="5 4"/>
 <circle cx="340.0" cy="430.0" r="149.6" fill="none" stroke="#c5d4ea" stroke-width="0.8"/>
 <polygon points="356.4,313.0 323.6,313.0 323.6,247.8 356.4,247.8" fill="#c5d9f2" stroke="#0b0b0b" stroke-width="1"/>
@@ -56,7 +56,7 @@
 <text x="321.1" y="201.2" fill="#0b0b0b" font-size="12" text-anchor="end">выстрел</text>
 <text x="397.9" y="207.8" fill="#0b0b0b" font-size="12" text-anchor="start">набор</text>
 <text x="28" y="78" fill="#0b0b0b" font-size="15">А — со стороны ротора</text>
-<text x="28" y="786" fill="#52514e">Синие корпуса кулачок держит нажатыми. Дуга снаружи: синяя — набор, оранжевая слева — отпускание, там ствол стреляет. Пунктир — плита.</text>
+<text x="28" y="786" fill="#52514e">Синие корпуса нажаты. Дуга: синяя — набор, оранжевая — выстрел. Пунктир — плита. На корпусе снаружи A, внутри P и R.</text>
 <text x="700" y="168" fill="#0b0b0b" font-size="15">Б — нажатый клапан, к стволам слева</text>
 <text x="700" y="188" fill="#52514e" font-size="12">обрыв к оси. Зазор, толкатель и толщина диска условные.</text>
 <rect x="700.0" y="329.8" width="40.0" height="195.8" fill="#eeeae4" stroke="#0b0b0b"/>
@@ -80,13 +80,13 @@
 <path d="M 700.0 525.6 l 6 -5 l 6 10 l 6 -10 l 6 10 l 6 -5" fill="none" stroke="#0b0b0b"/>
 <rect x="756.0" y="366.4" width="183.2" height="127.2" fill="#c5d9f2" stroke="#0b0b0b"/>
 <rect x="915.2" y="408.8" width="24.0" height="42.4" fill="#eb6834" stroke="#0b0b0b"/>
-<circle cx="800.0" cy="372.4" r="4" fill="#fcfcfb" stroke="#0b0b0b"/>
-<text x="800.0" y="388.4" fill="#52514e" font-size="11" text-anchor="middle">1P</text>
-<circle cx="848.0" cy="372.4" r="4" fill="#fcfcfb" stroke="#0b0b0b"/>
-<text x="848.0" y="388.4" fill="#52514e" font-size="11" text-anchor="middle">2A</text>
-<circle cx="896.0" cy="372.4" r="4" fill="#fcfcfb" stroke="#0b0b0b"/>
-<text x="896.0" y="388.4" fill="#52514e" font-size="11" text-anchor="middle">3R</text>
-<path d="M 848.0 372.4 L 848.0 313.8 L 740.0 313.8" fill="none" stroke="#2a78d6" stroke-width="1.6"/>
+<circle cx="843.9" cy="370.4" r="4.5" fill="#fcfcfb" stroke="#0b0b0b"/>
+<text x="843.9" y="386.4" fill="#0b0b0b" font-size="12" text-anchor="middle">A</text>
+<circle cx="804.0" cy="489.6" r="4.5" fill="#fcfcfb" stroke="#0b0b0b"/>
+<text x="804.0" y="505.6" fill="#0b0b0b" font-size="12" text-anchor="middle">R</text>
+<circle cx="883.2" cy="489.6" r="4.5" fill="#fcfcfb" stroke="#0b0b0b"/>
+<text x="883.2" y="505.6" fill="#0b0b0b" font-size="12" text-anchor="middle">P</text>
+<path d="M 843.9 370.4 L 843.9 313.8 L 740.0 313.8" fill="none" stroke="#2a78d6" stroke-width="1.6"/>
 <text x="740.0" y="307.8" fill="#2a78d6" font-size="12">пилот к модулю</text>
 <rect x="987.2" y="382.0" width="56.0" height="143.6" fill="#d6e4f4" stroke="#0b0b0b"/>
 <path d="M 987.2 525.6 l 8 -5 l 8 10 l 8 -10 l 8 10 l 8 -5" fill="none" stroke="#0b0b0b"/>
@@ -109,5 +109,5 @@
 <text x="700" y="602" fill="#0b0b0b">синяя площадка 2.0 мм держит кнопку. У свободного её нет —</text>
 <text x="700" y="620" fill="#0b0b0b">между кнопкой и диском зазор 2 мм. Диск сидит на валу Ø8.</text>
 <text x="700" y="646" fill="#0b0b0b">Покой: P закрыт, пилот в R. Нажали — P в A, камера 0.5 с.</text>
-<text x="700" y="666" fill="#0b0b0b">Отпустили — выстрел. Шаг трёх Rc1/8 ещё не снят.</text>
+<text x="700" y="666" fill="#0b0b0b">Отпустили — выстрел. P и R смотрят внутрь кольца, A одно наружу.</text>
 </svg>
