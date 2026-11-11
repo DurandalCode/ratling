@@ -1,29 +1,36 @@
 #!/bin/sh
-# Ratling pistol (hammer variant): plates for the body and the hand mechanism only, to try the grip, the hammer and the
-# trigger before printing the rest (valve, lock housing, block, axle plug, strap, nose). One project per print profile.
+# Ratling pistol (hammer variant): the body shell the v12 rounds changed - the tray, the lid, the left
+# wall and band, the right cover, both grip halves - as ONE Bambu project in PLA on the 0.8 nozzle
+# (the fit-check round; the final body is PETG later). Bambu's arrange splits the parts over the
+# project's plates by itself. The shell is all supports-group except frame_side_wall, whose standard
+# profile differs only by the infill share; 40 % just makes the wall stiffer. Brim 5: the tray, the
+# lid and the band stand tall on a small bed area (orient_check WARNs). The guard, the strap, the
+# nose and the axle plug are not this round; the mechanism parts come separately.
 # Run pistol/build/export_parts.py in FreeCAD first.
 #   sh pistol/build/body_plates.sh
 set -e
 cd "$(dirname "$0")/../.."
 python3 - <<'PY'
 import json, shlex, subprocess, sys
-NAMES = {"frame_cage", "frame_side_plate", "grip_left", "grip_right", "trigger_guard", "trigger", "hammer", "slider",
-         "sector", "pawl", "detent_housing", "detent_bolt"}
+NAMES = {"frame_lower", "frame_upper", "frame_side_wall", "frame_side_band", "frame_right",
+         "grip_left", "grip_right"}
 spec = json.load(open("exports/pistol_build/parts.json"))
-for group, opts in spec["groups"].items():
-    for nozzle in ("0.4", "0.8"):           # parts on the 0.8 nozzle get their own projects, <group>_08
-        stls = [p["stl"] for p in spec["parts"]
-                if p["group"] == group and p.get("nozzle", "0.4") == nozzle and p["name"] in NAMES]
-        if not stls:
-            continue
-        cmd = [sys.executable, "tools/print_plate.py", "pistol_body_" + group + ("_08" if nozzle == "0.8" else "")] + stls
-        cmd += shlex.split(opts) + (["--nozzle", nozzle] if nozzle != "0.4" else [])
-        print(">", " ".join(cmd), flush=True)
-        out = subprocess.run(cmd, capture_output=True, text=True)
-        if out.returncode:
-            print(out.stdout[-1500:], out.stderr[-1500:])
-            sys.exit(out.returncode)
-        r = json.loads(out.stdout)
-        print("  %s: %d plate(s), %s" % (r["project"], r["plates"],
-              ", ".join("%d min %.0f g" % (s["minutes"], s["grams"]) for s in r["sliced"])), flush=True)
+stls = [p["stl"] for p in spec["parts"] if p["name"] in NAMES]
+missing = NAMES - {p["name"] for p in spec["parts"]}
+if missing:
+    sys.exit("parts.json is missing: %s (run pistol/build/export_parts.py in FreeCAD first)"
+             % ", ".join(sorted(missing)))
+cmd = [sys.executable, "tools/print_plate.py", "pistol_body_08_pla"] + stls
+cmd += shlex.split("--nozzle 0.8 --filament 'Bambu PLA Basic @BBL P2S' --infill 40% --walls 4 "
+                   "--support --brim 5")
+print(">", " ".join(cmd), flush=True)
+out = subprocess.run(cmd, capture_output=True, text=True)
+if out.returncode:
+    print(out.stdout[-1500:], out.stderr[-1500:])
+    sys.exit(out.returncode)
+r = json.loads(out.stdout)
+print(out.stderr.strip())          # the orient_check verdicts, one line a part
+print("  %s: %d plate(s), %s" % (r["project"], r["plates"],
+      ", ".join("plate %d: %d min %.0f g" % (s["plate"], s["minutes"], s["grams"]) for s in r["sliced"])),
+      flush=True)
 PY
