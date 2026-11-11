@@ -15,6 +15,10 @@ falls back to a default plate). On top go the overrides given here.
 
     tools/print_plate.py tube_plug_v1 exports/tube_plug_v1/tube_plug_v1.stl:2 --infill 100%
 
+--plate-each re-lays the exported project so each part sits alone on its own plate (plate
+i = the i-th STL on the command line) and re-slices it through the CLI. The plates follow
+Bambu's own grid (PartPlate.hpp), so the project opens in the GUI exactly as sliced.
+
 --nozzle 0.8 (or 0.6) swaps in that nozzle's printer and filament presets and
 a coarser layer, and cuts --walls so the wall stays as thick as with 0.4. Big
 plain parts print in about half the time (the pistol's grip, side plate and
@@ -127,6 +131,97 @@ def slice_info(project):
     return plates, out
 
 
+def plates_each(project, stls, machine):
+    """One plate a part, in the order the STLs were given. The CLI cannot be told which
+    plate a part belongs to, so re-lay the project it just exported: one <plate> block a
+    part in Metadata/model_settings.config, each part's <build> transform moved to its
+    plate's spot in Bambu's plate grid (PartPlate.hpp: cols = ceil(sqrt(count)), stride
+    = bed * 1.2, the second row in -y, the bed's own origin at its min corner), then run
+    the CLI over the edited 3mf: it loads the plates as written and re-slices each."""
+    area = machine.get("printable_area") or []
+    xs, ys = [], []
+    for p in area:
+        x, _, y = str(p).partition("x")
+        xs.append(float(x))
+        ys.append(float(y))
+    if not xs:
+        raise SystemExit("the machine preset has no printable_area: cannot place the plates")
+    bed_w = max(xs) - min(xs)
+    stride = 1.2 * bed_w
+    n = len(stls)
+    root = n ** 0.5
+    cols = int(round(root)) + (1 if root > round(root) else 0)
+    order = [os.path.basename(s) for s in stls]
+
+    with zipfile.ZipFile(project) as z:
+        entries = [(i, z.read(i.filename)) for i in z.infolist()]
+    cfg = next(d for i, d in entries if i.filename == "Metadata/model_settings.config").decode()
+    model = next(d for i, d in entries if i.filename == "3D/3dmodel.model").decode()
+
+    id2name = dict(re.findall(r'<object id="(\d+)">\s*<metadata key="name" value="([^"]+)"', cfg))
+    name2id = {v: k for k, v in id2name.items()}
+    missing = [n_ for n_ in order if n_ not in name2id]
+    if missing:
+        raise SystemExit("plates_each: no object for %s" % ", ".join(missing))
+
+    tmpl = re.findall(r"<plate>(.*?)</plate>", cfg, re.S)[0]
+
+    def block(i, oid):
+        b = re.sub(r'(<metadata key="plater_id" value=")\d+("/>)', lambda m: m.group(1) + str(i) + m.group(2), tmpl)
+        for key, fmt in (("gcode_file", "Metadata/plate_%d.gcode"), ("thumbnail_file", "Metadata/plate_%d.png"),
+                         ("thumbnail_no_light_file", "Metadata/plate_no_light_%d.png"),
+                         ("top_file", "Metadata/top_%d.png"), ("pick_file", "Metadata/pick_%d.png")):
+            b = re.sub(r'(<metadata key="%s" value=")[^"]+("/>)' % key,
+                       lambda m, f=fmt: m.group(1) + (f % i) + m.group(2), b)
+        inst = ('<model_instance>\n      <metadata key="object_id" value="%s"/>\n'
+                '      <metadata key="instance_id" value="0"/>\n'
+                '      <metadata key="identify_id" value="%d"/>\n    </model_instance>') % (oid, 1000 + i)
+        ms = list(re.finditer(r"<model_instance>.*?</model_instance>", b, re.S))
+        return b[:ms[0].start()] + inst + b[ms[-1].end():]
+
+    first, last = cfg.find("<plate>"), cfg.rfind("</plate>") + len("</plate>")
+    cfg = cfg[:first] + "\n  ".join("<plate>%s</plate>" % block(k + 1, name2id[n_])
+                                    for k, n_ in enumerate(order)) + cfg[last:]
+
+    def fix_item(m):
+        oid, tr = m.group("oid"), m.group("tr").split()
+        name = id2name.get(oid, "")
+        if name not in order:
+            return m.group(0)
+        i = order.index(name)
+        cx = (i % cols) * stride + bed_w / 2.0
+        cy = -(i // cols) * stride + bed_w / 2.0
+        moved.add(name)
+        return m.group(0).replace(m.group("tr"), " ".join(tr[:9]) + " %.5f %.5f %s" % (cx, cy, tr[11]))
+
+    moved = set()
+    model = re.sub(r'<item objectid="(?P<oid>\d+)"[^>]*transform="(?P<tr>[^"]+)"', fix_item, model)
+    if moved != set(order):
+        raise SystemExit("plates_each: no build item for %s" % ", ".join(sorted(set(order) - moved)))
+
+    run_dir = tempfile.mkdtemp(prefix="plate_each_")     # the CLI drops result.json in its cwd
+    edited = os.path.join(run_dir, "each.3mf")           # the CLI only reads .3mf/.stl/... extensions
+    with zipfile.ZipFile(edited, "w", zipfile.ZIP_DEFLATED) as z:
+        for info, data in entries:
+            if info.filename == "Metadata/model_settings.config":
+                data = cfg.encode()
+            elif info.filename == "3D/3dmodel.model":
+                data = model.encode()
+            z.writestr(info, data)
+    cmd = [BAMBU, "--arrange", "0", "--orient", "0", "--slice", "0", "--export-3mf", project, edited]
+    run = subprocess.run(cmd, cwd=run_dir, capture_output=True, text=True)
+    result = {}
+    if os.path.exists(os.path.join(run_dir, "result.json")):
+        with open(os.path.join(run_dir, "result.json")) as f:
+            result = json.load(f)
+    os.remove(edited)
+    if run.returncode or result.get("return_code", 0) or not os.path.exists(project):
+        tail = "\n".join(run.stdout.splitlines()[-10:] + run.stderr.splitlines()[-10:])
+        raise SystemExit("Bambu Studio failed to re-slice the per-part plates: %s\n%s"
+                         % (result.get("error_string", run.returncode), tail))
+    return project
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("name")
@@ -144,6 +239,9 @@ def main(argv=None):
     ap.add_argument("--support", action="store_true", help="enable supports (parts are drawn not to need them)")
     ap.add_argument("--airtight", action="store_true",
                     help="slow, hot, over-extruded, 6+ walls: for parts that hold air")
+    ap.add_argument("--plate-each", action="store_true",
+                    help="one plate a part, in the order given: the project is re-laid with each part on its "
+                         "own plate and re-sliced (Bambu's arrange cannot be told which plate a part goes to)")
     ap.add_argument("--brim", type=float, metavar="MM",
                     help="outer brim of this width round every part: for tall thin ones (the slider, the pawl) that peel off the bed")
     ap.add_argument("--no-slice", action="store_true")
@@ -227,10 +325,19 @@ def main(argv=None):
         raise SystemExit("Bambu Studio failed: %s\n%s" % (result.get("error_string", run.returncode), tail))
 
     mark_changes(project, [k for k in overrides if k != "curr_bed_type"], AIRTIGHT_FILAMENT.keys() if args.airtight else ())
+    if args.plate_each:
+        if any(c > 1 for c in counts):
+            raise SystemExit("--plate-each gives each part its own plate: pass every copy as its own STL, not STL:COUNT")
+        if args.no_slice:
+            raise SystemExit("--plate-each re-slices the re-laid project: it needs slicing on")
+        plates_each(project, stls, preset("machine", args.printer))
+        mark_changes(project, [k for k in overrides if k != "curr_bed_type"],
+                     AIRTIGHT_FILAMENT.keys() if args.airtight else ())
     plates, sliced = slice_info(project)
     report = {"project": os.path.relpath(project, REPO), "nozzle": args.nozzle, "printer": args.printer,
               "process": args.process, "filament": args.filament, "overrides": overrides,
               "airtight": AIRTIGHT_FILAMENT if args.airtight else None,
+              "plate_each": bool(args.plate_each),
               "parts": [{"stl": os.path.relpath(s, REPO), "count": c, "orientation": orient[s][0], "note": orient[s][1]}
                         for s, c in zip(stls, counts)],
               "plates": plates,
