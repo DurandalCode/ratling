@@ -25,7 +25,7 @@ dressed as archive/pistol_assembly.py (the lever variant):
                 and the plates register on tongue/groove pairs, including one
                 on the crown seam at x -32; the band takes the ball's
                 semicircle (above the slab) and locks to the wall on one
-                tongue at the slab's top (x -101..-98)
+                tongue at the slab's top (x -102.5..-96.5)
     grip ...... the rag-wrapped wooden grip, warpstone pommel with the
                 hose; the halves bolt together (2 x M3 x 25 through, dowels locate)
                 and the pair glues up under the slab on two tongues
@@ -567,15 +567,15 @@ spikes += [spike(V(X_AXLE_END + s_t / 2, sd_ * s_w, STRAP["z"][1] - 8), V(0.3, s
 _tick('supports built')
 
 grip = grip.cut(air_cut)            # the shell is not grooved: a soft tube will not sit in a printed channel
-# Two 3 mm tongues, one in each half, up into the tray's floor. The right one sits
+# Two tongues, one in each half, up into the tray's floor. The right one (3 mm) sits
 # out at y 12: the supply hose owns the centre of that face, and the valve socket
-# starts just forward of it, so that tongue is open toward +x. The left one stops
-# the bolted pair both ways. 0.2 mm clear, and the grip lifts off downward. The
-# groove stops 4 mm short of the valve's socket floor.
-GRIP_TONGUES = ((-102.0, -10.0), (-98.0, 12.0))    # x, y, on the floor's underside
-for _x, _y in GRIP_TONGUES:
-    grip = grip.fuse(box(_x - 1.5, _x + 1.5, _y - 1.5, _y + 1.5, -73.0, -67.0))
-    frame = frame.cut(box(_x - 1.7, _x + 1.7, _y - 1.7, _y + 1.7, -70.3, -66.8))
+# starts just forward of it, so that tongue is open toward +x and has no room to grow.
+# The left one (5 mm) stops the bolted pair both ways. 0.2 mm clear, and the grip
+# lifts off downward. The groove stops 4 mm short of the valve's socket floor.
+GRIP_TONGUES = ((-102.0, -10.0, 5.0), (-98.0, 12.0, 3.0))    # x, y on the floor's underside, width
+for _x, _y, _w in GRIP_TONGUES:
+    grip = grip.fuse(box(_x - _w / 2, _x + _w / 2, _y - _w / 2, _y + _w / 2, -73.0, -67.0))
+    frame = frame.cut(box(_x - _w / 2 - 0.2, _x + _w / 2 + 0.2, _y - _w / 2 - 0.2, _y + _w / 2 + 0.2, -70.3, -66.8))
 if len(frame.Solids) > 1:            # crumbs from the earlier cuts: keep only the body
     frame = max(frame.Solids, key=lambda q: q.Volume)
 grip = max(grip.Solids, key=lambda q: q.Volume) if len(grip.Solids) > 1 else grip
@@ -633,16 +633,19 @@ def tg_box(x_, y_, z_, wx, wy, h_):
 # x, z on the frame's side faces (y = +-20): on the slab's wall, clear of the QEV window, the vent's
 # socket, the lock's pocket and the trigger's slot. The right side differs: the vent's socket owns
 # (x -90, z -25) there, so the rear pair moves to (-75, -35).
-PLATE_JOINTS = dict(left=((-90.0, -25.0), (-60.0, -62.0), (-15.0, -62.0)),
-                    right=((-75.0, -35.0), (-60.0, -62.0), (-15.0, -62.0)))
-for x_, z_ in PLATE_JOINTS["left"]:
-    side_plate = side_plate.fuse(box(x_ - TG_W / 2, x_ + TG_W / 2, -20.0, -20.0 + TG_H, z_ - TG_W / 2, z_ + TG_W / 2))
-    frame = frame.cut(box(x_ - TG_W / 2 - TG_CLEAR, x_ + TG_W / 2 + TG_CLEAR,
-                          -20.0 - 0.1, -20.0 + TG_H + 0.3, z_ - TG_W / 2 - TG_CLEAR, z_ + TG_W / 2 + TG_CLEAR))
-for x_, z_ in PLATE_JOINTS["right"]:
-    side_plate_r = side_plate_r.fuse(box(x_ - TG_W / 2, x_ + TG_W / 2, 20.0 - TG_H, 20.0, z_ - TG_W / 2, z_ + TG_W / 2))
-    frame = frame.cut(box(x_ - TG_W / 2 - TG_CLEAR, x_ + TG_W / 2 + TG_CLEAR,
-                          20.0 - TG_H - 0.3, 20.0 + 0.1, z_ - TG_W / 2 - TG_CLEAR, z_ + TG_W / 2 + TG_CLEAR))
+# x, z, width, depth. Each tongue is as big as its seat allows: the groove keeps the wall it had at 3 x 3
+# (1 mm round it). The floor pairs (z -62) sit in solid slab and take 6 x 4; the rear pairs beside the
+# vent's socket and the QEV window stay 3 x 3.
+PLATE_JOINTS = dict(left=((-90.0, -25.0, 3.0, 3.0), (-60.0, -62.0, 6.0, 4.0), (-15.0, -62.0, 6.0, 4.0)),
+                    right=((-75.0, -35.0, 3.0, 3.0), (-60.0, -62.0, 6.0, 4.0), (-15.0, -62.0, 6.0, 4.0)))
+for x_, z_, w_, h_ in PLATE_JOINTS["left"]:
+    side_plate = side_plate.fuse(box(x_ - w_ / 2, x_ + w_ / 2, -20.0, -20.0 + h_, z_ - w_ / 2, z_ + w_ / 2))
+    frame = frame.cut(box(x_ - w_ / 2 - TG_CLEAR, x_ + w_ / 2 + TG_CLEAR,
+                          -20.0 - 0.1, -20.0 + h_ + 0.3, z_ - w_ / 2 - TG_CLEAR, z_ + w_ / 2 + TG_CLEAR))
+for x_, z_, w_, h_ in PLATE_JOINTS["right"]:
+    side_plate_r = side_plate_r.fuse(box(x_ - w_ / 2, x_ + w_ / 2, 20.0 - h_, 20.0, z_ - w_ / 2, z_ + w_ / 2))
+    frame = frame.cut(box(x_ - w_ / 2 - TG_CLEAR, x_ + w_ / 2 + TG_CLEAR,
+                          20.0 - h_ - 0.3, 20.0 + 0.1, z_ - w_ / 2 - TG_CLEAR, z_ + w_ / 2 + TG_CLEAR))
 
 # The left plate's flank band is a cylinder along x. Show-face down, that curve rides a support raft.
 # Split it at the slab wall's outer face: the wall prints on the joint, the band prints on its end
@@ -661,8 +664,9 @@ _hoop = side_plate.common(box(-220.0, 30.0, SIDE_SPLIT_Y - 0.4, 20.0, -5.0, 90.0
 _hoop = _hoop.fuse(side_plate.common(box(-220.0, 30.0, -80.0, SIDE_SPLIT_Y, -5.4, 90.0)))
 side_wall = side_wall.cut(box(-220.0, 30.0, -40.0, 20.0, -5.0, 90.0))
 side_band = side_band.cut(box(-220.0, 30.0, -80.0, 20.0, -5.0, 90.0)).fuse(_hoop)
-side_wall = side_wall.fuse(box(-101.0, -98.0, -22.4, -20.6, -5.4, -2.5))
-side_band = side_band.cut(box(-120.0, -97.6, -22.7, -20.3, -5.05, -2.2))
+WB_TONGUE_X = (-102.5, -96.5)       # 6 long along x; the seat's 3.2 mm in y keeps its width
+side_wall = side_wall.fuse(box(WB_TONGUE_X[0], WB_TONGUE_X[1], -22.4, -20.6, -5.4, -2.5))
+side_band = side_band.cut(box(-120.0, WB_TONGUE_X[1] + 0.4, -22.7, -20.3, -5.05, -2.2))
 
 
 def _biggest(sh, vmin=40.0):
@@ -700,10 +704,13 @@ frame_upper = frame.common(box(-400, 100, -100, 100, SPLIT_Z, 400))
 # tongues there would rise into the lock housing's rear-bottom corner.
 # The centre pair used to sit at (-90, 0) and (-90, 5), under the valve. They sit at y -12, clear of
 # the straight fitting on A (it leaves the left face along -y).
-SPLIT_JOINTS = ((-95.0, -15.0), (-85.0, -15.0), (-100.0, -12.0), (-80.0, -12.0), (-75.0, 12.0))
-for x_, y_ in SPLIT_JOINTS:
-    frame_lower = frame_lower.fuse(tg_box(x_, y_, SPLIT_Z, TG_W, TG_W, TG_H))
-    frame_upper = frame_upper.cut(tg_box(x_, y_, SPLIT_Z - 0.1, TG_W + 2 * TG_CLEAR, TG_W + 2 * TG_CLEAR, TG_H + 0.4))
+# All five stand 5 tall into the lid's solid column; the two at y -12 are 4 wide, the rest stay 3 (the
+# A fitting's and the socket's pockets are close beside them).
+SPLIT_JOINTS = ((-95.0, -15.0, 3.0), (-85.0, -15.0, 3.0), (-100.0, -12.0, 4.0), (-80.0, -12.0, 4.0), (-75.0, 12.0, 3.0))
+SPLIT_TG_H = 5.0
+for x_, y_, w_ in SPLIT_JOINTS:
+    frame_lower = frame_lower.fuse(tg_box(x_, y_, SPLIT_Z, w_, w_, SPLIT_TG_H))
+    frame_upper = frame_upper.cut(tg_box(x_, y_, SPLIT_Z - 0.1, w_ + 2 * TG_CLEAR, w_ + 2 * TG_CLEAR, SPLIT_TG_H + 0.4))
 frame_upper = frame_upper.cut(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0))
 # The side assemblies come off. Glue the left wall to its band (that tongue stays);
 # the right cover is already one piece. Both bolt to the centre, they are not glued
@@ -722,12 +729,13 @@ for _side, _x, _z in (("left", -100.0, 12.0), ("right", -100.0, 12.0)):
         side_plate_r = side_plate_r.fuse(box(_x - TG_W / 2, _x + TG_W / 2, 17.0, 20.0, _z - TG_W / 2, _z + TG_W / 2))
         frame_upper = _cut(frame_upper, box(_x - TG_W / 2 - TG_CLEAR, _x + TG_W / 2 + TG_CLEAR,
                                             20.0 - TG_H - 0.3, 20.1, _z - TG_W / 2 - TG_CLEAR, _z + TG_W / 2 + TG_CLEAR))
-_CX = -32.0
-frame_upper = frame_upper.fuse(box(_CX - 2.2, _CX + 2.2, 19.2, 23.2, 28.6, 34.8))
-side_plate_r = side_plate_r.fuse(box(_CX - 1.5, _CX + 1.5, 20.2, 27.0, 29.4, 32.0))
-frame_upper = _cut(frame_upper, box(_CX - 1.7, _CX + 1.7, 20.0, 23.6, 29.2, 32.05))
-side_band = side_band.fuse(box(_CX - 1.5, _CX + 1.5, -23.0, -17.4, 29.4, 32.0))
-frame_upper = _cut(frame_upper, box(_CX - 1.7, _CX + 1.7, -20.05, -17.2, 29.2, 32.05))
+# The crown tongues are 5 long along the seam (the shell runs on in x); their height stays 2.6, the shell's.
+_CX, _CW = -32.0, 5.0
+frame_upper = frame_upper.fuse(box(_CX - _CW / 2 - 1.7, _CX + _CW / 2 + 1.7, 19.2, 23.2, 28.6, 34.8))
+side_plate_r = side_plate_r.fuse(box(_CX - _CW / 2, _CX + _CW / 2, 20.2, 27.0, 29.4, 32.0))
+frame_upper = _cut(frame_upper, box(_CX - _CW / 2 - 0.2, _CX + _CW / 2 + 0.2, 20.0, 23.6, 29.2, 32.05))
+side_band = side_band.fuse(box(_CX - _CW / 2, _CX + _CW / 2, -23.0, -17.4, 29.4, 32.0))
+frame_upper = _cut(frame_upper, box(_CX - _CW / 2 - 0.2, _CX + _CW / 2 + 0.2, -20.05, -17.2, 29.2, 32.05))
 # M3 bolts, head on the outside, nut in the centre. The pocket opens on the joint
 # face, so the plate keeps the nut. Lower pair in the tray: the right ones pass
 # the cheek (x -78 and -70 sit between the AirTAC, which ends at x -82.5, and the
@@ -882,12 +890,12 @@ if CHECKS:
     _slide = hit(side_band.translated(V(-18.0, 0, 0)), side_wall)
     checks["the band slides on from the rear (%.1f mm3, 18 mm short)" % _slide] = _slide < 1.0
     _dress = next(p_ for p_ in plates if p_.BoundBox.YMax < -22.5 and p_.BoundBox.YMin < -25.0 and p_.BoundBox.ZMin < -40.0)
-    _dv = hit(_dress, box(-101.0, -98.0, -22.4, -20.6, -5.4, -2.5))
+    _dv = hit(_dress, box(WB_TONGUE_X[0], WB_TONGUE_X[1], -22.4, -20.6, -5.4, -2.5))
     checks["the left dress plate clears the tongue (%.2f mm3)" % _dv] = _dv < 0.05
     checks["right plate is one sound solid (%.0f mm3, %d solids)" % (side_plate_r.Volume, len(side_plate_r.Solids))] = \
         side_plate_r.isValid() and len(side_plate_r.Solids) == 1 and side_plate_r.Volume > 15000
-    _tip_r = side_plate_r.common(box(-33.5, -30.5, 19.8, 23.2, 29.4, 32.0))
-    _tip_l = side_band.common(box(-33.5, -30.5, -20.0, -17.4, 29.4, 32.0))
+    _tip_r = side_plate_r.common(box(_CX - _CW / 2, _CX + _CW / 2, 19.8, 23.2, 29.4, 32.0))
+    _tip_l = side_band.common(box(_CX - _CW / 2, _CX + _CW / 2, -20.0, -17.4, 29.4, 32.0))
     checks["crown tongues seat in the lid (R %.1f, L %.1f mm3) and clear it (%.3f)" % (
         _tip_r.Volume, _tip_l.Volume, hit(_tip_r, frame_upper) + hit(_tip_l, frame_upper))] = \
         _tip_r.Volume > 8 and _tip_l.Volume > 8 and hit(_tip_r, frame_upper) + hit(_tip_l, frame_upper) < 0.05
@@ -897,7 +905,7 @@ if CHECKS:
     checks["crown tongues locate along x (%.1f mm3)" % (
         hit(_tip_r.translated(V(1.5, 0, 0)), frame_upper) + hit(_tip_l.translated(V(1.5, 0, 0)), frame_upper))] = \
         hit(_tip_r.translated(V(1.5, 0, 0)), frame_upper) > 2 and hit(_tip_l.translated(V(1.5, 0, 0)), frame_upper) > 2
-    _gL = grip_left.common(box(-103.5, -100.5, -11.5, -8.5, -70.05, -67.0))
+    _gL = grip_left.common(box(-104.5, -99.5, -12.5, -7.5, -70.05, -67.0))
     _gR = grip_right.common(box(-99.5, -96.5, 10.5, 13.5, -70.05, -67.0))
     checks["grip tongues seat in the tray (L %.1f, R %.1f mm3) and clear it (%.3f)" % (
         _gL.Volume, _gR.Volume, hit(_gL, frame_lower) + hit(_gR, frame_lower))] = \
@@ -1074,12 +1082,12 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Top_strap": "2 x M3 x 40 + nuts down through its foot into the cage's top",
             "Thrust_washer": "nylon / PTFE washer 25 x 28 x 1",
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its front tab, rear end glued into the grip's wood",
-            "Grip_left": "half: 2 x M3 x 25 through both halves, nuts in hex pockets on the outer face; 2 x Ø3 x 12 dowels locate and slide out. Then glued up under the tray: 3 mm tongue at x -102, y -10",
+            "Grip_left": "half: 2 x M3 x 25 through both halves, nuts in hex pockets on the outer face; 2 x Ø3 x 12 dowels locate and slide out. Then glued up under the tray: 5 mm tongue at x -102, y -10",
             "Grip_right": "half: the two M3 x 25 run through, heads in Ø6.2 seats on the outer face. Glued up under the tray: 3 mm tongue at x -98, y 12 (clear of the supply hose)",
             "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
-            "Frame_side": "the slab's wall: joint face down, no raft. Glued to the band; the pair bolts to the centre (not glued to it). 2 x M3 x 8 into the tray, nuts in the tray, x -88 and -48, z -58. The band's tongue at the slab's top, x -101..-98",
-            "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into the bosses. Glued to the wall, slides on from the rear before the glue. 1 x M3 x 8 into the lid (nut in a pad, x -100, z 0), a 3 mm tongue into the lid at x -100, z 12, and another at the crown seam, x -32, z 29..32",
-            "Frame_right": "the right cover, one piece, bolts to the centre: 2 x M3 x 30 through the cheek into the tray (x -78 and -70, z -58, head seat Ø6.2) and 1 x M3 x 8 into the lid (x -100, z 0, nut in a pad), plus a 3 mm tongue into the lid at z 12 and another into a pad on the lid's shoulder at x -32, z 29..32. Also the Ø8 axle and 1 x M3 x 10 through the rear wall into the tray (x -104, z -65)",
+            "Frame_side": "the slab's wall: joint face down, no raft. Glued to the band; the pair bolts to the centre (not glued to it). 2 x M3 x 8 into the tray, nuts in the tray, x -88 and -48, z -58. The band's tongue at the slab's top, x -102.5..-96.5",
+            "Frame_side_band": "the flank band: on its end, the cylinder's walls vertical, supports only under the 5 bosses; 5 x ST2.9 x 16 into the bosses. Glued to the wall, slides on from the rear before the glue. 1 x M3 x 8 into the lid (nut in a pad, x -100, z 0), a 3 mm tongue into the lid at x -100, z 12, and a 5 mm one at the crown seam, x -34.5..-29.5, z 29..32",
+            "Frame_right": "the right cover, one piece, bolts to the centre: 2 x M3 x 30 through the cheek into the tray (x -78 and -70, z -58, head seat Ø6.2) and 1 x M3 x 8 into the lid (x -100, z 0, nut in a pad), plus a 3 mm tongue into the lid at z 12 and a 5 mm one into a pad on the lid's shoulder at x -34.5..-29.5, z 29..32. Also the Ø8 axle and 1 x M3 x 10 through the rear wall into the tray (x -104, z -65)",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x 84 (or an M8 bolt's shank), pressed through both walls",
             "Guide_rod": "steel rod Ø3 x 94: the slider's guide. The bore is open at the ceiling and blind in the foot (1.2 mm of floor under the rod, the underside stays closed), the rod ends in the stop", "Trigger": "pivot: M3 x 16 screw + nylock nut",
