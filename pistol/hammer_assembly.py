@@ -200,26 +200,27 @@ outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the sh
 # sleeve's travel) and the bracket arm's tunnel are plain boxes over their swept zones, and the crank
 # with its pin crosses the cheek's inner band - cut here for the same reason (simple body, fast and
 # robust booleans); the worst-case checks verify the cover over the stroke.
-outer = outer.cut(box(-64.0, CHEEK["x"][1], 22.4, 38.8, -65.1, 19.0))  # the slider's tunnel, body to bracket arm.
+# Outboard of the room (y > 32) the bracket and the crank top out at z 14.5 at full cock: the tunnels stop
+# at z 15.2, so the cheek keeps a 3.3 mm roof under its top (z 18.5) and the cover is closed - no hood.
+# Inboard the slider's body rises to z 22.5, but that is the drum's room already.
+TUNNEL_Z1 = 15.2
+outer = outer.cut(box(-64.0, CHEEK["x"][1], 22.4, 38.8, -65.1, TUNNEL_Z1))  # the slider's tunnel, body to bracket arm.
                                                                           # It stops on the cheek's front face (x -5): the
                                                                           # plate ends there, and the cut does not enter the drum.
 # Mouth plug on the right cover: solid from the cheek front (x -5) out to
-# SLAB x[1] (-1), up to SLAB z -5. No hollow behind the wall and no tall open
-# slot in the pin band — those read as a gap on the bed. Only a tight window
-# for the pin itself (it reaches past x -1).
+# SLAB x[1] (-1), up to SLAB z -5. The slider's face (x -5) keeps 0.4 mm of air
+# in front of it. The pin and the sector's arm cross the plug (x -3.6..-0.4) on
+# their way up: an arch round the axle, r 33.75 (the sweep reaches r 33.25),
+# down to z -22.3 (the arm at rest reaches -21.8). The block hides it.
 _LIP_X1 = SLAB["x"][1]                      # -1: flush with the tray's front face
 _LIP_Z1 = SLAB["z"][1]                      # -5
 _lip = box(CHEEK["x"][1] - 0.4, _LIP_X1, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], _LIP_Z1)
-_lip = _lip.cut(box(CHEEK["x"][1] - 0.5, _LIP_X1 + 0.5, 22.5, 26.5, -18.7, -14.5))  # pin window only
+_lip = _lip.cut(box(CHEEK["x"][1] - 0.5, CHEEK["x"][1] + 0.4, 22.4, 38.8, -65.1, _LIP_Z1 + 0.1))
+_lip = _lip.cut(Part.makeCylinder(33.75, 6.0, V(CHEEK["x"][1] - 0.6, 0, 0), XA)
+                .common(box(CHEEK["x"][1] - 0.6, _LIP_X1 + 0.5, 22.4, 34.0, -22.3, _LIP_Z1 + 0.1)))
 outer = outer.fuse(_lip)
-outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, 18.0))  # the crank, its pin and the sleeve past the cheek's
+outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, TUNNEL_Z1))  # the crank, its pin and the sleeve past the cheek's
                                                                     # inner face (the sleeve's rear corner reaches y 27)
-# The tunnel's ceiling (z 19) meets the cheek top (z 18.5): that is the slot
-# under the hood. Raise the outer wall past it and roof the slot above the
-# bracket. The bracket stays inboard (y <= 38.2, about z 23 at full cock).
-_hood = box(CHEEK["x"][0], CHEEK["x"][1], 39.2, CHEEK["y"][1], 10.0, 28.0)
-_hood = _hood.fuse(box(CHEEK["x"][0], CHEEK["x"][1], 36.0, CHEEK["y"][1], 24.5, 28.0))
-outer = outer.fuse(_hood)
 _tick('outer built')
 frame = outer                                       # the pockets and the sweeps cut below shape it
 skin = Part.makeCompound([])                                    # no EVA on the frame: the drum is the look
