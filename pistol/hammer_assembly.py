@@ -260,7 +260,7 @@ pie = [V(H_.x, -SPUR_SLOT["y"], H_.z)] + [V(H_.x + SPUR_SLOT["r"] * math.cos(mat
                                           for q in [SPUR_SLOT["a"][0] + (SPUR_SLOT["a"][1] - SPUR_SLOT["a"][0]) * k / 12 for k in range(13)]]
 spur_slot = Part.Face(Part.makePolygon(pie + [pie[0]])).extrude(V(0, 2 * SPUR_SLOT["y"], 0))
 frame, skin = frame.cut(spur_slot), skin.cut(spur_slot)
-pilot_hole = cyl_x(16, fx[0] - 9.0, DRUM_X0 - math.sqrt((DRUM_R - 3.0) ** 2 - Z_FIRE ** 2) + 1.5,
+pilot_hole = cyl_x(16, fx[0] - 9.0, DRUM_X0 - math.sqrt((DRUM_R - 3.0) ** 2 - Z_FIRE ** 2) + 2.5,
                    0, Z_FIRE)   # the cap's G1/8 fitting, through the tail's solid tip to the room's wall at the
                                  # pilot's line (the front end is bore-anchored, not fx[0]-anchored: fx[0] moved
                                  # with the hammer's pivot, the fitting did not)
@@ -281,6 +281,18 @@ _vv = (box(VENT_X - _a["W"] / 2 - 0.5, VENT_X + _a["W"] / 2 + 0.5, VENT_Y0 - 0.5
            VENT_Z0, VENT_Z0 + _a["L"] + 0.5)                    # the valve's socket, its floor at the body's face
        .fuse(box(-96.7, -86.5, 2.5, 28.0, SLAB["z"][0] - 0.5, VENT_Z0 + 0.5))   # the plunger's and the pad's swing (the pad reaches y 26; overlaps the socket: no coplanar seam)
        .fuse(valve_bodies))                     # the straight fittings and the silencer carve their own ways out
+# The push-ins carry a brass hex, 12 across flats (13.9 over the corners), at the valve's face; both
+# stick out 20. A: a Ø14.6 pocket 10.5 deep for the 9 mm hex, then Ø11 to 2 mm past the tip (both
+# measured by eye: the spare keeps a longer one seating). R: Ø14.6 all the way out through the right
+# cover, so the hex passes and the collet can be reached.
+FIT_HEX_AF, FIT_HEX_L = 12.0, 9.0
+_hex_r = FIT_HEX_AF / math.sqrt(3.0) + 0.35
+_za, _zr = VENT_Z0 + _a["ports"]["A"], VENT_Z0 + _a["ports"]["R"]
+fit_pockets = Part.makeCompound([
+    Part.makeCylinder(_hex_r, FIT_HEX_L + 2.0, V(VENT_X, VENT_Y0 + 0.5, _za), V(0, -1, 0)),
+    Part.makeCylinder(5.5, _a["straight"]["A"][1] + 2.5, V(VENT_X, VENT_Y0 + 0.5, _za), V(0, -1, 0)),
+    Part.makeCylinder(_hex_r, 30.0, V(VENT_X, VENT_Y0 + _a["T"] - 0.5, _zr), V(0, 1, 0))])
+_vv = _vv.fuse(fit_pockets)
 frame, skin = frame.cut(_vv), skin.cut(_vv)
 # The socket's own floor is the valve's seat: the pad's swing box carves the floor's middle away, and
 # what remains at either side of it are the two feet the valve stands on - no extra fuses needed.
@@ -303,21 +315,26 @@ warp_pommel = Part.makeCompound([crystal(c_end + gd * 14, gd + V(0.2, 0.3, 0.1),
 # ---------------------------------------------------------------- air: supply up the grip, pilot to the cap, a tee to the gauge
 # Supply (6/4 hose from the receiver) in through the pommel, up the grip, out to the right and into
 # the straight R1/8 on R along its axis. The silencer on P is the straight fitting above it. Pilot
-# (4/2.5 PU) leaves the straight R1/8 on A to the left, then forward into the room to the cap's G1/8
-# push-in. No printed channels in the shell: the tubes are soft and will not find a groove. The grip
-# keeps the supply channel (the halves close on it). Rigid fittings still cut their own exits.
-# The tee on the pilot feeds the gauge, out past the drum's upper-left flank, where the shooter sees it.
+# (4/2.5 PU) leaves the straight R1/8 on A to the left, straight out through the left wall in its own
+# Ø5 hole (the push-in's tip is 10.5 mm short of the outer face: no room to bend inside), back round
+# the tail and in through the Ø16 pilot hole in the rear to the cap's G1/8 push-in. No printed
+# grooves in the shell: the tubes are soft and will not find a groove. The grip keeps the supply
+# channel (the halves close on it). Rigid fittings still cut their own exits.
+# The tee on the pilot, inside behind the cap, feeds the gauge, out past the drum's upper-left flank.
 r_end, r_dir = vent_port("R")
 a_end, a_dir = vent_port("A")
+pilot_exit = Part.makeCylinder(2.5, 20.0, a_end - a_dir * 0.5, a_dir)   # y -12 .. -32: tray lid, wall, dress pad
+frame = frame.cut(pilot_exit)
 supply_pts = [c_end + gd * 70, c_end + gd * 15, GRIP_START + gd * (GRIP_LEN * 0.6), GRIP_START + gd * (GRIP_LEN * 0.3),
               V(-104, 8, -76), V(-108, 30, -72), V(r_end.x, r_end.y + 28, r_end.z - 18),
               r_end + r_dir * 16, r_end]
 supply_line = pipe_along(supply_pts, 3.0)
-pilot_pts = [a_end, a_end + a_dir * 14, V(-86, -20, -36), V(-78, -3, -32),
-             V(-80, -2, -28), V(-82, 0, Z_FIRE)]
+TEE = V(-86, 0, -27.3)                              # in the room: under the spring rib (z -23), beside the vent valve (y 7.5)
+pilot_pts = [a_end, a_end + a_dir * 8.0, a_end + a_dir * 16.0, V(-93.5, -33.5, -38.5), V(-101, -36, -36),
+             V(-110, -32, -32), V(-118, -19, -28.5), V(-120, -6, -27), V(-113, 0, -27), V(-100, 0, -26.5),
+             V(-92, 0, -26.5), TEE, V(-82, 0, Z_FIRE)]
 pilot_line = pipe_along(pilot_pts, 2.0)
-TEE = V(-78, -3, -32)
-gauge_pts = [TEE, V(-76, -20, -28), V(-75, -34, -20), V(-63, -38, -10), V(-52, -38, -2), V(-34, -36, 10), V(-30, -37, 15)]
+gauge_pts = [TEE, V(-82, -12, -28), V(-76, -20, -28), V(-75, -34, -20), V(-63, -38, -10), V(-52, -38, -2), V(-34, -36, 10), V(-30, -37, 15)]
 gauge_line = pipe_along(gauge_pts, 2.0)
 tee = Part.makeSphere(4.0, TEE)
 hose = supply_line
@@ -488,8 +505,8 @@ plates.append(_flank_shell(-59.0, -5.0, +1))
 plates.append(box(SLAB["x"][0], SLAB["x"][1], SLAB["y"], SLAB["y"] + 3.0, SLAB["z"][0], SLAB["z"][1])
               .cut(_vv).cut(sock_cap).cut(sock_body).cut(valve_rods_cut))
 plates.append(box(SLAB["x"][0], SLAB["x"][1], -SLAB["y"] - 3.0, -SLAB["y"], SLAB["z"][0], SLAB["z"][1])
-              .cut(sock_cap).cut(sock_body).cut(valve_rods_cut).cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0)))
-plates.append(box(-90.0, -8.0, CHEEK["y"][1], CHEEK["y"][1] + 3.0, -60.0, 12.0))
+              .cut(sock_cap).cut(sock_body).cut(valve_rods_cut).cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0)).cut(pilot_exit))
+plates.append(box(-90.0, -8.0, CHEEK["y"][1], CHEEK["y"][1] + 3.0, -60.0, 12.0).cut(fit_pockets))
 plate_rivets += [V(x_, CHEEK["y"][1] + 3.0, z_) for x_ in (-84.0, -46.0, -14.0) for z_ in (-52.0, 2.0)]   # the cheek pad
 plate_rivets += [V(x_, -(SLAB["y"] + 3.0), z_) for x_ in (-100.0, -64.0, -30.0) for z_ in (-62.0, -14.0)]   # the left pad
 plate_rivets += [V(x_, SLAB["y"] + 3.0, z_) for x_, z_ in ((-64.0, -62.0), (-30.0, -62.0), (-30.0, -14.0), (-12.0, -62.0), (-12.0, -14.0))]
@@ -704,9 +721,11 @@ frame_upper = frame.common(box(-400, 100, -100, 100, SPLIT_Z, 400))
 # tongues there would rise into the lock housing's rear-bottom corner.
 # The centre pair used to sit at (-90, 0) and (-90, 5), under the valve. They sit at y -12, clear of
 # the straight fitting on A (it leaves the left face along -y).
-# All five stand 5 tall into the lid's solid column; the two at y -12 are 4 wide, the rest stay 3 (the
-# A fitting's and the socket's pockets are close beside them).
-SPLIT_JOINTS = ((-95.0, -15.0, 3.0), (-85.0, -15.0, 3.0), (-100.0, -12.0, 4.0), (-80.0, -12.0, 4.0), (-75.0, 12.0, 3.0))
+# All four stand 5 tall into the lid's solid column; the two at y -12 are 4 wide, the rest stay 3 (the
+# A fitting's and the socket's pockets are close beside them). The pair's rear one at (-95, -15) is gone:
+# the pilot's exit hole runs through it. Its front one moved from (-85, -15) to (-84, -17), clear of the
+# A fitting's pocket (0.9 mm).
+SPLIT_JOINTS = ((-84.0, -17.0, 3.0), (-100.0, -12.0, 4.0), (-80.0, -12.0, 4.0), (-75.0, 12.0, 3.0))
 SPLIT_TG_H = 5.0
 for x_, y_, w_ in SPLIT_JOINTS:
     frame_lower = frame_lower.fuse(tg_box(x_, y_, SPLIT_Z, w_, w_, SPLIT_TG_H))
@@ -1076,7 +1095,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Vent_valve": "AirTAC M3R110-06, roller off. Straight R1/8 push-ins (a G body is the same holes): Ø10 x 20 on A for the 4 mm pilot, Ø12 x 22 on R for the 6 mm supply, a silencer on P. Stamped R next to the stem, P at the far end of that face, A opposite. Supply and exhaust are swapped, so it is normally open. Turned plunger-down, narrow faces sideways (A left, P above R on the right). Drops into its socket from the room (side plate off), stands on two feet - no fasteners", "Pin": "steel pin Ø3",
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
-            "Pilot_pipe": "PU tube 4/2.5: vent valve A -> cap G1/8 push-in, up the backstrap",
+            "Pilot_pipe": "PU tube 4/2.5: vent valve A, straight out of the left wall (Ø5 hole at x -91.5, z -39.2), back round the tail and in through the Ø16 hole in its rear to a tee behind the cap, then the cap's G1/8 push-in",
             "Gauge_line": "PU tube 4/2.5, tee to the gauge", "Tee": "push-in tee for 4 mm tube", "Axle_cap": "M6 x 25 stud (or a headless bolt) + cap nut; an M6 nut glued in the plug",
             "Axle_plug": "in the axle's front end on a 19 x 2.5 O-ring, its flange on the tube's end: it closes the chamber",
             "Top_strap": "2 x M3 x 40 + nuts down through its foot into the cage's top",
