@@ -668,6 +668,23 @@ def _biggest(sh, vmin=40.0):
     return Part.makeCompound(bits) if bits else sh
 
 
+def _cut(shape, tool):
+    """A cut that survives OCCT 1.1 (the Mac bundle): a cut across faces left split by
+    earlier booleans returns a null shape there. The plain cut runs first, so FreeCAD
+    1.0.2 (the cloud) keeps its exact path; only a null result retries over
+    removeSplitter, which merges those faces and cuts the same volume."""
+    try:
+        r = shape.cut(tool)
+        if not r.isNull():
+            return r
+    except Exception:
+        pass
+    r = shape.removeSplitter().cut(tool)
+    if r.isNull():
+        raise ValueError("cut failed even through removeSplitter")
+    return r
+
+
 side_wall, side_band = _biggest(side_wall), _biggest(side_band)
 side_plate = Part.makeCompound([side_wall, side_band])          # the checks still see the whole side
 _tick('side plate split')
@@ -696,18 +713,18 @@ frame_upper = frame_upper.cut(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0))
 for _side, _x, _z in (("left", -100.0, 12.0), ("right", -100.0, 12.0)):
     if _side == "left":
         side_band = side_band.fuse(box(_x - TG_W / 2, _x + TG_W / 2, -20.0, -17.0, _z - TG_W / 2, _z + TG_W / 2))
-        frame_upper = frame_upper.cut(box(_x - TG_W / 2 - TG_CLEAR, _x + TG_W / 2 + TG_CLEAR,
-                                          -20.1, -20.0 + TG_H + 0.3, _z - TG_W / 2 - TG_CLEAR, _z + TG_W / 2 + TG_CLEAR))
+        frame_upper = _cut(frame_upper, box(_x - TG_W / 2 - TG_CLEAR, _x + TG_W / 2 + TG_CLEAR,
+                                            -20.1, -20.0 + TG_H + 0.3, _z - TG_W / 2 - TG_CLEAR, _z + TG_W / 2 + TG_CLEAR))
     else:
         side_plate_r = side_plate_r.fuse(box(_x - TG_W / 2, _x + TG_W / 2, 17.0, 20.0, _z - TG_W / 2, _z + TG_W / 2))
-        frame_upper = frame_upper.cut(box(_x - TG_W / 2 - TG_CLEAR, _x + TG_W / 2 + TG_CLEAR,
-                                          20.0 - TG_H - 0.3, 20.1, _z - TG_W / 2 - TG_CLEAR, _z + TG_W / 2 + TG_CLEAR))
+        frame_upper = _cut(frame_upper, box(_x - TG_W / 2 - TG_CLEAR, _x + TG_W / 2 + TG_CLEAR,
+                                            20.0 - TG_H - 0.3, 20.1, _z - TG_W / 2 - TG_CLEAR, _z + TG_W / 2 + TG_CLEAR))
 _CX = -32.0
 frame_upper = frame_upper.fuse(box(_CX - 2.2, _CX + 2.2, 19.2, 23.2, 28.6, 34.8))
 side_plate_r = side_plate_r.fuse(box(_CX - 1.5, _CX + 1.5, 20.2, 27.0, 29.4, 32.0))
-frame_upper = frame_upper.cut(box(_CX - 1.7, _CX + 1.7, 20.0, 23.6, 29.2, 32.05))
+frame_upper = _cut(frame_upper, box(_CX - 1.7, _CX + 1.7, 20.0, 23.6, 29.2, 32.05))
 side_band = side_band.fuse(box(_CX - 1.5, _CX + 1.5, -23.0, -17.4, 29.4, 32.0))
-frame_upper = frame_upper.cut(box(_CX - 1.7, _CX + 1.7, -20.05, -17.2, 29.2, 32.05))
+frame_upper = _cut(frame_upper, box(_CX - 1.7, _CX + 1.7, -20.05, -17.2, 29.2, 32.05))
 # M3 bolts, head on the outside, nut in the centre. The pocket opens on the joint
 # face, so the plate keeps the nut. Lower pair in the tray: the right ones pass
 # the cheek (x -78 and -70 sit between the AirTAC, which ends at x -82.5, and the
@@ -746,10 +763,10 @@ for _x, _z, _side, _half in SIDE_BOLTS:
         if _half == "lower":
             _hole = _hole.fuse(Part.makeCylinder(3.1, 3.2, V(_x, 40.4, _z), YA))   # head seat in the cheek
     if _half == "lower":
-        frame_lower = frame_lower.cut(_pocket).cut(_hole)
+        frame_lower = _cut(_cut(frame_lower, _pocket), _hole)
     else:
-        frame_upper = frame_upper.cut(_pocket).cut(_hole)
-    _plate = _plate.cut(_hole)
+        frame_upper = _cut(_cut(frame_upper, _pocket), _hole)
+    _plate = _cut(_plate, _hole)
     if _side == "left" and _half == "lower":
         side_wall = _plate
     elif _side == "left":
