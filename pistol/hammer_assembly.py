@@ -203,20 +203,23 @@ outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the sh
 outer = outer.cut(box(-64.0, CHEEK["x"][1], 22.4, 38.8, -65.1, 19.0))  # the slider's tunnel, body to bracket arm.
                                                                           # It stops on the cheek's front face (x -5): the
                                                                           # plate ends there, and the cut does not enter the drum.
-# Only the lower part of that mouth. The plate stays at x -5. The closing wall stays
-# 0.8 mm thick and is shifted forward, up to 0.3 mm short of the block (the block
-# starts at x 0.5; a full 5 mm shift would run into it). It runs from the floor up
-# to z -19, 1 mm under the pin's lowest point (z -18). Above z -19 the cheek face
-# stays at x -5 and the mouth stays open. On the borders the wall laps back into
-# the cheek (to x -5.4) so it is one solid with it.
-_LIP_T = 0.8
-_LIP_X1 = 0.2                               # front face, 0.3 mm clear of the block
-_LIP_X0 = _LIP_X1 - _LIP_T
-_lip = box(-5.4, _LIP_X1, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], -19.0)
-_lip = _lip.cut(box(-5.6, _LIP_X0, 22.4, 38.8, -65.1, -18.7))
+# Mouth plug on the right cover: solid from the cheek front (x -5) out to
+# SLAB x[1] (-1), up to SLAB z -5. No hollow behind the wall and no tall open
+# slot in the pin band — those read as a gap on the bed. Only a tight window
+# for the pin itself (it reaches past x -1).
+_LIP_X1 = SLAB["x"][1]                      # -1: flush with the tray's front face
+_LIP_Z1 = SLAB["z"][1]                      # -5
+_lip = box(CHEEK["x"][1] - 0.4, _LIP_X1, CHEEK["y"][0], CHEEK["y"][1], CHEEK["z"][0], _LIP_Z1)
+_lip = _lip.cut(box(CHEEK["x"][1] - 0.5, _LIP_X1 + 0.5, 22.5, 26.5, -18.7, -14.5))  # pin window only
 outer = outer.fuse(_lip)
-outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, 18.0))   # the crank, its pin and the sleeve past the cheek's
+outer = outer.cut(box(-93.5, -44.0, 25.5, 39.0, -26.0, 18.0))  # the crank, its pin and the sleeve past the cheek's
                                                                     # inner face (the sleeve's rear corner reaches y 27)
+# The tunnel's ceiling (z 19) meets the cheek top (z 18.5): that is the slot
+# under the hood. Raise the outer wall past it and roof the slot above the
+# bracket. The bracket stays inboard (y <= 38.2, about z 23 at full cock).
+_hood = box(CHEEK["x"][0], CHEEK["x"][1], 39.2, CHEEK["y"][1], 10.0, 28.0)
+_hood = _hood.fuse(box(CHEEK["x"][0], CHEEK["x"][1], 36.0, CHEEK["y"][1], 24.5, 28.0))
+outer = outer.fuse(_hood)
 _tick('outer built')
 frame = outer                                       # the pockets and the sweeps cut below shape it
 skin = Part.makeCompound([])                                    # no EVA on the frame: the drum is the look
@@ -411,7 +414,7 @@ if len(frame.Solids) > 1:            # OCCT sometimes leaves a face-sliver crumb
 # It now runs along y: clearance Ø3.4 through the wall (outer face y 23), a Ø2.5 pilot
 # 6 mm into the strip, at x -104, z -65.
 COVER_SCREW = (-104.0, -65.0)
-side_cut_r = box(HEEL_X - 1, _LIP_X0 + _LIP_T + 0.1, SLAB["y"] - 3.0, fy[1] + 3.0, SLAB["z"][0] - 1, fz[1] + 1)
+side_cut_r = box(HEEL_X - 1, _LIP_X1 + 0.1, SLAB["y"] - 3.0, fy[1] + 3.0, SLAB["z"][0] - 1, fz[1] + 1)  # includes the outer mouth lip
 side_plate_r = (frame.common(side_cut_r).cut(sock_cap).cut(sock_body).cut(lock_housing_h)
                 .cut(valve_rods_cut).cut(lock_bolts_cut)
                 .cut(Part.makeCylinder(1.7, 4.0, V(COVER_SCREW[0], 23.5, COVER_SCREW[1]), V(0, -1, 0))))
@@ -700,7 +703,6 @@ SPLIT_JOINTS = ((-95.0, -15.0), (-85.0, -15.0), (-100.0, -12.0), (-80.0, -12.0),
 for x_, y_ in SPLIT_JOINTS:
     frame_lower = frame_lower.fuse(tg_box(x_, y_, SPLIT_Z, TG_W, TG_W, TG_H))
     frame_upper = frame_upper.cut(tg_box(x_, y_, SPLIT_Z - 0.1, TG_W + 2 * TG_CLEAR, TG_W + 2 * TG_CLEAR, TG_H + 0.4))
-frame_lower = frame_lower.fuse(frame.common(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0)))   # the front slab's wall to the tray
 frame_upper = frame_upper.cut(box(-28.0, 100, -100, 100, SPLIT_Z, -5.0))
 # The side assemblies come off. Glue the left wall to its band (that tongue stays);
 # the right cover is already one piece. Both bolt to the centre, they are not glued

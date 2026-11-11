@@ -5,8 +5,8 @@
 # The grip halves are NOT in this round (the plan of 2026-11-05): they print with the final PETG body,
 # after #35's bolted halves are checked against the real tray. The supports profile covers every part:
 # the wall's own standard profile differs only by the infill share; 40 % just stiffens it. Brim 5: the
-# tray, the lid and the band stand tall on a small bed area (orient_check WARNs). Run
-# pistol/build/export_parts.py in FreeCAD first.
+# lid and the band still stand tall on a small bed area (orient_check WARNs); the tray
+# now lies on its -Y face (~40 mm). Run pistol/build/export_parts.py in FreeCAD first.
 #   sh pistol/build/body_plates.sh
 set -e
 cd "$(dirname "$0")/../.."

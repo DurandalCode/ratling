@@ -72,7 +72,7 @@ PARTS = [
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle; crank pin Ø3 steel"),
     ("sector_spacer", sector_spacer, X_, "strong", "the ring on the tube between the sector and the QEV body; bore Ø25.6, the wedge is the pawl boss's road; file to fit the stack"),
     ("trigger", TRIGGER, Y_, "strong_supports", "pivot: M3 x 16 + nylock nut between the cage's cheeks; supports under the pad and the lug"),
-    ("frame_lower", frame_lower, -X_, "supports", "the lower half: the slab (the QEV socket, the vent, the lock, the trigger) and the tail, on the bed; the tongues to the upper half"),
+    ("frame_lower", frame_lower, -Y_, "supports", "the lower half on its -Y side (40 mm tall, bed ~2250 mm2; on -X it stood 107 mm on 1000 mm2): the slab (the QEV socket, the vent, the lock, the trigger) and the tail; the tongues to the upper half"),
     ("frame_upper", frame_upper, -X_, "supports", "the upper half: the drum's top (the gauge, the vial, the strap's foot); the grooves to the lower half's tongues"),
     ("frame_side_wall", side_wall, -Y_, "standard", "joint face on the bed, no raft; the tongue at the slab's top stands up off the bed; glued to the band. 2 x M3 x 8 into the tray (x -88 and -48, z -58)"),
     ("frame_side_band", side_band, X_, "supports", "front end on the bed; supports only under the 5 bosses; 5 x ST2.9 x 16; glued to the wall. 1 x M3 x 8 into the lid (x -100, z 0), a 3 mm tongue at z 12 and another at the crown, x -32, z 29..32"),
