@@ -281,16 +281,15 @@ _vv = (box(VENT_X - _a["W"] / 2 - 0.5, VENT_X + _a["W"] / 2 + 0.5, VENT_Y0 - 0.5
            VENT_Z0, VENT_Z0 + _a["L"] + 0.5)                    # the valve's socket, its floor at the body's face
        .fuse(box(-96.7, -86.5, 2.5, 28.0, SLAB["z"][0] - 0.5, VENT_Z0 + 0.5))   # the plunger's and the pad's swing (the pad reaches y 26; overlaps the socket: no coplanar seam)
        .fuse(valve_bodies))                     # the straight fittings and the silencer carve their own ways out
-# The push-ins carry a brass hex, 12 across flats (13.9 over the corners), at the valve's face; both
-# stick out 20. A: a Ø14.6 pocket 10.5 deep for the 9 mm hex, then Ø11 to 2 mm past the tip (both
-# measured by eye: the spare keeps a longer one seating). R: Ø14.6 all the way out through the right
-# cover, so the hex passes and the collet can be reached.
-FIT_HEX_AF, FIT_HEX_L = 12.0, 9.0
+# The push-ins carry a brass hex, 12 across flats (13.9 over the corners), at the valve's face; A sticks
+# out 20, R 22. Both pockets are plain round Ø14.6 bores (the hex's circumscribed circle + 0.35 a side)
+# the whole way: A out to 2 mm past the tip, R all the way out through the right cover, so the hex
+# passes and the collet can be reached. No step: the nut can be turned with a spanner at any depth.
+FIT_HEX_AF = 12.0
 _hex_r = FIT_HEX_AF / math.sqrt(3.0) + 0.35
 _za, _zr = VENT_Z0 + _a["ports"]["A"], VENT_Z0 + _a["ports"]["R"]
 fit_pockets = Part.makeCompound([
-    Part.makeCylinder(_hex_r, FIT_HEX_L + 2.0, V(VENT_X, VENT_Y0 + 0.5, _za), V(0, -1, 0)),
-    Part.makeCylinder(5.5, _a["straight"]["A"][1] + 2.5, V(VENT_X, VENT_Y0 + 0.5, _za), V(0, -1, 0)),
+    Part.makeCylinder(_hex_r, _a["straight"]["A"][1] + 2.5, V(VENT_X, VENT_Y0 + 0.5, _za), V(0, -1, 0)),
     Part.makeCylinder(_hex_r, 30.0, V(VENT_X, VENT_Y0 + _a["T"] - 0.5, _zr), V(0, 1, 0))])
 _vv = _vv.fuse(fit_pockets)
 frame, skin = frame.cut(_vv), skin.cut(_vv)
@@ -723,9 +722,10 @@ frame_upper = frame.common(box(-400, 100, -100, 100, SPLIT_Z, 400))
 # the straight fitting on A (it leaves the left face along -y).
 # All four stand 5 tall into the lid's solid column; the two at y -12 are 4 wide, the rest stay 3 (the
 # A fitting's and the socket's pockets are close beside them). The pair's rear one at (-95, -15) is gone:
-# the pilot's exit hole runs through it. Its front one moved from (-85, -15) to (-84, -17), clear of the
-# A fitting's pocket (0.9 mm).
-SPLIT_JOINTS = ((-84.0, -17.0, 3.0), (-100.0, -12.0, 4.0), (-80.0, -12.0, 4.0), (-75.0, 12.0, 3.0))
+# the pilot's exit hole runs through it. Its front one moved from (-85, -15) to (-82, -17.2), 1.15 mm
+# from the A fitting's round Ø14.6 pocket (the lid's outer face is at y -20 there: no further out).
+# The rear one at y -12 moved from x -100 to -103.5: the full-length round pocket cut its seat.
+SPLIT_JOINTS = ((-82.0, -17.2, 3.0), (-103.5, -12.0, 4.0), (-80.0, -12.0, 4.0), (-75.0, 12.0, 3.0))
 SPLIT_TG_H = 5.0
 for x_, y_, w_ in SPLIT_JOINTS:
     frame_lower = frame_lower.fuse(tg_box(x_, y_, SPLIT_Z, w_, w_, SPLIT_TG_H))
