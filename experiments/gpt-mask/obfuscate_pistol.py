@@ -32,7 +32,7 @@ cap_a.translate(V(0, 0, -CAP_T))
 """
 
 _BLOCK_SOLID = """
-# --- solid drum ---------------------------
+# --- solid cylinder drum ---------------------------
 barrels = cyl_x(2 * HUB_R, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T + STUB).cut(
     cyl_x(BARREL_OD + 0.6, HUB_X0 + HUB_SEAT - 1, HUB_X0 + HUB_T + STUB + 1))
 oring_faces = Part.makeCompound([])
@@ -44,7 +44,7 @@ block = Part.makeCompound([hub, barrels, front_plate])
 """
 
 _AIR_WIRES = """
-# --- external wires only --------------
+# --- light-show wires leaving the shell --------------
 r_end, r_dir = vent_port("R")
 a_end, a_dir = vent_port("A")
 pilot_exit = Part.makeCylinder(2.5, 20.0, a_end - a_dir * 0.5, a_dir)
@@ -78,12 +78,12 @@ def obfuscate_stage3(text):
 
 
 def obfuscate_mech_layout(text):
-    """Replace the six-tube block with one solid drum."""
+    """Replace the six-tube block with one solid cylinder drum."""
     return _replace_once(
         text,
         r"\nhub = cyl_x\(2 \* HUB_R, HUB_X0, HUB_X0 \+ HUB_T\).*?\nblock = Part\.makeCompound\(\[hub, barrels, front_plate\]\)\n",
         "\n" + _BLOCK_SOLID.lstrip("\n") + "\n",
-        "mech_layout solid drum",
+        "mech_layout solid cylinder drum",
     )
 
 

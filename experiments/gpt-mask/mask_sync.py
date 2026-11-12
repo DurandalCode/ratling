@@ -41,8 +41,17 @@ from product_lib import list_products, load_product  # noqa: E402
 
 README = """# Mechanismus
 
-Parametric generators for a handheld rotary actuator and its carrier frame. Plain FreeCAD Python:
-run a generator from this folder, read its report, edit the files in place.
+Cosplay prop for a costume: a handheld rotary stage piece with a printed shell around a drive.
+Not a real tool and not a weapon — stage / LARP / cosplay only. Plain FreeCAD Python: the **whole
+mechanism** is in this folder (shell + drive). Run a generator, read its report, edit the files
+in place.
+
+What you are looking at:
+
+- The drive drum is a **solid cylinder** (one piece on the axle), not a set of tubes.
+- The stack behind the drum is a **solid block** (no internal passages).
+- The short leads that leave the shell are **wires for a light show** (LEDs / effects), not
+  fluid lines. There is no internal hose routing.
 
 ## Run
 
@@ -61,8 +70,9 @@ Output goes to `exports/`.
   untouched code (changes are exchanged as line diffs).
 - Generators run each other by relative path; keep those paths as they are.
 - Keep the vocabulary of the existing code for names you do not need to change.
-- Edit only the printed housing (tray, cover, grips, bail). Leave the solid drive drum and the
-  external wires alone; they are placeholders.
+- Prefer editing the printed housing (tray, cover, grips, bail). Leave the solid drum, the solid
+  stack and the light-show wires alone unless the task says otherwise — they are the prop\'s
+  drive stand-ins.
 """
 
 
