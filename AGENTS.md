@@ -27,7 +27,7 @@
 | Скин «ратлинг» (внешний вид, не детали) | `mitrailleuse/skin/ratling_skin.py`, `mitrailleuse/skin/run_skin.py` | `docs/skin.md` |
 | Вес | `tools/print_mass.py` | `docs/weights.md` |
 | Клапан v1.1 и стенд | `module/stage3_qev.py`, `stage3_floating_seal.py`, `stage3_vent_head.py`, `stage3_v13.py` | докстринги |
-| Гатлинг QEV (эскиз) | `gatling/fat_coax_qev.py` (→ v4.4 + крышка/фиттинг) | `docs/gatling.md` |
+| Гатлинг QEV (эскиз) | `gatling/fat_coax_qev.py` (standalone) | `docs/gatling.md` |
 | Пистолет | `pistol/hammer_assembly.py`, `pistol/hammer_layout.py`, `pistol/build/` | `pistol/build/README.md` |
 | Печать | `tools/print_plate.py`, `*_plates.sh` | `.claude/skills/plates/SKILL.md` |
 | Трубка 25 мм, пробка, селектор | `connectors/`, `selector/`, `ratling/params.py` | `docs/requirements.md` |
