@@ -10,8 +10,9 @@ printed fitting that plugs into the real projectile barrel (25 x 0.6).
 
 Stack from v4.4 (seat ring, diaphragm, rear plug, chamber seals) via OVERRIDE +
 library exec of module/stage3v4_coaxial_chamber.py. This file rebuilds the front:
-short stub, rods ending on the front yoke, front cover with stub lip + real-barrel
-stop and insert (tube_plug clearances: Ø23.4, 0.2 radial, 30 mm in, 11/16 x 1/8).
+short stub, rods ending on the front yoke, front cover with stub lip + a flat stop
+for the real barrel and a plain Ø23.4 x 30 insert (0.2 radial clear, no O-ring —
+the dump seals in the module; the real barrel only locates on the fitting).
 
     CH_OD x CH_WALL = 50 x 1.5 aluminium (nominal ID 47 until a tube is measured)
     CHAMBER_V       = 100 cm3
@@ -54,14 +55,13 @@ PACK_PITCH = 68.0
 
 # Real barrel the module plugs into (bought 25 x 0.6); shown ahead of the stop.
 REAL_BARREL_SHOW = 200.0
-# Printed fitting into that bore — numbers from connectors/tube_plug_v1 (PLA fit OK).
+# Plain printed nose into that bore (PLA: Ø23.4 prints to size; same clear as tube_plug).
+# No O-ring: the real barrel only locates; chamber seals stay in the module.
 FIT_RADIAL_CLEAR = 0.20
 FIT_INSERT = 30.0
-FIT_FLANGE_T = 3.0                   # real barrel butts on this face
-FIT_ORING = (11.0 / 16.0 * 25.4, 1.0 / 8.0 * 25.4)   # 17.46 x 3.18
-FIT_ORING_SQUEEZE = 0.12
-FIT_GROOVE_FROM_TIP = 9.0
-FIT_GROOVE_W = 1.1                   # x CS, flat bottom
+FIT_FLANGE_T = 4.0                   # axial thickness of the stop disc ahead of the sleeve
+FIT_FLANGE_OVER_BARREL = 3.0         # stop face past the barrel OD (land for the tube end)
+FIT_FLANGE_OVER_SLEEVE = 2.5         # and past the cover sleeve, so the butt reads as a rim
 FIT_BORE = 18.0                      # dump path; still over seat Ø16 / spigot bore
 STUB_LIP_T = 3.0                     # axial land where the stub bottoms in the cover
 STUB_PAST_SLEEVE = 1.0               # stub tip this far short of the sleeve's front face
@@ -89,32 +89,29 @@ NAME = "gatling_fat_coax_qev"
 OUT_DIR = os.path.join(REPO, "exports", NAME)
 
 # ---------------------------------------------------------------- stub + front cover (upper lid)
-fit_body_r = BARREL_ID / 2 - FIT_RADIAL_CLEAR          # Ø23.4
-fit_root_r = BARREL_ID / 2 - FIT_ORING[1] * (1 - FIT_ORING_SQUEEZE)
-fit_stretch = 2 * fit_root_r / FIT_ORING[0] - 1
-fit_flange_r = BARREL_OD / 2 + 2.0
+fit_body_r = BARREL_ID / 2 - FIT_RADIAL_CLEAR          # Ø23.4, plain, no groove
+# Stop disc must clear both the barrel OD and the cover sleeve, or it reads as flush.
+fit_flange_r = max(BARREL_OD / 2 + FIT_FLANGE_OVER_BARREL, fp_out_r + FIT_FLANGE_OVER_SLEEVE)
 lip_r = BARREL_ID / 2 + 0.2                            # stub end in a shallow counterbore
 
 # Stub bottoms just inside the front plug's sleeve; cover continues into the fitting.
 z_stub_end = z_fp_end - STUB_PAST_SLEEVE
 z_lip1 = z_stub_end + STUB_LIP_T
 BARREL_STUB_LEN = z_stub_end - z_sh
-z_stop = max(z_fp_end, z_lip1) + 0.5                   # real-barrel stop face (ahead of sleeve)
-z_fit0 = z_stop + FIT_FLANGE_T
-z_fit1 = z_fit0 + FIT_INSERT
-# O-ring groove near the pressurized tip (same trapezoid as tube_plug_v1).
-z_fg0 = z_fit1 - FIT_GROOVE_FROM_TIP                   # square wall (pressure side toward tip)
-z_fg1 = z_fg0 + FIT_GROOVE_W * FIT_ORING[1]
-z_fg2 = z_fg1 + (fit_body_r - fit_root_r)
+# Stop disc sits ahead of the sleeve; its FRONT face is the real-barrel butt.
+z_flange0 = max(z_fp_end, z_lip1) + 0.5
+z_stop = z_flange0 + FIT_FLANGE_T                      # barrel end butts here
+z_fit1 = z_stop + FIT_INSERT                           # plain nose into the real barrel
 
-# Front cover: v4.4 front-plug body through the sleeve, then stop flange + insert.
+# Front cover: v4.4 front-plug body through the sleeve, then stop disc + plain insert.
 # Stub lip is a solid ring in the bore (seat push: stub -> lip -> cover -> yoke -> rods).
+# At z_stop the OD steps fit_flange_r -> fit_body_r: that annulus is the barrel stop.
 front_cover = revolve([
     (sock_r, z_fp_tip), (spigot_r - LEAD_CHAMFER, z_fp_tip), (spigot_r, z_fp_tip + LEAD_CHAMFER),
     (spigot_r, z_tf), (CH_OD / 2, z_tf), (CH_OD / 2, z_fs),
     (fp_out_r, z_fs + (CH_OD / 2 - fp_out_r)), (fp_out_r, z_fp_end),
-    (fit_flange_r, z_fp_end), (fit_flange_r, z_fit0),
-    (fit_body_r, z_fit0), (fit_body_r, z_fit1 - LEAD_CHAMFER),
+    (fit_flange_r, z_fp_end), (fit_flange_r, z_stop),
+    (fit_body_r, z_stop), (fit_body_r, z_fit1 - LEAD_CHAMFER),
     (fit_body_r - LEAD_CHAMFER, z_fit1), (0, z_fit1),
     (0, z_fp_tip), (sock_r, z_fp_tip),
 ]).removeSplitter()
@@ -124,11 +121,6 @@ front_cover = front_cover.cut(G.fuse_all([
     cyl(2 * lip_r, z_stub_end - 0.01, z_lip1 + 0.01),
     cyl(FIT_BORE, z_lip1 - 0.01, z_fit1 + 1),
 ]))
-# Fitting O-ring groove (square toward tip, 45 deg toward flange).
-front_cover = front_cover.cut(revolve([
-    (fit_root_r, z_fg0), (fit_body_r + 1, z_fg0), (fit_body_r + 1, z_fg2 + 1),
-    (fit_root_r, z_fg1), (fit_root_r, z_fg0),
-])).removeSplitter()
 # Same chamber / barrel O-ring grooves as the v4.4 front plug.
 front_cover = front_cover.cut(G.fuse_all([fp_groove, fp_bgroove])).removeSplitter()
 
@@ -163,15 +155,12 @@ hardware = rods_yoke()
 # Ball sits in the real barrel, just ahead of the fitting tip (projectile tube).
 ball = Part.makeSphere(BARREL_ID / 2, V(0, 0, z_fit1 + BARREL_ID / 2 + 0.5))
 
-fit_oring = Part.makeTorus(fit_root_r + FIT_ORING[1] / 2, FIT_ORING[1] / 2,
-                           V(0, 0, z_fg0 + FIT_GROOVE_W * FIT_ORING[1] / 2), Z)
-# Drop the long-barrel O-ring from the bought set; keep chamber + seat spigot rings, add fit ring.
+# Chamber + stub + seat-spigot rings only; fitting into the real barrel is dry.
 orings_g = G.fuse_all([
     torus(ch_root_r + CH_ORING[1] / 2, CH_ORING[1], rp_groove_z[0] + GROOVE_W * CH_ORING[1] / 2),
     torus(ch_root_r + CH_ORING[1] / 2, CH_ORING[1], fp_groove_z[1] - GROOVE_W * CH_ORING[1] / 2),
     torus(sp_root_r + SP_ORING[1] / 2, SP_ORING[1], z_spg2 - GROOVE_W * SP_ORING[1] / 2),
     torus(br_root_r - BR_ORING[1] / 2, BR_ORING[1], fp_bgroove_z[1] - GROOVE_W * BR_ORING[1] / 2),
-    fit_oring,
 ])
 
 # ---------------------------------------------------------------- checks (valve body from v4.4 + new front)
@@ -210,20 +199,24 @@ checks = [
     ("chamber O-ring stretch 0..6 %% (%.1f %%)" % (ch_stretch * 100), 0 <= ch_stretch <= 0.06),
     ("barrel O-ring stretch 0..6 %% (%.1f %%)" % (br_stretch * 100), 0 <= br_stretch <= 0.06),
     ("spigot O-ring stretch 0..6 %% (%.1f %%)" % (sp_stretch * 100), 0 <= sp_stretch <= 0.06),
-    ("fitting O-ring stretch 0..6 %% (%.1f %%)" % (fit_stretch * 100), 0 <= fit_stretch <= 0.06),
     ("stub bottoms on the cover lip, clear of the seat ring",
      abs(barrel_stub.BoundBox.ZMax - z_stub_end) < 1e-6 and G.no_overlap(sr, barrel_stub)),
     ("stub lip covers the tube wall (%.2f mm radial), bearing <= 25 MPa at %.0f bar (%.1f)"
      % (sock_r - lip_r, P_MAX_BAR, lip_bearing),
      sock_r - lip_r >= BARREL_WALL - 0.05 and lip_bearing <= 25.0),
-    ("fitting: wall >= 1.5 mm, insert %.0f mm, bore >= seat" % FIT_INSERT,
+    ("fitting: plain (no O-ring), wall >= 1.5 mm, insert %.0f mm, bore >= seat" % FIT_INSERT,
      fit_wall >= 1.5 and FIT_INSERT >= 20.0 and FIT_BORE >= SEAT_D),
-    ("fitting clear of the stub and the real barrel wall",
-     z_fit0 >= z_stub_end and G.no_overlap(front_cover, barrel_stub)
-     and G.no_overlap(front_cover.cut(cyl(2 * fit_flange_r + 2, z_stop - 1, z_fit0 + 0.5)), real_barrel)),
-    ("real barrel butts on the stop face, fitting inside its bore",
+    ("fitting clear of the stub; stop disc clear of the real barrel OD",
+     z_stop >= z_stub_end and G.no_overlap(front_cover, barrel_stub)
+     and G.no_overlap(front_cover.common(cyl(2 * fit_flange_r + 2, z_flange0 - 0.5, z_stop + 0.01)),
+                      real_barrel)),
+    ("real barrel butts on the stop face (land %.1f past tube, rim %.1f past sleeve), fitting inside"
+     % (fit_flange_r - BARREL_OD / 2, fit_flange_r - fp_out_r),
      abs(real_barrel.BoundBox.ZMin - z_stop) < 1e-6
-     and front_cover.BoundBox.ZMax <= z_fit1 + 1e-6),
+     and fit_flange_r >= BARREL_OD / 2 + FIT_FLANGE_OVER_BARREL - 1e-9
+     and fit_flange_r >= fp_out_r + FIT_FLANGE_OVER_SLEEVE - 1e-9
+     and front_cover.BoundBox.ZMax <= z_fit1 + 1e-6
+     and abs((front_cover.BoundBox.ZMax - z_stop) - FIT_INSERT) < LEAD_CHAMFER + 1e-3),
     ("no muzzle part: rods end on the front yoke (z_front = z_fy1)", abs(z_front - z_fy1) < 1e-9),
     ("front cover no wider than the chamber tube on the spigot (O-ring cone)",
      front_cover.BoundBox.XMax <= max(CH_OD / 2, fit_flange_r) + 1e-6),
@@ -241,14 +234,14 @@ report = [
     "  force path             : seat ring -> stub -> lip in front cover -> front yoke -> rods;"
     " seat push %.0f N at %.0f bar" % (F_stub, P_MAX_BAR),
     "  stub / real barrel     : stub 25 x 0.6 x %.0f through the chamber, bottoms in the cover;"
-    " cover stop -> fitting Ø%.1f x %.0f into the real barrel (bore Ø%.0f, 11/16 x 1/8)"
-    % (BARREL_STUB_LEN, 2 * fit_body_r, FIT_INSERT, FIT_BORE),
+    " flat stop Ø%.1f (tube butts), plain fitting Ø%.1f x %.0f into the real barrel (bore Ø%.0f, no O-ring)"
+    % (BARREL_STUB_LEN, 2 * fit_flange_r, 2 * fit_body_r, FIT_INSERT, FIT_BORE),
     "  tie rods               : 2 x M3 x %.0f at R%.1f, %.0f / %.0f deg; nuts on rear plug and front yoke only"
     % (tie_len, TIE_R, *TIE_ANGLES),
     "  pack                   : pitch %.0f; %.1f mm to neighbours (hex), %.1f (square)"
     % (PACK_PITCH, pack_gap["hex"], pack_gap["square"]),
-    "  O-rings                : 2 x %g x %g (chamber), 1 x %g x %g (stub in cover), 1 x %g x %g (seat spigot),"
-    " 1 x %.2f x %.2f (fitting in real barrel)" % (CH_ORING + BR_ORING + SP_ORING + FIT_ORING),
+    "  O-rings                : 2 x %g x %g (chamber), 1 x %g x %g (stub in cover), 1 x %g x %g (seat spigot);"
+    " fitting dry" % (CH_ORING + BR_ORING + SP_ORING),
     "  rear plug / seat ring / front cover: %.1f / %.1f / %.1f cm3"
     % (rp.Volume / 1000, sr.Volume / 1000, front_cover.Volume / 1000),
 ]
@@ -278,8 +271,9 @@ if not GATLING_FAT_COAX_LIBRARY:
         ("ОБРЕЗОК 25x0,6, %.0f мм" % BARREL_STUB_LEN, (-45, 0, z_sh + BARREL_STUB_LEN * 0.55)),
         ("КАМЕРА: труба %.0fx%.1f, %.0f мм, %.0f см3" % (CH_OD, CH_WALL, chamber_len, chamber_v),
          (45, 0, z_tf * 0.5)),
-        ("КРЫШКА: упор обрезка -> фиттинг в ствол", (45, 0, z_tf + 8)),
-        ("УПОР + ФИТТИНГ Ø%.1f x %.0f в ствол 25x0,6" % (2 * fit_body_r, FIT_INSERT), (45, 0, z_fit0 + 8)),
+        ("КРЫШКА: упор обрезка + упор ствола", (45, 0, z_tf + 8)),
+        ("УПОР СТВОЛА Ø%.1f" % (2 * fit_flange_r), (45, 0, z_stop - FIT_FLANGE_T / 2)),
+        ("ФИТТИНГ Ø%.1f x %.0f без кольца" % (2 * fit_body_r, FIT_INSERT), (45, 0, z_stop + FIT_INSERT * 0.45)),
         ("СТВОЛ (снаряд) 25x0,6", (45, 0, z_stop + REAL_BARREL_SHOW * 0.55)),
         ("КОЛЬЦО СЕДЛА: седло Ø%.0f" % SEAT_D, (45, 0, 10)),
         ("МЕМБРАНА Ø%.1f" % (2 * DIA_R), (45, 0, 0)),
