@@ -1,0 +1,1 @@
+Round the lower part of the housing (Frame_lower): soften the transition from the grip into the underside of the frame, no sharp bottom edges. Edit only the frame / grip / trigger-guard geometry. Do not redesign the internal drive.

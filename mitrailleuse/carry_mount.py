@@ -148,6 +148,22 @@ for tag, key in KEYS:
         plates[side] = plate(key, side, sol, hol)
     built[tag] = (key, mods, plates)
 
+# ---------------------------------------------------------------- Mechanismus overlays (optional)
+handle, tripod_pad = grip_part, pad_part
+a16_cg_plate = built["A16"][2]["cg_rear"][0]
+a19_cg_plate = built["A19"][2]["cg_rear"][0]
+MASK_PRODUCT = globals().get("MASK_PRODUCT") or os.environ.get("MASK_PRODUCT") or "mitrailleuse"
+exec(open(os.path.join(REPO, "tools", "mask_overlays.py")).read())
+if apply_mask_overlays(REPO, globals(), MASK_PRODUCT):
+    grip_part, pad_part = handle, tripod_pad
+    def _put_cg(tag, shape):
+        key, mods, plates = built[tag]
+        plates = dict(plates)
+        plates["cg_rear"] = (shape, plates["cg_rear"][1])
+        built[tag] = (key, mods, plates)
+    _put_cg("A16", a16_cg_plate)
+    _put_cg("A19", a19_cg_plate)
+
 # ---------------------------------------------------------------- checks
 lines = []
 near = ("chamber", "hardware")

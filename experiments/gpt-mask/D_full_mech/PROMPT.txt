@@ -1,0 +1,3 @@
+Round and narrow the lower part of the housing (Shell_tray): remove excess volume under the tray where no drive parts sit, soften that underside. Edit only Shell_tray / Shell_cover / covers / grip / bail as needed for the new outline. Do not move or reshape Drive parts (Stack_*, Coupler, Rotor, Thumb_lever, Yoke, Pedal, wires, etc.).
+
+When finished, write edited shell solids back to parts/ (Shell_tray → parts/tray.brep, etc.) or run: freecadcmd -c "HERE='$PWD'; exec(open('export_edits.py').read())"

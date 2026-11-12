@@ -1,0 +1,3 @@
+Round and narrow excess bulk on the Shell parts where no Drive parts sit. Soften sharp underside edges. Edit only Shell group solids. Do not move or reshape Drive parts.
+
+When finished, write edited shell solids back to parts/ or run: freecadcmd -c "HERE='$PWD'; exec(open('export_edits.py').read())"

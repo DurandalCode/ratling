@@ -810,6 +810,13 @@ frame_upper = _biggest(frame_upper, vmin=1000.0)
 side_plate = Part.makeCompound([side_wall, side_band])          # tongues and bolt holes included
 frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
 
+# ---------------------------------------------------------------- Mechanismus overlays (optional)
+MASK_PRODUCT = globals().get("MASK_PRODUCT") or os.environ.get("MASK_PRODUCT") or "pistol"
+exec(open(os.path.join(REPO, "tools", "mask_overlays.py")).read())
+if apply_mask_overlays(REPO, globals(), MASK_PRODUCT):
+    side_plate = Part.makeCompound([side_wall, side_band])
+    frame = Part.makeCompound([frame_lower, frame_upper])
+
 # ---------------------------------------------------------------- checks
 def hit(a, b):
     try:
