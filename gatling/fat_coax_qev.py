@@ -11,8 +11,9 @@ printed fitting that plugs into the real projectile barrel (25 x 0.6).
 Stack from v4.4 (seat ring, diaphragm, rear plug, chamber seals) via OVERRIDE +
 library exec of module/stage3v4_coaxial_chamber.py. This file rebuilds the front:
 short stub, rods ending on the front yoke, front cover with stub lip + a flat stop
-for the real barrel and a plain Ø23.4 x 30 insert (0.2 radial clear, no O-ring —
-the dump seals in the module; the real barrel only locates on the fitting).
+for the real barrel and a plain self-centering insert (cylinder + long lead cone,
+~0.25 radial clear, no O-ring — the dump seals in the module; the real barrel
+only locates on the fitting).
 
     CH_OD x CH_WALL = 50 x 1.5 aluminium (nominal ID 47 until a tube is measured)
     CHAMBER_V       = 100 cm3
@@ -55,10 +56,13 @@ PACK_PITCH = 68.0
 
 # Real barrel the module plugs into (bought 25 x 0.6); shown ahead of the stop.
 REAL_BARREL_SHOW = 200.0
-# Plain printed nose into that bore (PLA: Ø23.4 prints to size; same clear as tube_plug).
-# No O-ring: the real barrel only locates; chamber seals stay in the module.
-FIT_RADIAL_CLEAR = 0.20
+# Plain printed nose into that bore. No O-ring: the real barrel only locates;
+# chamber seals stay in the module. A long lead cone makes it self-centering so
+# the tube can miss by a couple of mm and still find the bore.
+FIT_RADIAL_CLEAR = 0.25              # a touch looser than tube_plug's 0.20 (dry locate)
 FIT_INSERT = 30.0
+FIT_LEAD_LEN = 8.0                   # entry cone length
+FIT_LEAD_UNDER = 1.2                 # tip this much under the body radius (catch in the bore)
 FIT_FLANGE_T = 4.0                   # axial thickness of the stop disc ahead of the sleeve
 FIT_FLANGE_OVER_BARREL = 3.0         # stop face past the barrel OD (land for the tube end)
 FIT_FLANGE_OVER_SLEEVE = 2.5         # and past the cover sleeve, so the butt reads as a rim
@@ -89,10 +93,13 @@ NAME = "gatling_fat_coax_qev"
 OUT_DIR = os.path.join(REPO, "exports", NAME)
 
 # ---------------------------------------------------------------- stub + front cover (upper lid)
-fit_body_r = BARREL_ID / 2 - FIT_RADIAL_CLEAR          # Ø23.4, plain, no groove
+fit_body_r = BARREL_ID / 2 - FIT_RADIAL_CLEAR          # cylindrical locate band
+fit_tip_r = fit_body_r - FIT_LEAD_UNDER                # cone tip: finds the bore off-centre
 # Stop disc must clear both the barrel OD and the cover sleeve, or it reads as flush.
 fit_flange_r = max(BARREL_OD / 2 + FIT_FLANGE_OVER_BARREL, fp_out_r + FIT_FLANGE_OVER_SLEEVE)
 lip_r = BARREL_ID / 2 + 0.2                            # stub end in a shallow counterbore
+fit_lead_catch = BARREL_ID / 2 - fit_tip_r             # radial miss the tip still enters
+fit_lead_deg = math.degrees(math.atan2(FIT_LEAD_UNDER, FIT_LEAD_LEN))
 
 # Stub bottoms just inside the front plug's sleeve; cover continues into the fitting.
 z_stub_end = z_fp_end - STUB_PAST_SLEEVE
@@ -101,18 +108,20 @@ BARREL_STUB_LEN = z_stub_end - z_sh
 # Stop disc sits ahead of the sleeve; its FRONT face is the real-barrel butt.
 z_flange0 = max(z_fp_end, z_lip1) + 0.5
 z_stop = z_flange0 + FIT_FLANGE_T                      # barrel end butts here
-z_fit1 = z_stop + FIT_INSERT                           # plain nose into the real barrel
+z_fit1 = z_stop + FIT_INSERT                           # nose tip into the real barrel
+z_fit_cyl1 = z_fit1 - FIT_LEAD_LEN                     # end of cylindrical band / start of cone
 
-# Front cover: v4.4 front-plug body through the sleeve, then stop disc + plain insert.
+# Front cover: v4.4 front-plug body through the sleeve, then stop disc + self-centering insert.
 # Stub lip is a solid ring in the bore (seat push: stub -> lip -> cover -> yoke -> rods).
 # At z_stop the OD steps fit_flange_r -> fit_body_r: that annulus is the barrel stop.
+# Insert: cylinder (centres) then a long cone (captures when the tube is a bit off).
 front_cover = revolve([
     (sock_r, z_fp_tip), (spigot_r - LEAD_CHAMFER, z_fp_tip), (spigot_r, z_fp_tip + LEAD_CHAMFER),
     (spigot_r, z_tf), (CH_OD / 2, z_tf), (CH_OD / 2, z_fs),
     (fp_out_r, z_fs + (CH_OD / 2 - fp_out_r)), (fp_out_r, z_fp_end),
     (fit_flange_r, z_fp_end), (fit_flange_r, z_stop),
-    (fit_body_r, z_stop), (fit_body_r, z_fit1 - LEAD_CHAMFER),
-    (fit_body_r - LEAD_CHAMFER, z_fit1), (0, z_fit1),
+    (fit_body_r, z_stop), (fit_body_r, z_fit_cyl1),
+    (fit_tip_r, z_fit1), (0, z_fit1),
     (0, z_fp_tip), (sock_r, z_fp_tip),
 ]).removeSplitter()
 # Through-bore: sock over the stub up to the lip, then FIT_BORE through lip + fitting.
@@ -206,6 +215,11 @@ checks = [
      sock_r - lip_r >= BARREL_WALL - 0.05 and lip_bearing <= 25.0),
     ("fitting: plain (no O-ring), wall >= 1.5 mm, insert %.0f mm, bore >= seat" % FIT_INSERT,
      fit_wall >= 1.5 and FIT_INSERT >= 20.0 and FIT_BORE >= SEAT_D),
+    ("fitting lead cone: %.0f mm, tip wall >= 1.2 mm, catch >= 1.0 mm radial (%.1f mm, tip wall %.1f)"
+     % (FIT_LEAD_LEN, fit_lead_catch, fit_tip_r - FIT_BORE / 2),
+     FIT_LEAD_LEN >= 6.0 and FIT_LEAD_LEN <= FIT_INSERT - 10.0
+     and fit_tip_r - FIT_BORE / 2 >= 1.2 and fit_lead_catch >= 1.0
+     and z_fit_cyl1 > z_stop + 10.0),
     ("fitting clear of the stub; stop disc clear of the real barrel OD",
      z_stop >= z_stub_end and G.no_overlap(front_cover, barrel_stub)
      and G.no_overlap(front_cover.common(cyl(2 * fit_flange_r + 2, z_flange0 - 0.5, z_stop + 0.01)),
@@ -234,8 +248,10 @@ report = [
     "  force path             : seat ring -> stub -> lip in front cover -> front yoke -> rods;"
     " seat push %.0f N at %.0f bar" % (F_stub, P_MAX_BAR),
     "  stub / real barrel     : stub 25 x 0.6 x %.0f through the chamber, bottoms in the cover;"
-    " flat stop Ø%.1f (tube butts), plain fitting Ø%.1f x %.0f into the real barrel (bore Ø%.0f, no O-ring)"
-    % (BARREL_STUB_LEN, 2 * fit_flange_r, 2 * fit_body_r, FIT_INSERT, FIT_BORE),
+    " flat stop Ø%.1f (tube butts), fitting Ø%.1f x %.0f + lead cone %.0f mm to Ø%.1f"
+    " (catch %.1f mm radial, %.0f deg; bore Ø%.0f, no O-ring)"
+    % (BARREL_STUB_LEN, 2 * fit_flange_r, 2 * fit_body_r, FIT_INSERT, FIT_LEAD_LEN,
+       2 * fit_tip_r, fit_lead_catch, fit_lead_deg, FIT_BORE),
     "  tie rods               : 2 x M3 x %.0f at R%.1f, %.0f / %.0f deg; nuts on rear plug and front yoke only"
     % (tie_len, TIE_R, *TIE_ANGLES),
     "  pack                   : pitch %.0f; %.1f mm to neighbours (hex), %.1f (square)"
@@ -273,7 +289,8 @@ if not GATLING_FAT_COAX_LIBRARY:
          (45, 0, z_tf * 0.5)),
         ("КРЫШКА: упор обрезка + упор ствола", (45, 0, z_tf + 8)),
         ("УПОР СТВОЛА Ø%.1f" % (2 * fit_flange_r), (45, 0, z_stop - FIT_FLANGE_T / 2)),
-        ("ФИТТИНГ Ø%.1f x %.0f без кольца" % (2 * fit_body_r, FIT_INSERT), (45, 0, z_stop + FIT_INSERT * 0.45)),
+        ("ФИТТИНГ Ø%.1f + конус -> Ø%.1f (самоцентр.)" % (2 * fit_body_r, 2 * fit_tip_r),
+         (45, 0, z_stop + FIT_INSERT * 0.45)),
         ("СТВОЛ (снаряд) 25x0,6", (45, 0, z_stop + REAL_BARREL_SHOW * 0.55)),
         ("КОЛЬЦО СЕДЛА: седло Ø%.0f" % SEAT_D, (45, 0, 10)),
         ("МЕМБРАНА Ø%.1f" % (2 * DIA_R), (45, 0, 0)),
