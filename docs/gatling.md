@@ -88,4 +88,14 @@ freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech_bench.py').read())"
 Выгрузка: `exports/gatling_fat_coax_qev/` (`front_cover`, не `front_plug` / не хомут);
 `exports/gatling_linear_breech/` (`carriage`, `barrel_clamp`, `barrel_collar`, `front_cover_feed`);
 `exports/gatling_linear_breech_bench/` (`foot_front`, `foot_rear`, `carriage_handle`,
-`rail_stops`, `barrel_collar`). Есть `[FAIL]` — не слайсить.
+`rail_stop`, `barrel_clamp`, `barrel_collar`, `airtac_cradle`). Есть `[FAIL]` — не слайсить.
+
+Печать стенда (PLA, на Mac с Bambu Studio):
+
+```sh
+sh gatling/linear_breech_bench_plates.sh
+```
+
+Два проекта в `exports/print/`: `gatling_breech_bench_airtight.3mf` (пробка, седло, крышка
+с жёлобом — сопло 0.4, airtight) и `gatling_breech_bench_08.3mf` (опоры, салазки, упоры,
+хомуты, люлька AirTAC, ярмо, шаблон, конус — сопло 0.8). Мембрана, трубы и AirTAC не печатаются.
