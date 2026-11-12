@@ -9,7 +9,11 @@
   фиксированный ствол, щель сверху под пульку (`exec` fat coax как библиотека);
 - [`gatling/linear_breech_bench.py`](../gatling/linear_breech_bench.py) — ручной стенд станции:
   две маленькие опоры под рельсы (рельсы сами балка), T-ручка на салазках
-  (`exec` linear_breech как библиотека).
+  (`exec` linear_breech как библиотека);
+- [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — ось + ступица + MQR на
+  двух стойках;
+- [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) — силуэт всего пакета (6 станций
+  на R68 + та же ось).
 
 ## Зафиксировано
 
@@ -58,11 +62,17 @@
     **Стыковка с осью пакета** (черновик): несущая ось и подшипники отдельно; ротор MQR на
     торце ступицы (2×M4); статор к раме (Ø20 + 4×M4); через MQR только подача на R каждого
     AirTAC; dump местный. 2D: [`docs/img/gatling_mqr_axis.svg`](img/gatling_mqr_axis.svg).
-    3D-блоки: [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — вал на двух
-    подшипниках рамы + ступица + ротор (тёплый = крутится); статор + рама (холодный = стоит).
+    3D-блоки оси: [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — вал на
+    двух маленьких стойках + ступица + ротор (тёплый); статор + пластина (холодный).
     Опора пакета — подшипники, не MQR.
+    Набросок всего пакета: [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) —
+    6 станций на R68 (ствол Ø25×180 + камера Ø50×130) + та же ось/ступица/MQR.
 
 ![MQR6 на оси пакета](img/gatling_mqr_axis.svg)
+
+![Пакет 6 станций, iso](img/gatling_pack_3d.png)
+
+![Пакет 6 станций, сзади](img/gatling_pack_3d_rear.png)
 
 Прогон standalone `gatling/fat_coax_qev.py` (2026-11-12): камера **101 см³**, труба
 **50 × 1.5 × 130 мм** (~80 г Al), модуль Ø50 (уши 66), длина до кончика фиттинга ≈ 202 мм,
@@ -78,11 +88,10 @@
 ## Ещё не рисуем
 
 - Кривошип / кулачок **хода** затвора (сброс пилота уже от самого QEV).
-- Бункер пульки, подшипник пакета.
-- Ступица пакета + кронштейн статора в FreeCAD (2D-черновик уже есть).
+- Бункер пульки.
 - Шланги M5 ротор → R каждого AirTAC (после обмера приехавшего MQR).
-- Как шесть станций стоят кольцом на общей оси (рама / подшипники).
 - Обвязка редуктора и стойка хронографа на стенде (жёлоб пульки уже в крышке станции).
+- Детали станций внутри пакета (сейчас только силуэт ствол+камера).
 
 ## Запуск
 
@@ -92,6 +101,7 @@ freecadcmd -c "REPO='$PWD'; exec(open('gatling/fat_coax_qev.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech_bench.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/mqr_axis_sketch.py').read())"
+freecadcmd -c "REPO='$PWD'; exec(open('gatling/pack_sketch.py').read())"
 ```
 
 Выгрузка: `exports/gatling_fat_coax_qev/` (`front_cover`, не `front_plug` / не хомут);

@@ -44,10 +44,10 @@ HUB_OD = 50.0
 HUB_T = 18.0
 HUB_BORE = AXLE_OD + 0.2
 
-BRG_OD = 42.0                # pillow block outer (fixed)
+BRG_OD = 36.0                # plain ring race (fixed)
 BRG_ID = AXLE_OD + 0.3       # clearance on axle
-BRG_T = 16.0
-BRG_FOOT = 56.0              # square foot under each bearing
+BRG_T = 14.0
+BRG_FOOT_W = 28.0            # small pad under each race — no chassis rail
 
 # MQR6 clone (docs/img/mqr6_dims.png), simplified
 ROTOR_OD = 46.0
@@ -74,7 +74,6 @@ z_stator0 = z_rotor1
 z_stator1 = z_stator0 + STATOR_L
 z_stub0 = z_stator1
 z_stub1 = z_stub0 + HUB_STATOR_L
-z_frame_back = z_stub1 + 8.0
 
 V = App.Vector
 
@@ -84,13 +83,11 @@ def tube(od, idd, z_a, z_b, x=0.0, y=0.0):
 
 
 def bearing(z_a, z_b):
-    """Fixed outer race + foot below the axle (foot never enters the bore)."""
+    """Fixed outer race + tiny pad below — separate stands, not a long frame."""
     race = tube(BRG_OD, BRG_ID, z_a, z_b)
-    # Overlap the race OD a little so fuse makes one solid.
-    y_top = -BRG_OD / 2 + 2.0
-    foot_h = BRG_FOOT / 2
-    foot = Part.makeBox(BRG_FOOT, foot_h, z_b - z_a,
-                        V(-BRG_FOOT / 2, y_top - foot_h, z_a))
+    y_top = -BRG_OD / 2 + 1.5
+    foot = Part.makeBox(BRG_FOOT_W, 10.0, z_b - z_a,
+                        V(-BRG_FOOT_W / 2, y_top - 10.0, z_a))
     return race.fuse(foot).removeSplitter()
 
 
@@ -127,22 +124,10 @@ for k in range(6):
     stator = stator.fuse(stub)
 stator = stator.fuse(G.cyl(HUB_STATOR_OD, z_stub0, z_stub1)).removeSplitter()
 
-# One cool frame: rail under both bearings (stops before MQR) + back plate for stator.
-y_rail_top = -BRG_OD / 2 - 3.0
-rail = Part.makeBox(BRG_FOOT - 8.0, 10.0, z_brg_r1 - z_brg_f0 + 6.0,
-                    V(-(BRG_FOOT - 8.0) / 2, y_rail_top - 10.0, z_brg_f0))
-back = Part.makeBox(70.0, 70.0, 8.0, V(-35.0, -35.0, z_stub1))
-back = back.cut(G.cyl(HUB_STATOR_OD + 0.4, z_stub1 - 1, z_stub1 + 10))
-# low upright under the MQR — below the downward M5 stubs on the stator OD
-up_h = 10.0
-up_y_max = -STATOR_OD / 2 - 12.0
-up = Part.makeBox(16.0, up_h, z_stub1 - z_brg_r1 + 6.0,
-                  V(-8.0, up_y_max - up_h, z_brg_r1 - 4.0))
-# bridge from rail top down to the upright
-drop = Part.makeBox(16.0, y_rail_top - up_y_max + 1.0, 10.0,
-                    V(-8.0, up_y_max, z_brg_r1 - 2.0))
-frame = rail.fuse(back).fuse(up).fuse(drop).removeSplitter()
-rail_only = rail  # for the clearance check
+# Stator bracket only: small plate on the Ø20 hub. No rail between bearings.
+bracket = Part.makeBox(40.0, 40.0, 6.0, V(-20.0, -20.0, z_stub1))
+bracket = bracket.cut(G.cyl(HUB_STATOR_OD + 0.4, z_stub1 - 1, z_stub1 + 8))
+bracket = bracket.removeSplitter()
 
 # ---------------------------------------------------------------- checks
 checks = [
@@ -152,7 +137,7 @@ checks = [
     ("stator single solid", G.single_solid(stator)),
     ("front bearing single solid", G.single_solid(brg_f)),
     ("rear bearing single solid", G.single_solid(brg_r)),
-    ("frame single solid", G.single_solid(frame)),
+    ("stator bracket single solid", G.single_solid(bracket)),
     ("axle clears front bearing race (%.2f mm)" % axle.distToShape(brg_f)[0],
      axle.distToShape(brg_f)[0] >= 0.1),
     ("axle clears rear bearing race (%.2f mm)" % axle.distToShape(brg_r)[0],
@@ -164,20 +149,17 @@ checks = [
     ("rotor butts stator", rotor.distToShape(stator)[0] <= 0.05),
     ("axle does not enter MQR bore",
      axle.common(G.cyl(THROUGH + 0.5, z_rotor0, z_stub1)).Volume < 1.0),
-    ("stator clear of frame rail (%.1f mm)" % stator.distToShape(rail_only)[0],
-     stator.distToShape(rail_only)[0] >= 0.5),
-    ("stator clear of frame upright (%.1f mm)" % stator.distToShape(up)[0],
-     stator.distToShape(up)[0] >= 0.5),
+    ("stator bracket present", bracket.Volume > 1000),
 ]
 report = [
     NAME,
-    "  sketch                 : axle on 2 bearings; hub; MQR rotor/stator; frame",
+    "  sketch                 : axle on 2 tiny stands; hub; MQR; small stator plate",
     "  rotates (warm)         : axle, hub, MQR rotor",
-    "  fixed (cool)           : bearings, frame, MQR stator",
-    "  load path              : pack/hub -> axle -> bearings -> frame (MQR not in path)",
+    "  fixed (cool)           : 2 bearing stands, MQR stator, stator bracket",
+    "  load path              : pack/hub -> axle -> 2 bearings (MQR not in path)",
     "  axle                   : Ø%.0f/%.0f x %.0f; stops in hub; MQR through Ø%.0f unused"
     % (AXLE_OD, AXLE_ID, AXLE_L, THROUGH),
-    "  bearings               : 2x Ø%.0f x %.0f, span %.0f mm"
+    "  bearings               : 2x Ø%.0f x %.0f, span %.0f mm (no chassis rail)"
     % (BRG_OD, BRG_T, z_brg_r0 - z_brg_f1),
     "  hub / MQR gap          : %.0f mm (2xM4 markers span it)" % MQR_GAP,
     "  MQR                    : rotor L %.0f + stator L %.0f, OD %.0f"
@@ -200,12 +182,12 @@ sc.add("Spins", "MQR_rotor", rotor, "spin")
 sc.add("Fixed", "Bearing_front", brg_f, "fixed_brg")
 sc.add("Fixed", "Bearing_rear", brg_r, "fixed_brg")
 sc.add("Fixed", "MQR_stator", stator, "fixed")
-sc.add("Fixed", "Frame", frame, "fixed_frame")
+sc.add("Fixed", "Stator_bracket", bracket, "fixed_frame")
 
 for text, pos in [
     ("КРУТИТСЯ: вал + ступица + ротор", (55, 0, (z_hub0 + z_rotor1) / 2)),
-    ("СТОИТ: подшипники + рама + статор", (55, 0, (z_brg_f0 + z_stub1) / 2)),
-    ("опора пакета = подшипники, не MQR", (50, -45, (z_brg_f1 + z_brg_r0) / 2)),
+    ("СТОИТ: 2 опоры + статор + пластина", (55, 0, (z_stator0 + z_stub1) / 2)),
+    ("опора = 2 подшипника, не MQR", (50, -40, (z_brg_f1 + z_brg_r0) / 2)),
     ("MQR только воздух (зазор %.0f мм)" % MQR_GAP, (50, 30, z_rotor0)),
 ]:
     sc.label("Labels", text, pos)
@@ -227,7 +209,7 @@ def write(shape, name):
 
 for n, s in (("axle", axle), ("hub", hub), ("mqr_rotor", rotor),
              ("mqr_stator", stator), ("bearing_front", brg_f),
-             ("bearing_rear", brg_r), ("frame", frame)):
+             ("bearing_rear", brg_r), ("stator_bracket", bracket)):
     write(s, n)
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
     f.write("\n".join(report) + "\n")
