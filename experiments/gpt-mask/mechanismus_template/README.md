@@ -3,7 +3,8 @@
 Printed shell and drive for a handheld rotary actuator / pack frame.
 
 FreeCAD groups: `Shell` (edit these) and `Drive` (leave alone).
-Part list: `manifest.json`.
+Part list: `manifest.json`. Each part is `parts/<stem>.brep` with a `.step` twin; the newest
+file wins when building, so edits can be written back in either format.
 
 ## Build
 

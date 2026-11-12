@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Build a product and dump shell (+ optional drive) solids into
-experiments/gpt-mask/cache/<product>/parts/*.brep and write manifest.json.
+experiments/gpt-mask/cache/<product>/parts/*.brep (+ .step twin) and write manifest.json.
 
     freecadcmd -c "REPO='$PWD'; PRODUCT='pistol'; exec(open('experiments/gpt-mask/pull_product.py').read())"
 
@@ -51,6 +51,7 @@ def resolve(ns, live):
 def write_brep(shape, stem):
     path = os.path.join(PARTS, stem + ".brep")
     shape.exportBrep(path)
+    shape.exportStep(os.path.join(PARTS, stem + ".step"))
     vol = sum(s.Volume for s in shape.Solids) if shape.Solids else 0.0
     print("  %s.brep  vol=%.0f" % (stem, vol), flush=True)
     return path

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Write Shell_* solids back to parts/<stem>.brep using manifest.json.
+Write Shell_* solids back to parts/<stem>.brep and .step using manifest.json.
 
     freecadcmd -c "HERE='$PWD'; exec(open('export_edits.py').read())"
 """
@@ -44,7 +44,8 @@ for name, stem in SHELL:
     shape = obj.Shape
     shape.exportBrep(os.path.join(parts_dir, stem + ".brep"))
     shape.exportBrep(os.path.join(exp_dir, name + ".brep"))
-    print("[OK ] %s → parts/%s.brep" % (name, stem))
+    shape.exportStep(os.path.join(parts_dir, stem + ".step"))
+    print("[OK ] %s → parts/%s.brep + .step" % (name, stem))
     n += 1
 
 if not n:

@@ -25,6 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 sys.path.insert(0, HERE)
+from exchange import find_work_shell, is_brep, record, to_brep  # noqa: E402
 from product_lib import label_to_live, list_products, live_to_stem, load_product  # noqa: E402
 
 SYNC = os.path.join(HERE, "mask_sync.py")
@@ -63,6 +64,7 @@ class HotState(object):
         self.product = product
         self.product_id = product["id"]
         self.work = product["work_dir"]
+        self.cache_dir = os.path.join(HERE, "cache", self.product_id)
         self.overlay_dir = product["overlay_dir"]
         self.live_stem = live_to_stem(product)
         self.label_live = label_to_live(product)
@@ -89,19 +91,10 @@ class HotState(object):
 
     def work_shell_paths(self):
         out = {}
-        parts = os.path.join(self.work, "parts")
-        exports = os.path.join(self.work, "exports")
-        for live, stem in self.live_stem.items():
-            labels = [lab for lab, lv in self.label_live.items() if lv == live]
-            cands = []
-            for lab in labels:
-                cands.append(os.path.join(exports, lab + ".brep"))
-                cands.append(os.path.join(self.work, lab + ".brep"))
-            cands.append(os.path.join(parts, stem + ".brep"))
-            for p in cands:
-                if os.path.isfile(p):
-                    out[live] = p
-                    break
+        for live in self.live_stem:
+            p = find_work_shell(self.work, self.product, live)
+            if p:
+                out[live] = p
         return out
 
     def overlay_paths(self):
@@ -123,11 +116,13 @@ class HotState(object):
     def copy_to_overlay(self, live, src):
         os.makedirs(self.overlay_dir, exist_ok=True)
         dst = os.path.join(self.overlay_dir, live + ".brep")
-        if same_file(src, dst):
+        if is_brep(src) and same_file(src, dst):
             self.last_work[live] = fingerprint(src)
             self.last_overlay[live] = fingerprint(dst)
+            record(self.cache_dir, live, src)
             return False
-        shutil.copy2(src, dst)
+        to_brep([(src, dst)])
+        record(self.cache_dir, live, src)
         self._ignore(dst)
         self._ignore(src)
         self.last_work[live] = fingerprint(src)
@@ -144,6 +139,7 @@ class HotState(object):
         if same_file(src, dst):
             self.last_overlay[live] = fingerprint(src)
             self.last_work[live] = fingerprint(dst)
+            record(self.cache_dir, live, dst)
             return False
         shutil.copy2(src, dst)
         exports = os.path.join(self.work, "exports")
@@ -157,6 +153,7 @@ class HotState(object):
         self._ignore(src)
         self.last_overlay[live] = fingerprint(src)
         self.last_work[live] = fingerprint(dst)
+        record(self.cache_dir, live, dst)
         self.stats["out_overlay"] += 1
         log("out %s → parts/%s.brep" % (live + ".brep", stem))
         return True

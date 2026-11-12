@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Mechanismus — shell + drive solids from parts/*.brep (see manifest.json).
+Mechanismus — shell + drive solids from parts/<stem>.brep or .step (see manifest.json).
+Per part the newest file wins, so edits written as either format are picked up.
 
     freecadcmd -c "HERE='$PWD'; exec(open('build.py').read())"
 """
@@ -35,11 +36,17 @@ doc = App.newDocument(DOC_NAME)
 g_shell = doc.addObject("App::DocumentObjectGroup", "Shell")
 g_drive = doc.addObject("App::DocumentObjectGroup", "Drive")
 
+def part_file(stem):
+    found = [os.path.join(PARTS_DIR, stem + ext) for ext in (".brep", ".step", ".stp")]
+    found = [p for p in found if os.path.isfile(p)]
+    return max(found, key=os.path.getmtime) if found else None
+
+
 for row in PARTS:
     stem, name, group = row["stem"], row["label"], row.get("group", "Shell")
-    path = os.path.join(PARTS_DIR, stem + ".brep")
-    if not os.path.isfile(path):
-        print("[skip] %s (no %s.brep)" % (name, stem))
+    path = part_file(stem)
+    if not path:
+        print("[skip] %s (no %s.brep / .step)" % (name, stem))
         continue
     shape = Part.Shape()
     shape.read(path)
