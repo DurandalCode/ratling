@@ -1,5 +1,19 @@
 {
   "id": "pistol",
-  "roots": ["pistol/hammer_assembly.py"],
-  "build_pre": {"CHECKS": false, "VALVE": "v13"}
+  "roots": [
+    "pistol/hammer_assembly.py"
+  ],
+  "build_pre": {
+    "CHECKS": false,
+    "VALVE": "v13"
+  },
+  "obfuscate": true,
+  "editable": [
+    "pistol/hammer_assembly.py"
+  ],
+  "context": [
+    "module/stage3_qev.py",
+    "pistol/mech_layout.py",
+    "pistol/hammer_layout.py"
+  ]
 }

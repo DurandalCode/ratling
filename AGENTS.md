@@ -30,7 +30,7 @@
 | Гатлинг QEV (эскиз) | `gatling/fat_coax_qev.py`, `gatling/linear_breech.py`, `gatling/linear_breech_bench.py` | `docs/gatling.md` |
 | Пистолет | `pistol/hammer_assembly.py`, `pistol/hammer_layout.py`, `pistol/build/` | `pistol/build/README.md` |
 | Печать | `tools/print_plate.py`, `*_plates.sh` | `.claude/skills/plates/SKILL.md` |
-| Конвейер правок через GPT (Mechanismus) | `experiments/gpt-mask/mask`, `mask_sync.py`, `rename.py`, `names.json`, `products/*.json` | `experiments/gpt-mask/README.md` |
+| Конвейер правок через GPT (Mechanismus) | `experiments/gpt-mask/mask`, `mask_sync.py`, `rename.py`, `obfuscate_pistol.py`, `names.json`, `products/*.json` | `experiments/gpt-mask/README.md` |
 | Трубка 25 мм, пробка, селектор | `connectors/`, `selector/`, `ratling/params.py` | `docs/requirements.md` |
 
 ## Как устроен код
@@ -141,6 +141,13 @@ freecadcmd -c "REPO='$PWD'; exec(open('module/stage3v4_coaxial_chamber.py').read
   стык подтверждают объём или сечение.
 
 ## Словарь Mechanismus (`experiments/gpt-mask/names.json`)
+
+Пистолет: при `mask out -p pistol` геометрия для GPT дополнительно подменяется
+(`experiments/gpt-mask/obfuscate_pistol.py`) — сплошной блок вместо полого клапана, один барабан
+вместо шести стволов, снаружи короткие «провода» вместо внутренних шлангов. Эти файлы контекста
+`in` не принимает; обратно идут только правки оболочки в `pistol/hammer_assembly.py`. Меняешь
+подмену — пересобери выгрузку и проверь сборку во внешней папке.
+
 
 Генераторы уходят к GPT с заменой слов на нейтральные (`mask out`), правки возвращаются обратной
 заменой (`mask in`). Словарь ведём руками, в том же коммите, что и код:
