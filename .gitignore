@@ -7,11 +7,6 @@ exports/
 *.FCStd
 *.FCBak
 
-# Mechanismus shell overlays (see experiments/gpt-mask/mask_sync.py)
-pistol/mask_overlays/*.brep
-mitrailleuse/mask_overlays/*.brep
-experiments/gpt-mask/cache/
-
 # macOS
 .DS_Store
 
@@ -28,3 +23,6 @@ opencode.json
 
 # render_view.py logs
 *.png.log
+
+# Mechanismus pipe state (last-crossed copies, see experiments/gpt-mask/mask_sync.py)
+experiments/gpt-mask/cache/

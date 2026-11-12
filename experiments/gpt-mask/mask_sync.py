@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Bidirectional pipe: live product ↔ external Mechanismus folder.
+Bidirectional pipe: live Python sources <-> neutral-named copies in an external work folder.
 
-  out     live → ../mechanismus/<product>/   (BREP + STEP per part)
-  in      work folder → <product>/mask_overlays/   (BREP or STEP; only parts edited since the last
-          crossing, --all takes every shell part)
-  status  per shell part: in sync or edited-but-not-taken, in either direction
+  out     live -> ../mechanismus/<product>/   renamed copies of the product's generators
+  in      work folder -> live                 reverse-renamed, merged line by line
+  status  per file: edited in work / changed in live since the last crossing
   products
 
-`out` refuses to wipe a work folder that holds edits not yet taken by `in` (--force overrides).
+Both directions are 3-way text merges (git merge-file) against what crossed last time, so a line
+edited on one side and untouched on the other simply moves; the same line edited on both sides is a
+conflict and nothing is written for that file. Renaming never changes the line count (rename.py).
 
-  python3 experiments/gpt-mask/mask_sync.py out --product pistol --rebuild
-  python3 experiments/gpt-mask/mask_sync.py out --product mitrailleuse --rebuild
-  python3 experiments/gpt-mask/mask_sync.py out --product gatling --rebuild
-  python3 experiments/gpt-mask/mask_sync.py in --product pistol
+  python3 experiments/gpt-mask/mask_sync.py out -p pistol
+  python3 experiments/gpt-mask/mask_sync.py in  -p pistol
 
-Keep this script in the live repo — do not copy it into the external work folder.
+Keep this script in the live repo; do not copy it into the external work folder.
 """
 
 from __future__ import print_function
@@ -31,20 +30,41 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 sys.path.insert(0, HERE)
-from exchange import (  # noqa: E402
-    edit_files,
-    edit_state,
-    find_work_shell,
-    is_brep,
-    part_state,
-    record,
-    to_brep,
-)
-from mask_map import MECHANISMUS_TEMPLATE_FILES  # noqa: E402
+import rename  # noqa: E402
 from product_lib import list_products, load_product  # noqa: E402
 
+README = """# Mechanismus
 
-TEMPLATE_SRC = os.path.join(HERE, "mechanismus_template")
+Parametric generators for a handheld rotary actuator and its carrier frame. Plain FreeCAD Python:
+run a generator from this folder, read its report, edit the files in place.
+
+## Run
+
+```sh
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
+{runs}
+```
+
+Every line printed as `[OK ]` / `[FAIL]` is a check; `[FAIL]` means the change broke something.
+Output goes to `exports/`.
+
+## Rules
+
+- Edit the existing files in place. Do not rename, add or delete files.
+- Keep line endings and the overall line structure; make local changes, do not reformat or reflow
+  untouched code (changes are exchanged as line diffs).
+- Generators run each other by relative path; keep those paths as they are.
+- Keep the vocabulary of the existing code for names you do not need to change.
+
+## Task
+
+See `PROMPT.txt`.
+"""
+
+PROMPT = """Round and narrow excess bulk on the printed housing parts where no inner parts sit. Soften sharp underside edges. Do not move or reshape inner parts, do not change fastener positions or clearances between parts.
+
+Edit the generator files in place and run them to check that every [OK ] stays [OK ].
+"""
 
 
 def die(msg, code=1):
@@ -56,293 +76,249 @@ def cache_dir(product_id):
     return os.path.join(HERE, "cache", product_id)
 
 
-def cache_parts(product_id):
-    return os.path.join(cache_dir(product_id), "parts")
+def read(path):
+    with open(path, "r", encoding="utf-8", newline="") as f:
+        return f.read()
 
 
-def cache_manifest(product_id):
-    return os.path.join(HERE, "cache", product_id, "manifest.json")
+def write(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
 
 
-def rebuild_parts(product_id):
-    env = os.environ.copy()
-    env.setdefault("LANG", "C.UTF-8")
-    env.setdefault("LC_ALL", "C.UTF-8")
-    env["MASK_PRODUCT"] = product_id
-    cmd = [
-        "freecadcmd",
-        "-c",
-        "REPO=%r; PRODUCT=%r; exec(open(%r).read())"
-        % (REPO, product_id, os.path.join(HERE, "pull_product.py")),
-    ]
-    print("mask_sync: rebuilding %s via freecadcmd…" % product_id, flush=True)
-    r = subprocess.call(cmd, cwd=REPO, env=env)
-    if r != 0:
-        die("freecadcmd pull_product failed (exit %d)" % r)
+def read_opt(path):
+    return read(path) if os.path.isfile(path) else None
 
 
-def edited_parts(product_id, product, work):
-    cdir = cache_dir(product_id)
-    out = []
-    for p in product["shell"]:
-        live = p["live"]
-        if not isinstance(live, str):
-            continue
-        path, state = part_state(work, product, live, cdir)
-        if state == "edited":
-            out.append((live, path))
-    for stem in {p["stem"] for p in product["shell"]}:
-        path, state = edit_state(work, stem, cdir)
-        if state == "edited":
-            out.append(("edit " + stem, path))
-    return out
-
-
-def cmd_out(product_id, dest, rebuild, force=False):
-    product = load_product(product_id)
-    dest = os.path.abspath(dest or product["work_dir"])
-    if os.path.abspath(dest) == REPO or dest.startswith(REPO + os.sep):
-        die("refusing to write the work tree inside the live repo (%s)" % dest)
-    if os.path.isdir(dest) and not force:
-        pending = edited_parts(product_id, product, dest)
-        if pending:
-            die("work folder has edits not taken by `in` yet:\n  %s\n"
-                "run `mask in -p %s` first, or pass --force to overwrite them"
-                % ("\n  ".join("%s ← %s" % (lv, pa) for lv, pa in pending), product_id))
-    if rebuild:
-        rebuild_parts(product_id)
-    parts_src = cache_parts(product_id)
-    man_src = cache_manifest(product_id)
-    # Profiles that extends another may reuse the parent's cache when not rebuilt yet.
-    if (not os.path.isdir(parts_src) or not os.listdir(parts_src)) and product.get("extends"):
-        parts_src = cache_parts(product["extends"])
-        man_src = cache_manifest(product["extends"])
-    if not os.path.isdir(parts_src) or not os.listdir(parts_src):
-        die("no cache/%s/parts — run with --rebuild first" % product_id)
-    if not os.path.isfile(man_src):
-        die("missing cache manifest — run with --rebuild")
-
-    if os.path.isdir(dest):
-        for name in os.listdir(dest):
-            if name in (".", ".."):
-                continue
-            p = os.path.join(dest, name)
-            if os.path.isdir(p):
-                shutil.rmtree(p)
-            else:
-                os.remove(p)
-    else:
-        os.makedirs(dest)
-
-    for name in MECHANISMUS_TEMPLATE_FILES:
-        src = os.path.join(TEMPLATE_SRC, name)
-        if not os.path.isfile(src):
-            die("missing template file: %s" % src)
-        shutil.copy2(src, os.path.join(dest, name))
-
-    with open(man_src, "r", encoding="utf-8") as f:
-        import json as _json
-        man = _json.load(f)
-    man["product"] = product_id
-    with open(os.path.join(dest, "manifest.json"), "w", encoding="utf-8") as f:
-        _json.dump(man, f, indent=2)
-        f.write("\n")
-    dest_parts = os.path.join(dest, "parts")
-    shutil.copytree(parts_src, dest_parts)
-    n = len([f for f in os.listdir(dest_parts) if f.endswith(".brep")])
-    cdir = cache_dir(product_id)
-    dest_edits = os.path.join(dest, "edits")
-    os.makedirs(dest_edits)
-    for stem, path in edit_files(product["edits_dir"]).items():
-        shutil.copy2(path, os.path.join(dest_edits, stem + ".py"))
-        record(cdir, "edit:" + stem, os.path.join(dest_edits, stem + ".py"))
-    for p in product["shell"]:
-        if isinstance(p["live"], str):
-            written = find_work_shell(dest, product, p["live"])
-            if written:
-                record(cdir, p["live"], written)
-    print("mask_sync out [%s] → %s  (%d parts, %d edits)" % (product_id, dest, n, len(os.listdir(dest_edits))))
-    print("Open ONLY that folder as the GPT workspace.")
-
-
-def resolve_cache(product_id, product):
-    """The cache dir holding this product's pulled parts (a child profile may borrow its parent's)."""
-    for pid in (product_id, product.get("extends")):
-        if pid and os.path.isdir(cache_parts(pid)) and os.listdir(cache_parts(pid)):
-            return cache_dir(pid)
-    return None
-
-
-def take_edits(product_id, product, src, stems, take_all):
-    """Validate edits/<stem>.py from the work folder against the base parts, then copy them in."""
-    shell_stems = {p["stem"] for p in product["shell"]}
-    cdir = cache_dir(product_id)
-    work_edits = os.path.join(src, "edits")
-    found = edit_files(work_edits)
-    for stem in sorted(set(found) - shell_stems):
-        print("  edits/%s.py ignored: not a Shell part" % stem)
-    picked = []
-    for stem, path in found.items():
-        if stem not in shell_stems or (stems is not None and stem not in stems):
-            continue
-        _, state = edit_state(src, stem, cdir)
-        if state == "edited" or take_all:
-            picked.append(stem)
-    if not picked:
-        return []
-    if resolve_cache(product_id, product) is None:
-        die("no cache to check the edits against — run `mask out -p %s --rebuild` first" % product_id)
-
-    tmp = tempfile.mkdtemp(prefix="mask_edits_")
+def merge3(ours, base, theirs):
+    """3-way line merge; returns (text, number of conflicts)."""
+    tmp = tempfile.mkdtemp(prefix="mask_merge_")
     try:
-        for stem, path in edit_files(product["edits_dir"]).items():
-            shutil.copy2(path, os.path.join(tmp, stem + ".py"))
-        for stem in picked:
-            shutil.copy2(found[stem], os.path.join(tmp, stem + ".py"))
-        env = os.environ.copy()
-        env.setdefault("LANG", "C.UTF-8")
-        env.setdefault("LC_ALL", "C.UTF-8")
-        code = "REPO=%r; PRODUCT=%r; EDITS=%r; exec(open(%r).read())" % (
-            REPO, product_id, tmp, os.path.join(HERE, "check_edits.py"))
-        r = subprocess.call(["freecadcmd", "-c", code], cwd=REPO, env=env)
-        if r != 0:
-            die("edits rejected by the check above; nothing was taken")
+        paths = []
+        for name, text in (("ours", ours), ("base", base), ("theirs", theirs)):
+            p = os.path.join(tmp, name)
+            write(p, text)
+            paths.append(p)
+        r = subprocess.run(["git", "merge-file", "-p"] + paths, stdout=subprocess.PIPE)
+        if r.returncode < 0 or r.returncode > 127:
+            die("git merge-file failed (exit %d)" % r.returncode)
+        return r.stdout.decode("utf-8"), r.returncode
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-    os.makedirs(product["edits_dir"], exist_ok=True)
-    for stem in picked:
-        dst = os.path.join(product["edits_dir"], stem + ".py")
-        shutil.copy2(found[stem], dst)
-        record(cdir, "edit:" + stem, found[stem])
-        print("  %s ← %s" % (os.path.relpath(dst, REPO), found[stem]))
-    return picked
+
+class Side(object):
+    """Paths and saved state of one product: live files, work copies, and the last-crossed bases."""
+
+    def __init__(self, product_id, work=None):
+        self.product = load_product(product_id)
+        self.id = product_id
+        self.names = rename.load_names()
+        self.work = os.path.abspath(work or self.product["work_dir"])
+        if self.work == REPO or self.work.startswith(REPO + os.sep):
+            die("refusing to use a work folder inside the live repo (%s)" % self.work)
+        self.files = rename.closure(self.product["roots"])
+        if not self.files:
+            die("no source files found for %s" % product_id)
+        self.cache = cache_dir(product_id)
+
+    def npath(self, rel):
+        return rename.forward_path(rel, self.names)
+
+    def live(self, rel):
+        return os.path.join(REPO, rel)
+
+    def wfile(self, rel):
+        return os.path.join(self.work, self.npath(rel))
+
+    def live_base(self, rel):
+        return os.path.join(self.cache, "live_base", rel)
+
+    def neutral_base(self, rel):
+        return os.path.join(self.cache, "neutral_base", self.npath(rel))
+
+    def fwd(self, text):
+        return rename.forward(text, self.names)
+
+    def rev(self, text):
+        return rename.reverse(text, self.names)
+
+    def save_bases(self, rel, live_text, neutral_text):
+        write(self.live_base(rel), live_text)
+        write(self.neutral_base(rel), neutral_text)
+
+    def commands(self, work_side):
+        pre = "; ".join("%s=%r" % kv for kv in sorted(self.product["build_pre"].items()))
+        out = []
+        for root in self.product["roots"]:
+            rel = self.npath(root) if work_side else root
+            line = "freecadcmd -c \"REPO='$PWD'; %sexec(open('%s').read())\"" % (pre + "; " if pre else "", rel)
+            out.append(self.fwd(line) if work_side else line)
+        return out
 
 
-def cmd_in(product_id, src, only=None, take_all=False, edits_only=False):
-    product = load_product(product_id)
-    src = os.path.abspath(src or product["work_dir"])
-    if not os.path.isdir(src):
-        die("work folder not found: %s" % src)
-    overlay_dir = product["overlay_dir"]
-    lives = tuple(p["live"] for p in product["shell"] if isinstance(p["live"], str))
-    wanted = set(only) if only else set(lives)
-    unknown = wanted - set(lives)
-    if unknown:
-        die("unknown live vars for %s: %s" % (product_id, ", ".join(sorted(unknown))))
-    stems = {p["stem"] for p in product["shell"] if p["live"] in wanted} if only else None
+def cmd_out(product_id, dest, force):
+    s = Side(product_id, dest)
+    texts = [read(s.live(f)) for f in s.files]
+    problems = rename.check_table(s.names, texts + list(s.files))
+    left = []
+    for f, t in zip(s.files, texts):
+        left += ["%s: %s" % (f, w) for w in rename.leftovers(s.fwd(t) + "\n" + s.npath(f), s.names)]
+    if problems or left:
+        die("names.json does not cover these sources:\n  %s" % "\n  ".join(problems + left))
+    for f, t in zip(s.files, texts):
+        if s.rev(s.fwd(t)) != t:
+            die("rename is not reversible for %s" % f)
 
-    taken_edits = take_edits(product_id, product, src, stems, take_all)
-
-    cdir = cache_dir(product_id)
-    pairs, taken, unchanged, missing = [], [], [], []
-    for live_var in lives:
-        if live_var not in wanted or edits_only:
-            continue
-        path, state = part_state(src, product, live_var, cdir)
-        if not path:
-            missing.append(live_var)
-        elif state == "synced" and not take_all and not only:
-            unchanged.append(live_var)
+    os.makedirs(s.work, exist_ok=True)
+    conflicts, wrote, kept, merged = [], 0, [], []
+    for f, live_now in zip(s.files, texts):
+        fwd = s.fwd(live_now)
+        wpath = s.wfile(f)
+        work_now = read_opt(wpath)
+        nb = read_opt(s.neutral_base(f))
+        if work_now is None or force or work_now == fwd:
+            if work_now != fwd:
+                write(wpath, fwd)
+                wrote += 1
+            s.save_bases(f, live_now, fwd)
+        elif nb is None:
+            conflicts.append("%s: work copy exists but was never synced (use --force to overwrite)" % s.npath(f))
+        elif work_now == nb:
+            write(wpath, fwd)
+            wrote += 1
+            s.save_bases(f, live_now, fwd)
+        elif fwd == nb:
+            kept.append(s.npath(f))
         else:
-            pairs.append((path, os.path.join(overlay_dir, live_var + ".brep")))
-            taken.append(live_var)
+            text, n = merge3(work_now, nb, fwd)
+            if n:
+                conflicts.append("%s: %d conflict(s) between work edits and live changes" % (s.npath(f), n))
+            else:
+                write(wpath, text)
+                merged.append(s.npath(f))
+                s.save_bases(f, live_now, fwd)
 
-    if not pairs and not taken_edits:
-        print("mask_sync in [%s]: nothing edited since the last crossing (--all to take every part)"
-              % product_id)
+    write(os.path.join(s.work, "README.md"), README.format(runs="\n".join(s.commands(True))))
+    write(os.path.join(s.work, "PROMPT.txt"), PROMPT)
+
+    print("mask_sync out [%s] → %s  (%d files: %d written, %d merged, %d with pending edits kept)"
+          % (product_id, s.work, len(s.files), wrote, len(merged), len(kept)))
+    for m in merged:
+        print("  merged live changes into %s" % m)
+    for k in kept:
+        print("  kept %s (edited here, live unchanged: run `in`)" % k)
+    if conflicts:
+        sys.stderr.write("not written:\n  %s\n" % "\n  ".join(conflicts))
+        sys.exit(1)
+    print("Open ONLY that folder as the GPT workspace.")
+
+
+def cmd_in(product_id, src):
+    s = Side(product_id, src)
+    if not os.path.isdir(s.work):
+        die("work folder not found: %s" % s.work)
+    plan, errors, same = [], [], 0
+    for f in s.files:
+        wpath = s.wfile(f)
+        work_now = read_opt(wpath)
+        nb = read_opt(s.neutral_base(f))
+        bl = read_opt(s.live_base(f))
+        if work_now is None or nb is None or bl is None or work_now == nb:
+            same += 1
+            continue
+        cand = s.rev(work_now)
+        live_now = read(s.live(f))
+        if f.endswith(".py"):
+            try:
+                compile(cand, f, "exec")
+            except SyntaxError as e:
+                errors.append("%s: syntax error line %s: %s" % (s.npath(f), e.lineno, e.msg))
+                continue
+        if live_now == bl:
+            new = cand
+        else:
+            new, n = merge3(live_now, bl, cand)
+            if n:
+                errors.append("%s: %d conflict(s) between your edits and live changes since `out`" % (s.npath(f), n))
+                continue
+        plan.append((f, new, cand, work_now))
+
+    known = {s.npath(f) for f in s.files}
+    for root, dirs, names in os.walk(s.work):
+        dirs[:] = [d for d in dirs if d not in ("exports", "__pycache__")]
+        for n in names:
+            rel = os.path.relpath(os.path.join(root, n), s.work).replace(os.sep, "/")
+            if n.endswith((".py", ".json")) and rel not in known:
+                print("  ignored %s: not one of the product's files" % rel)
+
+    if errors:
+        die("nothing was taken:\n  %s" % "\n  ".join(errors))
+    if not plan:
+        print("mask_sync in [%s]: no edits in %s" % (product_id, s.work))
         return
-
-    if pairs:
-        os.makedirs(overlay_dir, exist_ok=True)
-        to_brep(pairs)
-        for live_var, (path, dst) in zip(taken, pairs):
-            record(cdir, live_var, path)
-            print("  %s ← %s%s" % (live_var + ".brep", path, "" if is_brep(path) else "  (converted from STEP)"))
-
-    print("mask_sync in [%s] → %d edits, %d overlays" % (product_id, len(taken_edits), len(taken)))
-    print("Rebuild live model:")
-    print("  MASK_PRODUCT=%s freecadcmd -c \"REPO='$PWD'; exec(open(%r).read())\""
-          % (product_id, os.path.relpath(product["build_script"], REPO)))
+    for f, new, cand, work_now in plan:
+        write(s.live(f), new)
+        s.save_bases(f, cand, work_now)
+        print("  %s ← %s" % (f, s.npath(f)))
+    print("mask_sync in [%s]: %d file(s) taken" % (product_id, len(plan)))
+    print("Rebuild the live model:")
+    for c in s.commands(False):
+        print("  " + c)
 
 
 def cmd_status(product_id):
-    product = load_product(product_id)
+    s = Side(product_id)
     print("product: %s" % product_id)
-    print("work: %s" % product["work_dir"])
-    print("overlays: %s" % product["overlay_dir"])
-    print("edits: %s" % product["edits_dir"])
-    have = set()
-    if os.path.isdir(product["overlay_dir"]):
-        have = {f[:-5] for f in os.listdir(product["overlay_dir"]) if f.endswith(".brep")}
-    parts = cache_parts(product_id)
-    n = len([f for f in os.listdir(parts) if f.endswith(".brep")]) if os.path.isdir(parts) else 0
-    print("cache parts: %d" % n)
-    work = product["work_dir"]
-    cdir = cache_dir(product_id)
-    print("shell parts (solid in work | live uses | python edit):")
-    for p in product["shell"]:
-        live = p["live"]
-        if not isinstance(live, str):
-            continue
-        if os.path.isdir(work):
-            path, state = part_state(work, product, live, cdir)
+    print("work: %s" % s.work)
+    for f in s.files:
+        wpath = s.wfile(f)
+        work_now = read_opt(wpath)
+        nb = read_opt(s.neutral_base(f))
+        bl = read_opt(s.live_base(f))
+        if work_now is None or nb is None or bl is None:
+            state = "not synced (run `out`)"
         else:
-            path, state = None, "absent"
-        overlay = "overlay" if live in have else "parametric"
-        up = {"edited": "EDITED, run `in`", "synced": "in sync", "absent": "not in work"}[state]
-        _, estate = edit_state(work, p["stem"], cdir) if os.path.isdir(work) else (None, "absent")
-        in_repo = os.path.isfile(os.path.join(product["edits_dir"], p["stem"] + ".py"))
-        edit = {"edited": "EDITED, run `in`", "synced": "in sync",
-                "absent": "live only" if in_repo else "-"}[estate]
-        print("  %-16s %-16s %-11s %s" % (live, up, overlay, edit))
+            parts = []
+            if work_now != nb:
+                parts.append("edited in work (run `in`)")
+            if read(s.live(f)) != bl:
+                parts.append("live changed since last crossing (run `out`)")
+            state = ", ".join(parts) or "in sync"
+        print("  %-44s %s" % (f, state))
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
+    products = list_products()
 
-    _products = list_products() or ["pistol", "mitrailleuse", "gatling"]
+    def add_product(sp):
+        sp.add_argument("--product", "-p", default=os.environ.get("MASK_PRODUCT", "pistol"),
+                        choices=products, help="product profile (default: pistol or $MASK_PRODUCT)")
 
-    def add_product_arg(sp):
-        sp.add_argument(
-            "--product", "-p",
-            default=os.environ.get("MASK_PRODUCT", "pistol"),
-            choices=_products,
-            help="product profile (default: pistol or $MASK_PRODUCT)",
-        )
-
-    p_out = sub.add_parser("out", help="live → external Mechanismus folder")
-    add_product_arg(p_out)
+    p_out = sub.add_parser("out", help="live → external work folder (merges live changes into pending edits)")
+    add_product(p_out)
     p_out.add_argument("dest", nargs="?", default=None, help="override work folder")
-    p_out.add_argument("--rebuild", action="store_true", help="run pull_product.py first")
-    p_out.add_argument("--force", action="store_true", help="overwrite edits not yet taken by `in`")
-
-    p_in = sub.add_parser("in", help="external folder → product mask_overlays")
-    add_product_arg(p_in)
+    p_out.add_argument("--force", action="store_true", help="overwrite the work files, dropping pending edits")
+    p_in = sub.add_parser("in", help="external work folder → live files")
+    add_product(p_in)
     p_in.add_argument("src", nargs="?", default=None)
-    p_in.add_argument("--only", nargs="+", metavar="VAR")
-    p_in.add_argument("--edits-only", action="store_true", help="take only edits/*.py, not solids")
-    p_in.add_argument("--all", action="store_true", dest="take_all", help="take every shell part, edited or not")
-
-    p_st = sub.add_parser("status", help="show work dir / overlays / cache")
-    add_product_arg(p_st)
-
+    p_st = sub.add_parser("status", help="per file sync state")
+    add_product(p_st)
     sub.add_parser("products", help="list product ids")
 
     args = p.parse_args(argv)
     if args.cmd == "products":
-        for pid in list_products():
+        for pid in products:
             print(pid)
-        return
-    if args.cmd == "out":
-        cmd_out(args.product, args.dest, args.rebuild, args.force)
+    elif args.cmd == "out":
+        cmd_out(args.product, args.dest, args.force)
     elif args.cmd == "in":
-        cmd_in(args.product, args.src, args.only, args.take_all, args.edits_only)
-    elif args.cmd == "status":
-        cmd_status(args.product)
+        cmd_in(args.product, args.src)
     else:
-        die("unknown command")
+        cmd_status(args.product)
 
 
 if __name__ == "__main__":
