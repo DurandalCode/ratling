@@ -3,7 +3,7 @@
 """
 Bidirectional pipe: live Python sources <-> neutral-named copies in an external work folder.
 
-  out     live -> ../mechanismus/<product>/   renamed copies of the product's generators
+  out     live -> ../mechanismus/   renamed copies of the product's generators
   in      work folder -> live                 reverse-renamed, merged line by line
   status  per file: edited in work / changed in live since the last crossing
   products
@@ -56,15 +56,6 @@ Output goes to `exports/`.
   untouched code (changes are exchanged as line diffs).
 - Generators run each other by relative path; keep those paths as they are.
 - Keep the vocabulary of the existing code for names you do not need to change.
-
-## Task
-
-See `PROMPT.txt`.
-"""
-
-PROMPT = """Round and narrow excess bulk on the printed housing parts where no inner parts sit. Soften sharp underside edges. Do not move or reshape inner parts, do not change fastener positions or clearances between parts.
-
-Edit the generator files in place and run them to check that every [OK ] stays [OK ].
 """
 
 
@@ -169,6 +160,13 @@ def cmd_out(product_id, dest, force):
             die("rename is not reversible for %s" % f)
 
     os.makedirs(s.work, exist_ok=True)
+    known = {s.npath(f) for f in s.files} | {"README.md"}
+    for root, dirs, names in os.walk(s.work):
+        dirs[:] = [d for d in dirs if d not in ("exports", "__pycache__")]
+        for n in names:
+            rel = os.path.relpath(os.path.join(root, n), s.work).replace(os.sep, "/")
+            if n.endswith((".py", ".json")) and rel not in known:
+                print("  notice: %s is not one of this product's files (another product shares the folder?)" % rel)
     conflicts, wrote, kept, merged = [], 0, [], []
     for f, live_now in zip(s.files, texts):
         fwd = s.fwd(live_now)
@@ -198,7 +196,6 @@ def cmd_out(product_id, dest, force):
                 s.save_base(f, fwd)
 
     write(os.path.join(s.work, "README.md"), README.format(runs="\n".join(s.commands(True))))
-    write(os.path.join(s.work, "PROMPT.txt"), PROMPT)
 
     print("mask_sync out [%s] → %s  (%d files: %d written, %d merged, %d with pending edits kept)"
           % (product_id, s.work, len(s.files), wrote, len(merged), len(kept)))

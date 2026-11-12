@@ -11,14 +11,14 @@ REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 PRODUCTS_DIR = os.path.join(HERE, "products")
 
 
-def default_work_dir(product_id):
-    """External work tree: $MECHANISMUS/<id> or <repo-parent>/mechanismus/<id>."""
+def default_work_dir():
+    """External work tree: $MECHANISMUS or <repo-parent>/mechanismus (flat, no product subfolder:
+    the live product name must not appear in the path GPT sees). One folder per product at a time;
+    pass an explicit dir for a second one."""
     base = os.environ.get("MECHANISMUS", "").strip()
     if base:
-        root = os.path.abspath(os.path.expanduser(base))
-    else:
-        root = os.path.abspath(os.path.join(REPO_ROOT, os.pardir, "mechanismus"))
-    return os.path.join(root, product_id)
+        return os.path.abspath(os.path.expanduser(base))
+    return os.path.abspath(os.path.join(REPO_ROOT, os.pardir, "mechanismus"))
 
 
 def list_products():
@@ -39,5 +39,5 @@ def load_product(product_id):
         data = merged
     data["id"] = product_id
     data.setdefault("build_pre", {})
-    data["work_dir"] = default_work_dir(product_id)
+    data["work_dir"] = default_work_dir()
     return data

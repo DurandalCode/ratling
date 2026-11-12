@@ -9,11 +9,15 @@ Products: `pistol`, `mitrailleuse`, `gatling` (`products/*.json`: `roots` = gene
 ## Usage
 
 ```sh
-experiments/gpt-mask/mask out -p pistol          # live -> ../mechanismus/pistol/ (or $MECHANISMUS/pistol)
+experiments/gpt-mask/mask out -p pistol          # live -> ../mechanismus/ (or $MECHANISMUS)
 # ... GPT edits files in that folder and runs them with freecadcmd (see its README.md) ...
 experiments/gpt-mask/mask in -p pistol           # work folder -> live files
 experiments/gpt-mask/mask status -p pistol       # per file: edited in work / changed in live
 ```
+
+The work folder is flat and holds one product at a time (the live product name must not appear in
+the path GPT sees); to work on two products at once, pass an explicit dir to `out`/`in`. The task
+for GPT goes in the chat, not in a file: `out` writes only the sources and a `README.md`.
 
 After `in`, rebuild the live model (the command is printed). Nothing needs FreeCAD except running
 the generators themselves.

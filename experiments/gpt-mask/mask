@@ -22,7 +22,7 @@ Usage:
   experiments/gpt-mask/mask products
   experiments/gpt-mask/mask path [product]
 
-Default external dir: $MECHANISMUS/<product> or <repo-parent>/mechanismus/<product>
+Default external dir: $MECHANISMUS or <repo-parent>/mechanismus (flat, no product subfolder)
 HELP
     ;;
   *)
