@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Write Shell_* solids back to parts/<stem>.brep.
+Write Shell_* solids back to parts/<stem>.brep using manifest.json.
 
     freecadcmd -c "HERE='$PWD'; exec(open('export_edits.py').read())"
 """
 
+import json
 import os
 
 import FreeCAD as App
@@ -14,23 +15,16 @@ try:
 except NameError:
     HERE = os.getcwd()
 
-SHELL = (
-    ("Shell_tray", "tray"),
-    ("Shell_cover", "lid"),
-    ("Cover_left_wall", "left_wall"),
-    ("Cover_left_band", "left_band"),
-    ("Cover_right", "right_cover"),
-    ("Grip_left", "grip_l"),
-    ("Grip_right", "grip_r"),
-    ("Bail", "bail"),
-    ("Index_box", "index_box"),
-)
-
 DOC_NAME = "mechanismus"
 parts_dir = os.path.join(HERE, "parts")
 exp_dir = os.path.join(HERE, "exports")
+manifest_path = os.path.join(HERE, "manifest.json")
 os.makedirs(parts_dir, exist_ok=True)
 os.makedirs(exp_dir, exist_ok=True)
+
+with open(manifest_path, "r", encoding="utf-8") as f:
+    meta = json.load(f)
+SHELL = [(p["label"], p["stem"]) for p in meta["parts"] if p.get("group", "Shell") == "Shell"]
 
 if DOC_NAME not in App.listDocuments():
     fc = os.path.join(exp_dir, DOC_NAME + ".FCStd")

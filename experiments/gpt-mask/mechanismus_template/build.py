@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Mechanismus — shell + drive solids from parts/*.brep.
+Mechanismus — shell + drive solids from parts/*.brep (see manifest.json).
 
     freecadcmd -c "HERE='$PWD'; exec(open('build.py').read())"
 """
 
+import json
 import os
 
 import FreeCAD as App
@@ -16,54 +17,17 @@ except NameError:
     HERE = os.getcwd()
 
 DOC_NAME = "mechanismus"
-
-NAMES = (
-    ("tray", "Shell_tray"),
-    ("lid", "Shell_cover"),
-    ("left_wall", "Cover_left_wall"),
-    ("left_band", "Cover_left_band"),
-    ("right_cover", "Cover_right"),
-    ("grip_l", "Grip_left"),
-    ("grip_r", "Grip_right"),
-    ("bail", "Bail"),
-    ("index_box", "Index_box"),
-    ("stack_body", "Stack_body"),
-    ("stack_cap", "Stack_cap"),
-    ("coupler", "Coupler"),
-    ("spindle", "Spindle"),
-    ("rotor", "Rotor"),
-    ("sector", "Sector"),
-    ("yoke", "Yoke"),
-    ("lever", "Thumb_lever"),
-    ("pedal", "Pedal"),
-    ("click_tooth", "Click_tooth"),
-    ("yoke_pin", "Yoke_pin"),
-    ("index_bolt", "Index_bolt"),
-    ("limit_switch", "Limit_switch"),
-    ("return_springs", "Return_springs"),
-    ("lever_axle", "Lever_axle"),
-    ("yoke_rod", "Yoke_rod"),
-    ("cable", "Cable"),
-    ("signal_wire", "Signal_wire"),
-    ("sense_wire", "Sense_wire"),
-    ("wire_tee", "Wire_tee"),
-    ("stack_ties", "Stack_ties"),
-    ("coupler_screws", "Coupler_screws"),
-    ("sector_ring", "Sector_ring"),
-    ("rotor_strap", "Rotor_strap"),
-    ("spindle_nose", "Spindle_nose"),
-    ("spindle_plug", "Spindle_plug"),
-    ("thrust_washer", "Thrust_washer"),
-)
-
-SHELL = {
-    "Shell_tray", "Shell_cover", "Cover_left_wall", "Cover_left_band",
-    "Cover_right", "Grip_left", "Grip_right", "Bail", "Index_box",
-}
-
 PARTS_DIR = os.path.join(HERE, "parts")
+MANIFEST = os.path.join(HERE, "manifest.json")
+
 if not os.path.isdir(PARTS_DIR):
     raise SystemExit("missing parts/")
+if not os.path.isfile(MANIFEST):
+    raise SystemExit("missing manifest.json")
+
+with open(MANIFEST, "r", encoding="utf-8") as f:
+    meta = json.load(f)
+PARTS = meta["parts"]
 
 if DOC_NAME in App.listDocuments():
     App.closeDocument(DOC_NAME)
@@ -71,7 +35,8 @@ doc = App.newDocument(DOC_NAME)
 g_shell = doc.addObject("App::DocumentObjectGroup", "Shell")
 g_drive = doc.addObject("App::DocumentObjectGroup", "Drive")
 
-for stem, name in NAMES:
+for row in PARTS:
+    stem, name, group = row["stem"], row["label"], row.get("group", "Shell")
     path = os.path.join(PARTS_DIR, stem + ".brep")
     if not os.path.isfile(path):
         print("[skip] %s (no %s.brep)" % (name, stem))
@@ -80,7 +45,7 @@ for stem, name in NAMES:
     shape.read(path)
     obj = doc.addObject("Part::Feature", name)
     obj.Shape = shape
-    if name in SHELL:
+    if group == "Shell":
         g_shell.addObject(obj)
         if App.GuiUp:
             obj.ViewObject.ShapeColor = (0.45, 0.45, 0.42)
@@ -94,4 +59,4 @@ doc.recompute()
 out = os.path.join(HERE, "exports")
 os.makedirs(out, exist_ok=True)
 doc.saveAs(os.path.join(out, DOC_NAME + ".FCStd"))
-print("done: mechanismus")
+print("done: mechanismus (%s)" % meta.get("product", "?"))

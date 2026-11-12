@@ -200,6 +200,12 @@ drive_box_b = RB["box"].common(box(-300, 0, -50, 50, zf0, 300))                 
 for x, y in BOX_BOLTS:
     drive_box_b = drive_box_b.cut(cyl(M4, zf0 - 1, zf1 + 1, x, -y)).cut(G.hex_prism(M4_NUT[0], zf1 - M4_NUT[1], zf1 + 1, x, -y))
 drive_box_b = drive_box_b.removeSplitter()
+# Mechanismus overlays (optional): live names match products/mitrailleuse.json
+head_plate, trigger_arm, bevel_box = hp, arm, drive_box_b
+MASK_PRODUCT = globals().get("MASK_PRODUCT") or os.environ.get("MASK_PRODUCT") or "mitrailleuse"
+exec(open(os.path.join(REPO, "tools", "mask_overlays.py")).read())
+if apply_mask_overlays(REPO, globals(), MASK_PRODUCT):
+    hp, arm, drive_box_b = head_plate, trigger_arm, bevel_box
 x_b1, x_b2, z_apex, z_lb = RB["x_b1"], RB["x_b2"], RB["z_apex"], RB["z_lb"]
 ring = RB["ring"]
 drive = {"box": drive_tf(drive_box_b), "bevel_lay": drive_tf(RB["bev_lay"]), "bevel_crank": drive_tf(RB["bev_crank"]),

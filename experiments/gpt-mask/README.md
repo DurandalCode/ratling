@@ -1,36 +1,31 @@
-# GPT / Mechanismus pipe
+# Mechanismus pipe (multi-product)
 
-Live repo stays as-is. GPT works in an **external** folder named `mechanismus`
-(next to the repo, or `$MECHANISMUS`) — no ratling / mask / pneumatic wording there.
+GPT works in an **external** folder with neutral names. Live repo keeps the truth.
 
-## Пайп
+Products: `pistol`, `mitrailleuse`, `gatling` (profiles in `products/*.json`).
+`gatling` currently **extends** `mitrailleuse` (same printed frame; concept B has no generators yet).
+
+## Usage
 
 ```sh
-# Live → ../mechanismus (пересборка .brep по желанию)
-python3 experiments/gpt-mask/mask_sync.py out --rebuild
-# или: experiments/gpt-mask/mask out --rebuild
+# Pistol
+experiments/gpt-mask/mask out -p pistol --rebuild
+experiments/gpt-mask/mask hot -p pistol
 
-# Hot sync (поллинг + http://127.0.0.1:8765)
-python3 experiments/gpt-mask/mask_hot.py
-# или: experiments/gpt-mask/mask hot --bootstrap --rebuild
+# Mitrailleuse / gatling
+experiments/gpt-mask/mask out -p mitrailleuse --rebuild
+experiments/gpt-mask/mask out -p gatling --rebuild   # same solids, own work dir
 
-# После правок в mechanismus (или авто через hot):
-python3 experiments/gpt-mask/mask_sync.py in
-freecadcmd -c "REPO='$PWD'; CHECKS=False; exec(open('pistol/hammer_assembly.py').read())"
+experiments/gpt-mask/mask in -p mitrailleuse
+MASK_PRODUCT=mitrailleuse freecadcmd -c "REPO='$PWD'; exec(open('mitrailleuse/pack_frame.py').read())"
 ```
 
-Внешняя папка получает шаблон из `mechanismus_template/` + `parts/*.brep`.
-Оверлеи корпуса: `pistol/mask_overlays/`.
+Default work tree: `$MECHANISMUS/<product>` or `../mechanismus/<product>/`.
 
-Не копировать в GPT workspace: этот README, `mask_*.py`, `pull_real_shell.py`, `REIMPORT.md`.
+Overlays:
+- pistol → `pistol/mask_overlays/`
+- mitrailleuse / gatling → `mitrailleuse/mask_overlays/`
 
-## Эксперимент A–D (архив)
+Cache of pulled `.brep`: `experiments/gpt-mask/cache/<product>/` (gitignored).
 
-| Фикстура | Итог |
-|---|---|
-| A нейтральный корпус | help |
-| B Frame/Trigger + firearm в тексте | refuse |
-| C + шесть труб | help |
-| D полный механизм, имена переведены | help |
-
-Шаблон для ежедневной работы — `mechanismus_template/` → `../mechanismus`.
+Do not copy this README / `mask_*.py` / `pull_*.py` into the GPT workspace.

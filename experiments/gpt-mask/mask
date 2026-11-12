@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
-# Live-repo helper. External work tree is ../mechanismus (or $MECHANISMUS).
+# Live-repo helper for the Mechanismus pipe (multi-product).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 cmd="${1:-}"
 shift || true
 case "$cmd" in
-  out|in|status)
+  out|in|status|products)
     exec python3 experiments/gpt-mask/mask_sync.py "$cmd" "$@"
     ;;
   hot)
     exec python3 experiments/gpt-mask/mask_hot.py "$@"
     ;;
   path)
-    python3 -c "import sys; sys.path.insert(0,'experiments/gpt-mask'); from mask_map import default_mask_dir; print(default_mask_dir())"
+    prod="${1:-${MASK_PRODUCT:-pistol}}"
+    python3 -c "import sys; sys.path.insert(0,'experiments/gpt-mask'); from product_lib import load_product; print(load_product('$prod')['work_dir'])"
     ;;
   ""|-h|--help|help)
     cat <<'EOF'
 Usage:
-  experiments/gpt-mask/mask out [--rebuild] [dir]
-  experiments/gpt-mask/mask in [dir]
-  experiments/gpt-mask/mask hot [--bootstrap] [--rebuild] [dir]
-  experiments/gpt-mask/mask status
-  experiments/gpt-mask/mask path
+  experiments/gpt-mask/mask out -p pistol|mitrailleuse|gatling [--rebuild] [dir]
+  experiments/gpt-mask/mask in  -p … [dir]
+  experiments/gpt-mask/mask hot -p …
+  experiments/gpt-mask/mask status -p …
+  experiments/gpt-mask/mask products
+  experiments/gpt-mask/mask path [product]
 
-Default external dir: $MECHANISMUS or <parent-of-repo>/mechanismus
-That folder has no ratling / mask wording — open it alone in GPT.
+Default external dir: $MECHANISMUS/<product> or <repo-parent>/mechanismus/<product>
 EOF
     ;;
   *)
