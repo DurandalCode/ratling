@@ -67,7 +67,8 @@ y_pad_top = y_rail_bot - 18.0    # short posts; AirTAC hangs free above the tabl
 y_floor = y_pad_top - FOOT_T
 
 open_carr_z0 = carriage.BoundBox.ZMin - STROKE
-front_z = z_clamp0 + CLAMP_L / 2
+# Front foot under the forward barrel collar (longer stance than the breech clamp).
+front_z = (z_clamp2_0 + z_clamp2_1) / 2
 # Rear foot on the rail tip, entirely aft of the open carriage (thumb + bushings).
 rear_z = z_rail0 + FOOT_PAD_Z / 2
 assert rear_z + FOOT_PAD_Z / 2 <= open_carr_z0 - 2.0, "rear foot into open carriage"
@@ -208,6 +209,7 @@ for n, s in qev_closed.items():
 sc.add("Closed", "Carriage", carriage_handled, "stator")
 sc.add("Fixed", "Rails", rails_s, "steel")
 sc.add("Fixed", "Barrel_clamp", barrel_clamp, "stator")
+sc.add("Fixed", "Barrel_collar", barrel_collar, "stator")
 sc.add("Fixed", "Fixed_barrel", fixed_barrel, "ghost")
 sc.add("Fixed", "AirTAC_cradle", cradle, "stator")
 sc.add("Fixed", "Foot_front", front_foot, "stator")
@@ -251,6 +253,7 @@ def write(shape, name, flip=False):
 for n, s in (("foot_front", front_foot), ("foot_rear", rear_foot),
              ("carriage_handle", carriage_handled),
              ("rail_stops", stops_s), ("barrel_clamp", barrel_clamp),
+             ("barrel_collar", barrel_collar),
              ("airtac_cradle", cradle)):
     write(s, n)
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:

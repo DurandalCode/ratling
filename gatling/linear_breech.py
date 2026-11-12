@@ -81,13 +81,18 @@ CARR_EAR_R = EAR_R + 2.0
 CARR_BOLT = TIE_HOLE
 CARR_WEB = 6.0
 
-# Barrel clamp: split ring on the real barrel, fixed to the rail front ends.
+# Barrel clamps: two split rings on the real barrel (breech + forward) for coax.
+# Both sit on the rails; two points beat one for barrel/QEV alignment.
 CLAMP_L = 28.0
 CLAMP_OD = BARREL_OD + 14.0
 CLAMP_BOLT_R = CLAMP_OD / 2 + 4.0
 CLAMP_BOLT = 3.4                 # M3 through the halves
 CLAMP_GAP = 1.0                  # split at ±Y so top feed is not blocked by a bridge
-BARREL_SHOW = 160.0              # fixed barrel drawn ahead of the clamp
+CLAMP_SPAN = 70.0                # clear gap between breech clamp and forward collar
+BARREL_SHOW = 160.0              # fixed barrel drawn ahead of the breech clamp
+# Forward QEV bushings: second rail guide under the chamber front (rear bushings
+# stay on the rear-plug bridge). Span along Z ≈ chamber length for coax to the bore.
+NOSE_BUSH_L = BUSH_L
 
 # AirTAC M3R110-06 (roller off): same body numbers as pistol/hammer_layout.py.
 # Ports swapped like the pistol: supply→R, silencer→P, A→pilot → normally open
@@ -125,8 +130,11 @@ def rail_centers():
 # Closed pose: barrel breech face at z_stop (from fat_coax).
 z_clamp0 = z_stop
 z_clamp1 = z_clamp0 + CLAMP_L
+# Forward collar further along the real barrel (same print as the breech clamp).
+z_clamp2_0 = z_clamp1 + CLAMP_SPAN
+z_clamp2_1 = z_clamp2_0 + CLAMP_L
 z_rail0 = (z_ry - STROKE) - RAIL_PAST_REAR
-z_rail1 = z_clamp1 + RAIL_PAST_FRONT
+z_rail1 = z_clamp2_1 + RAIL_PAST_FRONT
 
 # ---------------------------------------------------------------- rails (bought Al tube)
 rails = [
@@ -157,6 +165,46 @@ carriage = carriage.cut(G.fuse_all(
     [G.cyl(CARR_BOLT, z_ry - CARR_T - 1, z_ry + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES]
     + [G.cyl(RAIL_HOLE, z_bush0 - 2, z_bush1 + 2, x, y) for x, y in rail_centers()]
 )).removeSplitter()
+
+# Forward (nose) bushings under the chamber front — second guide so the fitting
+# stays coaxial with the barrel while the breech closes. Bottom saddle only (+Y open).
+z_nose1 = z_fs - 2.0
+z_nose0 = z_nose1 - NOSE_BUSH_L
+y_ch_clear = -CH_OD / 2 - 0.5          # stay below the chamber tube
+y_link0 = RAIL_Y - BUSH_OD / 2 - 1.0
+nose_parts = []
+# Flat plate under the chamber spanning both rails (below the tube OD).
+nose_h = y_ch_clear - y_link0
+assert nose_h >= 4.0, "no room for nose plate under chamber"
+nose_plate = Part.makeBox(2 * RAIL_X + BUSH_OD, nose_h, 10.0,
+                          V(-RAIL_X - BUSH_OD / 2, y_link0,
+                            (z_nose0 + z_nose1) / 2 - 5.0))
+# Half-band under the chamber OD (cut the upper half away).
+nose_band = tube(CH_OD + 6.0, CH_OD + 0.5, z_nose0 + 6.0, z_nose1 - 6.0)
+nose_band = nose_band.cut(Part.makeBox(CH_OD + 20.0, CH_OD + 20.0, NOSE_BUSH_L,
+                                       V(-(CH_OD + 20.0) / 2, 0.0, z_nose0 - 1.0)))
+nose_parts.append(nose_plate)
+nose_parts.append(nose_band)
+for x, y in rail_centers():
+    # Web from plate up to rail bushing (stops below chamber).
+    web_h = min(abs(RAIL_Y) + BUSH_OD / 2, y_ch_clear - y_link0)
+    nose_parts.append(Part.makeBox(CARR_WEB, web_h, 12.0,
+                                   V(x - CARR_WEB / 2, y_link0,
+                                     (z_nose0 + z_nose1) / 2 - 6.0)))
+    # Full bushing barrel, then trim anything that enters the chamber envelope
+    # (rail axes sit close under Ø50 — a full Ø15 barrel would nick the tube).
+    nb = G.cyl(BUSH_OD, z_nose0, z_nose1, x, y)
+    nb = nb.cut(G.cyl(CH_OD + 1.0, z_nose0 - 1, z_nose1 + 1))
+    nose_parts.append(nb)
+    # Link bar under the rail: ties rear bushings to nose into one printable carriage.
+    nose_parts.append(Part.makeBox(CARR_WEB + 2.0, 6.0, z_nose0 - z_bush1 + 2.0,
+                                   V(x - (CARR_WEB + 2.0) / 2, y_link0,
+                                     z_bush1 - 1.0)))
+nose = G.fuse_all(nose_parts).removeSplitter()
+nose = nose.cut(G.fuse_all(
+    [G.cyl(RAIL_HOLE, z_nose0 - 2, z_nose1 + 2, x, y) for x, y in rail_centers()]
+)).removeSplitter()
+carriage = carriage.fuse(nose).removeSplitter()
 
 # ---------------------------------------------------------------- AirTAC M3R110 (bought) + L-thumb on carriage
 # Plunger points -Z (tip aft). Body toward the barrel. Closing (+Z) drives an L-pad
@@ -246,32 +294,35 @@ rails = [
 ]
 rails_s = G.fuse_all(rails)
 
-# ---------------------------------------------------------------- barrel clamp (printed, two halves)
-# Ring around the barrel; split on the Y=0 plane into left/right so +Y feed stays open above.
-clamp_ring = tube(CLAMP_OD, BARREL_OD + 0.3, z_clamp0, z_clamp1)
-# Lugs for M3 at ±X (same height as rails, not blocking +Y).
-for sx in (-1, 1):
-    lug = G.cyl(8.0, z_clamp0, z_clamp1, sx * CLAMP_BOLT_R, 0.0).cut(
-        G.cyl(CLAMP_BOLT, z_clamp0 - 1, z_clamp1 + 1, sx * CLAMP_BOLT_R, 0.0))
-    clamp_ring = clamp_ring.fuse(lug)
-# Feet down onto the rail ends (printed pockets that sit on the rails).
-for x, y in rail_centers():
-    foot = G.cyl(BUSH_OD, z_clamp0, z_clamp1, x, y).cut(
-        G.cyl(RAIL_HOLE, z_clamp0 - 1, z_clamp1 + 1, x, y))
-    # web from ring to foot
-    web = Part.makeBox(abs(x) - BARREL_OD / 2 + 2, 6.0, CLAMP_L,
-                       V(min(0.0, x) + (BARREL_OD / 2 - 2 if x < 0 else 0),
-                         -3.0, z_clamp0))
-    clamp_ring = clamp_ring.fuse(foot).fuse(web)
-# Split into L/R halves with a kerf on Y=0.
-kerf = Part.makeBox(CLAMP_OD * 2, CLAMP_GAP, CLAMP_L + 4,
-                    V(-CLAMP_OD, -CLAMP_GAP / 2, z_clamp0 - 2))
-# Keep a top notch open for feed visibility: cut a wide +Y window in front of the breech.
-feed_win = Part.makeBox(BARREL_OD + 8, CLAMP_OD, 20,
-                        V(-(BARREL_OD + 8) / 2, 0, z_stop - 2))
-barrel_clamp = clamp_ring.cut(kerf).cut(feed_win).removeSplitter()
+# ---------------------------------------------------------------- barrel clamps (printed, two halves each)
+def make_barrel_clamp(z0, z1, feed_notch=False):
+    """Split L/R ring on the barrel with feet on the rails."""
+    ring = tube(CLAMP_OD, BARREL_OD + 0.3, z0, z1)
+    for sx in (-1, 1):
+        lug = G.cyl(8.0, z0, z1, sx * CLAMP_BOLT_R, 0.0).cut(
+            G.cyl(CLAMP_BOLT, z0 - 1, z1 + 1, sx * CLAMP_BOLT_R, 0.0))
+        ring = ring.fuse(lug)
+    for x, y in rail_centers():
+        foot = G.cyl(BUSH_OD, z0, z1, x, y).cut(
+            G.cyl(RAIL_HOLE, z0 - 1, z1 + 1, x, y))
+        web = Part.makeBox(abs(x) - BARREL_OD / 2 + 2, 6.0, z1 - z0,
+                           V(min(0.0, x) + (BARREL_OD / 2 - 2 if x < 0 else 0),
+                             -3.0, z0))
+        ring = ring.fuse(foot).fuse(web)
+    kerf = Part.makeBox(CLAMP_OD * 2, CLAMP_GAP, (z1 - z0) + 4,
+                        V(-CLAMP_OD, -CLAMP_GAP / 2, z0 - 2))
+    ring = ring.cut(kerf)
+    if feed_notch:
+        # Top notch at the breech so +Y feed stays visible.
+        ring = ring.cut(Part.makeBox(BARREL_OD + 8, CLAMP_OD, 20,
+                                     V(-(BARREL_OD + 8) / 2, 0, z0 - 2)))
+    return ring.removeSplitter()
 
-# Fixed real barrel (bought), breech face at z_stop, held by the clamp.
+
+barrel_clamp = make_barrel_clamp(z_clamp0, z_clamp1, feed_notch=True)
+barrel_collar = make_barrel_clamp(z_clamp2_0, z_clamp2_1, feed_notch=False)
+
+# Fixed real barrel (bought), breech face at z_stop, held by both clamps.
 fixed_barrel = tube(BARREL_OD, BARREL_ID, z_stop, z_stop + BARREL_SHOW)
 
 # ---------------------------------------------------------------- QEV solids to slide
@@ -307,10 +358,14 @@ qev_body = G.fuse_all([rp, front_cover, chamber, front_yoke, hardware, barrel_st
 rail_to_qev = rails_s.distToShape(qev_body)[0]
 # Bushing: rail axis inside the uncut bushing barrel (the hole voids fail isInside).
 bush_ok = all(
-    G.cyl(BUSH_OD, z_bush0, z_bush1, x, y).isInside(
-        V(x, y, (z_bush0 + z_bush1) / 2), 1e-3, True)
+    G.cyl(BUSH_OD, z0, z1, x, y).isInside(
+        V(x, y, (z0 + z1) / 2), 1e-3, True)
     for x, y in rail_centers()
+    for z0, z1 in ((z_bush0, z_bush1), (z_nose0, z_nose1))
 )
+nose_vs_chamber = nose.distToShape(chamber)[0]
+nose_vs_clamp = nose.distToShape(barrel_clamp)[0]
+collar_vs_clamp = barrel_collar.distToShape(barrel_clamp)[0]
 # Open: fitting tip behind the barrel breech face.
 open_cover = qev_open["Front_cover"]
 open_tip_z = open_cover.BoundBox.ZMax
@@ -335,12 +390,17 @@ vent_vs_rails = vent_body.distToShape(rails_s)[0]
 press_on_close = closed_press >= VENT_SWITCH and open_clear >= 5.0
 
 checks = [
-    ("carriage valid single solid (with thumb)", G.single_solid(carriage)),
+    ("carriage valid single solid (with thumb + nose)", G.single_solid(carriage)),
     ("barrel clamp valid (may be multi-solid halves)", barrel_clamp.Volume > 1000),
+    ("forward barrel collar valid (may be multi-solid halves)", barrel_collar.Volume > 1000),
     ("AirTAC cradle valid single solid", G.single_solid(cradle)),
     ("rails clear of closed QEV body (%.1f mm >= %.1f)" % (rail_to_qev, RAIL_CLEAR),
      rail_to_qev >= RAIL_CLEAR),
-    ("carriage has bushing barrels on both rail axes", bush_ok),
+    ("carriage has rear+nose bushings on both rail axes", bush_ok),
+    ("nose saddle clear of chamber (%.1f mm)" % nose_vs_chamber, nose_vs_chamber >= 0.2),
+    ("nose bushings clear of breech clamp (%.1f mm)" % nose_vs_clamp, nose_vs_clamp >= 0.5),
+    ("forward collar clear of breech clamp (%.1f mm span)" % collar_vs_clamp,
+     collar_vs_clamp >= CLAMP_SPAN - 1.0),
     ("stroke extracts the fitting: open tip z %.1f <= breech %.1f (gap %.1f >= pellet+margin %.1f)"
      % (open_tip_z, z_stop, open_gap, PELLET_D + STROKE_MARGIN - 0.5),
      SHOW_OPEN and open_tip_z <= z_stop + 1e-3
@@ -356,8 +416,12 @@ checks = [
      rail_to_nbr >= RAIL_CLEAR),
     ("closed stop face at barrel breech (z_stop %.1f)" % z_stop,
      abs(fixed_barrel.BoundBox.ZMin - z_stop) < 1e-6),
-    ("clamp holds the barrel OD (hole ~Ø%.1f)" % (BARREL_OD + 0.3),
+    ("breech clamp holds the barrel OD (hole ~Ø%.1f)" % (BARREL_OD + 0.3),
      barrel_clamp.BoundBox.ZMin <= z_clamp0 + 1e-3 and barrel_clamp.BoundBox.ZMax >= z_clamp1 - 1e-3),
+    ("forward collar on barrel (z %.0f .. %.0f)" % (z_clamp2_0, z_clamp2_1),
+     barrel_collar.BoundBox.ZMin <= z_clamp2_0 + 1e-3
+     and barrel_collar.BoundBox.ZMax >= z_clamp2_1 - 1e-3
+     and z_clamp2_1 <= z_stop + BARREL_SHOW + 1e-3),
     ("closed: L-pad presses AirTAC >= switch (press %.2f >= %.2f); open clears %.1f mm"
      % (closed_press, VENT_SWITCH, open_clear),
      abs(closed_press - VENT_PUSH) < 1e-6 and press_on_close and SHOW_OPEN),
@@ -372,10 +436,10 @@ report = [
     % (STROKE, FIT_INSERT, PELLET_D, STROKE_MARGIN, open_gap if SHOW_OPEN else -1),
     "  rails                  : Al tube Ø%.0f x %.0f, axes (±%.0f, %.1f), z %.0f .. %.0f (%.0f mm)"
     % (RAIL_OD, RAIL_WALL, RAIL_X, RAIL_Y, z_rail0, z_rail1, z_rail1 - z_rail0),
-    "  carriage               : bushings Ø%.0f / hole Ø%.1f x %.0f + bridge %.0f mm on rear plug M3"
-    % (BUSH_OD, RAIL_HOLE, BUSH_L, CARR_T),
-    "  barrel clamp           : split L/R on Ø%.1f barrel, length %.0f, feet on rails; +Y feed notch"
-    % (BARREL_OD, CLAMP_L),
+    "  carriage               : rear bushings Ø%.0f x %.0f + nose Ø%.0f x %.0f under chamber; bridge on rear M3"
+    % (BUSH_OD, BUSH_L, BUSH_OD, NOSE_BUSH_L),
+    "  barrel clamps          : breech + forward (span %.0f), split L/R on Ø%.1f, feet on rails"
+    % (CLAMP_SPAN, BARREL_OD),
     "  pilot valve            : AirTAC M3R110 under rails, plunger -Z; L-pad presses %.1f mm on CLOSE"
     " only (switch %.1f); A→pilot" % (VENT_PUSH, VENT_SWITCH),
     "  pack                   : pitch %.0f, rail envelope R %.1f, clear to neighbour %.1f mm"
@@ -402,6 +466,7 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
         sc.add("Closed", n, s, styles_qev.get(n, "stator"))
     sc.add("Fixed", "Rails", rails_s, "steel")
     sc.add("Fixed", "Barrel_clamp", barrel_clamp, "stator")
+    sc.add("Fixed", "Barrel_collar", barrel_collar, "stator")
     sc.add("Fixed", "Fixed_barrel", fixed_barrel, "ghost")
     sc.add("Fixed", "AirTAC_cradle", cradle, "stator")
     sc.add("Bought", "AirTAC_body", vent_body, "steel")
@@ -417,9 +482,10 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
         ("ОТКРЫТО: ход %.0f мм, щель под пульку сверху" % STROKE, (55, 40, z_stop - STROKE / 2)),
         ("РЕЛЬСЫ Ø%.0f x %.0f под модулем (+Y свободен)" % (RAIL_OD, RAIL_WALL),
          (55, RAIL_Y - 15, (z_rail0 + z_rail1) / 2)),
-        ("САЛАЗКИ + палец на AirTAC", (55, 0, z_ry - CARR_T / 2)),
+        ("САЛАЗКИ: задние + носовые втулки", (55, 0, (z_bush0 + z_nose1) / 2)),
         ("AirTAC M3R110: сброс только на ЗАКРЫТИИ", (55, vent_y - 20, (z_stem + z_vent1) / 2)),
-        ("ХОМУТ СТВОЛА (разъём L/R)", (55, 0, z_clamp0 + CLAMP_L / 2)),
+        ("ХОМУТ У КАЗЁННИКА", (55, 0, z_clamp0 + CLAMP_L / 2)),
+        ("НАСАДКА НА СТВОЛЕ (2-я опора)", (55, 0, (z_clamp2_0 + z_clamp2_1) / 2)),
         ("ПОДАЧА ПУЛЬКИ +Y", (0, 50, z_stop - STROKE / 2)),
     ]:
         sc.label("Labels", text, pos)
@@ -440,6 +506,7 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
 
     for n, s, flip in (("carriage", carriage, False),
                        ("barrel_clamp", barrel_clamp, False),
+                       ("barrel_collar", barrel_collar, False),
                        ("airtac_cradle", cradle, False)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
