@@ -10,7 +10,8 @@ chronograph, or wheeled mount.
 Visual cues (refs, not copies):
   Civil War / 1862–83 Gatling — barrel cluster, breech casing, top feed, crank.
   Modern M134 — compact 6-barrel clamp + enclosed receiver at the breech.
-  Our kit — fat-coax chambers Ø50×130, barrels Ø25×180, MQR air only.
+  Our kit — fat-coax chambers Ø50×130 at R68, barrels Ø25 (silhouette length
+  longer than the breech-bench stub so the pack reads as a long gun).
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/gun_sketch.py').read())"
 
@@ -43,10 +44,12 @@ NAME = "gatling_gun_sketch"
 
 # ---------------------------------------------------------------- pack (mm)
 N = 6
-R = 68.0                     # PACK_PITCH
+R = 68.0                     # PACK_PITCH (real)
 BARREL_OD, BARREL_ID = 25.0, 23.8
-BARREL_L = 180.0
-CH_OD, CH_L = 50.0, 130.0
+# Product silhouette barrels — longer than the ~180 breech-bench stub so the
+# pack dominates length (real OD/pitch kept).
+BARREL_L = 480.0
+CH_OD, CH_L = 50.0, 130.0    # real fat-coax chamber
 QEV_GAP = 8.0
 
 AXLE_OD, AXLE_ID = 16.0, 10.0
@@ -59,15 +62,18 @@ MQR_GAP = 2.0
 BRG_OD, BRG_T = 36.0, 14.0
 
 PLATE_T = 10.0
-PLATE_OD = 2 * R + BARREL_OD + 12.0
-CLAMP_OD = 2 * R + BARREL_OD + 8.0   # modern-style front barrel clamp ring
+# Spiders follow barrel ring (Ø25 @ R68), not the fatter chamber envelope.
+PLATE_OD = 2 * R + BARREL_OD + 10.0
+CLAMP_OD = 2 * R + BARREL_OD + 6.0
 
 # +Z toward muzzle.
 z_muzzle = 0.0
 z_plate0 = 0.0
 z_plate1 = PLATE_T
-z_clamp0 = 55.0
-z_clamp1 = z_clamp0 + 8.0
+z_clamp_a0 = 120.0
+z_clamp_a1 = z_clamp_a0 + 8.0
+z_clamp_b0 = 300.0
+z_clamp_b1 = z_clamp_b0 + 8.0
 z_breech = BARREL_L
 z_ch0 = z_breech
 z_ch1 = z_ch0 + CH_L
@@ -88,15 +94,16 @@ z_stator1 = z_stator0 + STATOR_L
 z_stub1 = z_stator1 + STATOR_HUB_L
 
 AXLE_L = z_axle1 - z_axle0
-PACK_R = R + CH_OD / 2 + 6.0
+PACK_OD = 2 * (R + CH_OD / 2)       # chamber envelope Ø186
+BARREL_RING_OD = 2 * (R + BARREL_OD / 2)
 
-# Product frame (cool). Machine frame: +X up, +Y left (crank), +Z muzzle
-# (see ratling/fcview.py VIEW_ROT). No wheeled carriage.
-CASE_OD = 2 * PACK_R + 28.0          # breech casing around rear cluster
+# Slim breech casing around hub/MQR only — not a fat drum around the pack.
+# Product frame: +X up, +Y left (crank), +Z muzzle (fcview VIEW_ROT).
+CASE_OD = max(HUB_OD, STATOR_OD) + 40.0   # Ø90 — thinner than pack Ø186
 CASE_T = 4.0
-HOPPER_W, HOPPER_D, HOPPER_H = 70.0, 55.0, 85.0
-CRANK_ARM, CRANK_GRIP = 100.0, 55.0
-CHEEK_T = 12.0
+HOPPER_W, HOPPER_D, HOPPER_H = 42.0, 40.0, 55.0   # narrow, low
+CRANK_ARM, CRANK_GRIP = 50.0, 40.0                # short so width stays pack-like
+CHEEK_T = 8.0
 
 V = App.Vector
 
@@ -141,7 +148,8 @@ for k in range(N):
 pack = G.fuse_all(stations)
 
 front_spider = spider(z_plate0, z_plate1, PLATE_OD, BARREL_OD + 0.4)
-front_clamp = spider(z_clamp0, z_clamp1, CLAMP_OD, BARREL_OD + 0.3)
+clamp_a = spider(z_clamp_a0, z_clamp_a1, CLAMP_OD, BARREL_OD + 0.3)
+clamp_b = spider(z_clamp_b0, z_clamp_b1, CLAMP_OD, BARREL_OD + 0.3)
 axle = tube(AXLE_OD, AXLE_ID, z_axle0, z_axle1)
 hub = tube(HUB_OD, AXLE_OD + 0.2, z_hub0, z_hub1)
 for ang in (30.0, 210.0):
@@ -172,54 +180,54 @@ stator = stator.fuse(G.cyl(STATOR_HUB_OD, z_stator1, z_stub1)).removeSplitter()
 brg_f = bearing(z_brg_f0, z_brg_f1)
 brg_r = bearing(z_brg_r0, z_brg_r1)
 
-# Breech casing — classic enclosed receiver over hub/MQR (Bulldog / 1870s cue).
-z_case0 = z_hub0 - 15.0
-z_case1 = z_stub1 + 10.0
+# Slim breech casing — only hub/MQR, not a drum around the chamber ring.
+z_case0 = z_hub0 - 12.0
+z_case1 = z_stub1 + 8.0
 casing = G.cyl(CASE_OD, z_case0, z_case1).cut(
     G.cyl(CASE_OD - 2 * CASE_T, z_case0 - 1, z_case1 + 1))
-casing = casing.cut(G.cyl(2 * PACK_R + 4.0, z_case0 - 2, z_hub0 + 2))
-# Top (+X) slot for hopper feed.
-casing = casing.cut(Part.makeBox(CASE_OD, HOPPER_W + 10.0, 45.0,
-                                 V(10.0, -(HOPPER_W + 10.0) / 2, z_hub0 - 5.0)))
-rear_disk = G.cyl(CASE_OD, z_stub1, z_stub1 + 8.0).cut(
-    G.cyl(STATOR_HUB_OD + 0.5, z_stub1 - 1, z_stub1 + 10))
+# Open the front for the hub nose; top slot for hopper.
+casing = casing.cut(G.cyl(HUB_OD + 8.0, z_case0 - 2, z_hub0 + 2))
+casing = casing.cut(Part.makeBox(CASE_OD, HOPPER_W + 8.0, 36.0,
+                                 V(CASE_OD / 2 - 8.0, -(HOPPER_W + 8.0) / 2, z_hub0 - 4.0)))
+rear_disk = G.cyl(CASE_OD, z_stub1, z_stub1 + 6.0).cut(
+    G.cyl(STATOR_HUB_OD + 0.5, z_stub1 - 1, z_stub1 + 8))
 casing = casing.fuse(rear_disk).removeSplitter()
 
-# Side cheeks on ±Y (receiver frame only — no trunnions / no carriage).
-cheek_z0 = z_case0 - 5.0
-cheek_z1 = z_case1 + 5.0
+# Thin side cheeks flush with the slim casing.
+cheek_z0 = z_case0 - 2.0
+cheek_z1 = z_case1 + 2.0
 cheeks = []
 for sy in (-1.0, 1.0):
-    y0 = (-CASE_OD / 2 - CHEEK_T - 2.0) if sy < 0 else (CASE_OD / 2 + 2.0)
-    cheek = Part.makeBox(CASE_OD * 0.42, CHEEK_T, cheek_z1 - cheek_z0,
-                         V(-CASE_OD * 0.18, y0, cheek_z0))
+    y0 = (-CASE_OD / 2 - CHEEK_T - 1.0) if sy < 0 else (CASE_OD / 2 + 1.0)
+    cheek = Part.makeBox(CASE_OD * 0.35, CHEEK_T, cheek_z1 - cheek_z0,
+                         V(-CASE_OD * 0.12, y0, cheek_z0))
     cheeks.append(cheek)
 cheeks_s = G.fuse_all(cheeks).removeSplitter()
 
-# Top hopper on +X (gravity feed — Civil War cue; pellets for us).
-hopper_x0 = PACK_R + 5.0
+# Narrow hopper on top of the casing (+X), not out to the pack envelope.
+hopper_x0 = CASE_OD / 2 + 2.0
 hopper = Part.makeBox(HOPPER_H, HOPPER_W, HOPPER_D,
-                      V(hopper_x0, -HOPPER_W / 2, z_hub0 - 5.0))
-mouth = Part.makeBox(45.0, 40.0, 50.0,
-                     V(hopper_x0 - 25.0, -20.0, z_hub0))
+                      V(hopper_x0, -HOPPER_W / 2, z_hub0 - 2.0))
+mouth = Part.makeBox(28.0, HOPPER_W - 8.0, 36.0,
+                     V(hopper_x0 - 18.0, -(HOPPER_W - 8.0) / 2, z_hub0))
 hopper = hopper.fuse(mouth).removeSplitter()
 
-# Rear hand crank on +Y (left when looking at the muzzle — classic cue).
+# Short rear crank on +Y — must not dominate width vs pack Ø186.
 crank_z = z_stub1 + 2.0
-crank_hub = Part.makeCylinder(16.0, 22.0, V(0, CASE_OD / 2 - 5.0, crank_z), V(0, 1, 0))
-arm = Part.makeBox(12.0, CRANK_ARM, 12.0,
-                   V(-6.0, CASE_OD / 2 + 8.0, crank_z - 6.0))
-grip = Part.makeCylinder(8.0, CRANK_GRIP,
-                         V(0, CASE_OD / 2 + CRANK_ARM + 5.0, crank_z),
+crank_hub = Part.makeCylinder(12.0, 16.0, V(0, CASE_OD / 2 - 4.0, crank_z), V(0, 1, 0))
+arm = Part.makeBox(10.0, CRANK_ARM, 10.0,
+                   V(-5.0, CASE_OD / 2 + 6.0, crank_z - 5.0))
+grip = Part.makeCylinder(7.0, CRANK_GRIP,
+                         V(0, CASE_OD / 2 + CRANK_ARM + 4.0, crank_z),
                          V(0, 1, 0))
 crank = crank_hub.fuse(arm).fuse(grip).removeSplitter()
 
 cheeks_s = cheeks_s.cut(pack).removeSplitter()
 casing = casing.cut(pack).removeSplitter()
 
-# Overall gun body (no carriage) for bounding-box sizes.
+# Overall gun body for bounding-box sizes.
 gun = Part.makeCompound([
-    pack, front_spider, front_clamp, axle, hub, rotor, stator,
+    pack, front_spider, clamp_a, clamp_b, axle, hub, rotor, stator,
     brg_f, brg_r, casing, hopper, crank, cheeks_s,
 ])
 bb = gun.BoundBox
@@ -231,7 +239,6 @@ pack_L = z_qev_aft - z_muzzle
 case_L = z_case1 - z_case0
 hop_bb = hopper.BoundBox
 crank_bb = crank.BoundBox
-pack_OD = 2 * (R + CH_OD / 2)
 
 # ---------------------------------------------------------------- checks
 checks = [
@@ -248,24 +255,30 @@ checks = [
     ("pack clears casing (vol %.1f)" % pack.common(casing).Volume,
      pack.common(casing).Volume < 1.0),
     ("hub/rotor gap", abs((z_rotor0 - z_hub1) - MQR_GAP) < 1e-6),
+    ("casing slimmer than pack (Ø%.0f < Ø%.0f)" % (CASE_OD, PACK_OD),
+     CASE_OD < PACK_OD),
+    ("pack longer than casing (%.0f > %.0f)" % (pack_L, case_L),
+     pack_L > 2.5 * case_L),
+    ("overall longer than wide (%.0f > %.0f)" % (gun_L, gun_W),
+     gun_L > 1.8 * gun_W),
 ]
 report = [
     NAME,
-    "  sketch                 : finished gatling body (no carriage / no bench)",
-    "  rotates (warm)         : stations, spiders/clamp, axle, hub, MQR rotor",
-    "  fixed (cool)           : breech casing, hopper, crank, cheeks, MQR stator",
+    "  sketch                 : long/narrow gatling body (no carriage)",
+    "  rotates (warm)         : stations, spiders/clamps, axle, hub, MQR rotor",
+    "  fixed (cool)           : slim breech casing, hopper, crank, cheeks, stator",
     "  pack                   : 6@R%.0f, barrel Ø%.0f×%.0f + chamber Ø%.0f×%.0f"
     % (R, BARREL_OD, BARREL_L, CH_OD, CH_L),
     "  axle                   : Ø%.0f/%.0f × %.0f mm (nose→hub)" % (AXLE_OD, AXLE_ID, AXLE_L),
     "  overall L×W×H          : %.0f × %.0f × %.0f mm (Z × Y × X)"
     % (gun_L, gun_W, gun_H),
-    "  pack length / OD       : %.0f mm / Ø%.0f mm" % (pack_L, pack_OD),
-    "  breech casing          : L %.0f × Ø%.0f mm" % (case_L, CASE_OD),
+    "  pack length / OD       : %.0f mm / Ø%.0f mm" % (pack_L, PACK_OD),
+    "  breech casing          : L %.0f × Ø%.0f mm (slimmer than pack)" % (case_L, CASE_OD),
     "  hopper bbox            : %.0f × %.0f × %.0f mm (X×Y×Z)"
     % (hop_bb.XLength, hop_bb.YLength, hop_bb.ZLength),
     "  crank bbox             : %.0f × %.0f × %.0f mm (X×Y×Z)"
     % (crank_bb.XLength, crank_bb.YLength, crank_bb.ZLength),
-    "  product cues           : casing + hopper + crank (no wheeled mount)",
+    "  product cues           : long pack + slim casing + hopper + short crank",
     "  refs                   : 1862–83 Gatling feed/crank/casing; M134 clamp",
     "  not drawn              : carriage, hoses, AirTAC detail, full station CAD",
 ]
@@ -286,7 +299,8 @@ sc = FV.Scene(NAME)
 for i, st in enumerate(stations):
     sc.add("Spins", "Station_%d" % (i + 1), st, "spin_st")
 sc.add("Spins", "Spider_front", front_spider, "spin_plate")
-sc.add("Spins", "Clamp_front", front_clamp, "spin_plate")
+sc.add("Spins", "Clamp_a", clamp_a, "spin_plate")
+sc.add("Spins", "Clamp_b", clamp_b, "spin_plate")
 sc.add("Spins", "Axle", axle, "spin")
 sc.add("Spins", "Hub", hub, "spin_hub")
 sc.add("Spins", "MQR_rotor", rotor, "spin")
@@ -299,12 +313,12 @@ sc.add("Fixed", "Crank", crank, "fixed_iron")
 sc.add("Fixed", "Cheeks", cheeks_s, "fixed_iron")
 
 for text, pos in [
-    ("6 стволов R%.0f (QEV)" % R, (30, R + 50, z_ch0)),
-    ("бункер пульки", (hopper_x0 + HOPPER_H + 15, 0, z_hub0 + 20)),
-    ("казённый кожух + MQR", (0, CASE_OD / 2 + 35, (z_case0 + z_case1) / 2)),
-    ("рукоять", (20, CASE_OD / 2 + CRANK_ARM + 30, crank_z)),
-    ("L≈%.0f мм" % gun_L, (CASE_OD / 2 + 20, 0, gun_L / 2)),
-    ("дуло →", (20, R + 25, 30)),
+    ("6 стволов R%.0f" % R, (20, R + 40, z_ch0 - 40)),
+    ("бункер", (hopper_x0 + HOPPER_H + 10, 0, z_hub0 + 15)),
+    ("кожух Ø%.0f" % CASE_OD, (0, CASE_OD / 2 + 25, (z_case0 + z_case1) / 2)),
+    ("рукоять", (15, CASE_OD / 2 + CRANK_ARM + 25, crank_z)),
+    ("L≈%.0f мм" % gun_L, (PACK_OD / 2 + 15, 0, gun_L * 0.4)),
+    ("дуло →", (15, R + 20, 40)),
 ]:
     sc.label("Labels", text, pos)
 
@@ -327,7 +341,7 @@ write(pack, "stations")
 for n, s in (("axle", axle), ("hub", hub), ("mqr_rotor", rotor), ("mqr_stator", stator),
              ("breech_casing", casing), ("hopper", hopper), ("crank", crank),
              ("cheeks", cheeks_s), ("spider_front", front_spider),
-             ("clamp_front", front_clamp)):
+             ("clamp_a", clamp_a), ("clamp_b", clamp_b)):
     write(s, n)
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
     f.write("\n".join(report) + "\n")
