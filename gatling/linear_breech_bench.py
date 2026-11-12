@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Bench for one Gatling linear-breech station: stable base under the rails.
+Bench for one Gatling linear-breech station: small feet under the rails.
 
-Loads gatling/linear_breech.py as a library and adds a printed bed the rails
-stand on — front and rear pedestals, a wide floor so the station does not tip
-when you shove the carriage by hand, and a T-handle on the carriage.
+Loads gatling/linear_breech.py as a library. The aluminium rails are the beam;
+print only two feet (front under the barrel clamp, rear aft of the open
+carriage) plus a T-handle on the carriage. No long floor slab.
 
 Prove on the bench: open → drop a pellet from +Y → close (AirTAC dumps) →
 module fires. Crank / hopper / rotary union stay off this stand.
@@ -48,160 +48,122 @@ NAME = "gatling_linear_breech_bench"
 X, Y, Z = App.Vector(1, 0, 0), App.Vector(0, 1, 0), App.Vector(0, 0, 1)
 V = App.Vector
 
-# ---------------------------------------------------------------- base parameters
-# Floor sits below the AirTAC cradle; posts rise to the rails. Wide in X so a
-# hand shove on the T-handle does not tip the stand.
-BASE_T = 8.0
-BASE_MARGIN_X = 28.0
-BASE_MARGIN_Z = 20.0
-POST_W = 18.0
-POST_CLEAR = 0.5                 # post pocket around each rail
+# ---------------------------------------------------------------- feet parameters
+# Two discrete feet — rails span between them. Wide enough in X so a hand shove
+# on the T-handle does not tip; short in Z (print volume, not a giant frame).
+FOOT_PAD_X = 76.0                # full width of each foot pad
+FOOT_PAD_Z = 16.0                # short: open carriage leaves ~20 mm at the rail tip
+FOOT_T = 6.0                     # pad thickness
+POST_W = 16.0
 HANDLE_STEM = 40.0               # T-handle up into +Y (feed side)
 HANDLE_BAR = 50.0
 HANDLE_D = 12.0
 STOP_T = 6.0                     # printed end stops on the rail tips
-FOOT_PAD = 4.0                   # rubber-ish pads under the floor corners (drawn)
+SCREW_D = 4.2                    # M4 clearance through pads → clamp to table
+SCREW_R = 30.0                   # hole centres from foot mid-plane X=0
 
-y_floor = min(vent_y - cradle_wall - 6.0, RAIL_Y - RAIL_OD / 2 - 25.0)
-y_top_floor = y_floor + BASE_T
-# Floor spans the full rail length plus margins; wide enough past ±RAIL_X and the clamp.
-x0 = -max(RAIL_X + BUSH_OD, CLAMP_BOLT_R + 8.0) - BASE_MARGIN_X
-x1 = -x0
-z0 = z_rail0 - BASE_MARGIN_Z
-z1 = z_rail1 + BASE_MARGIN_Z
-
-floor = Part.makeBox(x1 - x0, BASE_T, z1 - z0, V(x0, y_floor, z0))
-# Lightening: two side pockets; keep a centre strip and end rims under the posts.
-for sx0, sx1 in ((x0 + 18.0, -22.0), (22.0, x1 - 18.0)):
-    if sx1 > sx0 + 10.0:
-        floor = floor.cut(Part.makeBox(sx1 - sx0, BASE_T + 2.0, (z1 - z0) - 70.0,
-                                       V(sx0, y_floor - 1.0, z0 + 35.0)))
-floor = floor.removeSplitter()
-
-# Corner pads (bought rubber or just printed feet).
-pads = []
-for px, pz in ((x0 + 12, z0 + 12), (x1 - 12, z0 + 12),
-              (x0 + 12, z1 - 12), (x1 - 12, z1 - 12)):
-    pads.append(Part.makeCylinder(10.0, FOOT_PAD, V(px, y_floor - FOOT_PAD, pz), Y))
-pads_s = G.fuse_all(pads)
-
-# ---------------------------------------------------------------- pedestals (printed with the floor)
-# Carriage travel envelope (closed + open): keep tall bed parts outside it.
-# Bushings sit at RAIL_Y; plate underside is lower; L-thumb rides the mid-plane.
 y_rail_bot = RAIL_Y - RAIL_OD / 2
-y_clear_top = RAIL_Y - BUSH_OD / 2 - 2.0   # below bushing barrels + plate
+y_pad_top = y_rail_bot - 18.0    # short posts; AirTAC hangs free above the table
+y_floor = y_pad_top - FOOT_T
+
 open_carr_z0 = carriage.BoundBox.ZMin - STROKE
 front_z = z_clamp0 + CLAMP_L / 2
-front_len = CLAMP_L + 8.0
-# Rear post entirely aft of the open carriage (thumb + bushings).
-rear_len = 22.0
-rear_z = open_carr_z0 - rear_len / 2 - 3.0
-assert rear_z - rear_len / 2 >= z_rail0 - 5.0, "rear pedestal past rail tip"
+# Rear foot on the rail tip, entirely aft of the open carriage (thumb + bushings).
+rear_z = z_rail0 + FOOT_PAD_Z / 2
+assert rear_z + FOOT_PAD_Z / 2 <= open_carr_z0 - 2.0, "rear foot into open carriage"
 
 
-def pedestal(z_c, length, with_cheeks=True):
-    """Posts under both rails at z_c, from floor up to rail seats."""
-    # Two posts (not a slab): leave the mid-plane free for the L-thumb path.
+def foot(z_c):
+    """One printable foot: pad + two rail seats. Mid-plane open for the L-thumb."""
+    pad = Part.makeBox(FOOT_PAD_X, FOOT_T, FOOT_PAD_Z,
+                       V(-FOOT_PAD_X / 2, y_floor, z_c - FOOT_PAD_Z / 2))
+    # Table clamp holes (M4 through the pad into the bench).
+    for sx in (-SCREW_R, SCREW_R):
+        pad = pad.cut(Part.makeCylinder(SCREW_D / 2, FOOT_T + 2.0,
+                                        V(sx, y_floor - 1.0, z_c), Y))
     posts = []
     for x, y in rail_centers():
-        body = Part.makeBox(POST_W, y_rail_bot - y_top_floor + 1.0, length,
-                            V(x - POST_W / 2, y_top_floor - 0.5, z_c - length / 2))
-        body = body.cut(G.cyl(RAIL_HOLE, z_c - length / 2 - 1, z_c + length / 2 + 1, x, y))
-        if with_cheeks:
-            cheek = Part.makeBox(POST_W, RAIL_OD / 2 + 1.0, length,
-                                 V(x - POST_W / 2, y_rail_bot, z_c - length / 2))
-            cheek = cheek.cut(G.cyl(RAIL_HOLE, z_c - length / 2 - 1,
-                                    z_c + length / 2 + 1, x, y))
-            body = body.fuse(cheek)
-        posts.append(body)
-    # Low cross-bar on the floor ties left/right posts into one piece.
-    bar = Part.makeBox(2 * RAIL_X + POST_W, 6.0, length,
-                       V(-RAIL_X - POST_W / 2, y_top_floor - 0.5, z_c - length / 2))
-    return G.fuse_all(posts + [bar]).removeSplitter()
+        body = Part.makeBox(POST_W, y_rail_bot - y_pad_top + 1.0, FOOT_PAD_Z - 4.0,
+                            V(x - POST_W / 2, y_pad_top - 0.5, z_c - (FOOT_PAD_Z - 4.0) / 2))
+        body = body.cut(G.cyl(RAIL_HOLE, z_c - FOOT_PAD_Z / 2 - 1,
+                              z_c + FOOT_PAD_Z / 2 + 1, x, y))
+        cheek = Part.makeBox(POST_W, RAIL_OD / 2 + 1.0, FOOT_PAD_Z - 4.0,
+                             V(x - POST_W / 2, y_rail_bot,
+                               z_c - (FOOT_PAD_Z - 4.0) / 2))
+        cheek = cheek.cut(G.cyl(RAIL_HOLE, z_c - FOOT_PAD_Z / 2 - 1,
+                                z_c + FOOT_PAD_Z / 2 + 1, x, y))
+        posts.append(body.fuse(cheek))
+    # Low cross-bar ties left/right posts to the pad (still below the thumb path).
+    bar = Part.makeBox(2 * RAIL_X + POST_W, 5.0, FOOT_PAD_Z - 4.0,
+                       V(-RAIL_X - POST_W / 2, y_pad_top - 0.5,
+                         z_c - (FOOT_PAD_Z - 4.0) / 2))
+    return G.fuse_all([pad, bar] + posts).removeSplitter()
 
 
-front_ped = pedestal(front_z, front_len, with_cheeks=True)
-rear_ped = pedestal(rear_z, rear_len, with_cheeks=True)
-
-# Side spines under each rail: stiffen the span, stay below the bushing envelope.
-# Bias them outward so the mid-plane (±THUMB_W/2) stays clear for the L-thumb.
-spine_y0 = y_top_floor - 0.5
-spine_h = y_clear_top - spine_y0
-assert spine_h >= 8.0, "spine too short under rails"
-SPINE_W = 10.0
-thumb_half = THUMB_W / 2 + 1.5          # keep spines outside the thumb corridor
-spines = []
-for x, y in rail_centers():
-    # Outer-biased: inner face at ±thumb_half or further out under the rail.
-    if x > 0:
-        sx0 = max(x - 2.0, thumb_half)
-    else:
-        sx0 = min(x + 2.0, -thumb_half) - SPINE_W
-    spines.append(Part.makeBox(SPINE_W, spine_h,
-                               (front_z - front_len / 2) - (rear_z + rear_len / 2) + 2.0,
-                               V(sx0, spine_y0, rear_z + rear_len / 2 - 1.0)))
-spine = G.fuse_all(spines)
-
-bed = G.fuse_all([floor, front_ped, rear_ped, spine]).removeSplitter()
+front_foot = foot(front_z)
+rear_foot = foot(rear_z)
+# Compound for the scene; exported as two STLs so the print is two small parts.
+bed = Part.makeCompound([front_foot, rear_foot])
+bed_vol = front_foot.Volume + rear_foot.Volume
 
 # End stops on the rail tips (keep the carriage from walking off).
 stops = []
 for x, y in rail_centers():
-    for z_s, sgn in ((z_rail0 + 1.0, +1), (z_rail1 - 1.0 - STOP_T, +1)):
+    for z_s in (z_rail0 + 1.0, z_rail1 - 1.0 - STOP_T):
         st = G.cyl(BUSH_OD + 2.0, z_s, z_s + STOP_T, x, y).cut(
             G.cyl(RAIL_OD + 0.2, z_s - 1, z_s + STOP_T + 1, x, y))
         stops.append(st)
 stops_s = G.fuse_all(stops)
 
 # T-handle on the carriage: stem into +Y so you push/pull by hand from the feed side.
-# Attached to the bridge top (y ≈ 0 region of the bridge disc).
 handle_stem = Part.makeCylinder(HANDLE_D / 2, HANDLE_STEM,
                                 V(0, CH_OD / 2 - 2.0, z_ry - CARR_T / 2), Y)
 handle_bar = Part.makeCylinder(HANDLE_D / 2, HANDLE_BAR,
-                               V(-HANDLE_BAR / 2, CH_OD / 2 - 2.0 + HANDLE_STEM, z_ry - CARR_T / 2), X)
+                               V(-HANDLE_BAR / 2, CH_OD / 2 - 2.0 + HANDLE_STEM,
+                                 z_ry - CARR_T / 2), X)
 handle = handle_stem.fuse(handle_bar).removeSplitter()
 carriage_handled = carriage.fuse(handle).removeSplitter()
 
 # ---------------------------------------------------------------- checks
-bb = bed.BoundBox
-footprint_x = bb.XLength
-footprint_z = bb.ZLength
-# Tip resistance: horizontal shove at handle height vs half-width of the base.
+# Tip: foot half-width in X vs handle height; Z stance is the rail span between feet.
 handle_y = CH_OD / 2 - 2.0 + HANDLE_STEM
 tip_lever = handle_y - y_floor
-half_width = min(abs(x0), abs(x1), (z1 - z0) / 2)
-# Crude: for a 20 N shove, restoring from mass is unknown; require base half-width
-# at least 0.35 × tip lever so it does not feel tippy on a bench.
-tip_ok = half_width >= 0.35 * tip_lever
-# Rails seated in every pedestal.
-ped_ok = all(
-    front_ped.distToShape(G.cyl(RAIL_OD, z_rail0, z_rail1, x, y))[0] < 0.01
-    or True  # seats are cuts; check posts rise to rail
-    for x, y in rail_centers()
-)
-post_height_ok = front_ped.BoundBox.YMax >= RAIL_Y - RAIL_OD / 2 - 0.5
-# Carriage with handle still clears the floor and pedestals when closed / open.
+half_width = FOOT_PAD_X / 2
+stance_z = (front_z - FOOT_PAD_Z / 2) - (rear_z + FOOT_PAD_Z / 2)
+tip_ok = half_width >= 0.30 * tip_lever and stance_z >= 0.8 * tip_lever
+post_height_ok = (front_foot.BoundBox.YMax >= y_rail_bot - 0.5
+                  and rear_foot.BoundBox.YMax >= y_rail_bot - 0.5)
+
 carr_closed = carriage_handled
 carr_open = shifted(carriage_handled, -STROKE)
-bed_vs_closed = bed.distToShape(carr_closed)[0]
-bed_vs_open = bed.distToShape(carr_open)[0]
-bed_vs_qev = bed.distToShape(qev_body)[0]
-# Handle stays on +Y feed side and clear of AirTAC.
+# Clearance vs each foot (compound distToShape can be flaky on multi-solid).
+def min_clear(parts, sh):
+    return min(p.distToShape(sh)[0] for p in parts)
+
+feet = [front_foot, rear_foot]
+bed_vs_closed = min_clear(feet, carr_closed)
+bed_vs_open = min_clear(feet, carr_open)
+bed_vs_qev = min_clear(feet, qev_body)
 handle_vs_vent = handle.distToShape(vent_body)[0]
+
+# Print budget: both feet together should stay well under a long slab (~150 cm³).
+vol_ok = bed_vol < 80e3   # mm³
 
 station_ok = G.single_solid(carriage) and abs((z_push_closed - z_plunger_free) - VENT_PUSH) < 1e-6
 
 checks = [
-    ("bed valid single solid", G.single_solid(bed)),
+    ("front foot valid single solid", G.single_solid(front_foot)),
+    ("rear foot valid single solid", G.single_solid(rear_foot)),
     ("carriage+handle valid single solid", G.single_solid(carriage_handled)),
-    ("floor below AirTAC and rails (y_floor %.1f)" % y_floor,
-     y_floor < vent_y - 2.0 and y_floor < RAIL_Y - 15.0),
-    ("pedestals reach the rail underside", post_height_ok),
-    ("base wide enough vs handle height (half %.0f >= 0.35 x %.0f)"
-     % (half_width, tip_lever), tip_ok),
-    ("bed clear of closed carriage (%.1f mm)" % bed_vs_closed, bed_vs_closed >= 0.5),
-    ("bed clear of open carriage (%.1f mm)" % bed_vs_open, bed_vs_open >= 0.5),
-    ("bed clear of QEV body (%.1f mm)" % bed_vs_qev, bed_vs_qev >= 0.5),
+    ("pads below rails, AirTAC hangs free (y_floor %.1f)" % y_floor,
+     y_floor < RAIL_Y - 15.0 and min_clear(feet, vent_body) >= 0.5),
+    ("feet reach the rail underside", post_height_ok),
+    ("stance vs tip (halfX %.0f >= 0.30 x %.0f; Z span %.0f)"
+     % (half_width, tip_lever, stance_z), tip_ok),
+    ("print volume both feet %.0f cm3 < 80" % (bed_vol / 1000.0), vol_ok),
+    ("feet clear of closed carriage (%.1f mm)" % bed_vs_closed, bed_vs_closed >= 0.5),
+    ("feet clear of open carriage (%.1f mm)" % bed_vs_open, bed_vs_open >= 0.5),
+    ("feet clear of QEV body (%.1f mm)" % bed_vs_qev, bed_vs_qev >= 0.5),
     ("T-handle clear of AirTAC (%.1f mm)" % handle_vs_vent, handle_vs_vent >= 5.0),
     ("end stops present on both rail tips", stops_s.Volume > 100),
     ("station library: carriage solid + close press %.1f mm" % VENT_PUSH, station_ok),
@@ -210,8 +172,10 @@ checks = [
 report = [
     NAME,
     "  purpose                : hand bench for one linear-breech station (open / load / close / fire)",
-    "  bed                    : floor %.0f x %.0f x %.0f mm at y %.1f; front/rear posts + side spines"
-    % (footprint_x, BASE_T, footprint_z, y_floor),
+    "  feet                   : 2x pad %.0fx%.0fx%.0f mm at y %.1f; rails are the beam (no long slab)"
+    % (FOOT_PAD_X, FOOT_T, FOOT_PAD_Z, y_floor),
+    "  volume                 : %.0f cm3 both feet; front z %.0f, rear z %.0f, stance %.0f mm"
+    % (bed_vol / 1000.0, front_z, rear_z, stance_z),
     "  handle                 : T on carriage, stem %.0f mm into +Y; shove closed to dump AirTAC"
     % HANDLE_STEM,
     "  station                : stroke %.1f mm, AirTAC press on close %.1f mm" % (STROKE, VENT_PUSH),
@@ -232,7 +196,6 @@ os.makedirs(OUT_DIR, exist_ok=True)
 sc = FV.Scene(NAME)
 doc = sc.doc
 
-# Closed station on the bed.
 styles_qev = {
     "Rear_plug": "stator", "Seat_ring": "rotor", "Diaphragm": "shoe",
     "Front_cover": "stator", "Front_yoke": "stator", "Barrel_stub": "ghost",
@@ -247,9 +210,9 @@ sc.add("Fixed", "Rails", rails_s, "steel")
 sc.add("Fixed", "Barrel_clamp", barrel_clamp, "stator")
 sc.add("Fixed", "Fixed_barrel", fixed_barrel, "ghost")
 sc.add("Fixed", "AirTAC_cradle", cradle, "stator")
-sc.add("Fixed", "Bed", bed, "stator")
+sc.add("Fixed", "Foot_front", front_foot, "stator")
+sc.add("Fixed", "Foot_rear", rear_foot, "stator")
 sc.add("Fixed", "Rail_stops", stops_s, "stator")
-sc.add("Fixed", "Feet", pads_s, "shoe")
 sc.add("Bought", "AirTAC_body", vent_body, "steel")
 sc.add("Bought", "AirTAC_fittings", vent_fittings, "ghost")
 sc.add("Bought", "AirTAC_plunger", vent_plunger, "shoe")
@@ -262,7 +225,7 @@ if SHOW_OPEN:
     sc.add("Open", "Pellet", pellet, "flow")
 
 for text, pos in [
-    ("ПЛИТА СТЕНДА — рельсы на передней/задней опоре", (0, y_floor - 15, (z0 + z1) / 2)),
+    ("ДВЕ ОПОРЫ — рельсы сами балка", (0, y_floor - 12, (front_z + rear_z) / 2)),
     ("РУЧКА: руками открыть / закрыть", (0, handle_y + 10, z_ry - CARR_T / 2)),
     ("ЗАКРЫТО → AirTAC сброс → выстрел", (60, 0, z_stop)),
     ("ОТКРЫТО → пулька сверху (+Y)", (60, 40, z_stop - STROKE / 2)),
@@ -285,7 +248,8 @@ def write(shape, name, flip=False):
         os.path.join(OUT_DIR, name + ".stl"))
 
 
-for n, s in (("bed", bed), ("carriage_handle", carriage_handled),
+for n, s in (("foot_front", front_foot), ("foot_rear", rear_foot),
+             ("carriage_handle", carriage_handled),
              ("rail_stops", stops_s), ("barrel_clamp", barrel_clamp),
              ("airtac_cradle", cradle)):
     write(s, n)
