@@ -4,7 +4,7 @@ Ratling Stage 3 v1.5: v1.3 side-by-side QEV with the flow path grown to match th
 
 v1.3 kept GALLERY_R=18 / LIFT=4 / DIA_D=46 from v1.1 while SEAT_D went 13→16. Bench 2026-11-12:
 dumps, but at ~2 bar exhaust feels weak vs coaxial v4.4 — curtain landed at 1.00× seat and
-gallery at 1.11× (docs/qev-v13-flow.md). open_ratio (78 %) was not the limiter.
+gallery at 1.11×. open_ratio (78 %) was not the limiter.
 
 v1.5 keeps v1.3's mechanics (no tube screws, yoke, O-rings 19×2.5 / face 22×2.5, two breech
 M3) and restores approach margins for the same seat:
