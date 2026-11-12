@@ -9,10 +9,10 @@ into the breech mouth. Later the same linear unit repeats around the rotor,
 fed by a multi-passage rotary union on the pilot lines.
 
 Builds on gatling/fat_coax_qev.py (library). Sketch: rails, carriage, barrel
-clamp, AirTAC M3R110 pilot valve, closed assembly + open ghost. The carriage
-thumb (a truncated pistol-style pad) presses the AirTAC plunger in the last
-millimetres of closing — QEV itself dumps the pilot when the breech seats.
-Hopper / rotary union / pack ring not drawn.
+clamps, front-cover pellet cradle, AirTAC M3R110 pilot valve, closed + open
+ghost. The carriage thumb presses the AirTAC plunger in the last millimetres
+of closing — QEV itself dumps the pilot when the breech seats. Hopper /
+rotary union / pack ring not drawn.
 
 Run inside FreeCAD / freecadcmd:
     REPO = '/path/to/ratling'
@@ -93,6 +93,16 @@ BARREL_SHOW = 160.0              # fixed barrel drawn ahead of the breech clamp
 # Forward QEV bushings: second rail guide under the chamber front (rear bushings
 # stay on the rear-plug bridge). Span along Z ≈ chamber length for coax to the bore.
 NOSE_BUSH_L = BUSH_L
+
+# Pellet cradle fused into the front cover (one print with the QEV lid). Fitting
+# fills the bore, so the gutter lives ahead of the tip only — a low half-pipe
+# bonded onto the tip nose. Open well below the pellet equator so the tip can
+# shove the pellet without the walls pinching it (the old separate tip-cup did).
+CRADLE_RADIAL = 0.35             # gutter OD under BARREL_ID
+CRADLE_WALL = 2.2                # half-pipe wall; ID cradles the pellet
+CRADLE_PAST_TIP = PELLET_D + 2.0
+CRADLE_BOND = 4.0                # overlap onto the tip nose
+CRADLE_Y_TOP = -2.0              # keep walls below the pellet equator (no pinch)
 
 # AirTAC M3R110-06 (roller off): same body numbers as pistol/hammer_layout.py.
 # Ports swapped like the pistol: supply→R, silencer→P, A→pilot → normally open
@@ -325,12 +335,39 @@ barrel_collar = make_barrel_clamp(z_clamp2_0, z_clamp2_1, feed_notch=False)
 # Fixed real barrel (bought), breech face at z_stop, held by both clamps.
 fixed_barrel = tube(BARREL_OD, BARREL_ID, z_stop, z_stop + BARREL_SHOW)
 
+# ---------------------------------------------------------------- pellet cradle (part of front cover)
+# Half-pipe ahead of the tip + a solid lower bond onto the tip nose, fused into
+# the cover. Named feed_* so it does not clash with the AirTAC cradle above.
+# Walls stay below CRADLE_Y_TOP so the tip (not the gutter) drives the pellet.
+feed_od = BARREL_ID - 2 * CRADLE_RADIAL
+feed_id = max(6.0, feed_od - 2 * CRADLE_WALL)
+z_tip = z_stop + FIT_INSERT
+z_feed0 = z_tip - CRADLE_BOND
+z_feed1 = z_tip + CRADLE_PAST_TIP
+
+
+def _low_half(shape, z0, z1):
+    """Cut everything above CRADLE_Y_TOP between z0 and z1."""
+    return shape.cut(Part.makeBox(
+        feed_od + 4.0, feed_od + 4.0, (z1 - z0) + 4.0,
+        V(-(feed_od + 4.0) / 2, CRADLE_Y_TOP, z0 - 2.0)))
+
+
+# Past-tip gutter: half-pipe the pellet sits on.
+feed = _low_half(tube(feed_od, feed_id, z_tip, z_feed1), z_tip, z_feed1)
+# Bond pad: solid lower crescent overlapping the tip nose wall (keep FIT_BORE open).
+bond = _low_half(G.cyl(feed_od, z_feed0, z_tip), z_feed0, z_tip)
+bond = bond.cut(G.cyl(FIT_BORE, z_feed0 - 1.0, z_tip + 1.0))
+feed = feed.fuse(bond).removeSplitter()
+# Cover with feed cradle (breech-station lid; standalone fat_coax cover unchanged).
+front_cover_feed = front_cover.fuse(feed).removeSplitter()
+
 # ---------------------------------------------------------------- QEV solids to slide
 qev_closed = {
     "Rear_plug": rp,
     "Seat_ring": sr,
     "Diaphragm": diaphragm,
-    "Front_cover": front_cover,
+    "Front_cover": front_cover_feed,
     "Front_yoke": front_yoke,
     "Barrel_stub": barrel_stub,
     "Chamber_tube": chamber,
@@ -349,12 +386,12 @@ def shifted(shape, dz):
 
 qev_open = {n: shifted(s, -STROKE) for n, s in qev_closed.items()} if SHOW_OPEN else {}
 
-# Pellet at the breech mouth when open (drops from +Y into the gap).
-pellet_z = z_stop - STROKE / 2.0
+# Pellet on the open cradle, ahead of the open fitting tip.
+pellet_z = (z_tip + PELLET_D / 2) - STROKE
 pellet = Part.makeSphere(PELLET_D / 2, V(0, 0, pellet_z))
 
 # ---------------------------------------------------------------- checks
-qev_body = G.fuse_all([rp, front_cover, chamber, front_yoke, hardware, barrel_stub])
+qev_body = G.fuse_all([rp, front_cover_feed, chamber, front_yoke, hardware, barrel_stub])
 rail_to_qev = rails_s.distToShape(qev_body)[0]
 # Bushing: rail axis inside the uncut bushing barrel (the hole voids fail isInside).
 bush_ok = all(
@@ -366,10 +403,10 @@ bush_ok = all(
 nose_vs_chamber = nose.distToShape(chamber)[0]
 nose_vs_clamp = nose.distToShape(barrel_clamp)[0]
 collar_vs_clamp = barrel_collar.distToShape(barrel_clamp)[0]
-# Open: fitting tip behind the barrel breech face.
-open_cover = qev_open["Front_cover"]
-open_tip_z = open_cover.BoundBox.ZMax
+# Open: fitting tip behind the barrel breech face (not cover bbox — cradle leads the tip).
+open_tip_z = z_tip - STROKE
 open_gap = z_stop - open_tip_z  # ~ STROKE - FIT_INSERT = PELLET_D + margin
+open_cradle_z1 = z_feed1 - STROKE
 # Top feed clear: no rail / carriage above y = 0 in the breech window.
 feed_box = Part.makeBox(CH_OD, 80, STROKE + 10,
                         V(-CH_OD / 2, 2.0, z_stop - STROKE - 5))
@@ -384,15 +421,29 @@ rail_r_max = max(math.hypot(x, y) + RAIL_OD / 2 for x, y in rail_centers())
 closed_press = z_push_closed - z_plunger_free      # = VENT_PUSH by construction
 open_push_face = z_push_closed - STROKE
 open_clear = z_plunger_free - open_push_face       # tip still ahead of the open pad
-cradle_vs_closed = cradle.distToShape(qev_body)[0]
+airtac_cradle_vs_qev = cradle.distToShape(qev_body)[0]
 vent_vs_rails = vent_body.distToShape(rails_s)[0]
 # Sanity: open must NOT press (pad behind tip); closed must press.
 press_on_close = closed_press >= VENT_SWITCH and open_clear >= 5.0
+# Feed cradle on the cover: tip free, gutter under; OD slips into the barrel.
+open_tip_fit = z_tip - STROKE
+pellet_aft = pellet_z - PELLET_D / 2
+barrel_wall = tube(BARREL_OD + 2.0, BARREL_ID, z_stop, z_stop + BARREL_SHOW)
+feed_vs_barrel = feed.distToShape(barrel_wall)[0]
+feed_in_bore = feed.common(
+    G.cyl(BARREL_ID - 0.05, z_stop, z_tip + CRADLE_PAST_TIP + 1)).Volume
+drop_col = Part.makeCylinder(PELLET_D / 2 + 1.0, 40.0, V(0, 2.0, pellet_z), Y)
+open_feed = shifted(feed, -STROKE) if SHOW_OPEN else feed
+feed_hit_drop = open_feed.common(drop_col).Volume if SHOW_OPEN else 0.0
+feed_vs_clamp = feed.distToShape(barrel_clamp)[0]
+# Cover+feed is one solid; gutter stays below the pellet equator.
+feed_low = feed.BoundBox.YMax <= CRADLE_Y_TOP + 0.2
 
 checks = [
     ("carriage valid single solid (with thumb + nose)", G.single_solid(carriage)),
     ("barrel clamp valid (may be multi-solid halves)", barrel_clamp.Volume > 1000),
     ("forward barrel collar valid (may be multi-solid halves)", barrel_collar.Volume > 1000),
+    ("front cover+feed cradle valid single solid", G.single_solid(front_cover_feed)),
     ("AirTAC cradle valid single solid", G.single_solid(cradle)),
     ("rails clear of closed QEV body (%.1f mm >= %.1f)" % (rail_to_qev, RAIL_CLEAR),
      rail_to_qev >= RAIL_CLEAR),
@@ -411,6 +462,17 @@ checks = [
     ("+Y feed window clear of rails (vol %.0f)" % feed_hit_rail, feed_hit_rail < 1.0),
     ("+Y feed window clear of open carriage (vol %.0f)" % feed_hit_carr_open,
      feed_hit_carr_open < 1.0),
+    ("+Y drop onto open cradle clear (vol %.0f)" % feed_hit_drop, feed_hit_drop < 1.0),
+    ("feed cradle stays below pellet equator (Ymax %.1f <= %.1f)"
+     % (feed.BoundBox.YMax, CRADLE_Y_TOP), feed_low),
+    ("open tip behind seated pellet (tip %.1f < pellet aft %.1f)"
+     % (open_tip_fit, pellet_aft),
+     SHOW_OPEN and open_tip_fit <= pellet_aft + 0.5),
+    ("feed cradle OD slips into barrel (OD %.1f < ID %.1f; wall clear %.1f)"
+     % (feed_od, BARREL_ID, feed_vs_barrel),
+     feed_od <= BARREL_ID - 0.2 and feed_vs_barrel >= 0.15),
+    ("closed cradle enters the bore (vol %.0f)" % feed_in_bore, feed_in_bore > 50),
+    ("closed cradle clear of breech clamp (%.1f mm)" % feed_vs_clamp, feed_vs_clamp >= 0.5),
     ("rails clear of neighbour at pack pitch (%.1f mm >= %.1f; envelope R %.1f)"
      % (rail_to_nbr, RAIL_CLEAR, rail_r_max),
      rail_to_nbr >= RAIL_CLEAR),
@@ -425,7 +487,8 @@ checks = [
     ("closed: L-pad presses AirTAC >= switch (press %.2f >= %.2f); open clears %.1f mm"
      % (closed_press, VENT_SWITCH, open_clear),
      abs(closed_press - VENT_PUSH) < 1e-6 and press_on_close and SHOW_OPEN),
-    ("cradle clear of closed QEV (%.1f mm)" % cradle_vs_closed, cradle_vs_closed >= 0.5),
+    ("AirTAC cradle clear of closed QEV (%.1f mm)" % airtac_cradle_vs_qev,
+     airtac_cradle_vs_qev >= 0.5),
     ("AirTAC body clear of rails (%.1f mm)" % vent_vs_rails, vent_vs_rails >= 0.5),
 ]
 
@@ -440,6 +503,8 @@ report = [
     % (BUSH_OD, BUSH_L, BUSH_OD, NOSE_BUSH_L),
     "  barrel clamps          : breech + forward (span %.0f), split L/R on Ø%.1f, feet on rails"
     % (CLAMP_SPAN, BARREL_OD),
+    "  pellet cradle          : on front cover, low gutter OD %.1f past tip by %.0f mm; tip pushes"
+    % (feed_od, CRADLE_PAST_TIP),
     "  pilot valve            : AirTAC M3R110 under rails, plunger -Z; L-pad presses %.1f mm on CLOSE"
     " only (switch %.1f); A→pilot" % (VENT_PUSH, VENT_SWITCH),
     "  pack                   : pitch %.0f, rail envelope R %.1f, clear to neighbour %.1f mm"
@@ -478,15 +543,15 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
         sc.add("Open", "Pellet", pellet, "flow")
 
     for text, pos in [
-        ("ЗАКРЫТО: упор в ствол, фиттинг внутри", (55, 0, z_stop - 5)),
-        ("ОТКРЫТО: ход %.0f мм, щель под пульку сверху" % STROKE, (55, 40, z_stop - STROKE / 2)),
+        ("ЗАКРЫТО: упор в ствол, жёлоб крышки в канале", (55, 0, z_stop - 5)),
+        ("ОТКРЫТО: пулька на жёлобе крышки, ход %.0f мм" % STROKE, (55, 40, pellet_z)),
         ("РЕЛЬСЫ Ø%.0f x %.0f под модулем (+Y свободен)" % (RAIL_OD, RAIL_WALL),
          (55, RAIL_Y - 15, (z_rail0 + z_rail1) / 2)),
         ("САЛАЗКИ: задние + носовые втулки", (55, 0, (z_bush0 + z_nose1) / 2)),
         ("AirTAC M3R110: сброс только на ЗАКРЫТИИ", (55, vent_y - 20, (z_stem + z_vent1) / 2)),
         ("ХОМУТ У КАЗЁННИКА", (55, 0, z_clamp0 + CLAMP_L / 2)),
         ("НАСАДКА НА СТВОЛЕ (2-я опора)", (55, 0, (z_clamp2_0 + z_clamp2_1) / 2)),
-        ("ПОДАЧА ПУЛЬКИ +Y", (0, 50, z_stop - STROKE / 2)),
+        ("ЖЁЛОБ НА КРЫШКЕ QEV: сброс +Y → фиттинг толкает", (0, 45, pellet_z)),
     ]:
         sc.label("Labels", text, pos)
 
@@ -507,6 +572,7 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
     for n, s, flip in (("carriage", carriage, False),
                        ("barrel_clamp", barrel_clamp, False),
                        ("barrel_collar", barrel_collar, False),
+                       ("front_cover_feed", front_cover_feed, False),
                        ("airtac_cradle", cradle, False)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
