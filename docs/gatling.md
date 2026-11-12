@@ -12,8 +12,8 @@
   (`exec` linear_breech как библиотека);
 - [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — ось + ступица + MQR на
   двух стойках;
-- [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) — силуэт всего пакета (6 станций
-  на R68 + та же ось).
+- [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) — силуэт пакета на стенде
+  (6@R68, вал на всю длину, передняя плита, торцевые плиты на столе).
 
 ## Зафиксировано
 
@@ -65,14 +65,16 @@
     3D-блоки оси: [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — вал на
     двух маленьких стойках + ступица + ротор (тёплый); статор + пластина (холодный).
     Опора пакета — подшипники, не MQR.
-    Набросок всего пакета: [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) —
-    6 станций на R68 (ствол Ø25×180 + камера Ø50×130) + та же ось/ступица/MQR.
+    Набросок пакета на стенде: [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) —
+    6 станций на R68 (силуэт как у breech-стенда: ствол Ø25×180 + камера Ø50×130),
+    вал на всю длину (~351 мм) с передней плитой-пауком, ступица + MQR, две торцевые
+    плиты стенда на столе. Опора = подшипники → стенд, не MQR.
 
 ![MQR6 на оси пакета](img/gatling_mqr_axis.svg)
 
-![Пакет 6 станций, iso](img/gatling_pack_3d.png)
+![Пакет на стенде, iso](img/gatling_pack_3d.png)
 
-![Пакет 6 станций, сзади](img/gatling_pack_3d_rear.png)
+![Пакет на стенде, сбоку](img/gatling_pack_3d_side.png)
 
 Прогон standalone `gatling/fat_coax_qev.py` (2026-11-12): камера **101 см³**, труба
 **50 × 1.5 × 130 мм** (~80 г Al), модуль Ø50 (уши 66), длина до кончика фиттинга ≈ 202 мм,
