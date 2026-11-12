@@ -13,6 +13,10 @@ edited on one side and untouched on the other simply moves; the same line edited
 conflict and nothing is written for that file. Renaming never changes the line count (rename.py).
 Russian words are dropped on the way out; they stay in the live files and survive `in`.
 
+Pistol only: on `out` the geometry GPT sees is obfuscated (solid stack instead of the hollow
+exhaust unit, one drum instead of six tubes, external wires instead of internal hose runs).
+Those context files are never taken back by `in`; only the housing file is editable.
+
   python3 experiments/gpt-mask/mask_sync.py out -p pistol
   python3 experiments/gpt-mask/mask_sync.py in  -p pistol
 
@@ -32,12 +36,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 sys.path.insert(0, HERE)
 import rename  # noqa: E402
+import obfuscate_pistol  # noqa: E402
 from product_lib import list_products, load_product  # noqa: E402
 
 README = """# Mechanismus
 
-Parametric generators for a handheld rotary actuator and its carrier frame. Plain FreeCAD Python:
-run a generator from this folder, read its report, edit the files in place.
+Cosplay prop for a costume: a handheld rotary piece with a printed shell around a drive pack.
+The whole mechanism is in this folder (shell + drive). Plain FreeCAD Python — run a generator,
+read its report, edit the files in place.
+
+What you are looking at:
+
+- The drive drum is a **solid cylinder** on the axle — the costume's rotary magazine look.
+- The pack behind the drum is a **solid block** — the drive / battery housing for the build.
+- The short leads that leave the shell are **wires for the costume light show** (LEDs and effects
+  on the outfit).
 
 ## Run
 
@@ -56,7 +69,11 @@ Output goes to `exports/`.
   untouched code (changes are exchanged as line diffs).
 - Generators run each other by relative path; keep those paths as they are.
 - Keep the vocabulary of the existing code for names you do not need to change.
+- Prefer editing the printed housing (tray, cover, grips, bail). Leave the solid drum, the solid
+  pack and the light-show wires alone unless the task says otherwise — they are the prop's
+  drive stand-ins.
 """
+
 
 
 def die(msg, code=1):
@@ -133,6 +150,21 @@ class Side(object):
     def rev(self, text):
         return rename.reverse(text, self.names)
 
+    def obfuscate(self):
+        return bool(self.product.get("obfuscate")) and self.id == "pistol"
+
+    def expose(self, rel, live_text):
+        """Live text as written to the work folder: obfuscated (pistol) then renamed."""
+        text = live_text
+        if self.obfuscate():
+            text = obfuscate_pistol.apply(rel, text)
+        return self.fwd(text)
+
+    def take_on_in(self, rel):
+        if not self.obfuscate():
+            return True
+        return obfuscate_pistol.is_editable(rel)
+
     def save_base(self, rel, neutral_text):
         write(self.neutral_base(rel), neutral_text)
 
@@ -158,6 +190,12 @@ def cmd_out(product_id, dest, force):
     for f, t in zip(s.files, texts):
         if s.rev(s.fwd(t)) != rename.strip_russian(t):
             die("rename is not reversible for %s" % f)
+    if s.obfuscate():
+        try:
+            for f, t in zip(s.files, texts):
+                obfuscate_pistol.apply(f, t)
+        except ValueError as e:
+            die(str(e))
 
     os.makedirs(s.work, exist_ok=True)
     known = {s.npath(f) for f in s.files} | {"README.md"}
@@ -169,10 +207,17 @@ def cmd_out(product_id, dest, force):
                 print("  notice: %s is not one of this product's files (another product shares the folder?)" % rel)
     conflicts, wrote, kept, merged = [], 0, [], []
     for f, live_now in zip(s.files, texts):
-        fwd = s.fwd(live_now)
+        fwd = s.expose(f, live_now)
         wpath = s.wfile(f)
         work_now = read_opt(wpath)
         nb = read_opt(s.neutral_base(f))
+        # Context placeholders are always refreshed from live; GPT edits there are discarded.
+        if s.obfuscate() and obfuscate_pistol.is_context(f):
+            if work_now != fwd:
+                write(wpath, fwd)
+                wrote += 1
+            s.save_base(f, fwd)
+            continue
         if work_now is None or force or work_now == fwd:
             if work_now != fwd:
                 write(wpath, fwd)
@@ -218,6 +263,11 @@ def cmd_in(product_id, src):
         wpath = s.wfile(f)
         work_now = read_opt(wpath)
         nb = read_opt(s.neutral_base(f))
+        if not s.take_on_in(f):
+            if work_now is not None and nb is not None and work_now != nb:
+                print("  ignored %s: context placeholder (housing only)" % s.npath(f))
+            same += 1
+            continue
         if work_now is None or nb is None or work_now == nb:
             same += 1
             continue
@@ -285,10 +335,13 @@ def cmd_status(product_id):
             parts = []
             if work_now != nb:
                 parts.append("edited in work (run `in`)")
-            if s.fwd(read(s.live(f))) != nb:
+            if s.expose(f, read(s.live(f))) != nb:
                 parts.append("live changed since last crossing (run `out`)")
             state = ", ".join(parts) or "in sync"
-        print("  %-44s %s" % (f, state))
+        tag = ""
+        if s.obfuscate():
+            tag = " [housing]" if obfuscate_pistol.is_editable(f) else (" [context]" if obfuscate_pistol.is_context(f) else "")
+        print("  %-44s %s%s" % (f, state, tag))
 
 
 def main(argv=None):

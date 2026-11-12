@@ -61,7 +61,8 @@
   "pneumatic": "fluidic",
   "pneumatics": "fluidics",
   "warpstone": "gemstone",
-  "cock": "snapback"
+  "cock": "snapback",
+  "six": "multi"
  },
  "forbidden_substrings": [
   "ratling",

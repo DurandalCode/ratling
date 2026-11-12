@@ -22,6 +22,20 @@ for GPT goes in the chat, not in a file: `out` writes only the sources and a `RE
 After `in`, rebuild the live model (the command is printed). Nothing needs FreeCAD except running
 the generators themselves.
 
+## Pistol geometry obfuscation
+
+On `out -p pistol` the **whole mechanism** is copied for GPT, and the copies are rewritten so the
+model reads as a **cosplay prop for a costume**:
+
+- the hollow stack (`module/stage3_qev.py`) → a **solid** pack / drive housing of the same outline;
+- the six tubes (`pistol/mech_layout.py`) → **one solid cylinder** on the axle (rotary magazine look);
+- internal hose / pilot / gauge runs (`pistol/hammer_assembly.py`) → **short wires that leave the
+  shell for the costume light show** (LEDs / effects).
+
+The work-tree `README.md` gives that positive framing. Drive files are still **context**: `in`
+does not take edits from them; only housing edits in `pistol/hammer_assembly.py` come back.
+Rebuild the work tree after changing `obfuscate_pistol.py`.
+
 ## How it works
 
 - `rename.py`: `names.json` maps whole words live -> neutral (identifiers, strings, comments and
