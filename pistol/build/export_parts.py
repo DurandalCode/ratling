@@ -55,7 +55,7 @@ GROUPS = {
 # about half the time and are no weaker. The rest stays on 0.4: airtight parts (the seal is proven there only), small
 # moving parts and anything with a fit under ~0.5 mm (the detent bolt's 0.25 mm a side, the block's V-notches, the
 # barrel bores).
-NOZZLE_08 = {"frame_lower", "frame_upper", "frame_side_wall", "frame_side_band", "frame_right", "grip_left", "grip_right", "trigger_guard", "top_strap"}
+NOZZLE_08 = {"frame_lower", "frame_upper", "frame_side_band", "frame_right", "grip_left", "grip_right", "trigger_guard", "top_strap"}
 
 # Parts whose pockets are bridged on the bed and print fine: the overhang limit in mm2 (the disc's six ramped notches)
 BRIDGED = {"block_rear_disc": 600.0}
@@ -69,16 +69,15 @@ PARTS = [
     ("slider", SLIDER_H, Y_, "strong_supports", "the bracket's outer face on the bed, 15 mm tall, on supports under the plate and the rod boss (on its x face it stood 54 mm tall and peeled off); runs"),
     ("detent_bolt", detent_bolt_print, X_, "strong", "V tip; a Ø4 pen spring behind it; flat on its x face; %.2f mm smaller than its channel a side (the first print would not go in)" % BOLT_CLEAR),
     ("detent_housing", detent_box, X_, "strong_supports", "on its side, the box's broad face on the bed (225 mm2, 20 mm tall; standing it up gave 0 mm2 and a support raft); the channel lies flat, supports grow into it - file the channel before the wedge goes in; with its bracket: 2 x M3 x 20 + nuts to the side plate"),
-    ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank; turns on the Ø8 axle (ream 8.2); the Ø3 crank pin glues into the arm's hole, as the slider's pin"),
+    ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank, spring-stop rib; turns on the Ø8 axle (ream 8.2); the crank joint is an M3 x 6 bolt with a captive nut on its printed shoulder (no glued pin)"),
     ("sector_spacer", sector_spacer, X_, "strong", "the ring on the tube between the sector and the QEV body; bore Ø25.6, the wedge is the pawl boss's road; file to fit the stack"),
-    ("trigger", TRIGGER, -Y_, "strong", "the blade's flat side on the bed (454 mm2, overhang 4 mm2, no supports; the pivot bore prints vertical and round); the pad and the lug stand up in it; pivot: M3 x 16 + nylock nut between the cage's cheeks"),
+    ("trigger", TRIGGER, -Y_, "strong", "the blade's flat side on the bed (454 mm2, overhang 4 mm2, no supports; the pivot bore prints vertical and round); the pad and the lug stand up in it; pivot: an M3 stud through the lower frame and the right cover, nuts outside"),
     ("frame_lower", frame_lower, -Y_, "supports", "the lower half on its -Y side (40 mm tall, bed ~2250 mm2; on -X it stood 107 mm on 1000 mm2): the slab (the QEV socket, the vent, the lock, the trigger) and the tail; the tongues to the upper half"),
     ("frame_upper", frame_upper, -X_, "supports", "the upper half: the drum's top (the gauge, the vial, the strap's foot); the grooves to the lower half's tongues"),
-    ("frame_side_wall", side_wall, -Y_, "standard", "joint face on the bed, no raft; the tongue at the slab's top stands up off the bed; glued to the band. 2 x M3 x 8 into the tray (x -88 and -48, z -58)"),
-    ("frame_side_band", side_band, X_, "supports", "front end on the bed; supports only under the 5 bosses; 5 x ST2.9 x 16; glued to the wall. 1 x M3 x 8 into the lid (x -100, z 0), a 3 mm tongue at z 12 and a 5 mm one at the crown, x -32, z 29..32"),
-    ("frame_right", side_plate_r, Y_, "supports", "cheek face down; 2 x M3 x 30 through the cheek into the tray (x -78 and -70, z -58) and 1 x M3 x 8 into the lid (x -100, z 0), a 3 mm tongue at z 12 and a 5 mm one into the lid's shoulder pad at x -32, z 29..32; also the Ø8 axle and 1 x M3 x 10 at x -104, z -65"),
-    ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the nut pockets open on the outer face (the top of this print), support under the tongue. 2 x M3 x 25 through both halves, 2 x Ø3 x 12 dowels locate (not glued). Up under the tray: 5 mm tongue at x -102, y -10"),
-    ("grip_right", grip_right, -Y_, "supports", "cut face on the bed; the two head seats (Ø6.2) are on the outer face, the top of this print; support under the tongue. The M3 x 25 run through. Up under the tray: 3 mm tongue at x -98, y 12"),
+    ("frame_side_band", side_band, X_, "supports", "left flank band; front end on the bed; supports only under the bosses; 2 x M3 x 50 through-bolts, recessed heads on the left, nuts in AF 5.9 anti-rotation sockets loaded from the right; a 3 mm tongue at z 12 and a 5 mm one at the crown, x -32, z 29..32"),
+    ("frame_right", side_plate_r, Y_, "supports", "right cover: cheek face down; carries the printed journal seat for the hammer's sleeve (running fit); 2 x M3 x 50 upper, 1 x M3 x 45 lower-middle, 1 x M3 x 40 lower-front and 1 x M3 x 40 lower-rear, nuts in external hex seats; also the Ø8 axle, flush journals"),
+    ("grip_left", grip_left, Y_, "supports", "cut face on the bed; the nut pockets open on the outer face (the top of this print), support under the tongues. 2 x M3 x 25 through both halves, 2 x Ø3 x 12 dowels locate (not glued). Seats against the tray on a shoulder: rear 5 mm tongue at x -102, y -10, front 4 mm at x -80, y -9"),
+    ("grip_right", grip_right, -Y_, "supports", "cut face on the bed; the two head seats (Ø6.2) are on the outer face, the top of this print; support under the tongues. The M3 x 25 run through. Shoulder seats against the tray: rear 3 mm tongue at x -98, y 12 (clear of the hose), front 4 mm at x -80, y 9"),
     ("trigger_guard", guard, Y_, "supports", "flat; ST2.9 x 13 into its tab through the floor"),
     ("top_strap", top_strap, Z_, "strong", "top face down (on its side it stood on the nose disc, the bar 9 mm up); 2 x ST2.9 into the cage's top, the M6 stud through its foot"),
     ("nose_sleeve", nose, X_, "strong", "on the axle, front disc to the strap, with the washer"),

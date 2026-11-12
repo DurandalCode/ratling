@@ -11,7 +11,7 @@ HIDE, or keeps only the solids named in PARTS, sets the view, saves the picture 
 
     xvfb-run -a -s "-screen 0 1600x1000x24" env LANG=C.UTF-8 LC_ALL=C.UTF-8 \
         SCRIPT=pistol/hammer_assembly.py OUT=/tmp/side.png VIEW=front \
-        PARTS=Frame_side,Frame_side_band CHECKS=0 \
+        PARTS=Frame_side_band,Frame_right CHECKS=0 \
         freecad tools/render_view.py
 
 SCRIPT ... generator, relative to the repo

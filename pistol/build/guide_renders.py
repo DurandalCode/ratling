@@ -135,7 +135,7 @@ SUBS = [
          moves=[{2: O}, {1: O}]),
     dict(id="s09", view=OBLIQUE, context=[],
          parts=[(hammer_r, PRINT2, O), (mainsprings, SPRING, V(0, -28, 0)), (shaft, METAL, V(0, 60, 0)),
-                (crank_pin.copy(), METAL, V(0, 22, 0))],
+                (CRANK_FASTENER, METAL, V(0, 22, 0))],
          moves=[{1: O}, {3: O}, {}]),
     dict(id="s10", view=OBLIQUE, context=[frame.common(box(TRIGGER_CHEEKS["x"][0] - 8, TRIGGER_CHEEKS["x"][1] + 8, -12, 12,
                                                        fz[0], TRIGGER_PIVOT.z + 6))],

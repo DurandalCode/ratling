@@ -267,11 +267,43 @@ LOCK_SEAT_N = 20.0                  # sleeve onto the breech's O-ring before the
 MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-27.5, -16.7), (-16.3, -5.6)))   # music wire torsion springs, x2, both left.
 # 2026-11-08: with the pivot at -85 the ball's shell pinches at the coils' rear corner, so the pair sits
 # ~2.7 further in and each spring's pitch closes ~0.9 (still 6 coils each: the pair's rate is unchanged).
-SPRING_PEG = (45.0, 9.5, 1.5)       # on the hammer's hub, left face: direction at rest, radius, pin radius (the springs' legs);
+SPRING_PEG = (45.0, 9.5, 1.5)       # spring-stop contact nose: direction at rest, centre radius, nose radius
                                     # 45 deg since 2026-11-08: at 30 the peg's rim grazed the upper-left rod head's washer
 SLEEVE_R = 7.0                      # the hammer's sleeve on the axle, hub to crank: one printed part
-GUIDE_ROD = dict(x=-8.5, y=28.6, d=3.0, z=(-68.5, 25.5))   # Ø3 rod, 94 mm: drops in from the ceiling and
+try:
+    HAMMER_RIGHT_FACE              # assembly's right-cover outside face; keep the bearing tied to it
+except NameError:
+    HAMMER_RIGHT_FACE = 45.0
+HAMMER_BEARING_WALL, HAMMER_BEARING_CLEAR = 2.5, 0.20
+HAMMER_JOURNAL_END = HAMMER_RIGHT_FACE - HAMMER_BEARING_WALL - HAMMER_BEARING_CLEAR
+GUIDE_ROD = dict(x=-9.7, y=28.6, d=3.0, z=(-68.5, 25.5))   # Ø3 rod, 94 mm: drops in from the ceiling and
                                                              # stops 1.2 mm short of the underside (z -70)
+
+
+# Two M3 x 6 shoulder joints: standard cylindrical heads, M3 nuts and Ø7 x 0.5 washers.
+DRIVE_BOLT_L, DRIVE_HEAD_R, DRIVE_HEAD_H = 6.0, 2.75, 3.0
+DRIVE_GUIDE_R, DRIVE_SLOT_R = 2.5, 2.7
+DRIVE_WASHER_R, DRIVE_WASHER_T = 3.5, 0.5
+DRIVE_CRANK_HEAD_Y, DRIVE_CRANK_COLLAR_Y = 37.4, 36.9
+DRIVE_SECTOR_ARM_R, DRIVE_SECTOR_HALF_W = 35.0, 6.0
+
+
+def _drive_hex_y(x_, z_, y0_, y1_, af_):
+    r_ = af_ / math.sqrt(3.0)
+    pts_ = [V(x_ + r_ * math.cos(math.radians(30 + 60 * k)), y0_, z_ + r_ * math.sin(math.radians(30 + 60 * k))) for k in range(6)]
+    return Part.Face(Part.makePolygon(pts_ + [pts_[0]])).extrude(YA * (y1_ - y0_))
+
+
+def _drive_hex_x(y_, z_, x0_, x1_, af_):
+    r_ = af_ / math.sqrt(3.0)
+    pts_ = [V(x0_, y_ + r_ * math.cos(math.radians(60 * k)), z_ + r_ * math.sin(math.radians(60 * k))) for k in range(6)]
+    return Part.Face(Part.makePolygon(pts_ + [pts_[0]])).extrude(XA * (x1_ - x0_))
+
+
+def _drive_capsule_x(x0_, x1_, y0_, y1_, r_):
+    return (box(x0_, x1_, y0_, y1_, -r_, r_)
+            .fuse(Part.makeCylinder(r_, x1_ - x0_, V(x0_, y0_, 0), XA))
+            .fuse(Part.makeCylinder(r_, x1_ - x0_, V(x0_, y1_, 0), XA)))
 
 
 def hammer_rot(c):                  # rotation about +y: cocking turns the spur back (negative)
@@ -331,19 +363,62 @@ for (a0, b0), (a1, b1) in zip(SPUR_COMB, SPUR_COMB[1:]):                      # 
 spur = spur.fuse(Part.makeCylinder(4.0, 10, _sp(28.5, 19.5, -5.0), YA))          # a knuckle at the comb's heel, wider
 c_tip0 = _at(H, crank_angle(0.0), HAMMER_ARM)
 crank = _rod(H, c_tip0, 8.0, CRANK_Y[0], CRANK_Y[1] - CRANK_Y[0])
-crank_pin = Part.makeCylinder(1.5, BRACKET_Y[1] + 0.5 - CRANK_Y[0], V(c_tip0.x, CRANK_Y[0], c_tip0.z), YA)
-SHAFT_Y = (-42.0, CRANK_Y[1] + 6.0)  # a fixed Ø8 steel axle through both walls of the cage; the hammer turns on it
+# The collar carries sliding load and stops the washer before it can clamp the bracket.
+crank = crank.fuse(Part.makeCylinder(5.0, 3.5, V(c_tip0.x, 31.5, c_tip0.z), YA))
+crank = crank.fuse(Part.makeCylinder(DRIVE_GUIDE_R, DRIVE_CRANK_COLLAR_Y - CRANK_Y[1], V(c_tip0.x, CRANK_Y[1], c_tip0.z), YA)).removeSplitter()
+crank = crank.cut(Part.makeCylinder(1.7, 15, V(c_tip0.x, 28, c_tip0.z), YA)).cut(_drive_hex_y(c_tip0.x, c_tip0.z, 31.4, 34.1, 5.9)).removeSplitter()
+_crank_bolt = Part.makeCylinder(1.5, DRIVE_BOLT_L, V(c_tip0.x, DRIVE_CRANK_HEAD_Y - DRIVE_BOLT_L, c_tip0.z), YA)
+_crank_bolt = _crank_bolt.fuse(Part.makeCylinder(DRIVE_HEAD_R, DRIVE_HEAD_H, V(c_tip0.x, DRIVE_CRANK_HEAD_Y, c_tip0.z), YA))
+_crank_nut = _drive_hex_y(c_tip0.x, c_tip0.z, 31.7, 34.1, 5.5).cut(Part.makeCylinder(1.5, 3, V(c_tip0.x, 31.4, c_tip0.z), YA))
+_crank_washer = Part.makeCylinder(DRIVE_WASHER_R, DRIVE_WASHER_T, V(c_tip0.x, DRIVE_CRANK_COLLAR_Y, c_tip0.z), YA).cut(
+    Part.makeCylinder(1.6, 0.7, V(c_tip0.x, DRIVE_CRANK_COLLAR_Y - 0.1, c_tip0.z), YA))
+CRANK_FASTENER = Part.makeCompound([_crank_bolt, _crank_nut, _crank_washer])
+SHAFT_Y = (-42.0, HAMMER_RIGHT_FACE - 0.5)  # fixed Ø8 axle engages the cover's outer bearing land
 shaft = Part.makeCylinder(4.0, SHAFT_Y[1] - SHAFT_Y[0], V(H.x, SHAFT_Y[0], H.z), YA)
-sleeve = Part.makeCylinder(SLEEVE_R, CRANK_Y[0] - 4.9, V(H.x, 4.9, H.z), YA)          # hub to crank: one part
+sleeve = Part.makeCylinder(SLEEVE_R, HAMMER_JOURNAL_END - 4.9, V(H.x, 4.9, H.z), YA)   # overlaps the crank and centres in the right cover
+_crank_d = (c_tip0 - H).normalize()
+_crank_n = _crank_d.cross(YA).normalize()
+
+
+def _crank_root_point(u_, y_):
+    return V(H.x, y_, H.z) + _crank_d * u_ - _crank_n * 4.0
+
+
+_root_y = CRANK_Y[0]
+_root_curve = Part.BezierCurve()
+_root_curve.setPoles([_crank_root_point(5, _root_y - 4), _crank_root_point(5, _root_y - 2),
+                       _crank_root_point(11, _root_y + 0.05), _crank_root_point(16, _root_y + 0.05)])
+crank_root = Part.Face(Part.Wire([_root_curve.toShape(),
+                                Part.makeLine(_crank_root_point(16, _root_y + 0.05), _crank_root_point(5, _root_y + 0.05)),
+                                Part.makeLine(_crank_root_point(5, _root_y + 0.05), _crank_root_point(5, _root_y - 4))])).extrude(_crank_n * 8)
 peg_at = _at(H, SPRING_PEG[0], SPRING_PEG[1])
-peg = Part.makeCylinder(SPRING_PEG[2], -4.9 - MAINSPRING["y"][0][0], V(peg_at.x, MAINSPRING["y"][0][0], peg_at.z), YA)
-# The Ø3 crank pin rides the slider's bracket slot: give the arm a hole to glue it into (as the
-# slider's pin, same bug there) - it had none, the drawn pin just overlapped solid plastic.
-hammer_body = (hub_h.fuse(spur).fuse(sleeve).fuse(crank).fuse(peg)
+# A printed teardrop rib replaces the fragile Ø3 cantilever; its inner nose keeps the spring contact.
+_stop_d = (peg_at - H).normalize()
+_stop_n = _stop_d.cross(YA).normalize()
+_stop_y0 = MAINSPRING["y"][0][0]
+
+
+def _spring_stop_point(r_, t_):
+    return V(H.x, _stop_y0, H.z) + _stop_d * r_ + _stop_n * t_
+
+
+_stop_r, _stop_nose = SPRING_PEG[1], SPRING_PEG[2]
+_stop_poles = [(_stop_r, _stop_nose), (_stop_r + 1, _stop_nose), (_stop_r + 2.5, 3),
+                (_stop_r + 4, 3), (_stop_r + 6.5, 3), (_stop_r + 6.5, 0)]
+_stop_up, _stop_down = Part.BezierCurve(), Part.BezierCurve()
+_stop_up.setPoles([_spring_stop_point(r_, t_) for r_, t_ in _stop_poles])
+_stop_down.setPoles([_spring_stop_point(r_, -t_) for r_, t_ in reversed(_stop_poles)])
+_stop_arc = Part.Arc(_spring_stop_point(_stop_r, -_stop_nose), _spring_stop_point(_stop_r - _stop_nose, 0),
+                     _spring_stop_point(_stop_r, _stop_nose)).toShape()
+_stop_face = Part.Face(Part.Wire([_stop_arc, _stop_up.toShape(), _stop_down.toShape()]))
+peg = _stop_face.extrude(YA * (4.0 - _stop_y0))   # enters the hub by 9 mm, rather than touching its end
+peg = peg.fuse(Part.makeCylinder(4.5, 10, V(peg_at.x, -5, peg_at.z), YA)).removeSplitter()
+# The M3 crank fastener is separate hardware; the printed hammer carries its nut pocket and shoulder.
+hammer_body = (hub_h.fuse(spur).fuse(sleeve).fuse(crank).fuse(crank_root).fuse(peg)
                .cut(Part.makeCylinder(4.15, 100, V(H.x, -50, H.z), YA))
-               .cut(Part.makeCylinder(1.5, CRANK_Y[1] - CRANK_Y[0] + 2.0, V(c_tip0.x, CRANK_Y[0] - 1.0, c_tip0.z), YA))
+               .cut(Part.makeCylinder(1.7, 15, V(c_tip0.x, 28, c_tip0.z), YA))
                .removeSplitter())
-HAMMER = Part.makeCompound([hammer_body, crank_pin])
+HAMMER = hammer_body
 
 
 def hammer_shape(c):
@@ -378,24 +453,38 @@ SLIDER_H = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH
 if not LOCKLESS:
     SLIDER_H = SLIDER_H.fuse(box(CHEEK_X[0], CHEEK_X[1], SLIDER_Y[0], SLIDER_Y[1], -SLIDER_REACH, 6))
 else:
-    # The guide rod (x = -8.5) is only 0.5 mm from the plate's back face (x = -9): without the old cheek its Ø3.3 hole was
-    # an open groove and the slider just lay on the rod. A boss behind the plate gives the hole a 1.5 mm wall all round.
+    # The rear guide boss encloses the Ø3.3 bore; its axis is set back to clear the sector fastener's nut pocket.
+    # Keep at least a 1 mm continuous bearing wall beside the side-loading pocket.
     SLIDER_H = SLIDER_H.fuse(box(GUIDE_ROD["x"] - 3.2, SLIDER_X[0] + 0.01, GUIDE_ROD["y"] - 3.2, GUIDE_ROD["y"] + 3.2,
                                  -SLIDER_REACH, 6))
 SLIDER_H = (SLIDER_H.fuse(box(_cx0, SLIDER_X[1], SLIDER_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
             .fuse(box(min(xs) - 8, _cx0 + 0.01, BRACKET_Y[0], BRACKET_Y[1], D_YOKE - 6, D_YOKE + 6))
-            .cut(box(min(xs) - 2, max(xs) + 2, BRACKET_Y[0] - 1, BRACKET_Y[1] + 1, D_YOKE - 1.7, D_YOKE + 1.7)))
+            .cut(box(min(xs) - 3, max(xs) + 3, BRACKET_Y[0] - 1, BRACKET_Y[1] + 1, D_YOKE - DRIVE_SLOT_R, D_YOKE + DRIVE_SLOT_R)))
+SLIDER_H = SLIDER_H.cut(box(min(xs) - 4, max(xs) + 4, 36.7, BRACKET_Y[1] + 0.2, D_YOKE - 3.7, D_YOKE + 3.7))
 if not LOCKLESS:
     SLIDER_H = SLIDER_H.cut(cam_slot())
 SLIDER_H = SLIDER_H.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100), ZA))
-# The Ø3 steel pin that drives the sector sits in a hole through the slider's plate (glued; it had no hole at all, the
-# drawn pin just overlapped solid plastic): the slider's pin height is z = 0 in its own frame, y = PIN_Y.
-SLIDER_H = SLIDER_H.cut(Part.makeCylinder(1.5, SLIDER_X[1] - SLIDER_X[0] + 2.0, V(SLIDER_X[0] - 1.0, PIN_Y, 0), XA))
+# A side-loaded nut and integral shoulder replace the glued slider-to-sector pin.
+_drive_receiver = Part.makeCylinder(4.5, 5.2, V(-9, PIN_Y, 0), XA).common(box(-15, 2, 22.2, 40, -20, 20))
+SLIDER_H = SLIDER_H.fuse(_drive_receiver).fuse(Part.makeCylinder(DRIVE_GUIDE_R, 1.9, V(-3.8, PIN_Y, 0), XA)).removeSplitter()
+SLIDER_H = SLIDER_H.cut(Part.makeCylinder(1.7, 9.5, V(-7.5, PIN_Y, 0), XA))   # stops just beyond the 6 mm bolt tip, preserving the guide-bearing wall
+SLIDER_H = SLIDER_H.cut(_drive_hex_x(PIN_Y, 0, -7.4, -4.8, 5.9)).cut(box(-7.4, -4.8, 18.5, PIN_Y, -3.45, 3.45))
+SLIDER_H = SLIDER_H.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100), ZA)).removeSplitter()
+_drive_arm = box(SECTOR_X[0], SECTOR_X[1], SECTOR_R[0], DRIVE_SECTOR_ARM_R, -DRIVE_SECTOR_HALF_W, DRIVE_SECTOR_HALF_W)
+_drive_slot = turned(_drive_capsule_x(-5, 2, PIN_Y, PIN_R0, DRIVE_SLOT_R), ARM_A0)
+_drive_washer_lane = turned(_drive_capsule_x(-2.1, 2, PIN_Y, PIN_R0, 3.7), ARM_A0)
+sector_base = sector_base.fuse(turned(_drive_arm, ARM_A0)).removeSplitter().cut(_drive_slot).cut(_drive_washer_lane).removeSplitter()
+if FLEX_PAWL:
+    sector_base_blank = sector_base_blank.fuse(turned(_drive_arm, ARM_A0)).removeSplitter().cut(_drive_slot).cut(_drive_washer_lane).removeSplitter()
+_slider_bolt = Part.makeCylinder(1.5, DRIVE_BOLT_L, V(-7.4, PIN_Y, 0), XA).fuse(Part.makeCylinder(DRIVE_HEAD_R, DRIVE_HEAD_H, V(-1.4, PIN_Y, 0), XA))
+_slider_nut = _drive_hex_x(PIN_Y, 0, -7.2, -4.8, 5.5).cut(Part.makeCylinder(1.5, 4, V(-8, PIN_Y, 0), XA))
+_slider_washer = Part.makeCylinder(DRIVE_WASHER_R, DRIVE_WASHER_T, V(-1.9, PIN_Y, 0), XA).cut(Part.makeCylinder(1.6, 0.7, V(-2, PIN_Y, 0), XA))
+SLIDER_FASTENER = Part.makeCompound([_slider_bolt, _slider_nut, _slider_washer])
 
 
 def slider_h(c):
     z = slider_z(c)
-    return SLIDER_H.translated(V(0, 0, z)), cyl_x(3.0, SLIDER_X[0], SECTOR_X[1], PIN_Y, z)
+    return SLIDER_H.translated(V(0, 0, z)), SLIDER_FASTENER.translated(V(0, 0, z))
 
 
 # ---------------------------------------------------------------- lock pusher (ring in the flange's bore, lug and pin to the cam)
@@ -587,12 +676,13 @@ def pose(st):
     tooth_ = pawl_tooth.translated(V(-PAWL_BACK * st["bend"], 0, 0))
     return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec),
             "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Hammer": hammer_shape(c),
+            "Crank_fastener": _rot_y(CRANK_FASTENER, H, hammer_rot(c)),
             "Trigger": trigger_h(st["trig"])} | ({} if FLEX_PAWL else {"Pawl": turned(tooth_, sec)}) \
         | ({} if LOCKLESS else {"Sleeve": lock_sleeve(lock_h(c)), "Pusher": pusher_shape(lock_h(c))})
 
 
 STYLE = dict(STYLE)
-STYLE.update({"Hammer": ((0.35, 0.25, 0.2), 0), "Pusher": ((0.75, 0.45, 0.85), 0)})
+STYLE.update({"Crank_fastener": ((0.75, 0.75, 0.78), 0), "Hammer": ((0.35, 0.25, 0.2), 0), "Pusher": ((0.75, 0.45, 0.85), 0)})
 for k in ("Lever", "Wedge"):
     STYLE.pop(k, None)
 REST = dict(cock=0.0, block=0.0, bend=0.0, trig=0.0)
@@ -614,7 +704,7 @@ for i in range(11):
     c = i / 10
     st = dict(cock=c, block=block_drive(c), bend=0.0, trig=0.0)
     sh = pose(st)
-    for mv_ in [m_ for m_ in ("Hammer", "Slider", "Pusher", "Sector", "Sleeve", "Trigger", "Pin") if m_ in sh]:
+    for mv_ in [m_ for m_ in ("Hammer", "Crank_fastener", "Slider", "Pusher", "Sector", "Sleeve", "Trigger", "Pin") if m_ in sh]:
         for fx_, s_ in FIXED.items():
             v_ = sh[mv_].common(s_).Volume
             worst[(mv_, fx_)] = max(worst.get((mv_, fx_), 0.0), v_)
