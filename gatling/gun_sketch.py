@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Gatling finished-product silhouette (not a bench).
+Gatling finished-product silhouette (gun body only — no carriage/bench).
 
-Reads as an assembled gun: 6 QEV stations on R68, front/rear spiders, breech
-casing over hub+MQR, top pellet hopper, rear hand crank, light field carriage
-(wheels + trail + trunnions). Warm = spins with the pack, cool = stays on the
-carriage. Block sketch only — no full station CAD, hoses, or chronograph.
+Assembled gun: 6 QEV stations on R68, front spiders/clamp, breech casing over
+hub+MQR, top pellet hopper, rear hand crank, side cheeks. Warm = spins with
+the pack, cool = stays fixed. Block sketch only — no full station CAD, hoses,
+chronograph, or wheeled mount.
 
 Visual cues (refs, not copies):
-  Civil War / 1862–83 Gatling — barrel cluster on shaft, breech casing, top
-  feed, rear crank, wheeled carriage with trail.
+  Civil War / 1862–83 Gatling — barrel cluster, breech casing, top feed, crank.
   Modern M134 — compact 6-barrel clamp + enclosed receiver at the breech.
   Our kit — fat-coax chambers Ø50×130, barrels Ø25×180, MQR air only.
 
@@ -91,20 +90,13 @@ z_stub1 = z_stator1 + STATOR_HUB_L
 AXLE_L = z_axle1 - z_axle0
 PACK_R = R + CH_OD / 2 + 6.0
 
-# Carriage / product frame (cool). Machine frame: +X up, +Y left (crank), +Z muzzle
-# (see ratling/fcview.py VIEW_ROT).
+# Product frame (cool). Machine frame: +X up, +Y left (crank), +Z muzzle
+# (see ratling/fcview.py VIEW_ROT). No wheeled carriage.
 CASE_OD = 2 * PACK_R + 28.0          # breech casing around rear cluster
 CASE_T = 4.0
 HOPPER_W, HOPPER_D, HOPPER_H = 70.0, 55.0, 85.0
 CRANK_ARM, CRANK_GRIP = 100.0, 55.0
-WHEEL_OD, WHEEL_T = 220.0, 28.0
-TRAIL_L, TRAIL_W, TRAIL_T = 380.0, 36.0, 22.0
 CHEEK_T = 12.0
-
-z_carriage = (z_ch0 + z_ch1) / 2
-# Ground is −X; carriage axle across ±Y.
-x_axle_car = -(PACK_R + 55.0)
-x_ground = x_axle_car - WHEEL_OD / 2
 
 V = App.Vector
 
@@ -193,7 +185,7 @@ rear_disk = G.cyl(CASE_OD, z_stub1, z_stub1 + 8.0).cut(
     G.cyl(STATOR_HUB_OD + 0.5, z_stub1 - 1, z_stub1 + 10))
 casing = casing.fuse(rear_disk).removeSplitter()
 
-# Cheek plates on ±Y + trunnion pins (carry the gun on the carriage).
+# Side cheeks on ±Y (receiver frame only — no trunnions / no carriage).
 cheek_z0 = z_case0 - 5.0
 cheek_z1 = z_case1 + 5.0
 cheeks = []
@@ -201,10 +193,7 @@ for sy in (-1.0, 1.0):
     y0 = (-CASE_OD / 2 - CHEEK_T - 2.0) if sy < 0 else (CASE_OD / 2 + 2.0)
     cheek = Part.makeBox(CASE_OD * 0.42, CHEEK_T, cheek_z1 - cheek_z0,
                          V(-CASE_OD * 0.18, y0, cheek_z0))
-    pin = Part.makeCylinder(10.0, 20.0,
-                            V(0, y0 + (CHEEK_T if sy > 0 else 0), z_carriage),
-                            V(0, sy, 0))
-    cheeks.append(cheek.fuse(pin))
+    cheeks.append(cheek)
 cheeks_s = G.fuse_all(cheeks).removeSplitter()
 
 # Top hopper on +X (gravity feed — Civil War cue; pellets for us).
@@ -225,45 +214,24 @@ grip = Part.makeCylinder(8.0, CRANK_GRIP,
                          V(0, 1, 0))
 crank = crank_hub.fuse(arm).fuse(grip).removeSplitter()
 
-# Field carriage: axle along Y, wheels at ±Y, trail aft (+Z).
-track = CASE_OD / 2 + 55.0
-car_axle = Part.makeCylinder(10.0, 2 * track + 40.0,
-                             V(x_axle_car, -track - 20.0, z_carriage),
-                             V(0, 1, 0))
-wheels = []
-for sy in (-1.0, 1.0):
-    wy = sy * track
-    tire = Part.makeCylinder(WHEEL_OD / 2, WHEEL_T,
-                             V(x_axle_car, wy - sy * WHEEL_T / 2, z_carriage),
-                             V(0, sy, 0))
-    tire = tire.cut(Part.makeCylinder(
-        WHEEL_OD / 2 - 16.0, WHEEL_T + 4,
-        V(x_axle_car, wy - sy * (WHEEL_T / 2 + 1), z_carriage), V(0, sy, 0)))
-    hub_w = Part.makeCylinder(22.0, WHEEL_T + 6,
-                              V(x_axle_car, wy - sy * (WHEEL_T / 2 + 1), z_carriage),
-                              V(0, sy, 0))
-    spokes = []
-    for ang in (0.0, 45.0, 90.0, 135.0):
-        sp = Part.makeBox(WHEEL_OD - 40.0, WHEEL_T - 6.0, 8.0,
-                          V(x_axle_car - (WHEEL_OD - 40.0) / 2,
-                            wy - sy * (WHEEL_T / 2 - 3),
-                            z_carriage - 4.0))
-        sp.rotate(V(x_axle_car, wy, z_carriage), V(0, 1, 0), ang)
-        spokes.append(sp)
-    wheels.append(G.fuse_all([tire, hub_w] + spokes))
-trail = Part.makeBox(TRAIL_T, TRAIL_W, TRAIL_L,
-                     V(x_axle_car - 8.0, -TRAIL_W / 2, z_carriage + 10.0))
-uprights = []
-for sy in (-1.0, 1.0):
-    up = Part.makeBox(abs(x_axle_car) + 10.0, 16.0, 28.0,
-                      V(x_axle_car,
-                        sy * (CASE_OD / 2 + 8.0) - 8.0,
-                        z_carriage - 14.0))
-    uprights.append(up)
-carriage = Part.makeCompound([car_axle, trail] + uprights + wheels)
-
 cheeks_s = cheeks_s.cut(pack).removeSplitter()
 casing = casing.cut(pack).removeSplitter()
+
+# Overall gun body (no carriage) for bounding-box sizes.
+gun = Part.makeCompound([
+    pack, front_spider, front_clamp, axle, hub, rotor, stator,
+    brg_f, brg_r, casing, hopper, crank, cheeks_s,
+])
+bb = gun.BoundBox
+# Machine frame: +X up, +Y left, +Z muzzle → length=Z, width=Y, height=X.
+gun_L = bb.ZLength
+gun_W = bb.YLength
+gun_H = bb.XLength
+pack_L = z_qev_aft - z_muzzle
+case_L = z_case1 - z_case0
+hop_bb = hopper.BoundBox
+crank_bb = crank.BoundBox
+pack_OD = 2 * (R + CH_OD / 2)
 
 # ---------------------------------------------------------------- checks
 checks = [
@@ -273,27 +241,33 @@ checks = [
     ("casing solid", G.single_solid(casing)),
     ("hopper solid", G.single_solid(hopper)),
     ("crank solid", G.single_solid(crank)),
-    ("carriage present", carriage.Volume > 1e5),
+    ("cheeks present", cheeks_s.Volume > 1e4),
     ("axle spans pack (%.0f)" % AXLE_L, AXLE_L >= (z_qev_aft - z_muzzle)),
     ("axle out of MQR bore",
      axle.common(G.cyl(THROUGH + 0.5, z_rotor0, z_stub1)).Volume < 1.0),
     ("pack clears casing (vol %.1f)" % pack.common(casing).Volume,
      pack.common(casing).Volume < 1.0),
-    ("pack clears carriage (vol %.1f)" % pack.common(carriage).Volume,
-     pack.common(carriage).Volume < 1.0),
     ("hub/rotor gap", abs((z_rotor0 - z_hub1) - MQR_GAP) < 1e-6),
 ]
 report = [
     NAME,
-    "  sketch                 : finished gatling product (not a bench)",
+    "  sketch                 : finished gatling body (no carriage / no bench)",
     "  rotates (warm)         : stations, spiders/clamp, axle, hub, MQR rotor",
-    "  fixed (cool)           : breech casing, hopper, crank, cheeks, carriage, MQR stator",
+    "  fixed (cool)           : breech casing, hopper, crank, cheeks, MQR stator",
     "  pack                   : 6@R%.0f, barrel Ø%.0f×%.0f + chamber Ø%.0f×%.0f"
     % (R, BARREL_OD, BARREL_L, CH_OD, CH_L),
     "  axle                   : Ø%.0f/%.0f × %.0f mm (nose→hub)" % (AXLE_OD, AXLE_ID, AXLE_L),
-    "  product cues           : casing + hopper + crank + wheeled trail carriage",
-    "  refs                   : 1862–83 Gatling carriage/feed/crank; M134 6-barrel clamp",
-    "  not drawn              : hoses, AirTAC detail, chronograph, full station CAD",
+    "  overall L×W×H          : %.0f × %.0f × %.0f mm (Z × Y × X)"
+    % (gun_L, gun_W, gun_H),
+    "  pack length / OD       : %.0f mm / Ø%.0f mm" % (pack_L, pack_OD),
+    "  breech casing          : L %.0f × Ø%.0f mm" % (case_L, CASE_OD),
+    "  hopper bbox            : %.0f × %.0f × %.0f mm (X×Y×Z)"
+    % (hop_bb.XLength, hop_bb.YLength, hop_bb.ZLength),
+    "  crank bbox             : %.0f × %.0f × %.0f mm (X×Y×Z)"
+    % (crank_bb.XLength, crank_bb.YLength, crank_bb.ZLength),
+    "  product cues           : casing + hopper + crank (no wheeled mount)",
+    "  refs                   : 1862–83 Gatling feed/crank/casing; M134 clamp",
+    "  not drawn              : carriage, hoses, AirTAC detail, full station CAD",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 print("\n".join(report))
@@ -303,8 +277,7 @@ FV.STYLES["spin_hub"] = ((0.85, 0.70, 0.20), 20)
 FV.STYLES["spin_st"] = ((0.90, 0.55, 0.28), 55)
 FV.STYLES["spin_plate"] = ((0.80, 0.45, 0.18), 30)
 FV.STYLES["fixed"] = ((0.40, 0.62, 0.88), 35)
-FV.STYLES["fixed_case"] = ((0.55, 0.48, 0.38), 40)   # bronze-ish breech casing
-FV.STYLES["fixed_wood"] = ((0.55, 0.38, 0.22), 25)  # trail / carriage wood
+FV.STYLES["fixed_case"] = ((0.55, 0.48, 0.38), 40)
 FV.STYLES["fixed_iron"] = ((0.45, 0.48, 0.52), 30)
 FV.STYLES["fixed_hop"] = ((0.35, 0.55, 0.40), 35)
 
@@ -324,14 +297,13 @@ sc.add("Fixed", "Breech_casing", casing, "fixed_case")
 sc.add("Fixed", "Hopper", hopper, "fixed_hop")
 sc.add("Fixed", "Crank", crank, "fixed_iron")
 sc.add("Fixed", "Cheeks", cheeks_s, "fixed_iron")
-sc.add("Fixed", "Carriage", carriage, "fixed_wood")
 
 for text, pos in [
     ("6 стволов R%.0f (QEV)" % R, (30, R + 50, z_ch0)),
     ("бункер пульки", (hopper_x0 + HOPPER_H + 15, 0, z_hub0 + 20)),
     ("казённый кожух + MQR", (0, CASE_OD / 2 + 35, (z_case0 + z_case1) / 2)),
     ("рукоять", (20, CASE_OD / 2 + CRANK_ARM + 30, crank_z)),
-    ("лафет", (x_ground + 30, 0, z_carriage + TRAIL_L * 0.55)),
+    ("L≈%.0f мм" % gun_L, (CASE_OD / 2 + 20, 0, gun_L / 2)),
     ("дуло →", (20, R + 25, 30)),
 ]:
     sc.label("Labels", text, pos)
@@ -354,8 +326,8 @@ def write(shape, name):
 write(pack, "stations")
 for n, s in (("axle", axle), ("hub", hub), ("mqr_rotor", rotor), ("mqr_stator", stator),
              ("breech_casing", casing), ("hopper", hopper), ("crank", crank),
-             ("carriage", carriage), ("cheeks", cheeks_s),
-             ("spider_front", front_spider), ("clamp_front", front_clamp)):
+             ("cheeks", cheeks_s), ("spider_front", front_spider),
+             ("clamp_front", front_clamp)):
     write(s, n)
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
     f.write("\n".join(report) + "\n")
