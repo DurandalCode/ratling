@@ -275,25 +275,6 @@ report = [
 if not PACK_FRAME_LIBRARY:
     print("\n".join(report))
 
-# ---------------------------------------------------------------- Mechanismus overlays (optional)
-if not PACK_FRAME_LIBRARY:
-    a16_rear_plate = built["A16"][2]["rear"][0]
-    a16_front_plate = built["A16"][2]["front"][0]
-    a19_rear_plate = built["A19"][2]["rear"][0]
-    a19_front_plate = built["A19"][2]["front"][0]
-    MASK_PRODUCT = globals().get("MASK_PRODUCT") or os.environ.get("MASK_PRODUCT") or "mitrailleuse"
-    exec(open(os.path.join(REPO, "tools", "mask_overlays.py")).read())
-    if apply_mask_overlays(REPO, globals(), MASK_PRODUCT):
-        def _put_plate(tag, side, shape):
-            key, mods, plates = built[tag]
-            plates = dict(plates)
-            plates[side] = (shape, plates[side][1])
-            built[tag] = (key, mods, plates)
-        _put_plate("A16", "rear", a16_rear_plate)
-        _put_plate("A16", "front", a16_front_plate)
-        _put_plate("A19", "rear", a19_rear_plate)
-        _put_plate("A19", "front", a19_front_plate)
-
 # ---------------------------------------------------------------- document and exports
 if not PACK_FRAME_LIBRARY:
     os.makedirs(OUT_DIR, exist_ok=True)

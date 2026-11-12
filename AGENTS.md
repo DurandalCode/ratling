@@ -30,6 +30,7 @@
 | Гатлинг QEV (эскиз) | `gatling/fat_coax_qev.py`, `gatling/linear_breech.py`, `gatling/linear_breech_bench.py` | `docs/gatling.md` |
 | Пистолет | `pistol/hammer_assembly.py`, `pistol/hammer_layout.py`, `pistol/build/` | `pistol/build/README.md` |
 | Печать | `tools/print_plate.py`, `*_plates.sh` | `.claude/skills/plates/SKILL.md` |
+| Конвейер правок через GPT (Mechanismus) | `experiments/gpt-mask/mask`, `mask_sync.py`, `rename.py`, `names.json`, `products/*.json` | `experiments/gpt-mask/README.md` |
 | Трубка 25 мм, пробка, селектор | `connectors/`, `selector/`, `ratling/params.py` | `docs/requirements.md` |
 
 ## Как устроен код
@@ -138,3 +139,26 @@ freecadcmd -c "REPO='$PWD'; exec(open('module/stage3v4_coaxial_chamber.py').read
   солидов, `distToShape`. Полный свип курка и спуска (~40 с) сам не включается ни в конце правки,
   ни перед коммитом. Картинка одна и после пробы. Подпись к картинке не доказательство: дыру и
   стык подтверждают объём или сечение.
+
+## Словарь Mechanismus (`experiments/gpt-mask/names.json`)
+
+Генераторы уходят к GPT с заменой слов на нейтральные (`mask out`), правки возвращаются обратной
+заменой (`mask in`). Словарь ведём руками, в том же коммите, что и код:
+
+- Ввёл в файлы цепочки (корни в `experiments/gpt-mask/products/*.json` и всё, что они подтягивают
+  через `exec` и `import`) слово, которое выдаёт проект (изделие, предметная область, названия
+  деталей реального устройства, имя производителя) — добавь в `words` пару `живое: нейтральное`.
+  Нейтральное — только строчные латинские буквы, уникальное, не встречается в исходниках.
+  Слово смешанного регистра (`AirTAC`) идёт в `exact` с учётом регистра.
+- Проверка без FreeCAD: `experiments/gpt-mask/mask out -p pistol` (и `mitrailleuse`). Он
+  отказывается писать, если нейтральное слово уже есть в коде, если в выгрузке осталось слово из
+  `forbidden_substrings` или замена необратима. Новый корень проекта (имя, которое не должно
+  уйти) добавляй и в `forbidden_substrings`.
+- Обратная сторона: GPT тоже вводит слова. После `mask in` смотри строки `new words` и
+  `WARNING`: слова, которые выдают проект или которые должны вернуться под живым именем, внеси
+  в словарь, иначе они останутся в живом коде как есть. Слова GPT, совпавшие с живым словарём
+  (`WARNING`), при следующем `out` будут переименованы.
+- Русские слова в выгрузке удаляются автоматически, в живых файлах остаются. Переводить их в
+  словарь не нужно; GPT-правка строки с русским текстом даст конфликт при `in`, разреши вручную.
+- Файл подключён к цепочке не через `os.path.join(REPO, ...)` или `import ratling.*`? Допиши его
+  в `roots` профиля, иначе он не попадёт в выгрузку.

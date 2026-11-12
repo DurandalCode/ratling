@@ -1,21 +1,5 @@
 {
   "id": "mitrailleuse",
-  "overlay_dir": "mitrailleuse/mask_overlays",
-  "build_script": "mitrailleuse/pack_frame.py",
-  "build_pre": {},
-  "pull_close_docs": ["pack_frame", "rear_frame", "carry_mount"],
-  "shell": [
-    {"live": "a16_rear_plate", "stem": "pack16_rear", "label": "Pack16_rear"},
-    {"live": "a16_front_plate", "stem": "pack16_front", "label": "Pack16_front"},
-    {"live": "a19_rear_plate", "stem": "pack19_rear", "label": "Pack19_rear"},
-    {"live": "a19_front_plate", "stem": "pack19_front", "label": "Pack19_front"},
-    {"live": "head_plate", "stem": "head_plate", "label": "Head_plate"},
-    {"live": "bevel_box", "stem": "drive_box", "label": "Drive_box"},
-    {"live": "trigger_arm", "stem": "trip_arm", "label": "Trip_arm"},
-    {"live": "handle", "stem": "carry_handle", "label": "Carry_handle"},
-    {"live": "tripod_pad", "stem": "foot_pad", "label": "Foot_pad"},
-    {"live": "a16_cg_plate", "stem": "carry16_plate", "label": "Carry16_plate"},
-    {"live": "a19_cg_plate", "stem": "carry19_plate", "label": "Carry19_plate"}
-  ],
-  "drive": []
+  "roots": ["mitrailleuse/pack_frame.py", "mitrailleuse/rear_frame.py", "mitrailleuse/carry_mount.py"],
+  "build_pre": {}
 }
