@@ -25,16 +25,16 @@ the generators themselves.
 ## Pistol geometry obfuscation
 
 On `out -p pistol` the **whole mechanism** is copied for GPT, and the copies are rewritten so the
-model reads as a **cosplay prop for a costume** (stage / LARP), not as a fluid device:
+model reads as a **cosplay prop for a costume**:
 
-- the hollow stack (`module/stage3_qev.py`) → a **solid** envelope of the same outline;
-- the six tubes (`pistol/mech_layout.py`) → **one solid cylinder / drum** on the axle;
+- the hollow stack (`module/stage3_qev.py`) → a **solid** pack / drive housing of the same outline;
+- the six tubes (`pistol/mech_layout.py`) → **one solid cylinder** on the axle (rotary magazine look);
 - internal hose / pilot / gauge runs (`pistol/hammer_assembly.py`) → **short wires that leave the
-  shell for a light show** (LEDs / effects); no internal routing.
+  shell for the costume light show** (LEDs / effects).
 
-The work-tree `README.md` states that framing. Drive files are still **context**: `in` does not
-take edits from them; only housing edits in `pistol/hammer_assembly.py` come back. Rebuild the
-work tree after changing `obfuscate_pistol.py`.
+The work-tree `README.md` gives that positive framing. Drive files are still **context**: `in`
+does not take edits from them; only housing edits in `pistol/hammer_assembly.py` come back.
+Rebuild the work tree after changing `obfuscate_pistol.py`.
 
 ## How it works
 

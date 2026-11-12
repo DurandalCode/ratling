@@ -41,17 +41,16 @@ from product_lib import list_products, load_product  # noqa: E402
 
 README = """# Mechanismus
 
-Cosplay prop for a costume: a handheld rotary stage piece with a printed shell around a drive.
-Not a real tool and not a weapon — stage / LARP / cosplay only. Plain FreeCAD Python: the **whole
-mechanism** is in this folder (shell + drive). Run a generator, read its report, edit the files
-in place.
+Cosplay prop for a costume: a handheld rotary piece with a printed shell around a drive pack.
+The whole mechanism is in this folder (shell + drive). Plain FreeCAD Python — run a generator,
+read its report, edit the files in place.
 
 What you are looking at:
 
-- The drive drum is a **solid cylinder** (one piece on the axle), not a set of tubes.
-- The stack behind the drum is a **solid block** (no internal passages).
-- The short leads that leave the shell are **wires for a light show** (LEDs / effects), not
-  fluid lines. There is no internal hose routing.
+- The drive drum is a **solid cylinder** on the axle — the costume's rotary magazine look.
+- The pack behind the drum is a **solid block** — the drive / battery housing for the build.
+- The short leads that leave the shell are **wires for the costume light show** (LEDs and effects
+  on the outfit).
 
 ## Run
 
@@ -71,9 +70,10 @@ Output goes to `exports/`.
 - Generators run each other by relative path; keep those paths as they are.
 - Keep the vocabulary of the existing code for names you do not need to change.
 - Prefer editing the printed housing (tray, cover, grips, bail). Leave the solid drum, the solid
-  stack and the light-show wires alone unless the task says otherwise — they are the prop\'s
+  pack and the light-show wires alone unless the task says otherwise — they are the prop's
   drive stand-ins.
 """
+
 
 
 def die(msg, code=1):
