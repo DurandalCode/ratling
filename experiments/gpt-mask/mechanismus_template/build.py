@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Mechanismus — shell + drive solids from parts/<stem>.brep or .step (see manifest.json).
-Per part the newest file wins, so edits written as either format are picked up.
+Mechanismus — shell + drive solids from parts/<stem>.brep or .step (see manifest.json),
+with the Python edits from edits/<stem>.py applied to the Shell parts (see README.md).
 
     freecadcmd -c "HERE='$PWD'; exec(open('build.py').read())"
 """
 
 import json
 import os
+import sys
 
 import FreeCAD as App
 import Part
@@ -42,14 +43,34 @@ def part_file(stem):
     return max(found, key=os.path.getmtime) if found else None
 
 
+base = {}
 for row in PARTS:
-    stem, name, group = row["stem"], row["label"], row.get("group", "Shell")
-    path = part_file(stem)
+    path = part_file(row["stem"])
     if not path:
-        print("[skip] %s (no %s.brep / .step)" % (name, stem))
+        print("[skip] %s (no %s.brep / .step)" % (row["label"], row["stem"]))
         continue
     shape = Part.Shape()
     shape.read(path)
+    base[row["stem"]] = shape
+
+sees = {row["stem"]: row["sees"] for row in PARTS if "sees" in row}
+shell_stems = {row["stem"] for row in PARTS if row.get("group", "Shell") == "Shell"}
+sys.path.insert(0, HERE)
+import edit_runner  # noqa: E402
+
+try:
+    edited, report = edit_runner.apply(os.path.join(HERE, "edits"), base, sees=sees, editable=shell_stems)
+except edit_runner.EditError as e:
+    print("[FAIL] %s" % e, flush=True)
+    sys.exit(1)
+for line in report:
+    print("[edit] %s" % line)
+
+for row in PARTS:
+    stem, name, group = row["stem"], row["label"], row.get("group", "Shell")
+    if stem not in base:
+        continue
+    shape = edited.get(stem, base[stem])
     obj = doc.addObject("Part::Feature", name)
     obj.Shape = shape
     if group == "Shell":
@@ -60,7 +81,7 @@ for row in PARTS:
         g_drive.addObject(obj)
         if App.GuiUp:
             obj.ViewObject.ShapeColor = (0.55, 0.62, 0.70)
-    print("[OK ] %s  vol=%.0f" % (name, sum(s.Volume for s in shape.Solids)))
+    print("[OK ] %s  vol=%.0f%s" % (name, sum(s.Volume for s in shape.Solids), "  (edited)" if stem in edited else ""))
 
 doc.recompute()
 out = os.path.join(HERE, "exports")

@@ -29,6 +29,9 @@ except NameError:
 sys.path.insert(0, os.path.join(REPO, "experiments", "gpt-mask"))
 from product_lib import load_product, manifest_parts  # noqa: E402
 
+os.environ["MASK_EDITS"] = "0"      # export the base: edits are applied on top of it, never baked in
+hooks = []                           # stems present at each overlay hook = what an edit's ctx can hold
+
 product = load_product(PRODUCT)
 CACHE = os.path.join(REPO, "experiments", "gpt-mask", "cache", product["id"])
 PARTS = os.path.join(CACHE, "parts")
@@ -65,6 +68,8 @@ def exec_script(rel, pre=None):
     path = os.path.join(REPO, rel)
     print("pull_product: exec %s %s" % (rel, pre or {}), flush=True)
     exec(open(path).read(), g)
+    if g.get("MASK_HOOK_STEMS"):
+        hooks.append(list(g["MASK_HOOK_STEMS"]))
     return g
 
 
@@ -135,9 +140,15 @@ elif base_id == "mitrailleuse":
 else:
     raise SystemExit("no pull recipe for product %r" % product["id"])
 
+rows = manifest_parts(product)
+for row in rows:
+    for stems in hooks:
+        if row["stem"] in stems:
+            row["sees"] = stems
+            break
 manifest = {
     "product": product["id"],
-    "parts": manifest_parts(product),
+    "parts": rows,
 }
 with open(os.path.join(CACHE, "manifest.json"), "w", encoding="utf-8") as f:
     json.dump(manifest, f, indent=2)

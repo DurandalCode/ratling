@@ -60,6 +60,7 @@ def load_product(product_id):
     data.setdefault("build_pre", {})
     data.setdefault("pull_close_docs", [])
     data["overlay_dir"] = os.path.join(REPO_ROOT, data["overlay_dir"])
+    data["edits_dir"] = os.path.join(REPO_ROOT, data.get("edits_dir") or data["overlay_dir"][:-len("overlays")] + "edits")
     data["build_script"] = os.path.join(REPO_ROOT, data["build_script"])
     data["work_dir"] = default_work_dir(product_id)
     return data

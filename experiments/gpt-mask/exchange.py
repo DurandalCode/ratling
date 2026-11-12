@@ -147,3 +147,22 @@ def part_state(work, product, live, cache_dir, ledger=None):
         return None, "absent"
     led = load_ledger(cache_dir) if ledger is None else ledger
     return path, ("synced" if sha(path) in led.get(live, ()) else "edited")
+
+
+def edit_files(directory):
+    """{stem: path} of the edits/<stem>.py files in a directory."""
+    out = {}
+    if os.path.isdir(directory):
+        for name in sorted(os.listdir(directory)):
+            if name.endswith(".py"):
+                out[name[:-3]] = os.path.join(directory, name)
+    return out
+
+
+def edit_state(work, stem, cache_dir, ledger=None):
+    """'absent', 'synced' or 'edited' for work/edits/<stem>.py, by the same ledger as the solids."""
+    path = os.path.join(work, "edits", stem + ".py")
+    if not os.path.isfile(path):
+        return None, "absent"
+    led = load_ledger(cache_dir) if ledger is None else ledger
+    return path, ("synced" if sha(path) in led.get("edit:" + stem, ()) else "edited")

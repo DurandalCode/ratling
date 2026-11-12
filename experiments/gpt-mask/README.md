@@ -31,16 +31,22 @@ Cache of pulled parts: `experiments/gpt-mask/cache/<product>/` (gitignored).
 
 ## Both directions
 
-- `out` writes every part as `parts/<stem>.brep` plus a `.step` twin: the GPT side can read either.
-- `in` takes a part back as `.brep` or `.step`/`.stp` (STEP is converted through `freecadcmd`).
-  For each part the newest file in the work folder wins (`exports/<Label>`, `<Label>`, `parts/<stem>`).
-  Only parts edited since the last crossing are taken; `--all` takes every shell part, `--only VAR…` picks some.
-- `cache/<product>/ledger.json` keeps the hashes of files that already crossed the pipe. `status` shows
-  per shell part whether the work copy is `in sync` or `EDITED, run in`, and whether the live build
-  uses an `overlay` or the `parametric` solid.
-- `out` refuses to wipe a work folder holding edits that `in` has not taken (`--force` overrides), so
-  a live rebuild never eats unsent work. After `in` + live build, `out --rebuild` brings the edited
-  solids back into the work folder.
-- `hot` does the same continuously, including STEP.
+Python edits are the main way back; BREP/STEP stay as the way out and as a fallback in.
 
-Do not copy this README / `mask_*.py` / `pull_*.py` into the GPT workspace.
+- `out` writes every part as `parts/<stem>.brep` + `.step` twin (the **unedited** base: pull runs with
+  `MASK_EDITS=0`), `manifest.json` with per-part `sees` (which parts an edit's `ctx` can hold, taken from
+  what exists at the live overlay hook), and the current `edits/<stem>.py` from `<product>/mask_edits/`.
+  All names are the neutral stems from `products/*.json`.
+- The GPT side writes `edits/<stem>.py` with `def edit(part, ctx) -> Part.Shape`
+  (`mechanismus_template/edit_runner.py` runs them; checks: valid shape, same solid count, volume
+  50%..150%). `build.py` in the work folder applies them to the base.
+- `in` takes edited `edits/*.py`, dry-runs them against the cached base (`check_edits.py`), and only
+  then copies them to `<product>/mask_edits/` (tracked in git). A bad edit takes nothing.
+  `--edits-only` skips solids. Solids as `.brep`/`.step` still work (newest file wins, STEP is converted)
+  and land as overlays; edits are applied on top of overlays.
+- Live generators call `tools/mask_overlays.py`: overlays first, then edits, loud failure on a bad edit.
+  `MASK_EDITS=0` turns edits off.
+- `cache/<product>/ledger.json` keeps hashes of files that already crossed; `status` shows per shell part
+  whether the work solid and the work edit are `in sync` or `EDITED, run in`.
+- `out` refuses to wipe a work folder holding edits not taken by `in` (`--force` overrides).
+- `hot` syncs edits both ways (and solids, including STEP).

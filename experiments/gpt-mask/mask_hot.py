@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 sys.path.insert(0, HERE)
-from exchange import find_work_shell, is_brep, record, to_brep  # noqa: E402
+from exchange import edit_files, find_work_shell, is_brep, record, to_brep  # noqa: E402
 from product_lib import label_to_live, list_products, live_to_stem, load_product  # noqa: E402
 
 SYNC = os.path.join(HERE, "mask_sync.py")
@@ -75,6 +75,9 @@ class HotState(object):
         self.last_work = {}
         self.last_overlay = {}
         self.stats = {"in": 0, "out_overlay": 0, "errors": 0}
+        self.shell_stems = {p["stem"] for p in product["shell"]}
+        self.last_edit_work = {}
+        self.last_edit_repo = {}
         self._seed()
 
     def _ignore(self, path, seconds=2.0):
@@ -112,6 +115,38 @@ class HotState(object):
             self.last_work[live] = fingerprint(path)
         for live, path in self.overlay_paths().items():
             self.last_overlay[live] = fingerprint(path)
+        self.last_edit_work = {k: fingerprint(p) for k, p in self.work_edits().items()}
+        self.last_edit_repo = {k: fingerprint(p) for k, p in self.repo_edits().items()}
+
+    def work_edits(self):
+        found = edit_files(os.path.join(self.work, "edits"))
+        return {k: v for k, v in found.items() if k in self.shell_stems}
+
+    def repo_edits(self):
+        return {k: v for k, v in edit_files(self.product["edits_dir"]).items() if k in self.shell_stems}
+
+    def sync_edits(self):
+        work = self.work_edits()
+        if any(fingerprint(p) != self.last_edit_work.get(k) for k, p in work.items()):
+            if run_sync(["in", "--product", self.product_id, self.work, "--edits-only"]) == 0:
+                self.stats["in"] += 1
+            else:
+                self.stats["errors"] += 1
+            self.last_edit_work = {k: fingerprint(p) for k, p in self.work_edits().items()}
+            self.last_edit_repo = {k: fingerprint(p) for k, p in self.repo_edits().items()}
+        for stem, path in self.repo_edits().items():
+            fp = fingerprint(path)
+            if fp == self.last_edit_repo.get(stem):
+                continue
+            dst = os.path.join(self.work, "edits", stem + ".py")
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            if not same_file(path, dst):
+                shutil.copy2(path, dst)
+                self.stats["out_overlay"] += 1
+                log("out edits/%s.py ← %s" % (stem, path))
+            record(self.cache_dir, "edit:" + stem, dst)
+            self.last_edit_repo[stem] = fp
+            self.last_edit_work[stem] = fingerprint(dst)
 
     def copy_to_overlay(self, live, src):
         os.makedirs(self.overlay_dir, exist_ok=True)
@@ -180,6 +215,7 @@ class HotState(object):
                     except Exception as e:
                         self.stats["errors"] += 1
                         log("out error %s: %s" % (live, e))
+            self.sync_edits()
             self._check_sentinels()
 
     def _check_sentinels(self):
@@ -240,6 +276,8 @@ class HotState(object):
             "stats": self.stats,
             "shell_in_work": sorted(self.work_shell_paths().keys()),
             "shell_overlays": sorted(self.overlay_paths().keys()),
+            "edits_in_work": sorted(self.work_edits().keys()),
+            "edits_in_repo": sorted(self.repo_edits().keys()),
         }
 
 

@@ -3,6 +3,7 @@
   "extends": "mitrailleuse",
   "note": "Concept B (rotating pack) has no live print generators yet; uses the same printed frame set as mitrailleuse until then.",
   "overlay_dir": "mitrailleuse/mask_overlays",
+  "edits_dir": "mitrailleuse/mask_edits",
   "shell": [
     {"live": "a16_rear_plate", "stem": "pack16_rear", "label": "Pack16_rear"},
     {"live": "a16_front_plate", "stem": "pack16_front", "label": "Pack16_front"},

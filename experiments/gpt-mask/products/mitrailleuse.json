@@ -1,6 +1,7 @@
 {
   "id": "mitrailleuse",
   "overlay_dir": "mitrailleuse/mask_overlays",
+  "edits_dir": "mitrailleuse/mask_edits",
   "build_script": "mitrailleuse/pack_frame.py",
   "build_pre": {},
   "pull_close_docs": ["pack_frame", "rear_frame", "carry_mount"],

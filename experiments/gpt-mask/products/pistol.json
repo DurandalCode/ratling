@@ -1,6 +1,7 @@
 {
   "id": "pistol",
   "overlay_dir": "pistol/mask_overlays",
+  "edits_dir": "pistol/mask_edits",
   "build_script": "pistol/hammer_assembly.py",
   "build_pre": {"CHECKS": false, "VALVE": "v13"},
   "pull_close_docs": ["pistol_hammer_assembly"],
