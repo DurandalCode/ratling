@@ -57,7 +57,9 @@
     8.2×5 = 41 мм. Поиск клонов: `MQR` / `MQRF` / 气动滑环.
     **Стыковка с осью пакета** (черновик): несущая ось и подшипники отдельно; ротор MQR на
     торце ступицы (2×M4); статор к раме (Ø20 + 4×M4); через MQR только подача на R каждого
-    AirTAC; dump местный. Эскиз: [`docs/img/gatling_mqr_axis.svg`](img/gatling_mqr_axis.svg).
+    AirTAC; dump местный. 2D: [`docs/img/gatling_mqr_axis.svg`](img/gatling_mqr_axis.svg).
+    3D-блоки: [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — вал + ступица +
+    ротор (тёплый = крутится), статор + ухо рамы (холодный = стоит).
 
 ![MQR6 на оси пакета](img/gatling_mqr_axis.svg)
 
@@ -88,6 +90,7 @@ export LANG=C.UTF-8 LC_ALL=C.UTF-8
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/fat_coax_qev.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech_bench.py').read())"
+freecadcmd -c "REPO='$PWD'; exec(open('gatling/mqr_axis_sketch.py').read())"
 ```
 
 Выгрузка: `exports/gatling_fat_coax_qev/` (`front_cover`, не `front_plug` / не хомут);
