@@ -12,8 +12,10 @@
   (`exec` linear_breech как библиотека);
 - [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — ось + ступица + MQR на
   двух стойках;
-- [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) — силуэт пакета на стенде
-  (6@R68, вал на всю длину, передняя плита, торцевые плиты на столе).
+- [`gatling/gun_sketch.py`](../gatling/gun_sketch.py) — **силуэт готового изделия**
+  (6@R68, казённый кожух, бункер, рукоять, колёсный лафет);
+- [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) — технабросок пакета/оси
+  (не вид изделия).
 
 ## Зафиксировано
 
@@ -65,16 +67,19 @@
     3D-блоки оси: [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — вал на
     двух маленьких стойках + ступица + ротор (тёплый); статор + пластина (холодный).
     Опора пакета — подшипники, не MQR.
-    Набросок пакета на стенде: [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) —
-    6 станций на R68 (силуэт как у breech-стенда: ствол Ø25×180 + камера Ø50×130),
-    вал на всю длину (~351 мм) с передней плитой-пауком, ступица + MQR, две торцевые
-    плиты стенда на столе. Опора = подшипники → стенд, не MQR.
+    Силуэт **готового изделия**: [`gatling/gun_sketch.py`](../gatling/gun_sketch.py) —
+    6 станций на R68 (ствол Ø25×180 + камера Ø50×130), вал на всю длину, передние
+    плиты, казённый кожух над ступицей/MQR, бункер пульки сверху, рукоять сзади,
+    колёсный лафет с хоботом (опора = подшипники → лафет, не MQR). Референсы вида:
+    Gatling 1862–83 (лафет, бункер, рукоять, кожух) и современный M134 (6 стволов,
+    передний хомут, закрытый ресивер). Технабросок пакета без лафета —
+    [`gatling/pack_sketch.py`](../gatling/pack_sketch.py).
 
 ![MQR6 на оси пакета](img/gatling_mqr_axis.svg)
 
-![Пакет на стенде, iso](img/gatling_pack_3d.png)
+![Готовый гатлинг, iso](img/gatling_gun_product_3d.png)
 
-![Пакет на стенде, сбоку](img/gatling_pack_3d_side.png)
+![Готовый гатлинг, сбоку](img/gatling_gun_product_side.png)
 
 Прогон standalone `gatling/fat_coax_qev.py` (2026-11-12): камера **101 см³**, труба
 **50 × 1.5 × 130 мм** (~80 г Al), модуль Ø50 (уши 66), длина до кончика фиттинга ≈ 202 мм,
@@ -89,11 +94,12 @@
 
 ## Ещё не рисуем
 
-- Кривошип / кулачок **хода** затвора (сброс пилота уже от самого QEV).
-- Бункер пульки.
+- Кривошип / кулачок **хода** затвора (сброс пилота уже от самого QEV; рукоять на
+  `gun_sketch` — только силуэт вращения пакета).
 - Шланги M5 ротор → R каждого AirTAC (после обмера приехавшего MQR).
-- Обвязка редуктора и стойка хронографа на стенде (жёлоб пульки уже в крышке станции).
+- Обвязка редуктора и стойка хронографа на breech-стенде.
 - Детали станций внутри пакета (сейчас только силуэт ствол+камера).
+- Настоящий лафет/бункер под печать (сейчас блоки на `gun_sketch`).
 
 ## Запуск
 
@@ -103,6 +109,7 @@ freecadcmd -c "REPO='$PWD'; exec(open('gatling/fat_coax_qev.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech_bench.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/mqr_axis_sketch.py').read())"
+freecadcmd -c "REPO='$PWD'; exec(open('gatling/gun_sketch.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/pack_sketch.py').read())"
 ```
 
