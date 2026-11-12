@@ -240,8 +240,11 @@ doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 import MeshPart
 
 
-def write(shape, name, flip=False):
+def write(shape, name, flip=False, lay=None):
+    """Export in print orientation (z = 0 on the bed). lay='pad': put the foot pad down."""
     s = shape.copy()
+    if lay == "pad":
+        s.rotate(V(0, 0, 0), X, 90)    # assembly -Y (pad) -> -Z
     if flip:
         s.rotate(V(0, 0, 0), X, 180)
     s.translate(V(0, 0, -s.BoundBox.ZMin))
@@ -250,12 +253,14 @@ def write(shape, name, flip=False):
         os.path.join(OUT_DIR, name + ".stl"))
 
 
-for n, s in (("foot_front", front_foot), ("foot_rear", rear_foot),
-             ("carriage_handle", carriage_handled),
-             ("rail_stops", stops_s), ("barrel_clamp", barrel_clamp),
-             ("barrel_collar", barrel_collar),
-             ("airtac_cradle", cradle)):
-    write(s, n)
+# One rail-stop ring (four copies on the plate); feet pad-down; clamps/cradle tip-up.
+write(front_foot, "foot_front", lay="pad")
+write(rear_foot, "foot_rear", lay="pad")
+write(carriage_handled, "carriage_handle")
+write(stops[0], "rail_stop")
+write(barrel_clamp, "barrel_clamp", flip=True)
+write(barrel_collar, "barrel_collar", flip=True)
+write(cradle, "airtac_cradle", flip=True)
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
     f.write("\n".join(report) + "\n")
 

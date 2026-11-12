@@ -569,11 +569,13 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
         MeshPart.meshFromShape(Shape=s, LinearDeflection=0.05, AngularDeflection=0.15).write(
             os.path.join(OUT_DIR, name + ".stl"))
 
+    # Cover: flange/chamber face on the bed (no flip — tip-down overhangs more).
+    # Clamps and AirTAC cradle: +Z on the bed.
     for n, s, flip in (("carriage", carriage, False),
-                       ("barrel_clamp", barrel_clamp, False),
-                       ("barrel_collar", barrel_collar, False),
+                       ("barrel_clamp", barrel_clamp, True),
+                       ("barrel_collar", barrel_collar, True),
                        ("front_cover_feed", front_cover_feed, False),
-                       ("airtac_cradle", cradle, False)):
+                       ("airtac_cradle", cradle, True)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
         f.write("\n".join(report) + "\n")
