@@ -94,8 +94,9 @@ AIRTAC = dict(L=46.5, W=18.0, T=27.0, plunger=(6.0, 3.0),
 VENT_SWITCH = 2.0                # measured click travel on the bench M3R110
 VENT_PUSH = 2.5                  # closed thumb over-travel past first contact
 VENT_GAP = 0.3                   # free tip clear of the open-approach thumb face
-# Thumb: truncated pistol-pad on the carriage aft face (presses the plunger +Z).
-THUMB_W, THUMB_H, THUMB_STICK = 16.0, 14.0, 6.0
+# Thumb: L-shaped pad behind the AirTAC tip. Plunger points -Z; the pad's forward
+# face pushes the tip +Z (into the body) as the breech closes — fire only when seated.
+THUMB_W, THUMB_H, THUMB_ARM = 16.0, 14.0, 18.0
 
 # Open/closed: closed at fat_coax pose; open = QEV translated -Z by STROKE.
 SHOW_OPEN = True
@@ -152,44 +153,31 @@ carriage = carriage.cut(G.fuse_all(
     + [G.cyl(RAIL_HOLE, z_bush0 - 2, z_bush1 + 2, x, y) for x, y in rail_centers()]
 )).removeSplitter()
 
-# Thumb pad on the aft face: truncated "курок" — flat face meets the AirTAC plunger.
-# Face at z_thumb_closed; a short stick + chamfered lead so the tip engages soft.
-z_thumb_closed = z_ry - CARR_T
-thumb = Part.makeBox(THUMB_W, THUMB_H, THUMB_STICK,
-                     V(-THUMB_W / 2, -THUMB_H / 2 - 4.0, z_thumb_closed - THUMB_STICK))
-# 45° lead on the -Z nose (lower half) so the plunger climbs on rather than hits square.
-lead = Part.makeBox(THUMB_W + 2, THUMB_H / 2 + 1, THUMB_STICK,
-                    V(-THUMB_W / 2 - 1, -THUMB_H / 2 - 4.0 - 1, z_thumb_closed - THUMB_STICK - 0.01))
-lead.rotate(V(0, -THUMB_H / 2 - 4.0, z_thumb_closed - THUMB_STICK), X, 45)
-thumb = thumb.cut(lead).removeSplitter()
-carriage = carriage.fuse(thumb).removeSplitter()
-# Contact face of the thumb (aft-most flat after the lead cut): approximately the box aft face.
-z_thumb_face = z_thumb_closed - THUMB_STICK
-
-# ---------------------------------------------------------------- AirTAC M3R110 (bought) + printed cradle
-# Plunger points +Z; body hangs aft (-Z). Free tip meets the thumb in the last VENT_PUSH of closing:
-# first contact when the aft thumb face reaches z_plunger_free; at closed the face is VENT_PUSH past it.
+# ---------------------------------------------------------------- AirTAC M3R110 (bought) + L-thumb on carriage
+# Plunger points -Z (tip aft). Body toward the barrel. Closing (+Z) drives an L-pad
+# whose forward face is behind the tip and pushes it +Z into the body → dump only when seated.
 a = AIRTAC
-z_plunger_free = z_thumb_face - VENT_PUSH          # tip at rest (first contact)
-z_stem = z_plunger_free - a["plunger"][1]          # body stem face (plunger root)
-z_vent0 = z_stem - a["L"]                          # aft end of the body
-# Sit the body under the rails (fully below the tubes), clear of +Y feed.
-vent_x, vent_y = 0.0, RAIL_Y - RAIL_OD / 2 - a["T"] - 1.5
-# Body: L along Z, W along X, T along Y. Stem face at z_stem, aft at z_vent0.
+# Closed: pusher face has driven the tip by VENT_PUSH. Free tip sits VENT_PUSH aft of that face.
+z_push_closed = z_ry - CARR_T - 4.0          # forward face of the L-pad at closed
+z_plunger_free = z_push_closed - VENT_PUSH    # tip at rest (first contact on close)
+z_stem = z_plunger_free + a["plunger"][1]     # stem face (plunger roots here, points -Z)
+z_vent1 = z_stem + a["L"]                     # forward end of the body (toward barrel)
+# Body under the rails, clear of +Y feed.
+vent_x, vent_y = 0.0, RAIL_Y - RAIL_OD / 2 - a["T"] - 3.0
 vent_body = Part.makeBox(a["W"], a["T"], a["L"],
-                         V(vent_x - a["W"] / 2, vent_y, z_vent0))
-# Plunger sticking +Z from the stem face (shown free / open pose length).
+                         V(vent_x - a["W"] / 2, vent_y, z_stem))
+# Plunger sticking -Z from the stem face.
 vent_plunger = Part.makeCylinder(a["plunger"][0] / 2, a["plunger"][1] + 0.01,
-                                 V(vent_x, vent_y + a["T"] / 2, z_stem), Z)
-# Ports on ±Y faces of the body (narrow faces in the pistol; here T is along Y).
-# Height from stem face toward aft = ports values in the pistol (from plunger face).
+                                 V(vent_x, vent_y + a["T"] / 2, z_stem), V(0, 0, -1))
+
+
 def _port_z(name):
-    return z_stem - a["ports"][name]
+    # Port heights measured from the plunger/stem face toward the body (same catalog numbers).
+    return z_stem + a["ports"][name]
 
 
 fit = []
 od, stick = a["straight"]["A"]
-# A toward -Y (pilot hose up to the rear-plug fitting): leave room under the module.
 fit.append(Part.makeCylinder(od / 2, stick,
                              V(vent_x, vent_y, _port_z("A")), V(0, -1, 0)))
 od, stick = a["straight"]["R"]
@@ -200,29 +188,53 @@ fit.append(Part.makeCylinder(a["silencer"][0] / 2, a["silencer"][1],
 vent_fittings = Part.makeCompound(fit)
 vent_valve = Part.makeCompound([vent_body, vent_fittings, vent_plunger])
 
-# Printed cradle: socket the body drops into, feet on both rails (fixed with the barrel clamp).
+# L-thumb on the carriage: web from the bridge plate down to a forward-facing pad behind the tip.
+# Pad's +Z face is at z_push_closed when breech is closed.
+thumb_yc = vent_y + a["T"] / 2
+# Vertical web: from near the rail plate (y ≈ RAIL_Y) down to the valve centreline.
+web_y0, web_y1 = thumb_yc - THUMB_H / 2, RAIL_Y + BUSH_OD / 2 + 1.0
+web_z0, web_z1 = z_push_closed - THUMB_ARM, z_ry - CARR_T + 1.0
+drop = Part.makeBox(THUMB_W, web_y1 - web_y0, web_z1 - web_z0,
+                    V(-THUMB_W / 2, web_y0, web_z0))
+# Pad block behind the tip; forward (+Z) face at z_push_closed hits the tip on close.
+pad = Part.makeBox(THUMB_W, THUMB_H, THUMB_ARM,
+                   V(-THUMB_W / 2, thumb_yc - THUMB_H / 2, z_push_closed - THUMB_ARM))
+# Mild lead on the upper edge of the forward face.
+lead = Part.makeBox(THUMB_W + 2, THUMB_H / 2 + 1, 8.0,
+                    V(-THUMB_W / 2 - 1, thumb_yc - 1, z_push_closed - 0.01))
+lead.rotate(V(0, thumb_yc + THUMB_H / 2, z_push_closed), X, -35)
+pad = pad.cut(lead)
+thumb = drop.fuse(pad).removeSplitter()
+carriage = carriage.fuse(thumb).removeSplitter()
+
+# Printed cradle: socket under the rails only (no tall webs into the QEV).
 cradle_wall = 3.0
 cradle = Part.makeBox(a["W"] + 2 * cradle_wall, a["T"] + cradle_wall, a["L"] + 4.0,
                       V(vent_x - a["W"] / 2 - cradle_wall, vent_y - cradle_wall,
-                        z_vent0 - 2.0))
+                        z_stem - 2.0))
 pocket = Part.makeBox(a["W"] + 0.6, a["T"] + 0.6, a["L"] + 2.0,
-                      V(vent_x - a["W"] / 2 - 0.3, vent_y - 0.3, z_vent0 - 1.0))
+                      V(vent_x - a["W"] / 2 - 0.3, vent_y - 0.3, z_stem - 1.0))
 cradle = cradle.cut(pocket)
-# Open the +Z face so the plunger and thumb reach in; open -Y for the A fitting.
-cradle = cradle.cut(Part.makeBox(a["W"] + 4, a["T"] + 10, 20,
-                                 V(vent_x - a["W"] / 2 - 2, vent_y - 8, z_stem - 5)))
+# Open the -Z face for the plunger/thumb; open -Y for the A fitting.
+cradle = cradle.cut(Part.makeBox(a["W"] + 4, a["T"] + 10, 24,
+                                 V(vent_x - a["W"] / 2 - 2, vent_y - 8, z_stem - 18)))
 cradle = cradle.cut(Part.makeBox(a["W"] + 4, 30, 16,
                                  V(vent_x - a["W"] / 2 - 2, vent_y - 25, _port_z("A") - 8)))
+# Clips onto the rails from below only (top of clip = rail axis → clear of the Ø50 tube).
+rail_bottom = RAIL_Y - RAIL_OD / 2
 for x, y in rail_centers():
-    foot = G.cyl(BUSH_OD, z_vent0 - 2.0, z_stem, x, y).cut(
-        G.cyl(RAIL_HOLE, z_vent0 - 3, z_stem + 1, x, y))
-    web = Part.makeBox(abs(x) + 4, 5.0, 12.0,
-                       V(min(0.0, x) - 2, y - 2.5, z_vent0))
-    cradle = cradle.fuse(foot).fuse(web)
+    # Half-cradle under the tube: up to the rail centreline, bored for the tube.
+    clip_h = (y - rail_bottom) + RAIL_OD / 2 + 0.5   # stops at ~rail axis
+    clip = Part.makeBox(BUSH_OD, clip_h, 16.0,
+                        V(x - BUSH_OD / 2, rail_bottom - 1.0, z_stem + 4.0))
+    clip = clip.cut(G.cyl(RAIL_HOLE, z_stem + 3, z_stem + 21, x, y))
+    strap = Part.makeBox(6.0, max(1.0, y - vent_y - 2.0), 10.0,
+                         V(x - 3.0, vent_y + 1.0, z_stem + 6.0))
+    cradle = cradle.fuse(clip).fuse(strap)
 cradle = cradle.removeSplitter()
 
-# Rails must cover the cradle aft end.
-z_rail0 = min(z_rail0, z_vent0 - RAIL_PAST_REAR)
+# Rails must cover the cradle and the open-pose L-thumb.
+z_rail0 = min(z_rail0, z_push_closed - STROKE - THUMB_ARM - RAIL_PAST_REAR, z_stem - RAIL_PAST_REAR)
 rails = [
     tube(RAIL_OD, RAIL_OD - 2 * RAIL_WALL, z_rail0, z_rail1, x, y)
     for x, y in rail_centers()
@@ -308,12 +320,14 @@ nbr = qev_body.translated(V(PACK_PITCH, 0, 0))
 rail_to_nbr = rails_s.distToShape(nbr)[0]
 rail_r_max = max(math.hypot(x, y) + RAIL_OD / 2 for x, y in rail_centers())
 # Thumb vs AirTAC: closed presses >= VENT_SWITCH; open clears the free tip.
-closed_press = z_thumb_face - z_plunger_free       # = VENT_PUSH by construction
-# At open the thumb face is STROKE lower:
-open_thumb_face = z_thumb_face - STROKE
-open_clear = z_plunger_free - open_thumb_face      # tip still ahead of the open thumb
+# Closing (+Z): forward pad face drives the aft-pointing tip into the body.
+closed_press = z_push_closed - z_plunger_free      # = VENT_PUSH by construction
+open_push_face = z_push_closed - STROKE
+open_clear = z_plunger_free - open_push_face       # tip still ahead of the open pad
 cradle_vs_closed = cradle.distToShape(qev_body)[0]
 vent_vs_rails = vent_body.distToShape(rails_s)[0]
+# Sanity: open must NOT press (pad behind tip); closed must press.
+press_on_close = closed_press >= VENT_SWITCH and open_clear >= 5.0
 
 checks = [
     ("carriage valid single solid (with thumb)", G.single_solid(carriage)),
@@ -339,10 +353,9 @@ checks = [
      abs(fixed_barrel.BoundBox.ZMin - z_stop) < 1e-6),
     ("clamp holds the barrel OD (hole ~Ø%.1f)" % (BARREL_OD + 0.3),
      barrel_clamp.BoundBox.ZMin <= z_clamp0 + 1e-3 and barrel_clamp.BoundBox.ZMax >= z_clamp1 - 1e-3),
-    ("closed: thumb presses AirTAC >= switch (press %.2f >= %.2f)" % (closed_press, VENT_SWITCH),
-     abs(closed_press - VENT_PUSH) < 1e-6 and closed_press >= VENT_SWITCH),
-    ("open: thumb clears free plunger tip (%.1f mm)" % open_clear,
-     SHOW_OPEN and open_clear >= 5.0),
+    ("closed: L-pad presses AirTAC >= switch (press %.2f >= %.2f); open clears %.1f mm"
+     % (closed_press, VENT_SWITCH, open_clear),
+     abs(closed_press - VENT_PUSH) < 1e-6 and press_on_close and SHOW_OPEN),
     ("cradle clear of closed QEV (%.1f mm)" % cradle_vs_closed, cradle_vs_closed >= 0.5),
     ("AirTAC body clear of rails (%.1f mm)" % vent_vs_rails, vent_vs_rails >= 0.5),
 ]
@@ -358,8 +371,8 @@ report = [
     % (BUSH_OD, RAIL_HOLE, BUSH_L, CARR_T),
     "  barrel clamp           : split L/R on Ø%.1f barrel, length %.0f, feet on rails; +Y feed notch"
     % (BARREL_OD, CLAMP_L),
-    "  pilot valve            : AirTAC M3R110 under axis; thumb on carriage presses %.1f mm at close"
-    " (switch %.1f); A→pilot on rear plug" % (VENT_PUSH, VENT_SWITCH),
+    "  pilot valve            : AirTAC M3R110 under rails, plunger -Z; L-pad presses %.1f mm on CLOSE"
+    " only (switch %.1f); A→pilot" % (VENT_PUSH, VENT_SWITCH),
     "  pack                   : pitch %.0f, rail envelope R %.1f, clear to neighbour %.1f mm"
     % (PACK_PITCH, rail_r_max, rail_to_nbr),
     "  not drawn              : hopper, rotary union / supply hose to R, crank for the stroke",
@@ -398,7 +411,7 @@ for text, pos in [
     ("РЕЛЬСЫ Ø%.0f x %.0f под модулем (+Y свободен)" % (RAIL_OD, RAIL_WALL),
      (55, RAIL_Y - 15, (z_rail0 + z_rail1) / 2)),
     ("САЛАЗКИ + палец на AirTAC", (55, 0, z_ry - CARR_T / 2)),
-    ("AirTAC M3R110: в конце хода сброс пилота", (55, vent_y - 20, (z_vent0 + z_stem) / 2)),
+    ("AirTAC M3R110: сброс только на ЗАКРЫТИИ", (55, vent_y - 20, (z_stem + z_vent1) / 2)),
     ("ХОМУТ СТВОЛА (разъём L/R)", (55, 0, z_clamp0 + CLAMP_L / 2)),
     ("ПОДАЧА ПУЛЬКИ +Y", (0, 50, z_stop - STROKE / 2)),
 ]:
