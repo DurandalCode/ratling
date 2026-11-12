@@ -11,6 +11,7 @@ Bidirectional pipe: live Python sources <-> neutral-named copies in an external 
 Both directions are 3-way text merges (git merge-file) against what crossed last time, so a line
 edited on one side and untouched on the other simply moves; the same line edited on both sides is a
 conflict and nothing is written for that file. Renaming never changes the line count (rename.py).
+Russian words are dropped on the way out; they stay in the live files and survive `in`.
 
   python3 experiments/gpt-mask/mask_sync.py out -p pistol
   python3 experiments/gpt-mask/mask_sync.py in  -p pistol
@@ -132,9 +133,6 @@ class Side(object):
     def wfile(self, rel):
         return os.path.join(self.work, self.npath(rel))
 
-    def live_base(self, rel):
-        return os.path.join(self.cache, "live_base", rel)
-
     def neutral_base(self, rel):
         return os.path.join(self.cache, "neutral_base", self.npath(rel))
 
@@ -144,8 +142,7 @@ class Side(object):
     def rev(self, text):
         return rename.reverse(text, self.names)
 
-    def save_bases(self, rel, live_text, neutral_text):
-        write(self.live_base(rel), live_text)
+    def save_base(self, rel, neutral_text):
         write(self.neutral_base(rel), neutral_text)
 
     def commands(self, work_side):
@@ -168,7 +165,7 @@ def cmd_out(product_id, dest, force):
     if problems or left:
         die("names.json does not cover these sources:\n  %s" % "\n  ".join(problems + left))
     for f, t in zip(s.files, texts):
-        if s.rev(s.fwd(t)) != t:
+        if s.rev(s.fwd(t)) != rename.strip_russian(t):
             die("rename is not reversible for %s" % f)
 
     os.makedirs(s.work, exist_ok=True)
@@ -182,13 +179,13 @@ def cmd_out(product_id, dest, force):
             if work_now != fwd:
                 write(wpath, fwd)
                 wrote += 1
-            s.save_bases(f, live_now, fwd)
+            s.save_base(f, fwd)
         elif nb is None:
             conflicts.append("%s: work copy exists but was never synced (use --force to overwrite)" % s.npath(f))
         elif work_now == nb:
             write(wpath, fwd)
             wrote += 1
-            s.save_bases(f, live_now, fwd)
+            s.save_base(f, fwd)
         elif fwd == nb:
             kept.append(s.npath(f))
         else:
@@ -198,7 +195,7 @@ def cmd_out(product_id, dest, force):
             else:
                 write(wpath, text)
                 merged.append(s.npath(f))
-                s.save_bases(f, live_now, fwd)
+                s.save_base(f, fwd)
 
     write(os.path.join(s.work, "README.md"), README.format(runs="\n".join(s.commands(True))))
     write(os.path.join(s.work, "PROMPT.txt"), PROMPT)
@@ -219,16 +216,16 @@ def cmd_in(product_id, src):
     s = Side(product_id, src)
     if not os.path.isdir(s.work):
         die("work folder not found: %s" % s.work)
-    plan, errors, same = [], [], 0
+    plan, errors, same, notes = [], [], 0, []
     for f in s.files:
         wpath = s.wfile(f)
         work_now = read_opt(wpath)
         nb = read_opt(s.neutral_base(f))
-        bl = read_opt(s.live_base(f))
-        if work_now is None or nb is None or bl is None or work_now == nb:
+        if work_now is None or nb is None or work_now == nb:
             same += 1
             continue
         cand = s.rev(work_now)
+        base_cand = s.rev(nb)
         live_now = read(s.live(f))
         if f.endswith(".py"):
             try:
@@ -236,14 +233,16 @@ def cmd_in(product_id, src):
             except SyntaxError as e:
                 errors.append("%s: syntax error line %s: %s" % (s.npath(f), e.lineno, e.msg))
                 continue
-        if live_now == bl:
+        if live_now == base_cand:
             new = cand
         else:
-            new, n = merge3(live_now, bl, cand)
+            new, n = merge3(live_now, base_cand, cand)
             if n:
                 errors.append("%s: %d conflict(s) between your edits and live changes since `out`" % (s.npath(f), n))
                 continue
-        plan.append((f, new, cand, work_now))
+        added = rename.vocabulary([cand]) - rename.vocabulary([base_cand])
+        notes.append((f, sorted(added), sorted(w for w in added if w in s.names["words"])))
+        plan.append((f, new, work_now))
 
     known = {s.npath(f) for f in s.files}
     for root, dirs, names in os.walk(s.work):
@@ -258,11 +257,19 @@ def cmd_in(product_id, src):
     if not plan:
         print("mask_sync in [%s]: no edits in %s" % (product_id, s.work))
         return
-    for f, new, cand, work_now in plan:
+    for f, new, work_now in plan:
         write(s.live(f), new)
-        s.save_bases(f, cand, work_now)
+        s.save_base(f, work_now)
         print("  %s ← %s" % (f, s.npath(f)))
     print("mask_sync in [%s]: %d file(s) taken" % (product_id, len(plan)))
+    for f, added, live_words in notes:
+        if added:
+            print("  new words in %s: %s" % (f, ", ".join(added[:40]) + (" …" if len(added) > 40 else "")))
+        if live_words:
+            print("  WARNING %s: live-vocabulary words written on the work side (%s); the next `out` will rename them"
+                  % (f, ", ".join(live_words)))
+    if any(a for _, a, _ in notes):
+        print("Review the new words: add any that reveal the project to names.json (see AGENTS.md).")
     print("Rebuild the live model:")
     for c in s.commands(False):
         print("  " + c)
@@ -273,17 +280,15 @@ def cmd_status(product_id):
     print("product: %s" % product_id)
     print("work: %s" % s.work)
     for f in s.files:
-        wpath = s.wfile(f)
-        work_now = read_opt(wpath)
+        work_now = read_opt(s.wfile(f))
         nb = read_opt(s.neutral_base(f))
-        bl = read_opt(s.live_base(f))
-        if work_now is None or nb is None or bl is None:
+        if work_now is None or nb is None:
             state = "not synced (run `out`)"
         else:
             parts = []
             if work_now != nb:
                 parts.append("edited in work (run `in`)")
-            if read(s.live(f)) != bl:
+            if s.fwd(read(s.live(f))) != nb:
                 parts.append("live changed since last crossing (run `out`)")
             state = ", ".join(parts) or "in sync"
         print("  %-44s %s" % (f, state))

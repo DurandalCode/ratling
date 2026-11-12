@@ -4,8 +4,9 @@ Reversible renaming of our Python sources for the external Mechanismus work tree
 
 A table of whole words (live -> neutral, names.json) is applied to every letter run in the text and
 in file paths: identifiers, strings, comments. Case style survives (valve / Valve / VALVE), mixed-case
-runs (makeCylinder, BoundBox) are never touched unless listed under "exact", so FreeCAD's API stays intact. Line count never
-changes, which is what lets edits travel line by line and merge as plain 3-way text.
+runs (makeCylinder, BoundBox) are never touched unless listed under "exact", so FreeCAD's API stays intact. Russian words are
+dropped on the way out (strip_russian) and never come back as such. Line count never changes, which is
+what lets edits travel line by line and merge as plain 3-way text.
 """
 
 from __future__ import print_function
@@ -19,6 +20,7 @@ REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 NAMES_PATH = os.path.join(HERE, "names.json")
 
 _RUN = re.compile(r"[A-Za-z]+")
+_RU = re.compile(r"[А-Яа-яЁё]+")
 
 
 class NamesError(Exception):
@@ -63,8 +65,12 @@ def _swap(table, exact):
     return sub
 
 
+def strip_russian(text):
+    return _RU.sub("", text)
+
+
 def forward(text, names):
-    return _RUN.sub(_swap(names["words"], names["exact"]), text)
+    return _RUN.sub(_swap(names["words"], names["exact"]), strip_russian(text))
 
 
 def reverse(text, names):

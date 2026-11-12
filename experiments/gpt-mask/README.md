@@ -29,7 +29,7 @@ the generators themselves.
 - `out` refuses to write if `names.json` is unsafe for these sources: a neutral word that already
   occurs in the code (reverse renaming would corrupt it), a word from `forbidden_substrings` left in
   the output or in a path, or a file where `reverse(forward(x)) != x`.
-- `cache/<product>/live_base` and `neutral_base` (gitignored) keep what crossed last time. Both
+- `cache/<product>/neutral_base` (gitignored) keeps what crossed last time. Both
   directions are 3-way line merges (`git merge-file`) against it:
   - `in`: your edit moves into the live file even if live changed elsewhere since `out`;
   - `out`: live changes flow into the work file even if it holds unsent edits;
@@ -42,6 +42,11 @@ the generators themselves.
 
 A new domain word that must not leave the repo: add `live -> neutral` to `names.json`. The neutral
 word must be plain lowercase letters, unique, and absent from the exposed sources (`out` checks).
-Russian text in the sources is not renamed.
+Russian words are dropped from the exposed copies automatically (`strip_russian`) and stay in the live
+files: `in` merges against the stripped base, so your edits never delete them. Editing a line that
+holds Russian text on the GPT side gives a conflict for that file.
+
+After `in`, `new words` lists words GPT introduced and `WARNING` flags live-vocabulary words it wrote;
+extend `names.json` for those (see AGENTS.md).
 
 Do not copy this README, `mask_sync.py` or `rename.py` into the GPT workspace.
