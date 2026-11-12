@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Live-repo helper. External work tree is ../mechanismus (or $MECHANISMUS).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+cmd="${1:-}"
+shift || true
+case "$cmd" in
+  out|in|status)
+    exec python3 experiments/gpt-mask/mask_sync.py "$cmd" "$@"
+    ;;
+  hot)
+    exec python3 experiments/gpt-mask/mask_hot.py "$@"
+    ;;
+  path)
+    python3 -c "import sys; sys.path.insert(0,'experiments/gpt-mask'); from mask_map import default_mask_dir; print(default_mask_dir())"
+    ;;
+  ""|-h|--help|help)
+    cat <<'EOF'
+Usage:
+  experiments/gpt-mask/mask out [--rebuild] [dir]
+  experiments/gpt-mask/mask in [dir]
+  experiments/gpt-mask/mask hot [--bootstrap] [--rebuild] [dir]
+  experiments/gpt-mask/mask status
+  experiments/gpt-mask/mask path
+
+Default external dir: $MECHANISMUS or <parent-of-repo>/mechanismus
+That folder has no ratling / mask wording — open it alone in GPT.
+EOF
+    ;;
+  *)
+    echo "unknown command: $cmd" >&2
+    exit 1
+    ;;
+esac

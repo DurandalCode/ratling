@@ -1,10 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-Name maps for the GPT-mask pipe. Pure Python — no FreeCAD.
+Name maps for the external Mechanismus work tree. Pure Python — no FreeCAD.
 
 Shell parts are the only ones pushed back into the live assembly (overlays).
-Drive parts stay rename-only in the mask folder.
 """
+
+from __future__ import print_function
+
+import os
+
+_MAP_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(_MAP_DIR, os.pardir, os.pardir))
+
+
+def default_mask_dir():
+    """External work folder: $MECHANISMUS, else <repo-parent>/mechanismus."""
+    env = os.environ.get("MECHANISMUS", "").strip()
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    return os.path.abspath(os.path.join(REPO_ROOT, os.pardir, "mechanismus"))
+
 
 # Live variable → D parts/*.brep stem
 LIVE_TO_D_STEM = {
@@ -35,5 +50,5 @@ D_NAME_TO_LIVE = {
 # Which live vars accept overlays from the mask
 SHELL_OVERLAY_VARS = tuple(LIVE_TO_D_STEM.keys())
 
-# Files to copy when staging a GPT work folder from D_full_mech
-D_TEMPLATE_FILES = ("build.py", "PROMPT.txt", "README.md", "export_edits.py")
+# Files copied into the external Mechanismus folder (no ratling / mask wording)
+MECHANISMUS_TEMPLATE_FILES = ("build.py", "PROMPT.txt", "README.md", "export_edits.py")

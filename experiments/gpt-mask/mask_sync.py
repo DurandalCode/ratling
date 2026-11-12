@@ -9,13 +9,12 @@ Bidirectional pipe: live pistol ↔ GPT mask folder (fixture D layout).
 
 Examples:
 
-  python3 experiments/gpt-mask/mask_sync.py out /tmp/mask-D
-  python3 experiments/gpt-mask/mask_sync.py out /tmp/mask-D --rebuild
-  # …GPT edits Shell_tray in /tmp/mask-D…
-  python3 experiments/gpt-mask/mask_sync.py in /tmp/mask-D
+  python3 experiments/gpt-mask/mask_sync.py out              # → ../mechanismus (or $MECHANISMUS)
+  python3 experiments/gpt-mask/mask_sync.py out --rebuild
+  python3 experiments/gpt-mask/mask_sync.py in
   freecadcmd -c "REPO='$PWD'; exec(open('pistol/hammer_assembly.py').read())"
 
-Do not put this script in the GPT workspace.
+Keep this script in the live repo — do not copy it into the external work folder.
 """
 
 from __future__ import print_function
@@ -31,12 +30,14 @@ REPO = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 sys.path.insert(0, HERE)
 from mask_map import (  # noqa: E402
     D_NAME_TO_LIVE,
-    D_TEMPLATE_FILES,
     LIVE_TO_D_STEM,
+    MECHANISMUS_TEMPLATE_FILES,
     SHELL_OVERLAY_VARS,
+    default_mask_dir,
 )
 
 D_SRC = os.path.join(HERE, "D_full_mech")
+TEMPLATE_SRC = os.path.join(HERE, "mechanismus_template")
 OVERLAY_DIR = os.path.join(REPO, "pistol", "mask_overlays")
 
 
@@ -61,6 +62,9 @@ def rebuild_parts():
 
 
 def cmd_out(dest, rebuild):
+    dest = os.path.abspath(dest or default_mask_dir())
+    if os.path.abspath(dest) == os.path.abspath(REPO) or dest.startswith(os.path.abspath(REPO) + os.sep):
+        die("refusing to write the work tree inside the live repo (%s)" % dest)
     if rebuild:
         rebuild_parts()
     parts_src = os.path.join(D_SRC, "parts")
@@ -80,16 +84,17 @@ def cmd_out(dest, rebuild):
     else:
         os.makedirs(dest)
 
-    for name in D_TEMPLATE_FILES:
-        src = os.path.join(D_SRC, name)
-        if os.path.isfile(src):
-            shutil.copy2(src, os.path.join(dest, name))
+    for name in MECHANISMUS_TEMPLATE_FILES:
+        src = os.path.join(TEMPLATE_SRC, name)
+        if not os.path.isfile(src):
+            die("missing template file: %s" % src)
+        shutil.copy2(src, os.path.join(dest, name))
 
     dest_parts = os.path.join(dest, "parts")
     shutil.copytree(parts_src, dest_parts)
     n = len([f for f in os.listdir(dest_parts) if f.endswith(".brep")])
-    print("mask_sync out → %s  (%d parts + template)" % (dest, n))
-    print("Open ONLY that folder in GPT. Paste PROMPT.txt.")
+    print("mask_sync out → %s  (%d parts + mechanismus template)" % (dest, n))
+    print("Open ONLY that folder as the GPT workspace.")
 
 
 def _find_shell_brep(src, live_var):
@@ -111,6 +116,7 @@ def _find_shell_brep(src, live_var):
 
 
 def cmd_in(src, only=None):
+    src = os.path.abspath(src or default_mask_dir())
     if not os.path.isdir(src):
         die("work folder not found: %s" % src)
     os.makedirs(OVERLAY_DIR, exist_ok=True)
@@ -150,6 +156,8 @@ def cmd_in(src, only=None):
 
 
 def cmd_status():
+    print("mechanismus: %s" % default_mask_dir())
+    print("  ($MECHANISMUS or <repo-parent>/mechanismus)")
     print("overlays: %s" % OVERLAY_DIR)
     if not os.path.isdir(OVERLAY_DIR):
         print("  (none)")
@@ -162,18 +170,34 @@ def cmd_status():
     parts = os.path.join(D_SRC, "parts")
     n = len([f for f in os.listdir(parts) if f.endswith(".brep")]) if os.path.isdir(parts) else 0
     print("D_full_mech/parts: %d brep" % n)
+    ext = default_mask_dir()
+    if os.path.isdir(os.path.join(ext, "parts")):
+        en = len([f for f in os.listdir(os.path.join(ext, "parts")) if f.endswith(".brep")])
+        print("external parts: %d brep (%s)" % (en, ext))
+    else:
+        print("external parts: (missing — run: mask_sync out [--rebuild])")
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    p_out = sub.add_parser("out", help="live → GPT work folder")
-    p_out.add_argument("dest", help="empty or existing work folder, e.g. /tmp/mask-D")
+    p_out = sub.add_parser("out", help="live → external Mechanismus folder")
+    p_out.add_argument(
+        "dest",
+        nargs="?",
+        default=None,
+        help="work folder (default: $MECHANISMUS or <repo-parent>/mechanismus)",
+    )
     p_out.add_argument("--rebuild", action="store_true", help="run pull_real_shell.py first")
 
-    p_in = sub.add_parser("in", help="GPT work folder → pistol/mask_overlays")
-    p_in.add_argument("src", help="work folder previously filled by out")
+    p_in = sub.add_parser("in", help="external GPT folder → pistol/mask_overlays")
+    p_in.add_argument(
+        "src",
+        nargs="?",
+        default=None,
+        help="work folder (default: same as out)",
+    )
     p_in.add_argument(
         "--only",
         nargs="+",
@@ -181,13 +205,13 @@ def main(argv=None):
         help="limit to live vars, e.g. frame_lower grip_left",
     )
 
-    sub.add_parser("status", help="list overlays")
+    sub.add_parser("status", help="list overlays and default mask dir")
 
     args = p.parse_args(argv)
     if args.cmd == "out":
-        cmd_out(os.path.abspath(args.dest), args.rebuild)
+        cmd_out(args.dest, args.rebuild)
     elif args.cmd == "in":
-        cmd_in(os.path.abspath(args.src), args.only)
+        cmd_in(args.src, args.only)
     elif args.cmd == "status":
         cmd_status()
     else:

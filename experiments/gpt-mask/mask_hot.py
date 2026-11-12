@@ -6,8 +6,8 @@ Hot sync daemon: GPT work folder ↔ pistol/mask_overlays.
 Polls shell .brep on both sides and copies changes. Tiny HTTP control plane
 on 127.0.0.1 (default :8765). Stdlib only — no FreeCAD in the watcher.
 
-  python3 experiments/gpt-mask/mask_sync.py out /tmp/mask-D --rebuild   # once
-  python3 experiments/gpt-mask/mask_hot.py /tmp/mask-D
+  python3 experiments/gpt-mask/mask_sync.py out --rebuild   # once → ../mechanismus
+  python3 experiments/gpt-mask/mask_hot.py                  # watches that folder
 
   curl -X POST http://127.0.0.1:8765/in
   curl -X POST http://127.0.0.1:8765/out
@@ -35,7 +35,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 sys.path.insert(0, HERE)
-from mask_map import D_NAME_TO_LIVE, LIVE_TO_D_STEM, SHELL_OVERLAY_VARS  # noqa: E402
+from mask_map import (  # noqa: E402
+    D_NAME_TO_LIVE,
+    LIVE_TO_D_STEM,
+    SHELL_OVERLAY_VARS,
+    default_mask_dir,
+)
 
 OVERLAY_DIR = os.path.join(REPO, "pistol", "mask_overlays")
 SYNC = os.path.join(HERE, "mask_sync.py")
@@ -329,7 +334,12 @@ def poll_loop(state, stop):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("work", help="GPT work folder, e.g. /tmp/mask-D")
+    p.add_argument(
+        "work",
+        nargs="?",
+        default=None,
+        help="work folder (default: $MECHANISMUS or <repo-parent>/mechanismus)",
+    )
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--interval", type=float, default=1.0, help="poll seconds")
@@ -337,7 +347,10 @@ def main(argv=None):
     p.add_argument("--rebuild", action="store_true", help="with --bootstrap, also rebuild parts")
     args = p.parse_args(argv)
 
-    work = os.path.abspath(args.work)
+    work = os.path.abspath(args.work or default_mask_dir())
+    if work == os.path.abspath(REPO) or work.startswith(os.path.abspath(REPO) + os.sep):
+        log("refusing to use a work folder inside the live repo")
+        sys.exit(1)
     parts = os.path.join(work, "parts")
     if args.bootstrap or not os.path.isdir(parts):
         sync_args = ["out", work]
