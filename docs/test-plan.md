@@ -174,7 +174,11 @@ barrel; that last figure is a guess, and this test is what checks it.
 *Test article: `module/stage3v4_coaxial_chamber.py`* (bleed Ø1.0, as v1.1) — the
 mitrailleuse's distributor (`mitrailleuse/mitrailleuse_concepts.py`, concept A)
 charges a module only shortly before it fires, and its dump valve empties the
-charged ones without firing them. Both rest on numbers to check:
+charged ones without firing them. **2026-11-12:** the coaxial dump itself is
+confirmed on the bench (fires very well at working pressure); the charge-time
+and quiet-dump numbers below are still to measure. Side note vs pistol v1.3
+(Ø16 seat, side-by-side): v1.3 dumps OK but exhaust velocity falls off hard
+toward 2 bar — coaxial v4.4 is the better 2 bar dump. Both rest on numbers to check:
 
 1. **Charge time.** Pilot from 0 to 2 bar through a valve, no ball; time how
    long until a shot is as strong as a fully charged one (a gauge on the
