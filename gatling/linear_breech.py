@@ -19,6 +19,7 @@ Run inside FreeCAD / freecadcmd:
     exec(open(REPO + '/gatling/linear_breech.py').read())
 
 Exports: exports/gatling_linear_breech/
+Library: set GATLING_LINEAR_BREECH_LIBRARY = True before exec.
 """
 import importlib
 import math
@@ -35,6 +36,10 @@ except NameError:
         REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     except NameError:
         REPO = os.path.expanduser("~/ratling")
+try:
+    GATLING_LINEAR_BREECH_LIBRARY
+except NameError:
+    GATLING_LINEAR_BREECH_LIBRARY = False
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 import ratling.geom as G
@@ -378,67 +383,67 @@ report = [
     "  not drawn              : hopper, rotary union / supply hose to R, crank for the stroke",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
-print("\n".join(report))
+if not GATLING_LINEAR_BREECH_LIBRARY:
+    print("\n".join(report))
 
 # ---------------------------------------------------------------- scene + export
-os.makedirs(OUT_DIR, exist_ok=True)
-sc = FV.Scene(NAME)
-doc = sc.doc
+if not GATLING_LINEAR_BREECH_LIBRARY:
+    os.makedirs(OUT_DIR, exist_ok=True)
+    sc = FV.Scene(NAME)
+    doc = sc.doc
 
-styles_qev = {
-    "Rear_plug": "stator", "Seat_ring": "rotor", "Diaphragm": "shoe",
-    "Front_cover": "stator", "Front_yoke": "stator", "Barrel_stub": "ghost",
-    "Chamber_tube": "ghost", "Tie_rods": "steel", "Pilot_fitting": "steel",
-    "Carriage": "stator",
-}
-for n, s in qev_closed.items():
-    sc.add("Closed", n, s, styles_qev.get(n, "stator"))
-sc.add("Fixed", "Rails", rails_s, "steel")
-sc.add("Fixed", "Barrel_clamp", barrel_clamp, "stator")
-sc.add("Fixed", "Fixed_barrel", fixed_barrel, "ghost")
-sc.add("Fixed", "AirTAC_cradle", cradle, "stator")
-sc.add("Bought", "AirTAC_body", vent_body, "steel")
-sc.add("Bought", "AirTAC_fittings", vent_fittings, "ghost")
-sc.add("Bought", "AirTAC_plunger", vent_plunger, "shoe")
-if SHOW_OPEN:
-    for n, s in qev_open.items():
-        sc.add("Open", "Open_" + n, s, "ghost")
-    sc.add("Open", "Pellet", pellet, "flow")
+    styles_qev = {
+        "Rear_plug": "stator", "Seat_ring": "rotor", "Diaphragm": "shoe",
+        "Front_cover": "stator", "Front_yoke": "stator", "Barrel_stub": "ghost",
+        "Chamber_tube": "ghost", "Tie_rods": "steel", "Pilot_fitting": "steel",
+        "Carriage": "stator",
+    }
+    for n, s in qev_closed.items():
+        sc.add("Closed", n, s, styles_qev.get(n, "stator"))
+    sc.add("Fixed", "Rails", rails_s, "steel")
+    sc.add("Fixed", "Barrel_clamp", barrel_clamp, "stator")
+    sc.add("Fixed", "Fixed_barrel", fixed_barrel, "ghost")
+    sc.add("Fixed", "AirTAC_cradle", cradle, "stator")
+    sc.add("Bought", "AirTAC_body", vent_body, "steel")
+    sc.add("Bought", "AirTAC_fittings", vent_fittings, "ghost")
+    sc.add("Bought", "AirTAC_plunger", vent_plunger, "shoe")
+    if SHOW_OPEN:
+        for n, s in qev_open.items():
+            sc.add("Open", "Open_" + n, s, "ghost")
+        sc.add("Open", "Pellet", pellet, "flow")
 
-for text, pos in [
-    ("ЗАКРЫТО: упор в ствол, фиттинг внутри", (55, 0, z_stop - 5)),
-    ("ОТКРЫТО: ход %.0f мм, щель под пульку сверху" % STROKE, (55, 40, z_stop - STROKE / 2)),
-    ("РЕЛЬСЫ Ø%.0f x %.0f под модулем (+Y свободен)" % (RAIL_OD, RAIL_WALL),
-     (55, RAIL_Y - 15, (z_rail0 + z_rail1) / 2)),
-    ("САЛАЗКИ + палец на AirTAC", (55, 0, z_ry - CARR_T / 2)),
-    ("AirTAC M3R110: сброс только на ЗАКРЫТИИ", (55, vent_y - 20, (z_stem + z_vent1) / 2)),
-    ("ХОМУТ СТВОЛА (разъём L/R)", (55, 0, z_clamp0 + CLAMP_L / 2)),
-    ("ПОДАЧА ПУЛЬКИ +Y", (0, 50, z_stop - STROKE / 2)),
-]:
-    sc.label("Labels", text, pos)
+    for text, pos in [
+        ("ЗАКРЫТО: упор в ствол, фиттинг внутри", (55, 0, z_stop - 5)),
+        ("ОТКРЫТО: ход %.0f мм, щель под пульку сверху" % STROKE, (55, 40, z_stop - STROKE / 2)),
+        ("РЕЛЬСЫ Ø%.0f x %.0f под модулем (+Y свободен)" % (RAIL_OD, RAIL_WALL),
+         (55, RAIL_Y - 15, (z_rail0 + z_rail1) / 2)),
+        ("САЛАЗКИ + палец на AirTAC", (55, 0, z_ry - CARR_T / 2)),
+        ("AirTAC M3R110: сброс только на ЗАКРЫТИИ", (55, vent_y - 20, (z_stem + z_vent1) / 2)),
+        ("ХОМУТ СТВОЛА (разъём L/R)", (55, 0, z_clamp0 + CLAMP_L / 2)),
+        ("ПОДАЧА ПУЛЬКИ +Y", (0, 50, z_stop - STROKE / 2)),
+    ]:
+        sc.label("Labels", text, pos)
 
-sc.finish(hidden_groups=("Labels",), opaque_groups=())
-doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
+    sc.finish(hidden_groups=("Labels",), opaque_groups=())
+    doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
-import MeshPart
+    import MeshPart
 
+    def write(shape, name, flip=False):
+        s = shape.copy()
+        if flip:
+            s.rotate(V(0, 0, 0), X, 180)
+        s.translate(V(0, 0, -s.BoundBox.ZMin))
+        s.exportStep(os.path.join(OUT_DIR, name + ".step"))
+        MeshPart.meshFromShape(Shape=s, LinearDeflection=0.05, AngularDeflection=0.15).write(
+            os.path.join(OUT_DIR, name + ".stl"))
 
-def write(shape, name, flip=False):
-    s = shape.copy()
-    if flip:
-        s.rotate(V(0, 0, 0), X, 180)
-    s.translate(V(0, 0, -s.BoundBox.ZMin))
-    s.exportStep(os.path.join(OUT_DIR, name + ".step"))
-    MeshPart.meshFromShape(Shape=s, LinearDeflection=0.05, AngularDeflection=0.15).write(
-        os.path.join(OUT_DIR, name + ".stl"))
+    for n, s, flip in (("carriage", carriage, False),
+                       ("barrel_clamp", barrel_clamp, False),
+                       ("airtac_cradle", cradle, False)):
+        write(s, n, flip)
+    with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
+        f.write("\n".join(report) + "\n")
 
-
-for n, s, flip in (("carriage", carriage, False),
-                   ("barrel_clamp", barrel_clamp, False),
-                   ("airtac_cradle", cradle, False)):
-    write(s, n, flip)
-with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
-    f.write("\n".join(report) + "\n")
-
-if not all(ok for _, ok in checks):
-    raise SystemExit("gatling linear breech has [FAIL] checks")
+    if not all(ok for _, ok in checks):
+        raise SystemExit("gatling linear breech has [FAIL] checks")
