@@ -1,1 +1,1 @@
-Improve the housing: make the silhouette more expressive, prefer FDM printability without supports where possible, keep walls about 2–3 mm, and make the grip more comfortable. Edit only the frame / grip / trigger-guard geometry. Do not redesign the internal hammer mechanism.
+Round the lower part of the housing (Frame_lower): soften the transition from the grip into the underside of the frame, no sharp bottom edges. Edit only the frame / grip / trigger-guard geometry. Do not redesign the internal hammer mechanism.

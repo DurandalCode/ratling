@@ -1,1 +1,1 @@
-Improve the housing: make the silhouette more expressive, prefer FDM printability without supports where possible, keep walls about 2–3 mm, and make the grip more comfortable. Edit only the shell / cover / grip / bail geometry. Do not redesign the internal mechanism.
+Round the lower part of the housing (Shell_tray): soften the transition from the grip into the underside of the shell, no sharp bottom edges. Edit only the shell / cover / grip / bail geometry. Do not redesign the internal mechanism.
