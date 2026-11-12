@@ -2,16 +2,16 @@
 """
 Gatling finished-product silhouette (gun body only — no carriage/bench).
 
-Assembled gun: 6 QEV stations on R68, front spiders/clamp, breech casing over
-hub+MQR, top pellet hopper, rear hand crank, side cheeks. Warm = spins with
-the pack, cool = stays fixed. Block sketch only — no full station CAD, hoses,
-chronograph, or wheeled mount.
+Assembled gun on **mitrailleuse tubes** (live v4.4 numbers): steel barrel
+25 × 0.6 × 300, aluminium chamber 38 × 1.5 × ~274, six stations on a ring at
+pitch 40 (R = 40 for N = 6). Front spiders/clamps, slim breech casing over
+hub+MQR, top pellet hopper, rear hand crank, side cheeks. Warm = spins,
+cool = fixed. Block sketch only — no full module CAD, hoses, or wheeled mount.
 
 Visual cues (refs, not copies):
   Civil War / 1862–83 Gatling — barrel cluster, breech casing, top feed, crank.
-  Modern M134 — compact 6-barrel clamp + enclosed receiver at the breech.
-  Our kit — fat-coax chambers Ø50×130 at R68, barrels Ø25 (silhouette length
-  longer than the breech-bench stub so the pack reads as a long gun).
+  Modern M134 — front barrel clamps + enclosed receiver at the breech.
+  Pack geometry — mitrailleuse/module stage3v4 + pack pitch 40 (docs/pack.md).
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/gun_sketch.py').read())"
 
@@ -42,15 +42,17 @@ for _m in (G, FV):
 OUT_DIR = os.path.join(REPO, "exports", "gatling_gun_sketch")
 NAME = "gatling_gun_sketch"
 
-# ---------------------------------------------------------------- pack (mm)
+# ---------------------------------------------------------------- pack from mitrailleuse v4.4 (mm)
+# Live numbers: module/stage3v4_coaxial_chamber.py + pack pitch docs/pack.md.
 N = 6
-R = 68.0                     # PACK_PITCH (real)
-BARREL_OD, BARREL_ID = 25.0, 23.8
-# Product silhouette barrels — longer than the ~180 breech-bench stub so the
-# pack dominates length (real OD/pitch kept).
-BARREL_L = 480.0
-CH_OD, CH_L = 50.0, 130.0    # real fat-coax chamber
-QEV_GAP = 8.0
+PITCH = 40.0                 # mitrailleuse module pitch
+R = PITCH                    # N=6 ring: neighbour chord = R → pitch 40
+BARREL_OD, BARREL_ID = 24.98, 23.8   # 25 × 0.6 steel
+BARREL_L = 300.0             # v4.4 default BARREL_LEN
+CH_OD, CH_L = 38.0, 274.0    # Al 38 × 1.5; chamber_len ≈ 274 from freecadcmd
+# Module rear ears → muzzle ≈ 348 mm (z_end − z_ry on v4.4).
+MODULE_L = 348.0
+REAR_LUMP = 12.0             # ears / rear plug silhouette aft of chamber tube
 
 AXLE_OD, AXLE_ID = 16.0, 10.0
 HUB_OD, HUB_T = 50.0, 18.0
@@ -62,24 +64,27 @@ MQR_GAP = 2.0
 BRG_OD, BRG_T = 36.0, 14.0
 
 PLATE_T = 10.0
-# Spiders follow barrel ring (Ø25 @ R68), not the fatter chamber envelope.
-PLATE_OD = 2 * R + BARREL_OD + 10.0
-CLAMP_OD = 2 * R + BARREL_OD + 6.0
+PLATE_OD = 2 * R + BARREL_OD + 8.0
+CLAMP_OD = 2 * R + BARREL_OD + 4.0
 
-# +Z toward muzzle.
+# +Z toward muzzle. Coaxial like v4.4: chamber tube around the rear of the barrel,
+# bare muzzle tip forward of the front plug.
 z_muzzle = 0.0
 z_plate0 = 0.0
 z_plate1 = PLATE_T
-z_clamp_a0 = 120.0
-z_clamp_a1 = z_clamp_a0 + 8.0
-z_clamp_b0 = 300.0
-z_clamp_b1 = z_clamp_b0 + 8.0
-z_breech = BARREL_L
-z_ch0 = z_breech
+z_bare = MODULE_L - CH_L - REAR_LUMP          # ≈ 62 mm bare barrel (matches v4.4 tip)
+z_ch0 = z_bare
 z_ch1 = z_ch0 + CH_L
-z_qev_aft = z_ch1 + QEV_GAP
+z_aft = z_ch1 + REAR_LUMP                     # = MODULE_L
+z_clamp_a0 = 40.0
+z_clamp_a1 = z_clamp_a0 + 8.0
+z_clamp_b0 = max(z_bare - 20.0, z_clamp_a1 + 30.0)
+z_clamp_b1 = z_clamp_b0 + 8.0
+# Barrel tube length BARREL_L along the module (seat→muzzle); show full Ø25 to muzzle.
+z_barrel0 = z_muzzle
+z_barrel1 = min(BARREL_L, z_aft - 20.0)
 
-z_hub1 = z_qev_aft + 20.0
+z_hub1 = z_aft + 18.0
 z_hub0 = z_hub1 - HUB_T
 z_axle0 = z_plate0 - 6.0
 z_axle1 = z_hub1
@@ -94,15 +99,14 @@ z_stator1 = z_stator0 + STATOR_L
 z_stub1 = z_stator1 + STATOR_HUB_L
 
 AXLE_L = z_axle1 - z_axle0
-PACK_OD = 2 * (R + CH_OD / 2)       # chamber envelope Ø186
+PACK_OD = 2 * (R + CH_OD / 2)       # Ø118 at pitch 40 / Ø38
 BARREL_RING_OD = 2 * (R + BARREL_OD / 2)
 
-# Slim breech casing around hub/MQR only — not a fat drum around the pack.
-# Product frame: +X up, +Y left (crank), +Z muzzle (fcview VIEW_ROT).
-CASE_OD = max(HUB_OD, STATOR_OD) + 40.0   # Ø90 — thinner than pack Ø186
+# Slim breech casing around hub/MQR — under the pack OD.
+CASE_OD = max(HUB_OD, STATOR_OD) + 30.0   # Ø80 < pack Ø118
 CASE_T = 4.0
-HOPPER_W, HOPPER_D, HOPPER_H = 42.0, 40.0, 55.0   # narrow, low
-CRANK_ARM, CRANK_GRIP = 50.0, 40.0                # short so width stays pack-like
+HOPPER_W, HOPPER_D, HOPPER_H = 36.0, 36.0, 48.0
+CRANK_ARM, CRANK_GRIP = 45.0, 36.0
 CHEEK_T = 8.0
 
 V = App.Vector
@@ -113,18 +117,19 @@ def tube(od, idd, z_a, z_b, x=0.0, y=0.0):
 
 
 def station(x, y):
-    barrel = tube(BARREL_OD, BARREL_ID, z_muzzle, z_breech)
-    chamber = tube(CH_OD, CH_OD - 6.0, z_ch0, z_ch1)
-    rxy = math.hypot(x, y) or 1.0
-    ux, uy = x / rxy, y / rxy
-    rail_y = -(CH_OD / 2 + 5.0)
-    r1 = G.cyl(8.0, z_ch0 - 10, z_ch1 + 15, -12.0, rail_y)
-    r2 = G.cyl(8.0, z_ch0 - 10, z_ch1 + 15, 12.0, rail_y)
-    local = G.fuse_all([barrel, chamber, r1, r2]).removeSplitter()
-    ang = math.degrees(math.atan2(ux, uy))
-    local.rotate(V(0, 0, 0), V(0, 0, 1), -ang)
-    local.translate(V(x, y, 0))
-    return local
+    """One mitrailleuse-style coaxial module: Ø25 barrel + Ø38 chamber around it."""
+    barrel = tube(BARREL_OD, BARREL_ID, z_barrel0, z_barrel1)
+    chamber = tube(CH_OD, CH_OD - 2 * 1.5, z_ch0, z_ch1)
+    # Tiny rear-plug ears lump (not full v4.4 CAD).
+    ears = Part.makeBox(CH_OD + 16.0, 12.0, REAR_LUMP,
+                        V(x - (CH_OD + 16.0) / 2, y - 6.0, z_ch1))
+    return G.fuse_all([placed_xy(barrel, x, y), placed_xy(chamber, x, y), ears]).removeSplitter()
+
+
+def placed_xy(shape, x, y):
+    s = shape.copy()
+    s.translate(V(x, y, 0))
+    return s
 
 
 def spider(z0, z1, od, hole_od):
@@ -235,7 +240,7 @@ bb = gun.BoundBox
 gun_L = bb.ZLength
 gun_W = bb.YLength
 gun_H = bb.XLength
-pack_L = z_qev_aft - z_muzzle
+pack_L = z_aft - z_muzzle
 case_L = z_case1 - z_case0
 hop_bb = hopper.BoundBox
 crank_bb = crank.BoundBox
@@ -249,7 +254,7 @@ checks = [
     ("hopper solid", G.single_solid(hopper)),
     ("crank solid", G.single_solid(crank)),
     ("cheeks present", cheeks_s.Volume > 1e4),
-    ("axle spans pack (%.0f)" % AXLE_L, AXLE_L >= (z_qev_aft - z_muzzle)),
+    ("axle spans pack (%.0f)" % AXLE_L, AXLE_L >= pack_L),
     ("axle out of MQR bore",
      axle.common(G.cyl(THROUGH + 0.5, z_rotor0, z_stub1)).Volume < 1.0),
     ("pack clears casing (vol %.1f)" % pack.common(casing).Volume,
@@ -258,17 +263,19 @@ checks = [
     ("casing slimmer than pack (Ø%.0f < Ø%.0f)" % (CASE_OD, PACK_OD),
      CASE_OD < PACK_OD),
     ("pack longer than casing (%.0f > %.0f)" % (pack_L, case_L),
-     pack_L > 2.5 * case_L),
+     pack_L > 2.0 * case_L),
     ("overall longer than wide (%.0f > %.0f)" % (gun_L, gun_W),
-     gun_L > 1.8 * gun_W),
+     gun_L > 1.5 * gun_W),
+    ("pitch 40 like mitrailleuse", abs(R - PITCH) < 1e-6),
 ]
 report = [
     NAME,
-    "  sketch                 : long/narrow gatling body (no carriage)",
+    "  sketch                 : gatling body on mitrailleuse tubes (no carriage)",
     "  rotates (warm)         : stations, spiders/clamps, axle, hub, MQR rotor",
     "  fixed (cool)           : slim breech casing, hopper, crank, cheeks, stator",
-    "  pack                   : 6@R%.0f, barrel Ø%.0f×%.0f + chamber Ø%.0f×%.0f"
-    % (R, BARREL_OD, BARREL_L, CH_OD, CH_L),
+    "  pack                   : 6@R%.0f (pitch %.0f), barrel Ø%.2f×%.0f + chamber Ø%.0f×%.0f"
+    % (R, PITCH, BARREL_OD, BARREL_L, CH_OD, CH_L),
+    "  source                 : stage3v4 25×0.6 / 38×1.5; module L≈%.0f mm" % MODULE_L,
     "  axle                   : Ø%.0f/%.0f × %.0f mm (nose→hub)" % (AXLE_OD, AXLE_ID, AXLE_L),
     "  overall L×W×H          : %.0f × %.0f × %.0f mm (Z × Y × X)"
     % (gun_L, gun_W, gun_H),
@@ -278,9 +285,9 @@ report = [
     % (hop_bb.XLength, hop_bb.YLength, hop_bb.ZLength),
     "  crank bbox             : %.0f × %.0f × %.0f mm (X×Y×Z)"
     % (crank_bb.XLength, crank_bb.YLength, crank_bb.ZLength),
-    "  product cues           : long pack + slim casing + hopper + short crank",
-    "  refs                   : 1862–83 Gatling feed/crank/casing; M134 clamp",
-    "  not drawn              : carriage, hoses, AirTAC detail, full station CAD",
+    "  product cues           : mitrailleuse pack + slim casing + hopper + crank",
+    "  refs                   : v4.4 tubes; 1862–83 casing/feed/crank; M134 clamps",
+    "  not drawn              : carriage, hoses, full v4.4 CAD, fat-coax gatling station",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 print("\n".join(report))
