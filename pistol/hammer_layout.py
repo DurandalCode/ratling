@@ -337,8 +337,12 @@ shaft = Part.makeCylinder(4.0, SHAFT_Y[1] - SHAFT_Y[0], V(H.x, SHAFT_Y[0], H.z),
 sleeve = Part.makeCylinder(SLEEVE_R, CRANK_Y[0] - 4.9, V(H.x, 4.9, H.z), YA)          # hub to crank: one part
 peg_at = _at(H, SPRING_PEG[0], SPRING_PEG[1])
 peg = Part.makeCylinder(SPRING_PEG[2], -4.9 - MAINSPRING["y"][0][0], V(peg_at.x, MAINSPRING["y"][0][0], peg_at.z), YA)
-hammer_body = hub_h.fuse(spur).fuse(sleeve).fuse(crank).fuse(peg).cut(
-    Part.makeCylinder(4.15, 100, V(H.x, -50, H.z), YA)).removeSplitter()
+# The Ø3 crank pin rides the slider's bracket slot: give the arm a hole to glue it into (as the
+# slider's pin, same bug there) - it had none, the drawn pin just overlapped solid plastic.
+hammer_body = (hub_h.fuse(spur).fuse(sleeve).fuse(crank).fuse(peg)
+               .cut(Part.makeCylinder(4.15, 100, V(H.x, -50, H.z), YA))
+               .cut(Part.makeCylinder(1.5, CRANK_Y[1] - CRANK_Y[0] + 2.0, V(c_tip0.x, CRANK_Y[0] - 1.0, c_tip0.z), YA))
+               .removeSplitter())
 HAMMER = Part.makeCompound([hammer_body, crank_pin])
 
 
