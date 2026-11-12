@@ -9,10 +9,10 @@ into the breech mouth. Later the same linear unit repeats around the rotor,
 fed by a multi-passage rotary union on the pilot lines.
 
 Builds on gatling/fat_coax_qev.py (library). Sketch: rails, carriage, barrel
-clamp, AirTAC M3R110 pilot valve, closed assembly + open ghost. The carriage
-thumb (a truncated pistol-style pad) presses the AirTAC plunger in the last
-millimetres of closing — QEV itself dumps the pilot when the breech seats.
-Hopper / rotary union / pack ring not drawn.
+clamps, pellet tray, AirTAC M3R110 pilot valve, closed assembly + open ghost.
+The carriage thumb (a truncated pistol-style pad) presses the AirTAC plunger
+in the last millimetres of closing — QEV itself dumps the pilot when the
+breech seats. Hopper / rotary union / pack ring not drawn.
 
 Run inside FreeCAD / freecadcmd:
     REPO = '/path/to/ratling'
@@ -93,6 +93,12 @@ BARREL_SHOW = 160.0              # fixed barrel drawn ahead of the breech clamp
 # Forward QEV bushings: second rail guide under the chamber front (rear bushings
 # stay on the rear-plug bridge). Span along Z ≈ chamber length for coax to the bore.
 NOSE_BUSH_L = BUSH_L
+
+# Pellet scoop (rides with the QEV): open +Y half-pipe around the fitting, past
+# the tip. Pellet drops into the scoop when the breech is open; closing drives
+# scoop + tip into the bore and shoves the pellet ahead.
+SCOOP_RADIAL = 0.35              # scoop OD under BARREL_ID; ID over fitting body
+SCOOP_PAST_TIP = PELLET_D + 2.0  # how far the scoop leads the fitting tip
 
 # AirTAC M3R110-06 (roller off): same body numbers as pistol/hammer_layout.py.
 # Ports swapped like the pistol: supply→R, silencer→P, A→pilot → normally open
@@ -325,6 +331,23 @@ barrel_collar = make_barrel_clamp(z_clamp2_0, z_clamp2_1, feed_notch=False)
 # Fixed real barrel (bought), breech face at z_stop, held by both clamps.
 fixed_barrel = tube(BARREL_OD, BARREL_ID, z_stop, z_stop + BARREL_SHOW)
 
+# ---------------------------------------------------------------- pellet scoop (printed, rides with QEV)
+# Fitting fills the bore, so the scoop is a half-pipe CUP ahead of the tip only
+# (bonded/sleeved onto the tip nose in the sketch). Open +Y; OD < BARREL_ID.
+scoop_od = BARREL_ID - 2 * SCOOP_RADIAL
+scoop_id = max(6.0, scoop_od - 2 * 2.2)
+z_tip = z_stop + FIT_INSERT
+z_scoop0 = z_tip - 4.0                      # overlap the tip nose for the bond
+z_scoop1 = z_tip + SCOOP_PAST_TIP
+scoop = tube(scoop_od, scoop_id, z_scoop0, z_scoop1)
+# Pocket for the tip nose (cone/body) so the cup seats on the fitting.
+scoop = scoop.cut(G.cyl(2 * fit_body_r + 0.3, z_scoop0 - 1, z_tip + 0.5))
+# Open +Y for the drop (keep the bottom cradle under the pellet).
+scoop = scoop.cut(Part.makeBox(
+    scoop_od + 4.0, scoop_od + 4.0, z_scoop1 - z_tip + 4.0,
+    V(-(scoop_od + 4.0) / 2, 1.0, z_tip - 1.0)))
+scoop = scoop.removeSplitter()
+
 # ---------------------------------------------------------------- QEV solids to slide
 qev_closed = {
     "Rear_plug": rp,
@@ -337,6 +360,7 @@ qev_closed = {
     "Tie_rods": hardware,
     "Pilot_fitting": fitting,
     "Carriage": carriage,
+    "Pellet_scoop": scoop,
 }
 # Drop the library's free-floating real_barrel; this sketch owns the fixed one.
 
@@ -349,8 +373,8 @@ def shifted(shape, dz):
 
 qev_open = {n: shifted(s, -STROKE) for n, s in qev_closed.items()} if SHOW_OPEN else {}
 
-# Pellet at the breech mouth when open (drops from +Y into the gap).
-pellet_z = z_stop - STROKE / 2.0
+# Pellet seated in the open scoop (ahead of the open fitting tip).
+pellet_z = (z_stop + FIT_INSERT + PELLET_D / 2) - STROKE
 pellet = Part.makeSphere(PELLET_D / 2, V(0, 0, pellet_z))
 
 # ---------------------------------------------------------------- checks
@@ -388,11 +412,25 @@ cradle_vs_closed = cradle.distToShape(qev_body)[0]
 vent_vs_rails = vent_body.distToShape(rails_s)[0]
 # Sanity: open must NOT press (pad behind tip); closed must press.
 press_on_close = closed_press >= VENT_SWITCH and open_clear >= 5.0
+# Scoop: open tip behind the seated pellet; scoop OD slips into the barrel.
+open_scoop = qev_open["Pellet_scoop"] if SHOW_OPEN else scoop
+open_tip_fit = z_stop + FIT_INSERT - STROKE   # fitting tip when open
+pellet_aft = pellet_z - PELLET_D / 2
+barrel_wall = tube(BARREL_OD + 2.0, BARREL_ID, z_stop, z_stop + BARREL_SHOW)
+scoop_vs_barrel = scoop.distToShape(barrel_wall)[0]
+scoop_in_bore = scoop.common(
+    G.cyl(BARREL_ID - 0.05, z_stop, z_stop + FIT_INSERT + SCOOP_PAST_TIP + 1)).Volume
+# Drop path into the open scoop from +Y.
+drop_col = Part.makeCylinder(PELLET_D / 2 + 1.0, 40.0, V(0, 2.0, pellet_z), Y)
+feed_hit_scoop = open_scoop.common(drop_col).Volume if SHOW_OPEN else 0.0
+scoop_vs_clamp = scoop.distToShape(barrel_clamp)[0]
+scoop_vs_fit = scoop.distToShape(front_cover)[0]  # tip cutout seats on fitting
 
 checks = [
     ("carriage valid single solid (with thumb + nose)", G.single_solid(carriage)),
     ("barrel clamp valid (may be multi-solid halves)", barrel_clamp.Volume > 1000),
     ("forward barrel collar valid (may be multi-solid halves)", barrel_collar.Volume > 1000),
+    ("pellet scoop valid single solid", G.single_solid(scoop)),
     ("AirTAC cradle valid single solid", G.single_solid(cradle)),
     ("rails clear of closed QEV body (%.1f mm >= %.1f)" % (rail_to_qev, RAIL_CLEAR),
      rail_to_qev >= RAIL_CLEAR),
@@ -411,6 +449,16 @@ checks = [
     ("+Y feed window clear of rails (vol %.0f)" % feed_hit_rail, feed_hit_rail < 1.0),
     ("+Y feed window clear of open carriage (vol %.0f)" % feed_hit_carr_open,
      feed_hit_carr_open < 1.0),
+    ("+Y drop into open scoop clear (vol %.0f)" % feed_hit_scoop, feed_hit_scoop < 1.0),
+    ("open tip behind seated pellet (tip %.1f < pellet aft %.1f)"
+     % (open_tip_fit, pellet_aft),
+     SHOW_OPEN and open_tip_fit <= pellet_aft + 0.5),
+    ("scoop OD slips into barrel (OD %.1f < ID %.1f; wall clear %.1f)"
+     % (scoop_od, BARREL_ID, scoop_vs_barrel),
+     scoop_od <= BARREL_ID - 0.2 and scoop_vs_barrel >= 0.15),
+    ("closed scoop enters the bore (vol %.0f)" % scoop_in_bore, scoop_in_bore > 50),
+    ("closed scoop clear of breech clamp (%.1f mm)" % scoop_vs_clamp, scoop_vs_clamp >= 0.5),
+    ("scoop near fitting tip for bond (dist %.1f)" % scoop_vs_fit, scoop_vs_fit <= 0.6),
     ("rails clear of neighbour at pack pitch (%.1f mm >= %.1f; envelope R %.1f)"
      % (rail_to_nbr, RAIL_CLEAR, rail_r_max),
      rail_to_nbr >= RAIL_CLEAR),
@@ -440,6 +488,8 @@ report = [
     % (BUSH_OD, BUSH_L, BUSH_OD, NOSE_BUSH_L),
     "  barrel clamps          : breech + forward (span %.0f), split L/R on Ø%.1f, feet on rails"
     % (CLAMP_SPAN, BARREL_OD),
+    "  pellet scoop           : half-pipe on fitting, OD %.1f into bore, leads tip by %.0f mm; drop +Y"
+    % (scoop_od, SCOOP_PAST_TIP),
     "  pilot valve            : AirTAC M3R110 under rails, plunger -Z; L-pad presses %.1f mm on CLOSE"
     " only (switch %.1f); A→pilot" % (VENT_PUSH, VENT_SWITCH),
     "  pack                   : pitch %.0f, rail envelope R %.1f, clear to neighbour %.1f mm"
@@ -460,7 +510,7 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
         "Rear_plug": "stator", "Seat_ring": "rotor", "Diaphragm": "shoe",
         "Front_cover": "stator", "Front_yoke": "stator", "Barrel_stub": "ghost",
         "Chamber_tube": "ghost", "Tie_rods": "steel", "Pilot_fitting": "steel",
-        "Carriage": "stator",
+        "Carriage": "stator", "Pellet_scoop": "shoe",
     }
     for n, s in qev_closed.items():
         sc.add("Closed", n, s, styles_qev.get(n, "stator"))
@@ -478,15 +528,15 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
         sc.add("Open", "Pellet", pellet, "flow")
 
     for text, pos in [
-        ("ЗАКРЫТО: упор в ствол, фиттинг внутри", (55, 0, z_stop - 5)),
-        ("ОТКРЫТО: ход %.0f мм, щель под пульку сверху" % STROKE, (55, 40, z_stop - STROKE / 2)),
+        ("ЗАКРЫТО: упор в ствол, фиттинг + совок в канале", (55, 0, z_stop - 5)),
+        ("ОТКРЫТО: пулька в совке, ход %.0f мм" % STROKE, (55, 40, pellet_z)),
         ("РЕЛЬСЫ Ø%.0f x %.0f под модулем (+Y свободен)" % (RAIL_OD, RAIL_WALL),
          (55, RAIL_Y - 15, (z_rail0 + z_rail1) / 2)),
         ("САЛАЗКИ: задние + носовые втулки", (55, 0, (z_bush0 + z_nose1) / 2)),
         ("AirTAC M3R110: сброс только на ЗАКРЫТИИ", (55, vent_y - 20, (z_stem + z_vent1) / 2)),
         ("ХОМУТ У КАЗЁННИКА", (55, 0, z_clamp0 + CLAMP_L / 2)),
         ("НАСАДКА НА СТВОЛЕ (2-я опора)", (55, 0, (z_clamp2_0 + z_clamp2_1) / 2)),
-        ("ПОДАЧА ПУЛЬКИ +Y", (0, 50, z_stop - STROKE / 2)),
+        ("СОВОК НА ФИТИНГЕ: сброс +Y → наезд в ствол", (0, 45, pellet_z)),
     ]:
         sc.label("Labels", text, pos)
 
@@ -507,6 +557,7 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
     for n, s, flip in (("carriage", carriage, False),
                        ("barrel_clamp", barrel_clamp, False),
                        ("barrel_collar", barrel_collar, False),
+                       ("pellet_scoop", scoop, False),
                        ("airtac_cradle", cradle, False)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:

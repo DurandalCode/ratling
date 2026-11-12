@@ -180,7 +180,7 @@ report = [
     "  handle                 : T on carriage, stem %.0f mm into +Y; shove closed to dump AirTAC"
     % HANDLE_STEM,
     "  station                : stroke %.1f mm, AirTAC press on close %.1f mm" % (STROKE, VENT_PUSH),
-    "  not drawn              : regulator plumbing, pellet tray, chronograph stand",
+    "  not drawn              : regulator plumbing, chronograph stand",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 print("\n".join(report))
