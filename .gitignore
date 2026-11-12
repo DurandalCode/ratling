@@ -7,6 +7,9 @@ exports/
 *.FCStd
 *.FCBak
 
+# GPT-mask housing overrides (see experiments/gpt-mask/mask_sync.py)
+pistol/mask_overlays/*.brep
+
 # macOS
 .DS_Store
 

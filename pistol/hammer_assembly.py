@@ -810,6 +810,30 @@ frame_upper = _biggest(frame_upper, vmin=1000.0)
 side_plate = Part.makeCompound([side_wall, side_band])          # tongues and bolt holes included
 frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
 
+# ---------------------------------------------------------------- GPT-mask overlays (optional)
+# experiments/gpt-mask/mask_sync.py in → pistol/mask_overlays/<var>.brep. When present,
+# that solid replaces the parametric shell part so GPT housing edits round-trip. Delete
+# the overlay to return to the generator. Drive parts are never overlaid here.
+_mask_overlay_dir = os.path.join(REPO, "pistol", "mask_overlays")
+_MASK_OVERLAY_VARS = (
+    "frame_lower", "frame_upper", "side_wall", "side_band", "side_plate_r",
+    "grip_left", "grip_right", "guard", "detent_box",
+)
+if os.path.isdir(_mask_overlay_dir):
+    _applied = []
+    for _vn in _MASK_OVERLAY_VARS:
+        _op = os.path.join(_mask_overlay_dir, _vn + ".brep")
+        if not os.path.isfile(_op):
+            continue
+        _osh = Part.Shape()
+        _osh.read(_op)
+        globals()[_vn] = _osh
+        _applied.append(_vn)
+    if _applied:
+        side_plate = Part.makeCompound([side_wall, side_band])
+        frame = Part.makeCompound([frame_lower, frame_upper])
+        print("  [mask] overlays: %s" % ", ".join(_applied), flush=True)
+
 # ---------------------------------------------------------------- checks
 def hit(a, b):
     try:
