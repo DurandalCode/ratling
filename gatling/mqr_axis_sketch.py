@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Gatling MQR6 on pack axis — very rough 3D block sketch.
+Gatling MQR6 on pack axis — rough 3D block sketch.
 
-Four solids only: load axle, pack hub, MQR rotor, MQR stator (+ tiny
-frame lug). Colours: warm = rotates with the pack, cool = stays on the frame.
-No stations, no hoses, no bearings detail. Numbers from the MQR6 clone drawing
-and PACK_PITCH = 68 (hub OD just under the station ring).
+Load path: axle sits in two frame bearings; hub (and later the pack) rides on
+the axle. MQR rotor bolts to the hub face for air only — the valve is not the
+shaft. Colours: warm = rotates with the pack, cool = stays on the frame.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/mqr_axis_sketch.py').read())"
 
@@ -39,125 +38,175 @@ NAME = "gatling_mqr_axis_sketch"
 # ---------------------------------------------------------------- numbers (mm)
 AXLE_OD = 16.0
 AXLE_ID = 10.0
-AXLE_L = 220.0               # stub through pack + past hub
+AXLE_L = 220.0
 
-HUB_OD = 50.0                # under station ring at R68
+HUB_OD = 50.0
 HUB_T = 18.0
 HUB_BORE = AXLE_OD + 0.2
 
-# MQR6 clone (docs/img/mqr6_dims.png), simplified to cylinders
-ROTOR_OD = 46.0
-ROTOR_L = 29.0               # rotor-side length on the drawing
-STATOR_OD = 46.0
-STATOR_L = 53.0              # body remaining after rotor (~82-29)
-HUB_STATOR_OD = 20.0         # stator protruding hub
-HUB_STATOR_L = 8.0
-THROUGH = 6.0                # unused for load axle
+BRG_OD = 42.0                # pillow block outer (fixed)
+BRG_ID = AXLE_OD + 0.3       # clearance on axle
+BRG_T = 16.0
+BRG_FOOT = 56.0              # square foot under each bearing
 
-# Lay along +Z: muzzle left (small z), frame right (large z).
-# Axle ends in the hub — it does NOT enter the MQR through-hole Ø6.
+# MQR6 clone (docs/img/mqr6_dims.png), simplified
+ROTOR_OD = 46.0
+ROTOR_L = 29.0
+STATOR_OD = 46.0
+STATOR_L = 53.0
+HUB_STATOR_OD = 20.0
+HUB_STATOR_L = 8.0
+THROUGH = 6.0
+MQR_GAP = 2.0                # visual air gap hub face → rotor (bolts span it)
+
+# +Z toward the frame. Axle ends in the hub — never enters MQR Ø6.
 z0 = 0.0
+z_brg_f0 = z0 + 12.0
+z_brg_f1 = z_brg_f0 + BRG_T
 z_hub0 = z0 + AXLE_L - HUB_T
-z_hub1 = z_hub0 + HUB_T                  # = z0 + AXLE_L
-z_axle1 = z_hub1                         # axle stops at hub aft face
-z_rotor0 = z_hub1
+z_hub1 = z_hub0 + HUB_T
+z_axle1 = z_hub1
+z_brg_r1 = z_hub0 - 8.0
+z_brg_r0 = z_brg_r1 - BRG_T
+z_rotor0 = z_hub1 + MQR_GAP
 z_rotor1 = z_rotor0 + ROTOR_L
 z_stator0 = z_rotor1
 z_stator1 = z_stator0 + STATOR_L
 z_stub0 = z_stator1
 z_stub1 = z_stub0 + HUB_STATOR_L
+z_frame_back = z_stub1 + 8.0
 
 V = App.Vector
-X, Y, Z = V(1, 0, 0), V(0, 1, 0), V(0, 0, 1)
 
 
-def tube(od, idd, z_a, z_b):
-    return G.cyl(od, z_a, z_b).cut(G.cyl(idd, z_a - 1, z_b + 1))
+def tube(od, idd, z_a, z_b, x=0.0, y=0.0):
+    return G.cyl(od, z_a, z_b, x, y).cut(G.cyl(idd, z_a - 1, z_b + 1, x, y))
 
 
-# ---------------------------------------------------------------- solids
+def bearing(z_a, z_b):
+    """Fixed outer race + foot below the axle (foot never enters the bore)."""
+    race = tube(BRG_OD, BRG_ID, z_a, z_b)
+    # Overlap the race OD a little so fuse makes one solid.
+    y_top = -BRG_OD / 2 + 2.0
+    foot_h = BRG_FOOT / 2
+    foot = Part.makeBox(BRG_FOOT, foot_h, z_b - z_a,
+                        V(-BRG_FOOT / 2, y_top - foot_h, z_a))
+    return race.fuse(foot).removeSplitter()
+
+
+# ---------------------------------------------------------------- spinning
 axle = tube(AXLE_OD, AXLE_ID, z0, z_axle1)
 hub = tube(HUB_OD, HUB_BORE, z_hub0, z_hub1)
-# two M4 bosses on hub face toward rotor (PCD 38) — just markers
 for ang in (30.0, 210.0):
     a = math.radians(ang)
-    hub = hub.fuse(G.cyl(6.0, z_hub1 - 2, z_hub1 + 4,
+    # bolt markers toward the rotor (span the MQR_GAP)
+    hub = hub.fuse(G.cyl(5.0, z_hub1 - 2, z_rotor0 + 3,
                          19.0 * math.cos(a), 19.0 * math.sin(a)))
 hub = hub.removeSplitter()
 
 rotor = tube(ROTOR_OD, THROUGH, z_rotor0, z_rotor1)
-# six M5 port stubs on rotor face (PCD 38), facing -Z toward hub gap — markers on +Z face
 for k in range(6):
     a = math.radians(k * 60.0)
-    rotor = rotor.fuse(G.cyl(5.0, z_rotor0 - 6, z_rotor0,
+    rotor = rotor.fuse(G.cyl(5.0, z_rotor0 - 4, z_rotor0,
                              19.0 * math.cos(a), 19.0 * math.sin(a)))
 rotor = rotor.removeSplitter()
 
+# ---------------------------------------------------------------- fixed
+brg_f = bearing(z_brg_f0, z_brg_f1)
+brg_r = bearing(z_brg_r0, z_brg_r1)
+
 stator = tube(STATOR_OD, THROUGH, z_stator0, z_stator1)
-# six M5 stubs on OD (staggered along Z like the drawing)
 for k in range(6):
     a = math.radians(k * 60.0 + 15.0)
     z_p = z_stator0 + 8.0 + k * 7.0
-    stub = Part.makeCylinder(4.0, 8.0,
-                             V(STATOR_OD / 2 - 1, 0, z_p),
-                             V(math.cos(a), math.sin(a), 0))
-    # place around OD
-    stub = Part.makeCylinder(4.0, 10.0,
-                             V((STATOR_OD / 2 - 2) * math.cos(a),
-                               (STATOR_OD / 2 - 2) * math.sin(a), z_p),
-                             V(math.cos(a), math.sin(a), 0))
+    stub = Part.makeCylinder(
+        4.0, 10.0,
+        V((STATOR_OD / 2 - 2) * math.cos(a),
+          (STATOR_OD / 2 - 2) * math.sin(a), z_p),
+        V(math.cos(a), math.sin(a), 0))
     stator = stator.fuse(stub)
-stator_hub = G.cyl(HUB_STATOR_OD, z_stub0, z_stub1)
-stator = stator.fuse(stator_hub).removeSplitter()
+stator = stator.fuse(G.cyl(HUB_STATOR_OD, z_stub0, z_stub1)).removeSplitter()
 
-# Frame lug: flat plate behind stator, cool/fixed
-frame = Part.makeBox(70.0, 70.0, 8.0, V(-35.0, -35.0, z_stub1))
-frame = frame.cut(G.cyl(HUB_STATOR_OD + 0.4, z_stub1 - 1, z_stub1 + 10))
-frame = frame.removeSplitter()
+# One cool frame: rail under both bearings (stops before MQR) + back plate for stator.
+y_rail_top = -BRG_OD / 2 - 3.0
+rail = Part.makeBox(BRG_FOOT - 8.0, 10.0, z_brg_r1 - z_brg_f0 + 6.0,
+                    V(-(BRG_FOOT - 8.0) / 2, y_rail_top - 10.0, z_brg_f0))
+back = Part.makeBox(70.0, 70.0, 8.0, V(-35.0, -35.0, z_stub1))
+back = back.cut(G.cyl(HUB_STATOR_OD + 0.4, z_stub1 - 1, z_stub1 + 10))
+# low upright under the MQR — below the downward M5 stubs on the stator OD
+up_h = 10.0
+up_y_max = -STATOR_OD / 2 - 12.0
+up = Part.makeBox(16.0, up_h, z_stub1 - z_brg_r1 + 6.0,
+                  V(-8.0, up_y_max - up_h, z_brg_r1 - 4.0))
+# bridge from rail top down to the upright
+drop = Part.makeBox(16.0, y_rail_top - up_y_max + 1.0, 10.0,
+                    V(-8.0, up_y_max, z_brg_r1 - 2.0))
+frame = rail.fuse(back).fuse(up).fuse(drop).removeSplitter()
+rail_only = rail  # for the clearance check
 
-# ---------------------------------------------------------------- checks (sanity only)
+# ---------------------------------------------------------------- checks
 checks = [
     ("axle single solid", G.single_solid(axle)),
     ("hub single solid", G.single_solid(hub)),
     ("rotor single solid", G.single_solid(rotor)),
     ("stator single solid", G.single_solid(stator)),
-    ("hub clear of rotor face (touch ok)", hub.distToShape(rotor)[0] <= 0.05),
+    ("front bearing single solid", G.single_solid(brg_f)),
+    ("rear bearing single solid", G.single_solid(brg_r)),
+    ("frame single solid", G.single_solid(frame)),
+    ("axle clears front bearing race (%.2f mm)" % axle.distToShape(brg_f)[0],
+     axle.distToShape(brg_f)[0] >= 0.1),
+    ("axle clears rear bearing race (%.2f mm)" % axle.distToShape(brg_r)[0],
+     axle.distToShape(brg_r)[0] >= 0.1),
+    ("hub clear of rear bearing (%.1f mm)" % hub.distToShape(brg_r)[0],
+     hub.distToShape(brg_r)[0] >= 5.0),
+    ("hub/rotor faces spaced %.1f mm (bolts may bridge)" % (z_rotor0 - z_hub1),
+     abs((z_rotor0 - z_hub1) - MQR_GAP) < 1e-6),
     ("rotor butts stator", rotor.distToShape(stator)[0] <= 0.05),
     ("axle does not enter MQR bore",
      axle.common(G.cyl(THROUGH + 0.5, z_rotor0, z_stub1)).Volume < 1.0),
+    ("stator clear of frame rail (%.1f mm)" % stator.distToShape(rail_only)[0],
+     stator.distToShape(rail_only)[0] >= 0.5),
+    ("stator clear of frame upright (%.1f mm)" % stator.distToShape(up)[0],
+     stator.distToShape(up)[0] >= 0.5),
 ]
 report = [
     NAME,
-    "  sketch                 : axle + hub + MQR rotor + MQR stator (block colours)",
-    "  rotates (warm)         : axle, hub, rotor",
-    "  fixed (cool)           : stator, frame lug",
-    "  axle                   : Ø%.0f/%.0f x %.0f; stops before MQR (through Ø%.0f unused)"
+    "  sketch                 : axle on 2 bearings; hub; MQR rotor/stator; frame",
+    "  rotates (warm)         : axle, hub, MQR rotor",
+    "  fixed (cool)           : bearings, frame, MQR stator",
+    "  load path              : pack/hub -> axle -> bearings -> frame (MQR not in path)",
+    "  axle                   : Ø%.0f/%.0f x %.0f; stops in hub; MQR through Ø%.0f unused"
     % (AXLE_OD, AXLE_ID, AXLE_L, THROUGH),
-    "  hub                    : Ø%.0f x %.0f, 2xM4 markers on PCD 38" % (HUB_OD, HUB_T),
+    "  bearings               : 2x Ø%.0f x %.0f, span %.0f mm"
+    % (BRG_OD, BRG_T, z_brg_r0 - z_brg_f1),
+    "  hub / MQR gap          : %.0f mm (2xM4 markers span it)" % MQR_GAP,
     "  MQR                    : rotor L %.0f + stator L %.0f, OD %.0f"
     % (ROTOR_L, STATOR_L, STATOR_OD),
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 print("\n".join(report))
 
-# Extra styles: warm = pack spin, cool = frame
-FV.STYLES["spin"] = ((0.95, 0.45, 0.12), 25)      # orange — rotates
-FV.STYLES["spin_hub"] = ((0.85, 0.70, 0.20), 20)  # amber hub
-FV.STYLES["fixed"] = ((0.45, 0.70, 0.95), 35)     # blue — stays
-FV.STYLES["fixed_frame"] = ((0.55, 0.60, 0.70), 40)
+FV.STYLES["spin"] = ((0.95, 0.45, 0.12), 25)
+FV.STYLES["spin_hub"] = ((0.85, 0.70, 0.20), 20)
+FV.STYLES["fixed"] = ((0.45, 0.70, 0.95), 40)
+FV.STYLES["fixed_brg"] = ((0.35, 0.55, 0.85), 30)
+FV.STYLES["fixed_frame"] = ((0.55, 0.60, 0.70), 45)
 
 os.makedirs(OUT_DIR, exist_ok=True)
 sc = FV.Scene(NAME)
 sc.add("Spins", "Axle", axle, "spin")
 sc.add("Spins", "Hub", hub, "spin_hub")
 sc.add("Spins", "MQR_rotor", rotor, "spin")
+sc.add("Fixed", "Bearing_front", brg_f, "fixed_brg")
+sc.add("Fixed", "Bearing_rear", brg_r, "fixed_brg")
 sc.add("Fixed", "MQR_stator", stator, "fixed")
-sc.add("Fixed", "Frame_lug", frame, "fixed_frame")
+sc.add("Fixed", "Frame", frame, "fixed_frame")
 
 for text, pos in [
-    ("КРУТИТСЯ: вал + ступица + ротор MQR", (40, 0, (z_hub0 + z_rotor1) / 2)),
-    ("СТОИТ: статор MQR + кронштейн рамы", (40, 0, (z_stator0 + z_stub1) / 2)),
-    ("вал НЕ в Ø6 MQR", (30, 25, z_rotor0 + 5)),
+    ("КРУТИТСЯ: вал + ступица + ротор", (55, 0, (z_hub0 + z_rotor1) / 2)),
+    ("СТОИТ: подшипники + рама + статор", (55, 0, (z_brg_f0 + z_stub1) / 2)),
+    ("опора пакета = подшипники, не MQR", (50, -45, (z_brg_f1 + z_brg_r0) / 2)),
+    ("MQR только воздух (зазор %.0f мм)" % MQR_GAP, (50, 30, z_rotor0)),
 ]:
     sc.label("Labels", text, pos)
 
@@ -177,7 +226,8 @@ def write(shape, name):
 
 
 for n, s in (("axle", axle), ("hub", hub), ("mqr_rotor", rotor),
-             ("mqr_stator", stator), ("frame_lug", frame)):
+             ("mqr_stator", stator), ("bearing_front", brg_f),
+             ("bearing_rear", brg_r), ("frame", frame)):
     write(s, n)
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
     f.write("\n".join(report) + "\n")
