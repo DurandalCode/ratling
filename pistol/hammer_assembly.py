@@ -334,7 +334,26 @@ frame = frame.cut(pilot_exit)
 supply_pts = [c_end + gd * 70, c_end + gd * 15, GRIP_START + gd * (GRIP_LEN * 0.6), GRIP_START + gd * (GRIP_LEN * 0.3),
               V(-104, 8, -76), V(-108, 30, -72), V(r_end.x, r_end.y + 28, r_end.z - 18),
               r_end + r_dir * 16, r_end]
-supply_line = pipe_along(supply_pts, 3.0)
+def _supply_pipe(r):
+    # Keep the grip's groove straight; the external bend must not bow it off the seam.
+    points = [supply_pts[0]] + supply_pts[3:]
+    edges, last = [], points[0]
+    for a, b, c in zip(points, points[1:], points[2:]):
+        u, v = (b - a).normalize(), (c - b).normalize()
+        angle = math.acos(max(-1.0, min(1.0, u.dot(v))))
+        setback = min(10.0, (b - a).Length * 0.3, (c - b).Length * 0.3)
+        radius = setback / math.tan(angle / 2)
+        start, end = b - u * setback, b + v * setback
+        center = start + (v - u * math.cos(angle)).normalize() * radius
+        middle = center + (b - center).normalize() * radius
+        edges.extend([Part.makeLine(last, start), Part.Arc(start, middle, end).toShape()])
+        last = end
+    edges.append(Part.makeLine(last, points[-1]))
+    path = Part.Wire(edges)
+    return path.makePipeShell([Part.Wire(Part.makeCircle(r, supply_pts[0], -gd))], True, False)
+
+
+supply_line = _supply_pipe(3.0)
 TEE = V(-86, 0, -27.3)                              # in the room: under the spring rib (z -23), beside the vent valve (y 7.5)
 pilot_pts = [a_end, a_end + a_dir * 8.0, a_end + a_dir * 16.0, V(-93.5, -33.5, -38.5), V(-101, -36, -36),
              V(-110, -32, -32), V(-118, -19, -28.5), V(-120, -6, -27), V(-113, 0, -27), V(-100, 0, -26.5),
@@ -344,7 +363,7 @@ gauge_pts = [TEE, V(-82, -12, -28), V(-76, -20, -28), V(-75, -34, -20), V(-63, -
 gauge_line = pipe_along(gauge_pts, 2.0)
 tee = Part.makeSphere(4.0, TEE)
 hose = supply_line
-air_cut = pipe_along(supply_pts, 3.6).fuse(pipe_along(pilot_pts, 2.6)).fuse(pipe_along(gauge_pts, 2.6)).fuse(Part.makeSphere(5.0, TEE))
+air_cut = _supply_pipe(3.6).fuse(pipe_along(pilot_pts, 2.6)).fuse(pipe_along(gauge_pts, 2.6)).fuse(Part.makeSphere(5.0, TEE))
 
 # ---------------------------------------------------------------- trigger guard: a continuous flat ribbon
 # Offset the centreline in its own plane, then extrude across y: no Frenet-frame flips or gaps.
