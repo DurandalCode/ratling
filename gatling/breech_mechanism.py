@@ -506,46 +506,53 @@ def make_auger_along_z(pitch, length, r_core, r_od):
 
 
 def build_hopper_auger(r_od):
-    """Flush bin on frame OD; short throat into LOAD. Local +Y = radial out."""
+    """Bin box sits on frame OD (no stand). Local +Y = radial out from station.
+    place_feed_shape adds R_PACK, so world radius of local y is R_PACK+y.
+    Flush ⇒ y_bin0 = r_od − R_PACK (box inner face on frame envelope).
+    """
     z_n = z_feed
     tube_id = pd + 2.5
     tube_od = tube_id + 6.0
-    y0 = R_PACK + CH_OD / 2 + 2.0          # mouth into open breech
-    y_bin0 = r_od + 0.5                    # flush against frame envelope
-    tube_len = max(12.0, y_bin0 - y0 + 4.0)
-    # Short feed throat only (no stand).
+    # Mouth into open breech (local, past chamber OD).
+    y0 = CH_OD / 2 + 2.0
+    # Inner face of bin on frame OD: world R_PACK+y_bin0 == r_od.
+    y_bin0 = r_od - R_PACK
+    if y_bin0 < y0 + 8.0:
+        y_bin0 = y0 + 8.0
+    tube_len = max(8.0, y_bin0 - y0)
+    # Short throat only — not a pedestal under the box.
     tube = Part.makeCylinder(tube_od / 2, tube_len, V(0, y0, z_n), V(0, 1, 0))
     tube = tube.cut(Part.makeCylinder(
         tube_id / 2, tube_len + 4.0, V(0, y0 - 2.0, z_n), V(0, 1, 0)))
-    # Bin sits on frame OD (inner face at y_bin0).
     bin_o = Part.makeBox(bin_w, bin_d, bin_h,
                          V(-bin_w / 2, y_bin0, z_n - bin_h / 2))
     bin_i = Part.makeBox(bin_w - 6.0, bin_d - 4.0, bin_h - 6.0,
                          V(-(bin_w - 6.0) / 2, y_bin0 + 2.0,
                            z_n - (bin_h - 6.0) / 2))
-    mouth = Part.makeCylinder(tube_id / 2 + 1.0, 14.0,
-                              V(0, y_bin0 - 4.0, z_n), V(0, 1, 0))
+    mouth = Part.makeCylinder(tube_id / 2 + 1.0, 12.0,
+                              V(0, y_bin0 - 2.0, z_n), V(0, 1, 0))
     body = tube.fuse(bin_o).cut(bin_i).cut(mouth)
     try:
         body = body.removeSplitter()
     except Exception:
         pass
-    aug_len = max(AUGER_PITCH * 1.8, tube_len - 4.0)
+    aug_len = max(AUGER_PITCH * 1.6, tube_len - 2.0)
     r_core, r_od_a = 4.0, tube_id / 2 - 1.0
     aug = make_auger_along_z(AUGER_PITCH, aug_len, r_core, r_od_a)
     aug.rotate(V(0, 0, 0), V(1, 0, 0), -90.0)
-    aug.translate(V(0, y0 + 2.0, z_n))
-    # Pack shaft → bevel 1:1 → auger (clutchable later by feed trigger).
+    aug.translate(V(0, y0 + 1.0, z_n))
+    # Pack shaft → bevel 1:1 → auger (unchanged drive topology).
     drive = G.cyl(7.0, z_case0 - 25.0, z_n + 20.0)
     bevel_z = Part.makeCylinder(16.0, 10.0, V(0, 0, z_n - 5.0))
     bevel_y = Part.makeCylinder(16.0, 10.0, V(0, 0, z_n), V(0, 1, 0))
     stub = Part.makeCylinder(5.0, max(8.0, y0 + 4.0), V(0, 0, z_n), V(0, 1, 0))
     drive = drive.fuse(bevel_z).fuse(bevel_y).fuse(stub).removeSplitter()
-    y_pocket = y0 + 2.0 + AUGER_PITCH * 0.45
+    y_pocket = y0 + 1.0 + AUGER_PITCH * 0.4
     p_aug = Part.makeSphere(pd / 2, V(0, y_pocket, z_n))
     p_bin = Part.makeSphere(pd / 2, V(0, y_bin0 + bin_d * 0.4, z_n + pd * 0.5))
     p_breech = Part.makeSphere(pd / 2, V(0, 0, (z_tip + pd / 2) - BENCH_STROKE))
-    flush_gap = y_bin0 - r_od                     # ~0.5 = flush, not on a stand
+    # World radial of bin inner face minus frame OD (0 = flush).
+    flush_gap = abs((R_PACK + y_bin0) - r_od)
     return dict(
         body=body, auger=aug, drive=drive,
         p_aug=p_aug, p_bin=p_bin, p_breech=p_breech,
@@ -559,14 +566,9 @@ open_carr = place_shape(shifted(qev_closed["Carriage"], -BENCH_STROKE),
 
 
 def seat_hopper(r_od):
+    """Place hopper; never nudge radially — that would open a stand gap."""
     h = build_hopper_auger(r_od)
     body = place_feed_shape(h["body"])
-    # Flush bin may kiss a spar — only reject hard hits with open carriage.
-    for _ in range(6):
-        if body.common(open_carr).Volume < 1.0:
-            break
-        body.translate(V(ux_f * 2.0, uy_f * 2.0, 0))
-        moved_notes.append("hopper nudged (carriage)")
     auger = place_feed_shape(h["auger"])
     drive = place_feed_shape(h["drive"])
     p_aug = place_feed_shape(h["p_aug"])
@@ -584,7 +586,8 @@ auger_ok = (
     and abs(hop_m["pitch"] - (pd + 1.2)) < 0.05
     and hop_m["pitch"] >= pd
     and hop_m["pitch"] < 1.5 * pd)
-hopper_flush_ok = hop_m["flush_gap"] < 3.0
+# Box on frame: flush_gap≈0; also bin must touch/overlap frame envelope.
+hopper_flush_ok = hop_m["flush_gap"] < 1.0
 feed_clear = hopper.common(open_carr).Volume < 1.0
 feed_ok = feed_clear and auger_ok and hopper_flush_ok
 one_per_cycle_ok = (
@@ -756,7 +759,7 @@ def rebuild_housing_for_od():
         and abs(hop_m["pitch"] - (pd + 1.2)) < 0.05
         and hop_m["pitch"] >= pd
         and hop_m["pitch"] < 1.5 * pd)
-    hopper_flush_ok = hop_m["flush_gap"] < 3.0
+    hopper_flush_ok = hop_m["flush_gap"] < 1.0
     feed_clear = hopper.common(open_carr).Volume < 1.0
     feed_ok = feed_clear and auger_ok and hopper_flush_ok
     one_per_cycle_ok = (
