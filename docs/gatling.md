@@ -75,9 +75,9 @@
 
 ![MQR6 на оси пакета](img/gatling_mqr_axis.svg)
 
-![Пакет linear_breech, iso](img/gatling_gun_product_3d.png)
+![Пакет linear_breech, iso](img/gatling_dense_pack_iso.png)
 
-![Пакет linear_breech, сбоку](img/gatling_gun_product_side.png)
+![Пакет linear_breech, сбоку](img/gatling_dense_pack_side.png)
 
 Прогон standalone `gatling/fat_coax_qev.py` (2026-11-12): камера **101 см³**, труба
 **50 × 1.5 × 130 мм** (~80 г Al), модуль Ø50 (уши 66), длина до кончика фиттинга ≈ 202 мм,
