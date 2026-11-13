@@ -553,13 +553,29 @@ TRIGGER_OUTLINE = [(0.0, 3.3), (9.0, 1.8), (17.0, 0.5), (25.0, 1.5), (32.6, 0.5)
 
 
 def _trigger_blank():
-    t = Part.makeCylinder(3.6, TRIGGER_WIDTH, V(0, -TRIGGER_WIDTH / 2, 0), YA)          # round the pivot pin
+    t = Part.makeCylinder(5.5, TRIGGER_WIDTH, V(0, -TRIGGER_WIDTH / 2, 0), YA)          # Ø11 hub around the Ø3.2 pivot
     pts = [V(x, -TRIGGER_WIDTH / 2, z) for x, z in TRIGGER_OUTLINE]
     c = Part.BSplineCurve()
     c.interpolate(pts, PeriodicFlag=True)
     t = t.fuse(Part.Face(Part.Wire(c.toShape())).extrude(V(0, TRIGGER_WIDTH, 0)))       # the sickle blade
-    t = t.fuse(box(-13.0, -2.0, -TRIGGER_WIDTH / 2, TRIGGER_WIDTH / 2, -5.0, -1.0))     # the rear lug, its top = the stop
-    t = t.fuse(box(-14.0, -7.0, 2.8, 26.0, -5.0, -1.5))                                 # the wide pad under the plunger (y 21)
+    t = t.fuse(box(-13.0, -2.0, -TRIGGER_WIDTH / 2, TRIGGER_WIDTH / 2, -6.0, -1.0))     # thicker rear lug; retain its stop face
+    t = t.fuse(box(-14.0, -7.0, -2.5, 26.0, -6.0, -1.5))                          # 5.5 mm root overlap, not the old 0.2 mm edge
+    # The pad is 4.5 mm thick (was 3.5); its button face and reach stay fixed. The deeper
+    # underside clears the existing shell throughout the stroke; no new shell pocket is needed.
+    # Carry the rear lug under the hub into the blade with a broad curved web.
+    y0 = -TRIGGER_WIDTH / 2
+    web = Part.Arc(V(-13, y0, -6), V(0, y0, -8), V(14, y0, -4.5)).toShape()
+    w = Part.Wire([web, Part.makeLine(V(14, y0, -4.5), V(14, y0, -1)),
+                   Part.makeLine(V(14, y0, -1), V(-13, y0, -1)), Part.makeLine(V(-13, y0, -1), V(-13, y0, -6))])
+    t = t.fuse(Part.Face(w).extrude(V(0, TRIGGER_WIDTH, 0)))
+    # R3 tangent blend from the rear stop's flat top into the enlarged hub.
+    r, hub_r = 3.0, 5.5
+    cx, cz = -math.sqrt((hub_r + r) ** 2 - (r - 1) ** 2), r - 1
+    p0, p1 = V(cx, y0, -1), V(cx * hub_r / (hub_r + r), y0, cz * hub_r / (hub_r + r))
+    am = (-math.pi / 2 + math.atan2(p1.z - cz, p1.x - cx)) / 2
+    pm = V(cx + r * math.cos(am), y0, cz + r * math.sin(am))
+    w = Part.Wire([Part.Arc(p0, pm, p1).toShape(), Part.makeLine(p1, V(-2, y0, -1)), Part.makeLine(V(-2, y0, -1), p0)])
+    t = t.fuse(Part.Face(w).extrude(V(0, TRIGGER_WIDTH, 0)))
     for z_ in (-15.0, -18.0, -21.0):                                                    # finger grooves in the hollow
         g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(28.0 + 3.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, z_), YA)
         t = t.cut(g)
