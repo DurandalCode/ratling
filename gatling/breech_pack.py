@@ -42,9 +42,9 @@ for _m in (G, FV):
 OUT_DIR = os.path.join(REPO, "exports", "gatling_breech_pack")
 NAME = "gatling_breech_pack"
 
-TARGET_L = 500.0              # overall pack length (Z), mm
+TARGET_L = 750.0              # overall pack length (Z), mm — via BARREL_SHOW only
 BARREL_SHOW_DEFAULT = 160.0   # linear_breech default
-BARREL_SHOW_2X = 320.0        # previous pack (barrels 2×) before L=500 trim
+BARREL_SHOW_L500 = 328.1      # previous pack at TARGET_L=500 (aft-clipped)
 V = App.Vector
 
 GATLING_LINEAR_BREECH_LIBRARY = True
@@ -231,8 +231,8 @@ report = [
     "  design PACK_PITCH      : %.1f mm" % DESIGN_R,
     "  dense pack R           : %.2f mm (core gap %.2f mm; rail gap %.2f mm)"
     % (R_PACK, gap_core, gap_rails),
-    "  barrel length (show)   : %.0f (2× pack) → %.1f mm (for L=%.0f after aft trim)"
-    % (BARREL_SHOW_2X, barrel_len, TARGET_L),
+    "  barrel length (show)   : %.1f (L500) → %.1f mm (for L=%.0f after aft trim)"
+    % (BARREL_SHOW_L500, barrel_len, TARGET_L),
     "  station bbox           : %.0f x %.0f x %.0f mm (X x Y x Z)"
     % (st0_bb.XLength, st0_bb.YLength, st0_bb.ZLength),
     "  overall LxWxH          : %.0f x %.0f x %.0f mm (Z x Y x X)"
