@@ -770,8 +770,8 @@ frame_upper = _cut(frame_upper, box(_CX - _CW / 2 - 0.2, _CX + _CW / 2 + 0.2, -2
 # Recessed through-fasteners: x, z, head bearing y, nut bearing y, bolt length, access radius, boss radius.
 # M3 nuts load from outside and seat in a shallow anti-rotation hex at the bottom of each round well.
 SHELL_BOLT_SEATS = tuple((x_, z_, -22.0, 22.0, 50.0, 4.1, 5.5) for x_, z_ in SIDE_BOSSES) + (
-    (-76.0, -58.0, -16.0, 22.0, 45.0, 4.1, 5.5),
-    (-20.0, -62.0, -12.0, 22.0, 40.0, 4.1, 5.5),
+    (-76.0, -58.0, -8.0, 39.0, 50.0, 4.1, 5.5),
+    (-20.0, -62.0, -8.0, 39.0, 50.0, 4.1, 5.5),
     (COVER_SCREW[0], COVER_SCREW[1], -17.0, 19.0, 40.0, 3.7, 4.8))
 SHELL_BOLTS = tuple((x_, z_) for x_, z_, *_ in SHELL_BOLT_SEATS)
 SHELL_SEAT_FLOOR, SHELL_NUT_AF, SHELL_NUT_DEPTH = 3.0, 5.9, 2.8
@@ -861,6 +861,75 @@ frame_lower = _biggest(frame_lower, vmin=1000.0)
 frame_upper = _biggest(frame_upper, vmin=1000.0)
 # The band's inboard supports keep their seats in the now integral left wall.
 frame_upper = frame_upper.cut(side_band).removeSplitter()
+# The guide belongs to the fixed core: the right cover must slide off along y without it.
+_gx, _gy = GUIDE_ROD["x"], GUIDE_ROD["y"]
+_guide_foot = box(_gx - 4, _gx + 4, 17, _gy + 4, -69.9, -65.9).cut(_guide_rod_hole)
+frame_lower = frame_lower.fuse(_guide_foot).removeSplitter()
+_guide_roof = Part.makeCylinder(41.5, 12, V(-15, 0, 0), XA)
+_guide_upper = slider_stop.fuse(box(-13.7, -5, 16, 32, 30, 40).common(_guide_roof))
+_guide_upper = _guide_upper.fuse(Part.makeCylinder(4, 18, V(_gx, _gy, z_sl_top + 0.05), ZA).common(_guide_roof))
+_guide_upper = _guide_upper.cut(_guide_rod_hole).removeSplitter()
+frame_upper = frame_upper.fuse(_guide_upper).removeSplitter()
+_foot_clear = box(_gx - 4.2, _gx + 4.2, 15.8, _gy + 4.2, -70.1, -65.7)
+_stop_clear = box(-13.9, -4.8, 15.8, 32.8, z_sl_top - 0.15, 40.2).common(
+    Part.makeCylinder(41.7, 12, V(-15, 0, 0), XA))
+_rod_release = box(_gx - 1.85, _gx + 1.85, 15.8, _gy + 1.85, GUIDE_ROD["z"][0] - 0.2, GUIDE_ROD["z"][1] + 0.2)
+_cz0, _cz1 = sorted((slider_z(0), slider_z(1)))
+_slider_entry = box(_gx - 3.5, SLIDER_X[1] + 0.3, 15.8, SLIDER_Y[0] - 0.4,
+                       _cz0 - SLIDER_REACH - 0.3, _cz1 + 6.3)
+_cc = SLIDER_CAP_CENTRE
+_cap_head_clear = box(_cc.x - 3.1, _cc.x + 3.1, _cc.y - 0.1, _cc.y + 3.4, _cz0 + _cc.z - 3.1, _cz1 + _cc.z + 3.1)
+side_plate_r = side_plate_r.cut(_foot_clear).cut(_stop_clear).cut(_rod_release).cut(_slider_entry).cut(_cap_head_clear).removeSplitter()
+# Removable top clamp for the main valve. Two broad feet bear on the case shoulders,
+# leaving the upper tube clear; the nuts belong to the fixed upper frame, not the right cover.
+VALVE_CLAMP_X, VALVE_CLAMP_BOLTS = (-46.0, -36.0), (-52.0, -30.0)
+VALVE_CLAMP_PLANE, VALVE_CLAMP_T = DRUM_R, 4.0
+
+
+def _valve_clamp_envelope(extra):
+    br, sr = BODY_R + extra, TUBE_OD / 2 + 1.5 + extra
+    p = math.acos((br - sr) / chamber_x)
+    x0, x1 = VALVE_CLAMP_X[0] - 1, VALVE_CLAMP_X[1] + 1
+    poly = [(-br * math.sin(p), Z_FIRE + br * math.cos(p)),
+            (-sr * math.sin(p), Z_FIRE + chamber_x + sr * math.cos(p)),
+            (sr * math.sin(p), Z_FIRE + chamber_x + sr * math.cos(p)),
+            (br * math.sin(p), Z_FIRE + br * math.cos(p))]
+    return (cyl_x(2 * br, x0, x1, 0, Z_FIRE)
+            .fuse(cyl_x(2 * sr, x0, x1, 0, Z_FIRE + chamber_x)).fuse(prism_x(poly, x0, x1)).removeSplitter())
+
+
+def _valve_clamp_hex(x, z0, z1, af):
+    r = af / math.sqrt(3)
+    pts = [V(x + r * math.cos(math.radians(30 + 60 * i)), r * math.sin(math.radians(30 + 60 * i)), z0) for i in range(6)]
+    return Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(0, 0, z1 - z0))
+
+
+_rcz, (_rcx0, _rcx1) = VALVE_CLAMP_PLANE, VALVE_CLAMP_X
+valve_clamp = box(VALVE_CLAMP_BOLTS[0] - 4, VALVE_CLAMP_BOLTS[1] + 4, -5, 5, _rcz, _rcz + VALVE_CLAMP_T)
+valve_clamp = valve_clamp.fuse(box(_rcx0, _rcx1, -20, 20, _rcz, _rcz + VALVE_CLAMP_T))
+_rc_feet, _rc_slots = [], []
+for _sg in (-1, 1):
+    _ya, _yb = sorted((_sg * 14, _sg * 18))
+    _rc_feet.append(box(_rcx0, _rcx1, _ya, _yb, -4, _rcz))
+    valve_clamp = valve_clamp.fuse(_rc_feet[-1])
+    _rc_slots.append(box(_rcx0 - 0.2, _rcx1 + 0.2, _ya - 0.2, _yb + 0.2, -4.2, _rcz + 1.5))
+_rc_inner = _valve_clamp_envelope(0.7)
+valve_clamp = valve_clamp.cut(_rc_inner).removeSplitter()
+valve_clamp_liner = _rc_inner.cut(_valve_clamp_envelope(0.2)).common(Part.makeCompound(_rc_feet))
+_rc_hardware = []
+for _x in VALVE_CLAMP_BOLTS:
+    frame_upper = frame_upper.fuse(Part.makeCylinder(4, 7, V(_x, 0, _rcz - 7), ZA)).removeSplitter()
+    _hole = Part.makeCylinder(1.7, 40, V(_x, 0, _rcz - 22.5), ZA)
+    # Retained, side-loaded nuts: the upper floor carries clamping load, the lower lip retains the nut.
+    frame_upper = frame_upper.cut(_hole).cut(_valve_clamp_hex(_x, _rcz - 6.1, _rcz - 3.5, 5.9))
+    frame_upper = frame_upper.cut(box(_x - 3.1, _x + 3.1, -12, 0, _rcz - 6.1, _rcz - 3.5)).removeSplitter()
+    valve_clamp = valve_clamp.cut(_hole).removeSplitter()
+    _head_z = _rcz + VALVE_CLAMP_T
+    _screw = Part.makeCylinder(1.5, 16, V(_x, 0, _head_z - 16), ZA).fuse(Part.makeCylinder(2.75, 3, V(_x, 0, _head_z), ZA))
+    _nut = _valve_clamp_hex(_x, _rcz - 5.9, _rcz - 3.5, 5.5).cut(_hole)
+    _rc_hardware.extend((_screw, _nut))
+frame_upper = _shell_cut_tools(frame_upper, _rc_slots)
+valve_clamp_fasteners = Part.makeCompound(_rc_hardware)
 # Continue the grip's elliptical loft up to the tray, without a separate flat-sided shoulder.
 _grip_keep = box(-400, SLAB["x"][0], -100, 100, -400, 100).fuse(box(-400, 100, -100, 100, -400, SLAB["z"][0] + 5))
 grip = _grip_blank.common(_grip_keep).cut(frame_lower).cut(frame_upper).cut(side_plate_r).cut(side_band)
@@ -901,7 +970,7 @@ def hit(a, b):
 
 rest = pose(REST)
 if CHECKS:
-    moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Hammer", "Crank_fastener", "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Trigger_pad_fastener") if n_ in rest)
+    moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Slider_cap", "Slider_cap_fastener", "Pin", "Bolt", "Hammer", "Crank_fastener", "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Trigger_pad_fastener") if n_ in rest)
     worst = {}
     for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
         for tg in (0.0, 1.0):
@@ -911,6 +980,7 @@ if CHECKS:
                                           ("detent box", detent_box), ("guard", guard), ("spacer", sector_spacer),
                                           ("air lines", Part.makeCompound([supply_line, pilot_line, gauge_line, tee])),
                                           ("vent valve", valve_bodies), ("crest", crest),
+                                          ("valve clamp", Part.makeCompound([valve_clamp, valve_clamp_liner, valve_clamp_fasteners])),
                                       ("tie rods", valve_rods), ("lock bolts", lock_bolts)):
                     if n == "Bolt" and other_name == "detent box":
                         continue                     # it slides in it
@@ -1094,6 +1164,20 @@ if CHECKS:
     # The slider's steel pin must have a hole to sit in: drawn over solid plastic it only looked fixed.
     _sl0, _pin0 = slider_h(0.5)
     checks["slider pin sits in its hole (%.1f mm3 of it inside solid plastic)" % hit(_sl0, _pin0)] = hit(_sl0, _pin0) < 0.05
+    # Check assembly paths, not only the final pose: the old return lip trapped the slider.
+    _cover_hit, _cap_hit = 0.0, 0.0
+    for _c in (0.0, 0.5, 1.0):
+        _ps = pose(dict(cock=_c, block=block_drive(_c), bend=0.0, trig=0.0))
+        _installed = Part.makeCompound(list(_ps.values()) + [frame_lower, frame_upper, side_band, guide_rod, shaft,
+            valve_clamp, valve_clamp_liner, valve_clamp_fasteners,
+            valve_bodies, valve_body, valve_cap, lock_housing_h, detent_box, sector_spacer, axle, mainsprings])
+        for _dy in (0.0, 0.2, 1.0, 3.0, 6.0, 12.0, 24.0, 40.0):
+            _cover_hit = max(_cover_hit, hit(side_plate_r.translated(V(0, _dy, 0)), _installed))
+        _targets = Part.makeCompound([_ps[n_] for n_ in ("Slider", "Hammer", "Crank_fastener")])
+        for _dx, _dz in ((0, 0), (1, 0), (2, 0), (3.2, 0), (3.2, 1), (3.2, 3), (3.2, 6), (3.2, 10)):
+            _cap_hit = max(_cap_hit, hit(SLIDER_CAP.translated(V(_dx, 0, slider_z(_c) + _dz)), _targets))
+    checks["right cover closes last along y (%.3f mm3 interference)" % _cover_hit] = _cover_hit < 0.05
+    checks["slider cap opens with crank already installed (%.3f mm3 interference)" % _cap_hit] = _cap_hit < 0.05
     for k_, ok_ in checks.items():
         print("  [%s] %s" % ("OK " if ok_ else "FAIL", k_))
     print("  valve stack rear face x %.1f, cage rear wall inside x %.1f (%.1f mm between)"
@@ -1127,6 +1211,8 @@ for n, s_ in rest.items():
     add(g_mech, n, s_, *STYLE[n])
 g_dress = doc.addObject("App::DocumentObjectGroup", "Dress")
 for n, s_, c, tr in (("Frame_lower", frame_lower, IRON, 0), ("Frame_upper", frame_upper, IRON, 0),
+                      ("Valve_clamp", valve_clamp, IRON, 0), ("Valve_clamp_liner", valve_clamp_liner, (0.15, 0.15, 0.15), 0),
+                      ("Valve_clamp_fasteners", valve_clamp_fasteners, (0.75, 0.75, 0.78), 0),
                       ("Frame_side_band", side_band, (0.28, 0.27, 0.26), 0),
                       ("Frame_right", side_plate_r, (0.32, 0.31, 0.30), 0), ("Frame_skin", skin, IRON, 0), ("Trigger_guard", guard, IRON, 0),
                      ("Detent_housing", detent_box, IRON, 0), ("Grip_left", grip_left, WOOD, 0), ("Grip_right", grip_right, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
@@ -1148,18 +1234,24 @@ _tick('doc built')
 # ---------------------------------------------------------------- what is printed, cut from EVA, or bought
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
-    "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Frame_lower", "Frame_upper", "Frame_side_band", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
+    "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Slider_cap", "Bolt", "Hammer",
+              "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Frame_lower", "Frame_upper", "Valve_clamp", "Frame_side_band", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
               "Top_strap", "Axle_plug", "Sector_spacer",
               "Nose_sleeve"),
-    "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
+    "eva": ("Frame_skin", "Valve_clamp_liner", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
-    "buy": ("Chamber_axle", "Vent_valve", "Pin", "Crank_fastener", "Trigger_pad_fastener", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
+    "buy": ("Chamber_axle", "Vent_valve", "Pin", "Crank_fastener", "Slider_cap_fastener", "Trigger_pad_fastener", "Valve_clamp_fasteners", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
             "Vent_valve": "AirTAC M3R110-06, roller off. Straight R1/8 push-ins (a G body is the same holes): Ø10 x 20 on A for the 4 mm pilot, Ø12 x 22 on R for the 6 mm supply, a silencer on P. Stamped R next to the stem, P at the far end of that face, A opposite. Supply and exhaust are swapped, so it is normally open. Turned plunger-down, narrow faces sideways (A left, P above R on the right). Drops into its socket from the room (side plate off), stands on two feet - no fasteners", "Pin": "slider/sector: M3 x 6 cylindrical-head bolt, standard M3 nut and Ø7 x 0.5 washer; side-loaded nut, printed shoulder sets 0.2 mm running play",
             "Crank_fastener": "hammer/slider: M3 x 6 cylindrical-head bolt, standard M3 nut and Ø7 x 0.5 washer; captive nut and printed shoulder, 0.2 mm running play",
+            "Slider": "open-top crank yoke with removable Slider_cap: engage the mounted crank before closing the window; guide rod stays on the fixed frame when the right cover comes off",
+            "Slider_cap": "slide 3.2 mm toward positive x to release the left locating tongue, then lift in z; reverse to install over the crank collar and washer",
+            "Slider_cap_fastener": "1 x M3 x 6 cylindrical-head bolt + M3 nut, no washer; cap seats against its post before tightening. Install before closing Frame_right",
+            "Valve_clamp": "PETG top clamp: two broad shoulder feet, 4 mm bridge; print upside down on the flat top. Install after seating the main valve, before closing Frame_right. Tighten alternately only until the valve is held; a gap above the frame pads accommodates the sealant (0..6 mm)",
+            "Valve_clamp_liner": "two 0.5 mm rubber/EVA contact strips, cut to the feet; no hard screw tip against the valve",
+            "Valve_clamp_fasteners": "2 x M3 x 16 cylindrical-head bolts + 2 ordinary M3 nuts retained in Frame_upper; full nut engagement throughout 0..6 mm clamp lift",
             "Trigger_pad_fastener": "M3 x 6 cylindrical-head bolt + standard M3 nut, no washer; slide the pad's dovetail in from the rear (negative x), insert nut from negative y, then fit bolt",
             "Trigger_pad": "separate PETG pad with dovetail root and valve-body travel stop; print on its broad x = -7 side, not standing on the root",
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
@@ -1175,7 +1267,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Grip_right": "half: the two M3 x 25 run through, heads in Ø6.2 seats on the outer face. Shoulder seats against the tray: rear 3 mm tongue at x -98, y 12 (clear of the supply hose), front 4 mm tongue at x -80, y 9; sockets 0.2 mm clear per side",
             "Detent_housing": "with its bracket: 2 x M3 x 30 + nuts to the side plate's outer face; Ø3.4 through holes in housing and mounting pad",
             "Frame_side_band": "left flank band: 2 x M3 x 50 through-bolts, recessed heads with optional thin washers on the left, standard M3 nuts in AF 5.9 anti-rotation sockets loaded from the right; round access wells, 3 mm seat floors, no printed threads",
-            "Frame_right": "right cover: 2 x M3 x 50 upper, 1 x M3 x 45 lower-middle, 1 x M3 x 40 lower-front, 1 x M3 x 40 lower-rear. Standard M3 nuts in externally accessible hex seats; head and nut wells keep hardware recessed. Inward support tubes locate with 0.2 mm radial clearance",
+            "Frame_right": "close last, sliding inward along negative y: guide supports stay on Frame_lower/Frame_upper, slider return lip relieved. 2 x M3 x 50 upper, 2 x M3 x 50 lower-middle/front, 1 x M3 x 40 lower-rear. Lower nut seats 6 mm deep (rear 4 mm); turn bolts from the left",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x %.1f (or an M8 bolt's shank), supported by both walls; right end 0.5 mm below the outside face" % (SHAFT_Y[1] - SHAFT_Y[0]),
             "Guide_rod": "steel rod Ø3 x 94: the slider's guide. Coaxial Ø3.3 passage open through both ceiling and floor", "Trigger": "PETG lever, print on its broad negative-y side; separate dovetail pad secured by M3 x 6 + nut. Pivot: M3 stud, Ø3.2 coaxial frame bores",

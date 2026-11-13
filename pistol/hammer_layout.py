@@ -469,6 +469,32 @@ SLIDER_H = SLIDER_H.fuse(_drive_receiver).fuse(Part.makeCylinder(DRIVE_GUIDE_R, 
 SLIDER_H = SLIDER_H.cut(Part.makeCylinder(1.7, 9.5, V(-7.5, PIN_Y, 0), XA))   # stops just beyond the 6 mm bolt tip, preserving the guide-bearing wall
 SLIDER_H = SLIDER_H.cut(_drive_hex_x(PIN_Y, 0, -7.4, -4.8, 5.9)).cut(box(-7.4, -4.8, 18.5, PIN_Y, -3.45, 3.45))
 SLIDER_H = SLIDER_H.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100), ZA)).removeSplitter()
+def _slider_cap_parts(shape):
+    # Open the yoke from above: engage an already mounted crank, then replace this edge.
+    a, b, d = min(xs) - 3, max(xs) + 3, D_YOKE
+    y0, y1 = BRACKET_Y
+    cx, cz, split_y = max(xs) + 10, d + 3, y0 + 1
+    cap = box(a, b, y0, y1, d + 2.7, d + 6)
+    cap = cap.fuse(box(a - 3, a + 0.2, y0, y1, d + 2.7, d + 4.3))
+    cap = cap.fuse(box(b, cx, split_y, y1, d + 2.7, d + 6))
+    cap = cap.fuse(Part.makeCylinder(3.5, y1 - split_y, V(cx, split_y, cz), YA))
+    # Clearance also follows the tongue while the cap slides 3.2 mm out of its socket.
+    cap = cap.cut(box(a - 3.2, b + 3.4, 36.7, y1 + 0.2, d - 3.7, d + 3.7)).removeSplitter()
+    post = Part.makeCylinder(3.5, 4.2, V(cx, y0 - 3.2, cz), YA)
+    body = shape.fuse(post).removeSplitter().cut(cap)
+    body = body.cut(box(a - 0.1, b + 3.4, y0 - 0.1, y1 + 0.2, d + 2.55, d + 6.2))
+    body = body.cut(box(a - 3.2, a + 0.3, y0 - 0.15, y1 + 0.2, d + 2.55, d + 4.45))
+    body = body.cut(box(cx - 3.6, cx + 7, split_y, y1 + 0.2, cz - 3.6, cz + 3.6))
+    hole = Part.makeCylinder(1.7, 10, V(cx, y0 - 5.2, cz), YA)
+    body = body.cut(hole).cut(_drive_hex_y(cx, cz, y0 - 3.3, y0 - 0.5, 5.9)).removeSplitter()
+    cap = cap.cut(hole).removeSplitter()
+    screw = Part.makeCylinder(1.5, 6, V(cx, y1 - 6, cz), YA)
+    screw = screw.fuse(Part.makeCylinder(2.75, 3, V(cx, y1, cz), YA))
+    nut = _drive_hex_y(cx, cz, y0 - 2.9, y0 - 0.5, 5.5).cut(hole)
+    return body, cap, Part.makeCompound([screw, nut]), V(cx, y1, cz)
+
+
+SLIDER_H, SLIDER_CAP, SLIDER_CAP_FASTENER, SLIDER_CAP_CENTRE = _slider_cap_parts(SLIDER_H)
 _drive_arm = box(SECTOR_X[0], SECTOR_X[1], SECTOR_R[0], DRIVE_SECTOR_ARM_R, -DRIVE_SECTOR_HALF_W, DRIVE_SECTOR_HALF_W)
 _drive_slot = turned(_drive_capsule_x(-5, 2, PIN_Y, PIN_R0, DRIVE_SLOT_R), ARM_A0)
 _drive_washer_lane = turned(_drive_capsule_x(-2.1, 2, PIN_Y, PIN_R0, 3.7), ARM_A0)
@@ -712,6 +738,8 @@ def pose(st):
     tooth_ = pawl_tooth.translated(V(-PAWL_BACK * st["bend"], 0, 0))
     return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec),
             "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Hammer": hammer_shape(c),
+            "Slider_cap": SLIDER_CAP.translated(V(0, 0, slider_z(c))),
+            "Slider_cap_fastener": SLIDER_CAP_FASTENER.translated(V(0, 0, slider_z(c))),
             "Crank_fastener": _rot_y(CRANK_FASTENER, H, hammer_rot(c)),
             "Trigger": _rot_y(TRIGGER_BODY.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
             "Trigger_pad": _rot_y(TRIGGER_PAD.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
@@ -722,6 +750,7 @@ def pose(st):
 STYLE = dict(STYLE)
 STYLE.update({"Crank_fastener": ((0.75, 0.75, 0.78), 0), "Hammer": ((0.35, 0.25, 0.2), 0), "Pusher": ((0.75, 0.45, 0.85), 0)})
 STYLE.update({"Trigger_pad": ((0.25, 0.55, 0.8), 0), "Trigger_pad_fastener": ((0.75, 0.75, 0.78), 0)})
+STYLE.update({"Slider_cap": ((0.25, 0.55, 0.8), 0), "Slider_cap_fastener": ((0.75, 0.75, 0.78), 0)})
 for k in ("Lever", "Wedge"):
     STYLE.pop(k, None)
 REST = dict(cock=0.0, block=0.0, bend=0.0, trig=0.0)
@@ -743,7 +772,7 @@ for i in range(11):
     c = i / 10
     st = dict(cock=c, block=block_drive(c), bend=0.0, trig=0.0)
     sh = pose(st)
-    for mv_ in [m_ for m_ in ("Hammer", "Crank_fastener", "Slider", "Pusher", "Sector", "Sleeve", "Trigger", "Trigger_pad", "Trigger_pad_fastener", "Pin") if m_ in sh]:
+    for mv_ in [m_ for m_ in ("Hammer", "Crank_fastener", "Slider", "Slider_cap", "Slider_cap_fastener", "Pusher", "Sector", "Sleeve", "Trigger", "Trigger_pad", "Trigger_pad_fastener", "Pin") if m_ in sh]:
         for fx_, s_ in FIXED.items():
             v_ = sh[mv_].common(s_).Volume
             worst[(mv_, fx_)] = max(worst.get((mv_, fx_), 0.0), v_)
