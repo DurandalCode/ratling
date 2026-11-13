@@ -89,7 +89,11 @@ CLAMP_BOLT_R = CLAMP_OD / 2 + 4.0
 CLAMP_BOLT = 3.4                 # M3 through the halves
 CLAMP_GAP = 1.0                  # split at ±Y so top feed is not blocked by a bridge
 CLAMP_SPAN = 70.0                # clear gap between breech clamp and forward collar
-BARREL_SHOW = 160.0              # fixed barrel drawn ahead of the breech clamp
+# Fixed barrel drawn ahead of the breech clamp. Override before exec (breech_pack 2×).
+try:
+    BARREL_SHOW
+except NameError:
+    BARREL_SHOW = 160.0
 # Forward QEV bushings: second rail guide under the chamber front (rear bushings
 # stay on the rear-plug bridge). Span along Z ≈ chamber length for coax to the bore.
 NOSE_BUSH_L = BUSH_L

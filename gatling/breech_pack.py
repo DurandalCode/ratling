@@ -7,7 +7,9 @@ on a ring. Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end
 transverse shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198).
 Carriage / rails / AirTAC may duplicate near the hub — only the core
 (chamber + plugs + yoke + barrel clamps) must clear CLEAR between neighbours.
-Real solids only; no gun_sketch blocks, bench feet, or carriage.
+Barrel drawn length is 2× the station default (`BARREL_SHOW` 320 vs 160) — pack
+Ø at the barrels must stay ~171.6. Real solids only; no gun_sketch blocks,
+bench feet, or carriage.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_pack.py').read())"
 
@@ -40,6 +42,8 @@ NAME = "gatling_breech_pack"
 
 GATLING_LINEAR_BREECH_LIBRARY = True
 SHOW_OPEN = False
+BARREL_SHOW_DEFAULT = 160.0   # linear_breech default (ahead of breech face)
+BARREL_SHOW = 2.0 * BARREL_SHOW_DEFAULT
 exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), globals())
 OUT_DIR = os.path.join(REPO, "exports", "gatling_breech_pack")
 NAME = "gatling_breech_pack"
@@ -54,6 +58,9 @@ MITRA_G_OD = 198.0            # layout G, 19 barrels
 # Previous rails-out pack (feed in) for delta reporting.
 PREV_R = 61.51
 PREV_BARREL_OD = 199.6        # barrel-Z tess Ø, rails-out @ PREV_R
+# Rails-in short-barrel pack (BARREL_SHOW 160) — Ø ceiling to keep.
+RAILS_IN_BARREL_OD = 171.6
+BARREL_OD_SLACK = 1.0         # allow tess noise; must not inflate past mitrailleuse
 
 # Core must clear; rails / carriage / AirTAC may overlap at the hub.
 CORE_KEYS = [k for k in qev_closed if k != "Carriage"]
@@ -158,15 +165,19 @@ mitra_ceil = MITRA_J_OD
 barrel_vs_prev = PREV_BARREL_OD - barrel_od
 barrel_vs_j = MITRA_J_OD - barrel_od
 barrel_vs_g = MITRA_G_OD - barrel_od
+barrel_len = BARREL_SHOW
+barrel_len_was = BARREL_SHOW_DEFAULT
 
 checks = [
     ("six stations", len(stations) == 6),
     ("core neighbour gap %.2f mm >= %.2f" % (gap_core, CLEAR),
      gap_core >= CLEAR - 1e-6),
     ("pack volume", pack.Volume > 1e5),
-    ("length not grown (%.0f <= prev station Z %.0f)"
-     % (gun_L, st0_bb.ZLength + 1),
-     gun_L <= st0_bb.ZLength + 1.0),
+    ("barrel show 2x (%.0f == 2×%.0f)" % (barrel_len, barrel_len_was),
+     abs(barrel_len - 2.0 * barrel_len_was) < 1e-6),
+    ("barrel Ø %.1f ≈ rails-in Ø%.1f (≤ +%.1f)"
+     % (barrel_od, RAILS_IN_BARREL_OD, BARREL_OD_SLACK),
+     barrel_od <= RAILS_IN_BARREL_OD + BARREL_OD_SLACK + 1e-6),
     ("barrel Ø %.1f < mitrailleuse J Ø%.1f" % (barrel_od, MITRA_J_OD),
      barrel_od < MITRA_J_OD - 1e-6),
     ("barrel Ø %.1f < mitrailleuse G Ø%.1f" % (barrel_od, MITRA_G_OD),
@@ -183,6 +194,8 @@ report = [
     "  dense pack R           : %.2f mm (core gap %.2f mm; rail gap %.2f mm)"
     % (R_PACK, gap_core, gap_rails),
     "  tightened vs design    : R %.1f → %.2f mm" % (DESIGN_R, R_PACK),
+    "  barrel length (show)   : %.0f → %.0f mm (2× ahead of breech face)"
+    % (barrel_len_was, barrel_len),
     "  station bbox           : %.0f x %.0f x %.0f mm (X x Y x Z)"
     % (st0_bb.XLength, st0_bb.YLength, st0_bb.ZLength),
     "  overall LxWxH          : %.0f x %.0f x %.0f mm (Z x Y x X)"
@@ -209,8 +222,10 @@ for i, st in enumerate(stations):
     sc.add("Pack", "Station_%d" % (i + 1), st, ("st_a", "st_b", "st_c")[i % 3])
 
 for text, pos in [
-    ("6x linear_breech rails-IN @ R%.1f" % R_PACK, (0, bb.YMax + 25, bb.ZMin + 50)),
-    ("barrel Ø%.0f < mitra JØ%.0f / GØ%.0f" % (barrel_od, MITRA_J_OD, MITRA_G_OD),
+    ("6x rails-IN @ R%.1f, barrel %.0f→%.0f"
+     % (R_PACK, barrel_len_was, barrel_len),
+     (0, bb.YMax + 25, bb.ZMin + 50)),
+    ("barrel Ø%.0f (keep ~%.0f)" % (barrel_od, RAILS_IN_BARREL_OD),
      (0, bb.YMax + 25, (bb.ZMin + bb.ZMax) / 2)),
     ("L≈%.0f W≈%.0f H≈%.0f" % (gun_L, gun_W, gun_H),
      (bb.XMax + 20, 0, (bb.ZMin + bb.ZMax) / 2)),
