@@ -397,11 +397,12 @@ detent_box = turned(box(HUB_X0 + BOLT_X0 - 2, HUB_X0 + BOLT_X0 + BOLT[0] + 2, -B
                         -HUB_R - 24, -HUB_R - 1.5), DETENT_ANGLE + 90)
 detent_box = detent_box.cut(Part.makeCompound([bolt_shape(0.0), bolt_shape(30.0)])).cut(detent_spring_pocket())
 _db = detent_box.BoundBox                       # a bracket from the cage's left side forward to it, clear of the block
-# Its bracket is part of it and bolts to a flat pad on the drum's left (2 x M3 x 20 + nuts): the pad
+# Its bracket is part of it and bolts to a flat pad on the drum's left (2 x M3 x 30 + nuts): the pad
 # reaches from the detent's box in over the drum's flank (the slab is too narrow to butt).
 detent_bracket = box(fx[1] - 8, _db.XMin + 0.9, _db.YMin + 2, -44.5, _db.ZMax - 10, _db.ZMax)
 detent_bracket = detent_bracket.cut(cyl_x(2 * 47.6, HUB_X0, 50)).cut(detent_box)
-detent_bolts = Part.makeCompound([Part.makeCylinder(1.7, 30, V(fx[1] - 5.0, -fy[1] - 10, z_), YA)
+_detent_hole_y0 = min(_db.YMin, detent_bracket.BoundBox.YMin) - 1.0
+detent_bolts = Part.makeCompound([Part.makeCylinder(1.7, -25.0 - _detent_hole_y0, V(fx[1] - 5.0, _detent_hole_y0, z_), YA)
                                   for z_ in (_db.ZMax - 2.5, _db.ZMax - 7.5)])
 detent_box = detent_box.fuse(detent_bracket).cut(detent_bolts).removeSplitter()
 _tick('detent built')
@@ -900,7 +901,7 @@ def hit(a, b):
 
 rest = pose(REST)
 if CHECKS:
-    moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Hammer", "Crank_fastener", "Sleeve", "Pusher", "Trigger") if n_ in rest)
+    moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Pin", "Bolt", "Hammer", "Crank_fastener", "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Trigger_pad_fastener") if n_ in rest)
     worst = {}
     for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
         for tg in (0.0, 1.0):
@@ -1148,17 +1149,19 @@ _tick('doc built')
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Frame_lower", "Frame_upper", "Frame_side_band", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
+              "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Frame_lower", "Frame_upper", "Frame_side_band", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
               "Top_strap", "Axle_plug", "Sector_spacer",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
-    "buy": ("Chamber_axle", "Vent_valve", "Pin", "Crank_fastener", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
+    "buy": ("Chamber_axle", "Vent_valve", "Pin", "Crank_fastener", "Trigger_pad_fastener", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
             "Vent_valve": "AirTAC M3R110-06, roller off. Straight R1/8 push-ins (a G body is the same holes): Ø10 x 20 on A for the 4 mm pilot, Ø12 x 22 on R for the 6 mm supply, a silencer on P. Stamped R next to the stem, P at the far end of that face, A opposite. Supply and exhaust are swapped, so it is normally open. Turned plunger-down, narrow faces sideways (A left, P above R on the right). Drops into its socket from the room (side plate off), stands on two feet - no fasteners", "Pin": "slider/sector: M3 x 6 cylindrical-head bolt, standard M3 nut and Ø7 x 0.5 washer; side-loaded nut, printed shoulder sets 0.2 mm running play",
             "Crank_fastener": "hammer/slider: M3 x 6 cylindrical-head bolt, standard M3 nut and Ø7 x 0.5 washer; captive nut and printed shoulder, 0.2 mm running play",
+            "Trigger_pad_fastener": "M3 x 6 cylindrical-head bolt + standard M3 nut, no washer; slide the pad's dovetail in from the rear (negative x), insert nut from negative y, then fit bolt",
+            "Trigger_pad": "separate PETG pad with dovetail root and valve-body travel stop; print on its broad x = -7 side, not standing on the root",
             "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Hammer": "one printed piece with a teardrop spring-stop rib and Ø9 root boss; M3 x 6 crank fastener with captive nut and sliding shoulder",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
@@ -1170,12 +1173,12 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Trigger_guard": "printed flat; ST2.9 x 13 through the floor into its front tab, rear end glued into the grip's wood",
             "Grip_left": "half: 2 x M3 x 25 through both halves, nuts in hex pockets on the outer face; 2 x Ø3 x 12 dowels locate and slide out. Shoulder seats against the tray: rear 5 mm tongue at x -102, y -10, front 4 mm tongue at x -80, y -9; sockets 0.2 mm clear per side",
             "Grip_right": "half: the two M3 x 25 run through, heads in Ø6.2 seats on the outer face. Shoulder seats against the tray: rear 3 mm tongue at x -98, y 12 (clear of the supply hose), front 4 mm tongue at x -80, y 9; sockets 0.2 mm clear per side",
-            "Detent_housing": "with its bracket: 2 x M3 x 20 + nuts to the side plate's outer face",
+            "Detent_housing": "with its bracket: 2 x M3 x 30 + nuts to the side plate's outer face; Ø3.4 through holes in housing and mounting pad",
             "Frame_side_band": "left flank band: 2 x M3 x 50 through-bolts, recessed heads with optional thin washers on the left, standard M3 nuts in AF 5.9 anti-rotation sockets loaded from the right; round access wells, 3 mm seat floors, no printed threads",
             "Frame_right": "right cover: 2 x M3 x 50 upper, 1 x M3 x 45 lower-middle, 1 x M3 x 40 lower-front, 1 x M3 x 40 lower-rear. Standard M3 nuts in externally accessible hex seats; head and nut wells keep hardware recessed. Inward support tubes locate with 0.2 mm radial clearance",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x %.1f (or an M8 bolt's shank), supported by both walls; right end 0.5 mm below the outside face" % (SHAFT_Y[1] - SHAFT_Y[0]),
-            "Guide_rod": "steel rod Ø3 x 94: the slider's guide. Coaxial Ø3.3 passage open through both ceiling and floor", "Trigger": "pivot: M3 stud through the lower frame and right cover, Ø3.2 coaxial holes; nuts outside",
+            "Guide_rod": "steel rod Ø3 x 94: the slider's guide. Coaxial Ø3.3 passage open through both ceiling and floor", "Trigger": "PETG lever, print on its broad negative-y side; separate dovetail pad secured by M3 x 6 + nut. Pivot: M3 stud, Ø3.2 coaxial frame bores",
             "Tie_rods": "4 x M4 x 50 socket head + nut, rubber O7 x 1.5 + steel O9 x 0.8 washer under each head (as v1.1); the heads stand 6.3 mm off the cap's back face - the frame's pockets are cast for them",
             "Lock_bolts": "2 x M3 x 30 self-tappers into the body's face pilots, heads in the frame's front pockets (drawn as a O5.5 x 3 envelope)"}
 FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)

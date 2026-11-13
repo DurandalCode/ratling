@@ -582,7 +582,28 @@ def _trigger_blank():
     return t.cut(Part.makeCylinder(1.6, TRIGGER_WIDTH + 2, V(0, -TRIGGER_WIDTH / 2 - 1, 0), YA)).removeSplitter()
 
 
-TRIGGER = _trigger_blank()
+def _trigger_mount_parts():
+    # Separate prints put the lever and the long pad's bending loads in their layer planes.
+    body = _trigger_blank().cut(box(-20, 0, 4, 30, -12, 4)).fuse(box(-13, -4.5, -3, 4, -9.5, 1.5)).removeSplitter()
+    socket = prism_x([(-0.2, -7.2), (-0.2, -0.3), (4.3, -1.7), (4.3, -5.8)], -14.2, -6.8)
+    body = body.cut(socket)
+    key = prism_x([(0.2, -6.8), (0.2, -0.7), (4.3, -1.9), (4.3, -5.6)], -14, -7)
+    pad = box(-14, -7, 4.2, 26, -6, -1.5).fuse(key)
+    # A real stop beneath the valve body, beside the plunger; the old central lug missed it in y.
+    pad = pad.fuse(box(-13, -10, 8, 12, -1.5, -1)).removeSplitter()
+    y, z = 0.5, -3.75
+    bore = Part.makeCylinder(1.7, 12, V(-15, y, z), XA)
+    head = Part.makeCylinder(2.95, 4.1, V(-14.6, y, z), XA)
+    nut = _drive_hex_x(y, z, -7, -4.3, 5.9).fuse(box(-7, -4.3, -4.2, y, z - 3.45, z + 3.45))
+    body = body.cut(bore).cut(head).cut(nut).removeSplitter()
+    pad = pad.cut(bore).cut(head).cut(nut).removeSplitter()
+    screw = Part.makeCylinder(1.5, 6, V(-10.5, y, z), XA).fuse(Part.makeCylinder(2.75, 3, V(-13.5, y, z), XA))
+    nut = _drive_hex_x(y, z, -6.9, -4.5, 5.5).cut(Part.makeCylinder(1.5, 4, V(-8, y, z), XA))
+    return body, pad, Part.makeCompound([screw, nut])
+
+
+TRIGGER_BODY, TRIGGER_PAD, TRIGGER_PAD_FASTENER = _trigger_mount_parts()
+TRIGGER = Part.makeCompound([TRIGGER_BODY, TRIGGER_PAD])
 
 # ---------------------------------------------------------------- vent valve: an AirTAC M3R110-06 without its roller
 # Catalog drawing of the M3B110-06 body (the R head is only the roller), stem end up on the sheet:
@@ -692,12 +713,15 @@ def pose(st):
     return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec),
             "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Hammer": hammer_shape(c),
             "Crank_fastener": _rot_y(CRANK_FASTENER, H, hammer_rot(c)),
-            "Trigger": trigger_h(st["trig"])} | ({} if FLEX_PAWL else {"Pawl": turned(tooth_, sec)}) \
+            "Trigger": _rot_y(TRIGGER_BODY.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
+            "Trigger_pad": _rot_y(TRIGGER_PAD.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
+            "Trigger_pad_fastener": _rot_y(TRIGGER_PAD_FASTENER.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"])} | ({} if FLEX_PAWL else {"Pawl": turned(tooth_, sec)}) \
         | ({} if LOCKLESS else {"Sleeve": lock_sleeve(lock_h(c)), "Pusher": pusher_shape(lock_h(c))})
 
 
 STYLE = dict(STYLE)
 STYLE.update({"Crank_fastener": ((0.75, 0.75, 0.78), 0), "Hammer": ((0.35, 0.25, 0.2), 0), "Pusher": ((0.75, 0.45, 0.85), 0)})
+STYLE.update({"Trigger_pad": ((0.25, 0.55, 0.8), 0), "Trigger_pad_fastener": ((0.75, 0.75, 0.78), 0)})
 for k in ("Lever", "Wedge"):
     STYLE.pop(k, None)
 REST = dict(cock=0.0, block=0.0, bend=0.0, trig=0.0)
@@ -719,7 +743,7 @@ for i in range(11):
     c = i / 10
     st = dict(cock=c, block=block_drive(c), bend=0.0, trig=0.0)
     sh = pose(st)
-    for mv_ in [m_ for m_ in ("Hammer", "Crank_fastener", "Slider", "Pusher", "Sector", "Sleeve", "Trigger", "Pin") if m_ in sh]:
+    for mv_ in [m_ for m_ in ("Hammer", "Crank_fastener", "Slider", "Pusher", "Sector", "Sleeve", "Trigger", "Trigger_pad", "Trigger_pad_fastener", "Pin") if m_ in sh]:
         for fx_, s_ in FIXED.items():
             v_ = sh[mv_].common(s_).Volume
             worst[(mv_, fx_)] = max(worst.get((mv_, fx_), 0.0), v_)
@@ -732,7 +756,7 @@ for i in range(11):
                       % (c, hammer_rot(c), slider_z(c), sector_turn(c), block_drive(c), "" if LOCKLESS else "  lock %.2f" % lock_h(c)))
 for tg in (0.0, 0.5, 1.0):                       # trigger stroke with the hammer down
     sh = pose(dict(cock=0.0, block=0.0, bend=0.0, trig=tg))
-    for a_ in ("Trigger",):
+    for a_ in ("Trigger", "Trigger_pad", "Trigger_pad_fastener"):
         for fx_, s_ in FIXED.items():
             worst[(a_, fx_)] = max(worst.get((a_, fx_), 0.0), sh[a_].common(s_).Volume)
         worst[(a_, "Hammer")] = max(worst.get((a_, "Hammer"), 0.0), sh[a_].common(sh["Hammer"]).Volume)

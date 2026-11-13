@@ -1,18 +1,19 @@
 #!/bin/sh
 # Ratling pistol (hammer variant), PROTOTYPE round: the parts that bolt onto the printed body
-# shell - the hammer, the trigger, the detent housing - as ONE Bambu project in PLA on the 0.4
-# nozzle, all three on one plate, light (3 walls, 15 %): fit and function only, the final parts
-# print in PETG per their groups (make_plates.sh). Supports on - the hammer's spur and the
-# detent housing's overhangs need them, the trigger (flat on its blade side, 454 mm2) grows none -
-# and a brim 5: the hammer and the trigger stand tall on a small bed. The supports' marks stay
-# in the housing's wedge channel (it lies flat): file it before the wedge goes in.
+# shell - the hammer, the trigger lever with its pad, the detent housing - as ONE Bambu project
+# in PLA on the 0.4 nozzle, all on one plate, light (3 walls, 15 %): fit and function only, the
+# final parts print in PETG per their groups (make_plates.sh). Supports on - the hammer's spur,
+# the pad's dovetail root and the detent housing's overhangs need them, the trigger (flat on its
+# blade side) grows none - and a brim 5: the hammer and the pad stand tall on a small bed. The
+# supports' marks stay in the housing's wedge channel (it lies flat): file it before the wedge
+# goes in. The pad prints on its broad x = -7 face, not standing on the dovetail root.
 # Run pistol/build/export_parts.py in FreeCAD first.
 #   sh pistol/build/mech_plates.sh
 set -e
 cd "$(dirname "$0")/../.."
 python3 - <<'PY'
 import json, shlex, subprocess, sys
-NAMES = ["hammer", "trigger", "detent_housing"]
+NAMES = ["hammer", "trigger", "trigger_pad", "detent_housing"]
 spec = json.load(open("exports/pistol_build/parts.json"))
 by_name = {p["name"]: p for p in spec["parts"]}
 missing = [n for n in NAMES if n not in by_name]
