@@ -7,9 +7,11 @@ on a ring. Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end
 transverse shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198).
 Carriage / rails / AirTAC may duplicate near the hub — only the core
 (chamber + plugs + yoke + barrel clamps) must clear CLEAR between neighbours.
-Barrel drawn length is 2× the station default (`BARREL_SHOW` 320 vs 160) — pack
-Ø at the barrels must stay ~171.6. Real solids only; no gun_sketch blocks,
-bench feet, or carriage.
+
+Overall length is pinned to TARGET_L: clip everything aft of the rear-plug face
+(open-stroke rail stubs, carriage thumb, AirTAC overhang) and set BARREL_SHOW
+so the barrel tip lands at ZMin + TARGET_L. Pack Ø at the barrels must stay
+~171.6. Real solids only; no gun_sketch blocks, bench feet, or carriage.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_pack.py').read())"
 
@@ -40,44 +42,79 @@ for _m in (G, FV):
 OUT_DIR = os.path.join(REPO, "exports", "gatling_breech_pack")
 NAME = "gatling_breech_pack"
 
+TARGET_L = 500.0              # overall pack length (Z), mm
+BARREL_SHOW_DEFAULT = 160.0   # linear_breech default
+BARREL_SHOW_2X = 320.0        # previous pack (barrels 2×) before L=500 trim
+V = App.Vector
+
 GATLING_LINEAR_BREECH_LIBRARY = True
 SHOW_OPEN = False
-BARREL_SHOW_DEFAULT = 160.0   # linear_breech default (ahead of breech face)
-BARREL_SHOW = 2.0 * BARREL_SHOW_DEFAULT
+# Probe once for z_stop / rear-plug face, then set BARREL_SHOW for TARGET_L.
+BARREL_SHOW = BARREL_SHOW_DEFAULT
+exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), globals())
+Z_AFT_CLIP = qev_closed["Rear_plug"].BoundBox.ZMin
+# After clipping aft of the rear plug: L = (z_stop + BARREL_SHOW) - Z_AFT_CLIP.
+BARREL_SHOW = TARGET_L - (z_stop - Z_AFT_CLIP)
+assert BARREL_SHOW > 50.0, "BARREL_SHOW too short for TARGET_L"
 exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), globals())
 OUT_DIR = os.path.join(REPO, "exports", "gatling_breech_pack")
 NAME = "gatling_breech_pack"
+Z_AFT_CLIP = qev_closed["Rear_plug"].BoundBox.ZMin
 
-V = App.Vector
 N = 6
 CLEAR = 0.5
 DESIGN_R = PACK_PITCH
-# Mitrailleuse live pack circles (chamber circumscribed, docs/pack.md).
-MITRA_J_OD = 192.5            # layout J, 16 barrels
-MITRA_G_OD = 198.0            # layout G, 19 barrels
-# Previous rails-out pack (feed in) for delta reporting.
+MITRA_J_OD = 192.5
+MITRA_G_OD = 198.0
 PREV_R = 61.51
-PREV_BARREL_OD = 199.6        # barrel-Z tess Ø, rails-out @ PREV_R
-# Rails-in short-barrel pack (BARREL_SHOW 160) — Ø ceiling to keep.
+PREV_BARREL_OD = 199.6
 RAILS_IN_BARREL_OD = 171.6
-BARREL_OD_SLACK = 1.0         # allow tess noise; must not inflate past mitrailleuse
+BARREL_OD_SLACK = 1.0
+L_SLACK = 0.6                 # BoundBox / clip tolerance around TARGET_L
+
+
+def clip_aft(shape, z_min):
+    """Drop everything strictly behind the rear-plug face (keep Z >= z_min)."""
+    if shape is None or shape.isNull():
+        return shape
+    bb = shape.BoundBox
+    if bb.ZMin >= z_min - 1e-6:
+        return shape
+    # Huge box covering Z < z_min; cut it away.
+    cut = Part.makeBox(4000, 4000, 4000, V(-2000, -2000, z_min - 4000))
+    out = shape.cut(cut)
+    if out.isNull() or out.Volume <= 1e-6:
+        return None
+    return out.removeSplitter()
+
+
+def clip_list(parts, z_min):
+    out = []
+    for p in parts:
+        c = clip_aft(p.copy(), z_min)
+        if c is not None:
+            out.append(c)
+    return out
+
 
 # Core must clear; rails / carriage / AirTAC may overlap at the hub.
 CORE_KEYS = [k for k in qev_closed if k != "Carriage"]
-_core_parts = [qev_closed[k] for k in CORE_KEYS] + [
+_core_raw = [qev_closed[k] for k in CORE_KEYS] + [
     barrel_clamp, barrel_collar, fixed_barrel,
 ]
-_rail_parts = [
+_rail_raw = [
     qev_closed["Carriage"], rails_s, cradle,
     vent_body, vent_fittings, vent_plunger,
 ]
+_core_parts = clip_list(_core_raw, Z_AFT_CLIP)
+_rail_parts = clip_list(_rail_raw, Z_AFT_CLIP)
 _station_parts = _core_parts + _rail_parts
 core0 = Part.makeCompound([p.copy() for p in _core_parts])
 station0 = Part.makeCompound([p.copy() for p in _station_parts])
-barrel0 = Part.makeCompound([
-    barrel_clamp.copy(), barrel_collar.copy(), fixed_barrel.copy(),
-])
+barrel0 = Part.makeCompound(clip_list(
+    [barrel_clamp, barrel_collar, fixed_barrel], Z_AFT_CLIP))
 st0_bb = station0.BoundBox
+aft_trim = abs(min(p.BoundBox.ZMin for p in _core_raw + _rail_raw) - Z_AFT_CLIP)
 
 
 def place_shape(shape, R, ang_deg):
@@ -85,7 +122,6 @@ def place_shape(shape, R, ang_deg):
     a = math.radians(ang_deg)
     ux, uy = math.cos(a), math.sin(a)
     s = shape.copy()
-    # +Y → outward (+radial); −Y (rails) → inward
     tx, ty = ux, uy
     s.rotate(V(0, 0, 0), V(0, 0, 1), -math.degrees(math.atan2(tx, ty)))
     s.translate(V(R * ux, R * uy, 0))
@@ -112,7 +148,6 @@ def tess_max_r(shape, defl=1.0):
 
 
 def zone_max_r(shapes, z0, z1, defl=1.0):
-    """Farthest XY radius of solids clipped to [z0, z1]."""
     r = 0.0
     slab = Part.makeBox(4000, 4000, z1 - z0, V(-2000, -2000, z0))
     for s in shapes:
@@ -126,12 +161,11 @@ def zone_max_r(shapes, z0, z1, defl=1.0):
     return r
 
 
-# Densest R: binary search on CORE clearance (rails may duplicate).
 try:
     SEARCH_R
 except NameError:
     SEARCH_R = False
-PINNED_R = 66.29              # from SEARCH_R (core gap ≈ 0.50 mm)
+PINNED_R = 66.29
 if SEARCH_R:
     r_lo, r_hi = 50.0, DESIGN_R + 10.0
     assert min_neighbour_gap(pack_of(core0, r_hi)) >= CLEAR, "hi R not clear for core"
@@ -149,32 +183,33 @@ cores = pack_of(core0, R_PACK)
 stations = pack_of(station0, R_PACK)
 barrels = pack_of(barrel0, R_PACK)
 gap_core = min_neighbour_gap(cores)
-gap_rails = min_neighbour_gap(pack_of(rails_s, R_PACK))
+# Rails may be clipped to stubs; still report neighbour gap of clipped rails.
+_rails_clipped = clip_aft(rails_s.copy(), Z_AFT_CLIP)
+gap_rails = (min_neighbour_gap(pack_of(_rails_clipped, R_PACK))
+             if _rails_clipped is not None else float("nan"))
 
 pack = Part.makeCompound(stations)
 bb = pack.BoundBox
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
 
-# Width at barrels: tess Ø of all station solids in the barrel Z window.
 z_b0, z_b1 = z_stop, z_stop + BARREL_SHOW
 barrel_od = 2.0 * zone_max_r(stations, z_b0, z_b1)
 barrel_od_hw = 2.0 * zone_max_r(barrels, z_b0, z_b1)
 full_od = 2.0 * tess_max_r(pack)
-# Mitrailleuse ceiling = smaller live pack (J).
-mitra_ceil = MITRA_J_OD
 barrel_vs_prev = PREV_BARREL_OD - barrel_od
 barrel_vs_j = MITRA_J_OD - barrel_od
 barrel_vs_g = MITRA_G_OD - barrel_od
 barrel_len = BARREL_SHOW
-barrel_len_was = BARREL_SHOW_DEFAULT
 
 checks = [
     ("six stations", len(stations) == 6),
     ("core neighbour gap %.2f mm >= %.2f" % (gap_core, CLEAR),
      gap_core >= CLEAR - 1e-6),
     ("pack volume", pack.Volume > 1e5),
-    ("barrel show 2x (%.0f == 2×%.0f)" % (barrel_len, barrel_len_was),
-     abs(barrel_len - 2.0 * barrel_len_was) < 1e-6),
+    ("overall L %.1f ≈ %.0f (±%.1f)" % (gun_L, TARGET_L, L_SLACK),
+     abs(gun_L - TARGET_L) <= L_SLACK),
+    ("aft clipped at rear plug (ZMin≈%.1f)" % Z_AFT_CLIP,
+     abs(st0_bb.ZMin - Z_AFT_CLIP) <= 0.6),
     ("barrel Ø %.1f ≈ rails-in Ø%.1f (≤ +%.1f)"
      % (barrel_od, RAILS_IN_BARREL_OD, BARREL_OD_SLACK),
      barrel_od <= RAILS_IN_BARREL_OD + BARREL_OD_SLACK + 1e-6),
@@ -190,12 +225,14 @@ report = [
     "  stations               : %d closed; no bench feet / no wheeled carriage" % N,
     "  orientation            : rails/AirTAC radial IN, feed OUT "
     "(barrel end narrower; rail duplicates at QEV OK)",
+    "  aft trim               : clip Z < rear-plug face (%.1f); cut ≈%.0f mm "
+    "(open-stroke rails / thumb / AirTAC overhang)"
+    % (Z_AFT_CLIP, aft_trim),
     "  design PACK_PITCH      : %.1f mm" % DESIGN_R,
     "  dense pack R           : %.2f mm (core gap %.2f mm; rail gap %.2f mm)"
     % (R_PACK, gap_core, gap_rails),
-    "  tightened vs design    : R %.1f → %.2f mm" % (DESIGN_R, R_PACK),
-    "  barrel length (show)   : %.0f → %.0f mm (2× ahead of breech face)"
-    % (barrel_len_was, barrel_len),
+    "  barrel length (show)   : %.0f (2× pack) → %.1f mm (for L=%.0f after aft trim)"
+    % (BARREL_SHOW_2X, barrel_len, TARGET_L),
     "  station bbox           : %.0f x %.0f x %.0f mm (X x Y x Z)"
     % (st0_bb.XLength, st0_bb.YLength, st0_bb.ZLength),
     "  overall LxWxH          : %.0f x %.0f x %.0f mm (Z x Y x X)"
@@ -222,10 +259,9 @@ for i, st in enumerate(stations):
     sc.add("Pack", "Station_%d" % (i + 1), st, ("st_a", "st_b", "st_c")[i % 3])
 
 for text, pos in [
-    ("6x rails-IN @ R%.1f, barrel %.0f→%.0f"
-     % (R_PACK, barrel_len_was, barrel_len),
+    ("6x rails-IN L%.0f, barrel %.0f" % (TARGET_L, barrel_len),
      (0, bb.YMax + 25, bb.ZMin + 50)),
-    ("barrel Ø%.0f (keep ~%.0f)" % (barrel_od, RAILS_IN_BARREL_OD),
+    ("aft clipped; Ø%.0f" % barrel_od,
      (0, bb.YMax + 25, (bb.ZMin + bb.ZMax) / 2)),
     ("L≈%.0f W≈%.0f H≈%.0f" % (gun_L, gun_W, gun_H),
      (bb.XMax + 20, 0, (bb.ZMin + bb.ZMax) / 2)),
