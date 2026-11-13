@@ -10,10 +10,11 @@ Carriage / rails / AirTAC may duplicate near the hub — only the core
 
 Overall station length is pinned to TARGET_L: clip everything aft of the
 rear-plug face (open-stroke rail stubs, carriage thumb, AirTAC overhang) and
-set BARREL_SHOW so the barrel tip lands at station ZMin + TARGET_L. Then add a
-muzzle adapter at the barrel tips and a translucent provisional shroud from
-that adapter aft to the open-stroke end of the QEV. Pack Ø at the barrels must
-stay ~171.6 aside from the thin muzzle/shroud wall.
+set BARREL_SHOW so the barrel tip lands at station ZMin + TARGET_L. Product
+skin follows classic Gatling (1862–80s): front barrel-plate at the muzzles,
+rear barrel-plate at the breech faces, barrels bare between them, translucent
+breech casing only over the QEV travel — not a full-length tube (M134 contrast:
+multi mid-clamps + enclosed receiver, not used here).
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_pack.py').read())"
 
@@ -202,43 +203,62 @@ barrel_vs_j = MITRA_J_OD - barrel_od
 barrel_vs_g = MITRA_G_OD - barrel_od
 barrel_len = BARREL_SHOW
 
-# --- muzzle adapter at barrel tips + translucent shroud to open QEV stroke end
-MUZZLE_L = 24.0               # axial length of muzzle plate
-MUZZLE_LIP = 2.0              # plate sits this far past the barrel tip
-SHROUD_WALL = 2.0
-SHROUD_CLEAR = 1.5            # radial clear over barrel-pack Ø
-# Outer radius: clear the measured barrel-zone pack, then + wall (muzzle need).
-r_pack = 0.5 * barrel_od
-r_shroud_id = r_pack + SHROUD_CLEAR
-r_shroud_od = r_shroud_id + SHROUD_WALL
+# --- classic Gatling skin (1862–80s): front/rear barrel-plates + breech casing
+# Refs: US36836 / 1878 Ordnance — front & rear barrel-plates on the shaft;
+# breech-casing over lock/carrier only; barrels bare between plates.
+# Contrast M134: multi mid-clamps + full enclosed receiver — not drawn.
+PLATE_T = 14.0                # front / rear barrel-plate thickness
+PLATE_LIP = 1.5               # front plate past barrel tip
+PLATE_RIM = 4.0               # radial past barrel OD at R_PACK
+CASE_WALL = 3.0
+CASE_CLEAR = 2.0              # radial clear over chamber pack
+CASE_OVERLAP = 18.0           # casing overlaps rear plate slightly forward
 z_tip = z_stop + BARREL_SHOW
-z_muzzle0 = z_tip - MUZZLE_L + MUZZLE_LIP   # aft face of muzzle (shroud meets here)
-z_muzzle1 = z_tip + MUZZLE_LIP             # forward face
-# Open-stroke aft of the sliding carriage (unclipped library solid).
 z_stroke_end = qev_closed["Carriage"].BoundBox.ZMin - STROKE
+# Front barrel-plate (muzzle clamp / front disk).
+z_front0 = z_tip - PLATE_T + PLATE_LIP
+z_front1 = z_tip + PLATE_LIP
+# Rear barrel-plate at the breech faces (classic rear disk).
+z_rear0 = z_stop - PLATE_T * 0.35
+z_rear1 = z_rear0 + PLATE_T
+# Breech casing: only over QEV / open-stroke, not along the barrels.
+z_case1 = z_rear0 + CASE_OVERLAP
+z_case0 = z_stroke_end
 
-muzzle = Part.makeCylinder(r_shroud_od, z_muzzle1 - z_muzzle0, V(0, 0, z_muzzle0))
-# Bore for each barrel + lightening through the hub.
-for k in range(N):
-    a = math.radians(k * 60.0)
-    bx, by = R_PACK * math.cos(a), R_PACK * math.sin(a)
-    muzzle = muzzle.cut(Part.makeCylinder(
-        BARREL_OD / 2 + 0.35, (z_muzzle1 - z_muzzle0) + 4.0,
-        V(bx, by, z_muzzle0 - 2.0)))
-hub_r = max(8.0, R_PACK - BARREL_OD / 2 - 3.0)
-muzzle = muzzle.cut(Part.makeCylinder(
-    hub_r, (z_muzzle1 - z_muzzle0) + 4.0, V(0, 0, z_muzzle0 - 2.0)))
-muzzle = muzzle.removeSplitter()
+r_plate = R_PACK + BARREL_OD / 2 + PLATE_RIM
+# Casing must clear fat chambers on the ring (not just bare barrels).
+r_case_id = max(0.5 * barrel_od, R_PACK + CH_OD / 2) + CASE_CLEAR
+r_case_od = r_case_id + CASE_WALL
+hub_r = max(6.0, R_PACK - BARREL_OD / 2 - 4.0)
 
-# Provisional casing: thin tube from muzzle aft face back to open QEV stroke end.
-shroud = tube(2.0 * r_shroud_od, 2.0 * r_shroud_id, z_stroke_end, z_muzzle0)
-shroud = shroud.removeSplitter()
 
-assembly = Part.makeCompound([pack, muzzle, shroud])
+def barrel_plate(z0, z1, od_r):
+    """Classic circular barrel-plate: 6 bores + hub lightening."""
+    disc = Part.makeCylinder(od_r, z1 - z0, V(0, 0, z0))
+    for k in range(N):
+        a = math.radians(k * 60.0)
+        bx, by = R_PACK * math.cos(a), R_PACK * math.sin(a)
+        disc = disc.cut(Part.makeCylinder(
+            BARREL_OD / 2 + 0.35, (z1 - z0) + 4.0, V(bx, by, z0 - 2.0)))
+    disc = disc.cut(Part.makeCylinder(hub_r, (z1 - z0) + 4.0, V(0, 0, z0 - 2.0)))
+    return disc.removeSplitter()
+
+
+front_plate = barrel_plate(z_front0, z_front1, r_plate)
+rear_plate = barrel_plate(z_rear0, z_rear1, r_plate)
+# Translucent breech casing + cascabel disk (1878 breech-casing cue).
+breech_casing = tube(2.0 * r_case_od, 2.0 * r_case_id, z_case0, z_case1)
+cascabel = Part.makeCylinder(r_case_od, 6.0, V(0, 0, z_case0 - 6.0))
+cascabel = cascabel.cut(Part.makeCylinder(hub_r + 2.0, 10.0, V(0, 0, z_case0 - 8.0)))
+breech_casing = breech_casing.fuse(cascabel).removeSplitter()
+
+assembly = Part.makeCompound([pack, front_plate, rear_plate, breech_casing])
 bb = assembly.BoundBox
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
-shroud_od = 2.0 * r_shroud_od
+plate_od = 2.0 * r_plate
+case_od = 2.0 * r_case_od
 station_L = bb_stations.ZLength
+bare_barrel_L = z_front0 - z_rear1
 
 checks = [
     ("six stations", len(stations) == 6),
@@ -252,15 +272,16 @@ checks = [
     ("barrel Ø %.1f ≈ rails-in Ø%.1f (≤ +%.1f)"
      % (barrel_od, RAILS_IN_BARREL_OD, BARREL_OD_SLACK),
      barrel_od <= RAILS_IN_BARREL_OD + BARREL_OD_SLACK + 1e-6),
-    ("muzzle solid", muzzle.Volume > 1e3),
-    ("shroud solid", shroud.Volume > 1e3),
-    ("shroud from muzzle aft (%.1f) to stroke end (%.1f)"
-     % (z_muzzle0, z_stroke_end),
-     abs(shroud.BoundBox.ZMax - z_muzzle0) <= 0.6
-     and abs(shroud.BoundBox.ZMin - z_stroke_end) <= 0.6),
-    ("shroud Ø %.1f ≈ barrel Ø + clear + wall (≤ %.1f)"
-     % (shroud_od, barrel_od + 2.0 * (SHROUD_CLEAR + SHROUD_WALL) + 0.5),
-     shroud_od <= barrel_od + 2.0 * (SHROUD_CLEAR + SHROUD_WALL) + 0.5),
+    ("front barrel-plate solid", front_plate.Volume > 500),
+    ("rear barrel-plate solid", rear_plate.Volume > 500),
+    ("breech casing solid", breech_casing.Volume > 1e3),
+    ("barrels bare between plates (%.0f mm > 200)" % bare_barrel_L,
+     bare_barrel_L > 200.0),
+    ("casing starts at breech, not muzzle (case ZMax %.0f << tip %.0f)"
+     % (z_case1, z_tip),
+     z_case1 < z_tip - 200.0),
+    ("casing covers open stroke (ZMin≈%.1f)" % z_stroke_end,
+     abs(breech_casing.BoundBox.ZMin - (z_case0 - 6.0)) <= 1.0),
 ]
 report = [
     NAME,
@@ -272,19 +293,25 @@ report = [
     "  aft trim               : clip Z < rear-plug face (%.1f); cut ≈%.0f mm "
     "(open-stroke rails / thumb / AirTAC overhang)"
     % (Z_AFT_CLIP, aft_trim),
+    "  product skin           : classic Gatling 1862–80s (front+rear barrel-plates, "
+    "bare barrels, breech casing only) — not full-length tube; not M134 mid-clamps",
+    "  refs                   : US36836 / 1878 Ordnance Gatling description",
     "  design PACK_PITCH      : %.1f mm" % DESIGN_R,
     "  dense pack R           : %.2f mm (core gap %.2f mm; rail gap %.2f mm)"
     % (R_PACK, gap_core, gap_rails),
     "  barrel length (show)   : %.1f mm (station L=%.0f)"
     % (barrel_len, TARGET_L),
-    "  muzzle adapter         : L=%.0f mm at tip; Ø%.1f (hub + 6× bore)"
-    % (z_muzzle1 - z_muzzle0, shroud_od),
-    "  shroud (provisional)   : Z %.1f → %.1f (open QEV stroke end → muzzle aft); "
-    "Ø%.1f ID%.1f wall %.1f; translucent"
-    % (z_stroke_end, z_muzzle0, shroud_od, 2.0 * r_shroud_id, SHROUD_WALL),
+    "  front barrel-plate     : Z %.1f…%.1f; Ø%.1f (muzzle)"
+    % (z_front0, z_front1, plate_od),
+    "  rear barrel-plate      : Z %.1f…%.1f; Ø%.1f (breech faces)"
+    % (z_rear0, z_rear1, plate_od),
+    "  bare barrels           : %.0f mm between plates" % bare_barrel_L,
+    "  breech casing          : Z %.1f…%.1f; Ø%.1f wall %.1f; translucent "
+    "(open QEV stroke → rear plate)"
+    % (z_case0 - 6.0, z_case1, case_od, CASE_WALL),
     "  station bbox           : %.0f x %.0f x %.0f mm (X x Y x Z)"
     % (st0_bb.XLength, st0_bb.YLength, st0_bb.ZLength),
-    "  overall LxWxH          : %.0f x %.0f x %.0f mm (Z x Y x X, with shroud/muzzle)"
+    "  overall LxWxH          : %.0f x %.0f x %.0f mm (Z x Y x X, with skin)"
     % (gun_L, gun_W, gun_H),
     "  station-only L         : %.0f mm (TARGET_L)" % station_L,
     "  full pack Ø (tess)     : %.1f mm" % full_od,
@@ -294,7 +321,7 @@ report = [
     % (PREV_BARREL_OD, PREV_R, barrel_vs_prev),
     "  vs mitrailleuse        : J Ø%.1f (−%.1f); G Ø%.1f (−%.1f)"
     % (MITRA_J_OD, barrel_vs_j, MITRA_G_OD, barrel_vs_g),
-    "  not drawn              : hopper, MQR, crank, open ghost, bench feet",
+    "  not drawn              : hopper, MQR, crank, open ghost, bench feet, carriage",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 print("\n".join(report))
@@ -302,20 +329,21 @@ print("\n".join(report))
 FV.STYLES["st_a"] = ((0.92, 0.50, 0.20), 40)
 FV.STYLES["st_b"] = ((0.80, 0.55, 0.28), 48)
 FV.STYLES["st_c"] = ((0.70, 0.48, 0.32), 55)
-FV.STYLES["muzzle"] = ((0.45, 0.48, 0.52), 15)
-FV.STYLES["shroud"] = ((0.75, 0.82, 0.90), 78)
+FV.STYLES["plate"] = ((0.42, 0.44, 0.48), 8)
+FV.STYLES["casing"] = ((0.78, 0.72, 0.55), 72)
 
 os.makedirs(OUT_DIR, exist_ok=True)
 sc = FV.Scene(NAME)
 for i, st in enumerate(stations):
     sc.add("Pack", "Station_%d" % (i + 1), st, ("st_a", "st_b", "st_c")[i % 3])
-sc.add("Skin", "Muzzle_adapter", muzzle, "muzzle")
-sc.add("Skin", "Shroud", shroud, "shroud")
+sc.add("Skin", "Front_barrel_plate", front_plate, "plate")
+sc.add("Skin", "Rear_barrel_plate", rear_plate, "plate")
+sc.add("Skin", "Breech_casing", breech_casing, "casing")
 
 for text, pos in [
-    ("6x rails-IN + shroud, barrel %.0f" % barrel_len,
+    ("classic Gatling skin, barrel %.0f" % barrel_len,
      (0, bb.YMax + 25, bb.ZMin + 50)),
-    ("shroud Z %.0f→%.0f" % (z_stroke_end, z_muzzle0),
+    ("plates + breech casing; barrels bare %.0f mm" % bare_barrel_L,
      (0, bb.YMax + 25, (bb.ZMin + bb.ZMax) / 2)),
     ("L≈%.0f W≈%.0f H≈%.0f" % (gun_L, gun_W, gun_H),
      (bb.XMax + 20, 0, (bb.ZMin + bb.ZMax) / 2)),
