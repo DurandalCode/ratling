@@ -12,8 +12,9 @@
   (`exec` linear_breech как библиотека);
 - [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — ось + ступица + MQR на
   двух стойках;
-- [`gatling/gun_sketch.py`](../gatling/gun_sketch.py) — **силуэт готового изделия**
-  на трубах митральезы (6@pitch40, кожух/бункер/рукоять; без лафета);
+- [`gatling/breech_pack.py`](../gatling/breech_pack.py) — **плотный пакет реального**
+  `linear_breech` (6 станций, без лафета/ног стенда);
+- [`gatling/gun_sketch.py`](../gatling/gun_sketch.py) — старый блок-силуэт (не главный вид);
 - [`gatling/pack_sketch.py`](../gatling/pack_sketch.py) — технабросок пакета/оси
   (не вид изделия).
 
@@ -67,19 +68,16 @@
     3D-блоки оси: [`gatling/mqr_axis_sketch.py`](../gatling/mqr_axis_sketch.py) — вал на
     двух маленьких стойках + ступица + ротор (тёплый); статор + пластина (холодный).
     Опора пакета — подшипники, не MQR.
-    Силуэт **готового изделия** (без лафета) на **трубах митральезы** v4.4:
-    [`gatling/gun_sketch.py`](../gatling/gun_sketch.py) — 6 модулей на кольце pitch 40
-    (R40): ствол сталь 25×0.6×300, камера Al 38×1.5×~274, длина модуля ≈348 мм;
-    тонкий казённый кожух Ø80, узкий бункер, короткая рукоять.
-    Габарит ≈ **478 × 181 × 157 мм** (Д×Ш×В); пакет L 348 / Ø118; кожух L 130 / Ø80;
-    бункер ≈ 66×36×38; рукоять вылет ≈ 89 мм. (Fat-coax R68 — отдельная ветка стенда,
-    не этот силуэт.) Технабросок пакета — [`gatling/pack_sketch.py`](../gatling/pack_sketch.py).
+    **Плотный пакет реального стенда** (без лафета/ног): [`gatling/breech_pack.py`](../gatling/breech_pack.py)
+    — 6× `linear_breech` (закрыто), геометрия из `fat_coax_qev` + рельсы/салазки/AirTAC.
+    Ориентация: подача к оси, AirTAC наружу. Кольцо **R 61.5 мм** (было design pitch 68;
+    зазор соседей 0.5 мм). Габарит ≈ **454 × 257 × 291 мм** (Д×Ш×В).
 
 ![MQR6 на оси пакета](img/gatling_mqr_axis.svg)
 
-![Готовый гатлинг, iso](img/gatling_gun_product_3d.png)
+![Пакет linear_breech, iso](img/gatling_gun_product_3d.png)
 
-![Готовый гатлинг, сбоку](img/gatling_gun_product_side.png)
+![Пакет linear_breech, сбоку](img/gatling_gun_product_side.png)
 
 Прогон standalone `gatling/fat_coax_qev.py` (2026-11-12): камера **101 см³**, труба
 **50 × 1.5 × 130 мм** (~80 г Al), модуль Ø50 (уши 66), длина до кончика фиттинга ≈ 202 мм,
@@ -109,6 +107,7 @@ freecadcmd -c "REPO='$PWD'; exec(open('gatling/fat_coax_qev.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech_bench.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/mqr_axis_sketch.py').read())"
+freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_pack.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/gun_sketch.py').read())"
 freecadcmd -c "REPO='$PWD'; exec(open('gatling/pack_sketch.py').read())"
 ```
