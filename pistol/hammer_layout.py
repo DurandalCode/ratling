@@ -251,6 +251,11 @@ SPUR_COMB = [(40.6, 3), (40.6, 7.5), (39.7, 12), (37.4, 16.3), (34, 19.8)]     #
 SPUR_HOLE = (17.0, 1.5, 3.2)        # along, back, radius
 SPUR_STRETCH = 1.25                 # stage 2: the spur rides longer out of the ball, more for the thumb to press
 SPUR = (95.0 + math.degrees(math.atan2(12.0, 38.0)), math.hypot(38.0, 12.0) * SPUR_STRETCH)   # where the thumb sits: direction, radius
+SPUR_THUMB_DROP = 30.0
+_spur_a0, _spur_r = SPUR
+_spur_a1 = 180.0 - math.degrees(math.asin((_spur_r * math.sin(math.radians(_spur_a0)) - SPUR_THUMB_DROP) / _spur_r))
+SPUR_REST_TURN = _spur_a0 - _spur_a1
+SPUR = (_spur_a1, _spur_r)            # same lever radius, thumb contact 30 mm lower at rest
 CRANK_Y = (32.0, 35.0)              # the crank on the right, outside the valve body (y 31)
 BRACKET_Y = (35.2, 38.2)            # the slider's bracket, outside the crank
 SLIDER_REACH = 48.0                 # slider body: from its pin this far down (the cam slot)
@@ -360,6 +365,22 @@ for (a0, b0), (a1, b1) in zip(SPUR_COMB, SPUR_COMB[1:]):                      # 
     g.rotate(V(0, 0, 0), YA, -math.degrees(math.atan2(t_.z, t_.x)))
     spur = spur.cut(g.translated(c_))
 spur = spur.fuse(Part.makeCylinder(4.0, 10, _sp(28.5, 19.5, -5.0), YA))          # a knuckle at the comb's heel, wider
+spur = _rot_y(spur, H, SPUR_REST_TURN)   # reposition the external handle independently of the crank and sleeve
+# Short downward finger hook: direct Bezier sides avoid offset-curve cusps at the rounded tip.
+SPUR_HOOK_DROP, SPUR_HOOK_TIP_R = 19.0, 3.2
+_hook_heel = _rot_y(Part.Vertex(_sp(28.5, 19.5, 0)), H, SPUR_REST_TURN).Vertexes[0].Point
+_hook_center = _hook_heel + V(-5, -4, -SPUR_HOOK_DROP)
+_hook_n, _hook_t = V(1, 0, -1).normalize(), V(-1, 0, -1).normalize()
+_hook_in = _hook_center + _hook_n * SPUR_HOOK_TIP_R
+_hook_out = _hook_center - _hook_n * SPUR_HOOK_TIP_R
+_hook_ci, _hook_co = Part.BezierCurve(), Part.BezierCurve()
+_hook_ci.setPoles([_hook_heel + V(3.8, -4, 2), _hook_heel + V(2, -4, -4), _hook_in - _hook_t * 7, _hook_in])
+_hook_co.setPoles([_hook_out, _hook_out - _hook_t * 7, _hook_heel + V(-6, -4, -5), _hook_heel + V(-3.8, -4, 3)])
+_hook_wire = Part.Wire([_hook_ci.toShape(),
+                        Part.Arc(_hook_in, _hook_center + _hook_t * SPUR_HOOK_TIP_R, _hook_out).toShape(),
+                        _hook_co.toShape(), Part.makeLine(_hook_co.value(1), _hook_ci.value(0))])
+spur_hook = Part.Face(_hook_wire).extrude(V(0, 8, 0))
+spur = spur.fuse(spur_hook).removeSplitter()
 c_tip0 = _at(H, crank_angle(0.0), HAMMER_ARM)
 crank = _rod(H, c_tip0, 8.0, CRANK_Y[0], CRANK_Y[1] - CRANK_Y[0])
 # The collar carries sliding load and stops the washer before it can clamp the bracket.
@@ -568,14 +589,15 @@ sector_spacer = (cyl_x(SECTOR_SPACER["od"], SECTOR_SPACER["x_rear"], SECTOR_SPAC
 
 # ---------------------------------------------------------------- trigger: one stage, onto the vertical vent valve
 # A sickle lever hanging down off the back-set pivot at rest: the finger face hollowed (the pad sits
-# in it), the claw curling forward at the end. Behind the hub a lug whose top edge (local z -1.0) is
-# the stop that meets the valve's bottom face, 0.5 above the wide pad's face under the plunger. The
-# pull lifts the pad ~2.8 mm - the first 0.3 closes the gap, ~2.5 pushes (the click is at 2.0).
+# in it), the claw curling forward at the end. The separate rigid pad has a rounded button contact
+# and a stop beside it. The pull first closes a 0.3 mm gap, then moves the button 2.6 mm
+# (the click is at 2.0); the finger face sits nearer the grip in the middle of the guard.
 TRIGGER_WIDTH = 6.0
-TRIGGER_OUTLINE = [(0.0, 3.3), (9.0, 1.8), (17.0, 0.5), (25.0, 1.5), (32.6, 0.5), (33.5, -4.0), (32.0, -11.0),
-                   (31.0, -17.0), (31.2, -22.0), (32.6, -26.5), (35.0, -30.0), (37.5, -31.5), (36.5, -33.5),
-                   (33.0, -33.5), (29.5, -31.0), (26.8, -26.0), (25.0, -19.0), (24.0, -12.0), (24.0, -4.0),
-                   (16.0, -4.5), (8.0, -5.2), (1.5, -4.6)]   # the spine reaches forward; face and claw at the old spot
+TRIGGER_CAM_X, TRIGGER_CAM_Z, TRIGGER_CAM_R = -11.5, -3.3, 1.8
+TRIGGER_PAD_T, TRIGGER_TARGET_PUSH = 8.0, 2.6
+TRIGGER_OUTLINE = [(0.0, 3.3), (4.0, 2.0), (8.0, 1.0), (9.5, -4.0), (8.0, -11.0), (7.0, -17.0),
+                   (7.2, -22.0), (8.6, -23.5), (11.0, -25.5), (13.5, -26.5), (12.5, -28.0), (9.0, -28.0),
+                   (5.5, -25.8), (2.8, -22.0), (1.0, -17.5), (0.0, -11.0), (0.0, -5.5), (-2.0, -3.5)]   # face 24 mm back, toward the middle of the guard
 
 
 def _trigger_blank():
@@ -603,33 +625,38 @@ def _trigger_blank():
     w = Part.Wire([Part.Arc(p0, pm, p1).toShape(), Part.makeLine(p1, V(-2, y0, -1)), Part.makeLine(V(-2, y0, -1), p0)])
     t = t.fuse(Part.Face(w).extrude(V(0, TRIGGER_WIDTH, 0)))
     for z_ in (-15.0, -18.0, -21.0):                                                    # finger grooves in the hollow
-        g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(28.0 + 3.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, z_), YA)
+        g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(7.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, z_), YA)
         t = t.cut(g)
     return t.cut(Part.makeCylinder(1.6, TRIGGER_WIDTH + 2, V(0, -TRIGGER_WIDTH / 2 - 1, 0), YA)).removeSplitter()
 
 
 def _trigger_mount_parts():
     # Separate prints put the lever and the long pad's bending loads in their layer planes.
-    body = _trigger_blank().cut(box(-20, 0, 4, 30, -12, 4)).fuse(box(-13, -4.5, -3, 4, -9.5, 1.5)).removeSplitter()
-    socket = prism_x([(-0.2, -7.2), (-0.2, -0.3), (4.3, -1.7), (4.3, -5.8)], -14.2, -6.8)
-    body = body.cut(socket)
-    key = prism_x([(0.2, -6.8), (0.2, -0.7), (4.3, -1.9), (4.3, -5.6)], -14, -7)
-    pad = box(-14, -7, 4.2, 26, -6, -1.5).fuse(key)
-    # A real stop beneath the valve body, beside the plunger; the old central lug missed it in y.
-    pad = pad.fuse(box(-13, -10, 8, 12, -1.5, -1)).removeSplitter()
-    y, z = 0.5, -3.75
-    bore = Part.makeCylinder(1.7, 12, V(-15, y, z), XA)
-    head = Part.makeCylinder(2.95, 4.1, V(-14.6, y, z), XA)
-    nut = _drive_hex_x(y, z, -7, -4.3, 5.9).fuse(box(-7, -4.3, -4.2, y, z - 3.45, z + 3.45))
-    body = body.cut(bore).cut(head).cut(nut).removeSplitter()
-    pad = pad.cut(bore).cut(head).cut(nut).removeSplitter()
-    screw = Part.makeCylinder(1.5, 6, V(-10.5, y, z), XA).fuse(Part.makeCylinder(2.75, 3, V(-13.5, y, z), XA))
-    nut = _drive_hex_x(y, z, -6.9, -4.5, 5.5).cut(Part.makeCylinder(1.5, 4, V(-8, y, z), XA))
+    body = _trigger_blank().cut(box(-20, 0, 3, 30, -16, 4)).fuse(box(-12.5, -2.5, -3, 3, -14, 1.5)).removeSplitter()
+    # The broad y=3 mating faces are pulled together by an M3 bolt along y.
+    # The shallow rectangular key locates the pad; it does not carry bending across a loose dovetail.
+    body = body.cut(box(-12.5, -6.5, 2.2, 4.1, -11.8, -2.8)).removeSplitter()
+    key = box(-12.35, -6.65, 2.4, 3.2, -11.65, -2.95)
+    pad = box(-13, -6, 3, 26, TRIGGER_CAM_Z - TRIGGER_PAD_T, TRIGGER_CAM_Z).fuse(key)
+    pad = pad.fuse(box(-13, -6, 3, 12, -13.5, _LUG_Z - 0.3)).removeSplitter()
+    _plunger_y = VENT_Y0 + AIRTAC["T"] / 2
+    pad = pad.fuse(Part.makeCylinder(TRIGGER_CAM_R, 8, V(TRIGGER_CAM_X, _plunger_y - 4, TRIGGER_CAM_Z), YA))
+    # Rounded contact avoids wedging the button with the rear edge of a tilting flat pad.
+    pad = pad.fuse(box(-13, -10, 8, 12, TRIGGER_CAM_Z, _LUG_Z)).removeSplitter()
+    # Keep the root clear through the stroke plus 2 degrees for valve seating and print tolerances.
+    keep = _rot_y(box(TRIGGER_PIVOT.x - 14.7, 100, -100, 100, -200, 100), TRIGGER_PIVOT, -(TRIGGER_TRAVEL + 2.0)).translated(-TRIGGER_PIVOT)
+    body, pad = body.common(keep).removeSplitter(), pad.common(keep).removeSplitter()
+    x, z = -9.5, -7.0
+    bore = Part.makeCylinder(1.7, 34, V(x, -4, z), YA)
+    head = Part.makeCylinder(3.2, 3.5, V(x, -4, z), YA)   # open the edge cleanly; R3 would be tangent to x=-12.5
+    nut = _drive_hex_y(x, z, 8.5, 11.2, 5.9).fuse(box(-20, x, 8.5, 11.2, z - 3.4, z + 3.4))
+    body = body.cut(bore).cut(head).removeSplitter()
+    pad = pad.cut(bore).cut(nut).removeSplitter()
+    screw = Part.makeCylinder(1.5, 12, V(x, -0.5, z), YA).fuse(Part.makeCylinder(2.75, 3, V(x, -3.5, z), YA))
+    nut = _drive_hex_y(x, z, 8.5, 10.9, 5.5).cut(bore)
     return body, pad, Part.makeCompound([screw, nut])
 
 
-TRIGGER_BODY, TRIGGER_PAD, TRIGGER_PAD_FASTENER = _trigger_mount_parts()
-TRIGGER = Part.makeCompound([TRIGGER_BODY, TRIGGER_PAD])
 
 # ---------------------------------------------------------------- vent valve: an AirTAC M3R110-06 without its roller
 # Catalog drawing of the M3B110-06 body (the R head is only the roller), stem end up on the sheet:
@@ -674,17 +701,23 @@ VENT_GAP = 0.3                      # the pad's face to the plunger's tip at res
 VENT_SWITCH = 2.0                   # measured on the bench M3R110: it clicks over ~2 mm into the plunger's travel
 
 
-_LUG_X, _LUG_Z = -13.0, -1.0       # the shoulder's stop edge (local): the lug's flat top, rear corner
-_z_at = lambda deg: TRIGGER_PIVOT.z - _LUG_X * math.sin(math.radians(deg)) + _LUG_Z * math.cos(math.radians(deg))
-_lo, _hi = 5.0, 40.0                # the pull that brings the lug's shoulder onto the valve's bottom face
-for _ in range(20):
+_cam_z_at = lambda deg: TRIGGER_PIVOT.z - TRIGGER_CAM_X * math.sin(math.radians(deg)) + TRIGGER_CAM_Z * math.cos(math.radians(deg)) + TRIGGER_CAM_R
+_plunger_tip_z = VENT_Z0 - AIRTAC["plunger"][1]
+_lo, _hi = 5.0, 25.0                # solve actual button displacement, not the old stop point's rise
+for _ in range(35):
     _mid = (_lo + _hi) / 2
-    if _z_at(_mid) < VENT_Z0:
+    if _cam_z_at(_mid) < _plunger_tip_z + TRIGGER_TARGET_PUSH:
         _lo = _mid
     else:
         _hi = _mid
 TRIGGER_TRAVEL = _lo
-VENT_PUSH = _z_at(TRIGGER_TRAVEL) - _z_at(0.0) - VENT_GAP      # the shoulder's rise less the gap it closes first
+VENT_PUSH = _cam_z_at(TRIGGER_TRAVEL) - _plunger_tip_z
+_LUG_X = -13.0
+_theta = math.radians(TRIGGER_TRAVEL)
+_LUG_Z = (VENT_Z0 - TRIGGER_PIVOT.z + _LUG_X * math.sin(_theta)) / math.cos(_theta)
+_z_at = lambda deg: TRIGGER_PIVOT.z - _LUG_X * math.sin(math.radians(deg)) + _LUG_Z * math.cos(math.radians(deg))
+TRIGGER_BODY, TRIGGER_PAD, TRIGGER_PAD_FASTENER = _trigger_mount_parts()
+TRIGGER = Part.makeCompound([TRIGGER_BODY, TRIGGER_PAD])
 
 
 def vent_port(name):
