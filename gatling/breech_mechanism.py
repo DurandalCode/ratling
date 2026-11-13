@@ -4,7 +4,7 @@ Gatling breech mechanism (not a freeze).
 
 Stroke from linear_breech (65.8 mm) → angle→stroke law → outboard cam liner →
 printed stroke rail (65.8 mm travel) → housing around liner+rail → six phases →
-feed in LOAD window → crank outside housing → hoses past track/rail.
+hopper+1-pellet buffer in LOAD → side crank (+Y) → hoses past track/rail.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism.py').read())"
 
@@ -441,58 +441,155 @@ feed_slot = Part.makeBox(
 feed_slot.rotate(V(0, 0, 0), V(0, 0, 1), 180.0)
 breech_casing = breech_casing.cut(feed_slot).removeSplitter()
 
-# --- feed tray: only in LOAD window, no intersect housing / open carriage ----
+# --- hopper + 1-pellet buffer in LOAD window (φ=180); soft pellets -----------
+# Convention (gun_sketch): +X = up, +Y = side. Feed stays at LOAD centre 180°
+# (−X). Singulator: bin → one-pellet nest → throat into window. Nest ID fits
+# one ØPELLET_D; throat < 1.5·D so a second ball cannot pass while nest is full.
 feed_ang = 180.0
 a180 = math.radians(feed_ang)
-ux, uy = math.cos(a180), math.sin(a180)
-sx, sy = R_PACK * ux, R_PACK * uy
+ux_f, uy_f = math.cos(a180), math.sin(a180)
 z_feed = z_stop - BENCH_STROKE / 2
-# Tray from outside housing into the window, stopping short of open carriage.
-hop_r0 = r_case_od + 1.0
-hop_r1 = hop_r0 + 40.0
-tray_outer = Part.makeBox(36.0, hop_r1 - hop_r0, 40.0,
-                          V(-18.0, hop_r0, z_feed - 20.0))
-tray_inner = Part.makeBox(26.0, hop_r1 - hop_r0 + 4.0, 28.0,
-                          V(-13.0, hop_r0 - 2.0, z_feed - 14.0))
-hopper_local = tray_outer.cut(tray_inner).removeSplitter()
-hopper = hopper_local.copy()
-hopper.rotate(V(0, 0, 0), V(0, 0, 1), -math.degrees(math.atan2(ux, uy)))
-hopper.translate(V(sx, sy, 0))
-# Ensure tray does not intersect housing solid or open carriage.
+pd = PELLET_D
+buf_clear = 1.2
+nest_id = pd + buf_clear
+throat_id = pd + 0.6
+bin_w, bin_d, bin_h = 52.0, 55.0, 70.0
+
+
+def place_feed_shape(shape):
+    s = shape.copy()
+    s.rotate(V(0, 0, 0), V(0, 0, 1),
+             -math.degrees(math.atan2(ux_f, uy_f)))
+    s.translate(V(R_PACK * ux_f, R_PACK * uy_f, 0))
+    return s
+
+
+def build_hopper_buffer(r_od):
+    """Local frame: +Y radial out (→ world −X at φ=180). Returns solids + metrics."""
+    # Nest centre just outside casing OD, at feed Z.
+    y_nest = r_od + 6.0 + nest_id / 2
+    z_n = z_feed
+    # Cup: outer block minus nest sphere/cyl, open toward axis (−Y) via throat.
+    cup_t = 3.0
+    cup = Part.makeCylinder(nest_id / 2 + cup_t, nest_id + 2 * cup_t,
+                            V(0, y_nest, z_n - (nest_id / 2 + cup_t)), V(0, 0, 1))
+    nest = Part.makeSphere(nest_id / 2, V(0, y_nest, z_n))
+    # Throat: tube from nest toward pack axis into LOAD window.
+    y_throat0 = R_PACK + CH_OD / 2 + 2.0
+    y_throat1 = y_nest
+    throat_len = max(8.0, y_throat1 - y_throat0)
+    throat_out = Part.makeCylinder(
+        throat_id / 2 + cup_t, throat_len,
+        V(0, y_throat0, z_n), V(0, 1, 0))
+    throat_bore = Part.makeCylinder(
+        throat_id / 2, throat_len + 4.0,
+        V(0, y_throat0 - 2.0, z_n), V(0, 1, 0))
+    # Bin above nest (+Y further out): soft-pellet magazine.
+    y_bin0 = y_nest + nest_id / 2 + cup_t - 2.0
+    bin_outer = Part.makeBox(
+        bin_w, bin_d, bin_h,
+        V(-bin_w / 2, y_bin0, z_n - bin_h / 2))
+    bin_inner = Part.makeBox(
+        bin_w - 6.0, bin_d - 2.0, bin_h - 6.0,
+        V(-(bin_w - 6.0) / 2, y_bin0 + 2.0, z_n - (bin_h - 6.0) / 2))
+    # Mouth bin → nest (funnel bore).
+    mouth = Part.makeCylinder(
+        nest_id / 2 + 1.0, 20.0,
+        V(0, y_bin0 - 4.0, z_n), V(0, 1, 0))
+    # Escapement shoulder: ring at nest roof so stacked ball rests until nest clears.
+    shoulder = Part.makeCylinder(
+        nest_id / 2 + cup_t, 3.0,
+        V(0, y_nest, z_n + nest_id / 2 - 1.0), V(0, 0, 1))
+    shoulder = shoulder.cut(Part.makeCylinder(
+        throat_id / 2 * 0.92, 6.0,
+        V(0, y_nest, z_n + nest_id / 2 - 2.0), V(0, 0, 1)))
+    body = cup.fuse(throat_out).fuse(bin_outer).fuse(shoulder)
+    body = body.cut(nest).cut(throat_bore).cut(bin_inner).cut(mouth)
+    try:
+        body = body.removeSplitter()
+    except Exception:
+        pass
+    # Soft pellets: one in nest (this cycle), one waiting in bin (blocked),
+    # one already on open breech cradle (released).
+    p_buf = Part.makeSphere(pd / 2, V(0, y_nest, z_n))
+    p_wait = Part.makeSphere(pd / 2, V(0, y_nest, z_n + pd + 0.5))
+    p_breech = Part.makeSphere(pd / 2, V(0, 0, (z_tip + pd / 2) - BENCH_STROKE))
+    return dict(
+        body=body, p_buf=p_buf, p_wait=p_wait, p_breech=p_breech,
+        y_nest=y_nest, nest_id=nest_id, throat_id=throat_id)
+
+
 open_carr = place_shape(shifted(qev_closed["Carriage"], -BENCH_STROKE),
                         R_PACK, feed_ang)
-# Nudge tray outward if it hits.
-for _ in range(8):
-    hit_h = hopper.common(breech_casing).Volume
-    hit_c = hopper.common(open_carr).Volume
-    if hit_h < 1.0 and hit_c < 1.0:
-        break
-    hopper.translate(V(ux * 3.0, uy * 3.0, 0))
-    moved_notes.append("feed tray nudged out")
-pellet = place_shape(
-    Part.makeSphere(PELLET_D / 2, V(0, 0, (z_tip + PELLET_D / 2) - BENCH_STROKE)),
-    R_PACK, feed_ang)
-feed_ok = (hopper.common(breech_casing).Volume < 1.0
-           and hopper.common(open_carr).Volume < 1.0)
 
-# --- crank outside housing, not in LOAD window 120–240° ----------------------
-# Arm along φ=0 (FIRE), aft of cascabel, entirely outside casing OD.
-shaft = G.cyl(10.0, z_case0 - 50.0, z_case0 + 5.0)
-arm_len = r_case_od + 45.0
-arm = Part.makeBox(10.0, arm_len, 12.0,
-                   V(-5.0, 0.0, z_case0 - 42.0))
-# Point arm to φ=0 (+X after identity): rotate so +Y of box → +X.
-arm.rotate(V(0, 0, 0), V(0, 0, 1), -90.0)
-knob = Part.makeSphere(16.0, V(arm_len, 0.0, z_case0 - 36.0))
-crank = shaft.fuse(arm).fuse(knob).removeSplitter()
-# Crank must not hit housing or any open station in LOAD sector.
+
+def seat_hopper(r_od):
+    """Place hopper; nudge out if it clips casing / open carriage."""
+    h = build_hopper_buffer(r_od)
+    body = place_feed_shape(h["body"])
+    for _ in range(10):
+        if (body.common(breech_casing).Volume < 1.0
+                and body.common(open_carr).Volume < 1.0):
+            break
+        body.translate(V(ux_f * 3.0, uy_f * 3.0, 0))
+        moved_notes.append("hopper nudged out")
+    p_buf = place_feed_shape(h["p_buf"])
+    p_wait = place_feed_shape(h["p_wait"])
+    # Waiting ball follows body nudges approximately (rebuild if nudged a lot).
+    p_breech = place_shape(h["p_breech"], R_PACK, feed_ang)
+    return body, p_buf, p_wait, p_breech, h
+
+
+hopper, pellet_buf, pellet_wait, pellet, hop_m = seat_hopper(r_case_od)
+# Singulator: nest seats one Øpd ball (clearance ≤ 3); two side-by-side need
+# ≥ 2·pd. Throat < 1.5·pd so a second ball cannot pass beside the first.
+# Stacked waiting ball centre is ≥ pd above nest centre (rests on shoulder).
+wait_sep = abs(pellet_wait.BoundBox.Center.z - pellet_buf.BoundBox.Center.z)
+# After place, radial sep of waiting vs buffer (local +Z stack → world).
+wait_sep = max(wait_sep, (
+    pellet_wait.BoundBox.Center - pellet_buf.BoundBox.Center).Length)
+singulator_ok = (
+    hop_m["throat_id"] < 1.5 * pd - 1e-6
+    and hop_m["nest_id"] <= pd + 3.0 + 1e-6
+    and hop_m["nest_id"] < 2.0 * pd - 1e-3
+    and wait_sep >= pd - 0.2)
+feed_clear = (hopper.common(breech_casing).Volume < 1.0
+              and hopper.common(open_carr).Volume < 1.0)
+feed_ok = feed_clear and singulator_ok
+# One release per pack revolution: only LOAD window; buffer holds next ball.
+one_per_cycle_ok = (
+    abs(feed_ang - 180.0) < 1e-6
+    and LOAD_A <= feed_ang <= LOAD_B
+    and singulator_ok
+    and feed_clear)
+
+# --- crank sideways (+Y), outside housing, not in LOAD 120–240° --------------
+# gun_sketch: +X up, +Y side. Arm along +Y (φ=90), aft of cascabel.
+CRANK_ANG = 90.0
+assert not (LOAD_A <= CRANK_ANG <= LOAD_B)
+
+
+def build_crank(r_od):
+    shaft = G.cyl(10.0, z_case0 - 50.0, z_case0 + 5.0)
+    arm_len = r_od + 45.0
+    # Box along +Y, knob at +Y.
+    arm = Part.makeBox(10.0, arm_len, 12.0,
+                       V(-5.0, 0.0, z_case0 - 42.0))
+    knob = Part.makeSphere(16.0, V(0.0, arm_len, z_case0 - 36.0))
+    return shaft.fuse(arm).fuse(knob).removeSplitter()
+
+
+crank = build_crank(r_case_od)
 crank_ok = crank.distToShape(breech_casing)[0] >= CLEAR - 1e-3
+# Crank must not sit in LOAD sector (arm angle) and must clear open stations.
+crank_side_ok = abs(CRANK_ANG - 90.0) < 1e-6 and not (
+    LOAD_A <= CRANK_ANG <= LOAD_B)
 for k in range(N):
     ang = k * 60.0
     if LOAD_A <= ang <= LOAD_B:
-        d = crank.distToShape(stations[k])[0]
-        if d < CLEAR - 1e-3:
+        if crank.distToShape(stations[k])[0] < CLEAR - 1e-3:
             crank_ok = False
+crank_ok = crank_ok and crank_side_ok
 
 # --- hoses: port → out past track/rail, then aft outside cam → hub -----------
 # Local R-port sits at y = vent_y + T (toward local +Y = radial-out after place).
@@ -561,7 +658,8 @@ def hose_clear(hs):
 
 
 def rebuild_housing_for_od():
-    global breech_casing, crank, hopper, feed_ok
+    global breech_casing, crank, hopper, pellet_buf, pellet_wait, pellet
+    global feed_ok, singulator_ok, one_per_cycle_ok, hop_m
     breech_casing = tube(2.0 * r_case_od, 2.0 * r_case_id, z_case0, z_case1)
     casc = Part.makeCylinder(r_case_od, 8.0, V(0, 0, z_case0 - 8.0))
     casc = casc.cut(Part.makeCylinder(hub_r + 2.0, 14.0, V(0, 0, z_case0 - 10.0)))
@@ -572,34 +670,23 @@ def rebuild_housing_for_od():
                         V(-ch / 2, 0.0, win_z0))
     slot.rotate(V(0, 0, 0), V(0, 0, 1), 180.0)
     breech_casing = breech_casing.cut(slot).removeSplitter()
-    # Crank follows new OD.
-    alen = r_case_od + 45.0
-    sh = G.cyl(10.0, z_case0 - 50.0, z_case0 + 5.0)
-    ar = Part.makeBox(10.0, alen, 12.0, V(-5.0, 0.0, z_case0 - 42.0))
-    ar.rotate(V(0, 0, 0), V(0, 0, 1), -90.0)
-    kn = Part.makeSphere(16.0, V(alen, 0.0, z_case0 - 36.0))
-    crank = sh.fuse(ar).fuse(kn).removeSplitter()
-    # Keep feed tray outside new OD.
-    hop_r0 = r_case_od + 1.0
-    hop_r1 = hop_r0 + 40.0
-    to = Part.makeBox(36.0, hop_r1 - hop_r0, 40.0,
-                      V(-18.0, hop_r0, z_feed - 20.0))
-    ti = Part.makeBox(26.0, hop_r1 - hop_r0 + 4.0, 28.0,
-                      V(-13.0, hop_r0 - 2.0, z_feed - 14.0))
-    hl = to.cut(ti).removeSplitter()
-    hopper = hl.copy()
-    hopper.rotate(V(0, 0, 0), V(0, 0, 1), -math.degrees(math.atan2(
-        math.cos(math.radians(feed_ang)), math.sin(math.radians(feed_ang)))))
-    hopper.translate(V(R_PACK * math.cos(math.radians(feed_ang)),
-                       R_PACK * math.sin(math.radians(feed_ang)), 0))
-    for _ in range(8):
-        if (hopper.common(breech_casing).Volume < 1.0
-                and hopper.common(open_carr).Volume < 1.0):
-            break
-        hopper.translate(V(math.cos(math.radians(feed_ang)) * 3.0,
-                           math.sin(math.radians(feed_ang)) * 3.0, 0))
-    feed_ok = (hopper.common(breech_casing).Volume < 1.0
-               and hopper.common(open_carr).Volume < 1.0)
+    crank = build_crank(r_case_od)
+    hopper, pellet_buf, pellet_wait, pellet, hop_m = seat_hopper(r_case_od)
+    wait_sep = (
+        pellet_wait.BoundBox.Center - pellet_buf.BoundBox.Center).Length
+    singulator_ok = (
+        hop_m["throat_id"] < 1.5 * pd - 1e-6
+        and hop_m["nest_id"] <= pd + 3.0 + 1e-6
+        and hop_m["nest_id"] < 2.0 * pd - 1e-3
+        and wait_sep >= pd - 0.2)
+    feed_clear = (hopper.common(breech_casing).Volume < 1.0
+                  and hopper.common(open_carr).Volume < 1.0)
+    feed_ok = feed_clear and singulator_ok
+    one_per_cycle_ok = (
+        abs(feed_ang - 180.0) < 1e-6
+        and LOAD_A <= feed_ang <= LOAD_B
+        and singulator_ok
+        and feed_clear)
 
 
 r_exit = max(r_exit0, r_case_od + 8.0)
@@ -636,6 +723,7 @@ for _try in range(6):
 
 hoses_ok = ok_h
 crank_ok = crank.distToShape(breech_casing)[0] >= CLEAR - 1e-3
+crank_ok = crank_ok and crank_side_ok
 for k in range(N):
     ang = k * 60.0
     if LOAD_A <= ang <= LOAD_B:
@@ -644,11 +732,13 @@ for k in range(N):
 
 # --- assembly / checks / report ----------------------------------------------
 pack = Part.makeCompound(stations)
+pellets = Part.makeCompound([pellet_buf, pellet_wait, pellet])
 assembly = Part.makeCompound([
     pack, cam, front_plate, rear_plate, breech_casing,
-    hopper, pellet, crank, hoses_s,
+    hopper, pellets, crank, hoses_s,
 ])
 bb = assembly.BoundBox
+# +X up, +Y side, +Z muzzle (gun_sketch).
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
 case_od = 2.0 * r_case_od
 closed_L = (z_stop + BARREL_SHOW) - Z_AFT_CLIP
@@ -673,9 +763,11 @@ checks = [
     ("body/rails clear of cam", rail_cam_ok),
     ("open carriage inside housing", case_ok),
     ("housing wraps cam OD", r_case_id + 1e-6 >= cam_od / 2),
-    ("crank outside housing / not in LOAD", crank_ok),
+    ("crank sideways (+Y) / not in LOAD", crank_ok),
     ("hoses clear of cam track & stroke rail", hoses_ok),
-    ("feed tray clear of housing & open carriage", feed_ok),
+    ("hopper clear of housing & open carriage", feed_ok),
+    ("1-pellet buffer / singulator", singulator_ok),
+    ("one soft pellet per LOAD cycle", one_per_cycle_ok),
     ("LOAD window only (hopper at 180°)", abs(feed_ang - 180.0) < 1e-6),
     ("six phases", len(stations) == 6),
     ("closed station L %.1f ≈ 750" % closed_L, abs(closed_L - TARGET_L) <= 0.6),
@@ -683,7 +775,7 @@ checks = [
 ]
 report = [
     NAME,
-    "  sketch                 : rails + housing + crank + hoses (NOT frozen)",
+    "  sketch                 : rails + housing + side crank + hopper (NOT frozen)",
     "  stroke (bench)         : %.1f mm; rail L=%.1f" % (BENCH_STROKE, stroke_rail_L),
     "  law                    : FIRE 330–30; OPEN 30–120; LOAD 120–240; CLOSE 240–330",
     "  cam                    : outboard liner Ø%.1f R=%.1f" % (cam_od, CAM_R),
@@ -702,8 +794,10 @@ report.append("  phases:")
 for n, ang, u, dz, tag in phases:
     report.append("    %d @ %3.0f°  u=%.2f  dz=%6.1f  %s" % (n, ang, u, dz, tag))
 report += [
-    "  feed                  : tray at φ=180° through LOAD window",
-    "  crank                 : outside housing on φ=0 (FIRE), not in 120–240°",
+    "  feed                  : hopper+buffer at φ=180°; 1 soft pellet / LOAD cycle",
+    "  buffer                : nest Ø%.1f throat Ø%.1f (pellet Ø%.1f)"
+    % (hop_m["nest_id"], hop_m["throat_id"], pd),
+    "  crank                 : sideways +Y (φ=90°), not in 120–240°",
     "  hoses                 : port→outside casing→hub; past cam & stroke rail",
     "  overall LxWxH         : %.0f x %.0f x %.0f mm" % (gun_L, gun_W, gun_H),
     "  not drawn             : wheeled carriage, full-length shroud",
@@ -736,7 +830,9 @@ for i, rr in enumerate(rails_placed):
 sc.add("Skin", "Front_barrel_plate", front_plate, "plate")
 sc.add("Skin", "Rear_barrel_plate", rear_plate, "plate")
 sc.add("Skin", "Breech_casing", breech_casing, "casing")
-sc.add("Feed", "Hopper", hopper, "feed")
+sc.add("Feed", "Hopper_buffer", hopper, "feed")
+sc.add("Feed", "Pellet_buffer", pellet_buf, "pellet")
+sc.add("Feed", "Pellet_waiting", pellet_wait, "pellet")
 sc.add("Feed", "Pellet_load", pellet, "pellet")
 sc.add("Drive", "Crank", crank, "crank")
 sc.add("Hoses", "Pilot_supply_stubs", hoses_s, "hose")
@@ -746,7 +842,7 @@ for n, ang, u, dz, tag in phases:
     sc.label("Labels", "%d° %s" % (ang, tag),
              ((R_PACK + 70) * math.cos(a), (R_PACK + 70) * math.sin(a),
               z_stop + cam_dz(ang)))
-sc.label("Labels", "stroke rail %.0f · casing Ø%.0f" % (BENCH_STROKE, case_od),
+sc.label("Labels", "side crank · 1/cycle buffer · Ø%.0f" % case_od,
          (0, bb.YMax + 40, (bb.ZMin + bb.ZMax) / 2))
 
 sc.finish(hidden_groups=("Labels",), opaque_groups=())
