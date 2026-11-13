@@ -3,9 +3,11 @@
 Dense pack of the real gatling linear-breech station (not a block silhouette).
 
 Loads gatling/linear_breech.py as a library (closed pose) and places six copies
-on the smallest ring that still clears. Orientation: feed (+Y) radial **in**,
-AirTAC/rails radial **out** — denser than feed-out (AirTAC would fight at the
-axis). Real solids only; no gun_sketch blocks, bench feet, or carriage.
+on a ring. Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end
+transverse shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198).
+Carriage / rails / AirTAC may duplicate near the hub — only the core
+(chamber + plugs + yoke + barrel clamps) must clear CLEAR between neighbours.
+Real solids only; no gun_sketch blocks, bench feet, or carriage.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_pack.py').read())"
 
@@ -46,90 +48,152 @@ V = App.Vector
 N = 6
 CLEAR = 0.5
 DESIGN_R = PACK_PITCH
-# Pin densest orientation from survey: feed in / AirTAC out clears at R<=68.
-MODE = "in"
+# Mitrailleuse live pack circles (chamber circumscribed, docs/pack.md).
+MITRA_J_OD = 192.5            # layout J, 16 barrels
+MITRA_G_OD = 198.0            # layout G, 19 barrels
+# Previous rails-out pack (feed in) for delta reporting.
+PREV_R = 61.51
+PREV_BARREL_OD = 199.6        # barrel-Z tess Ø, rails-out @ PREV_R
 
-_station_parts = list(qev_closed.values()) + [
-    rails_s, barrel_clamp, barrel_collar, fixed_barrel, cradle,
+# Core must clear; rails / carriage / AirTAC may overlap at the hub.
+CORE_KEYS = [k for k in qev_closed if k != "Carriage"]
+_core_parts = [qev_closed[k] for k in CORE_KEYS] + [
+    barrel_clamp, barrel_collar, fixed_barrel,
+]
+_rail_parts = [
+    qev_closed["Carriage"], rails_s, cradle,
     vent_body, vent_fittings, vent_plunger,
 ]
+_station_parts = _core_parts + _rail_parts
+core0 = Part.makeCompound([p.copy() for p in _core_parts])
 station0 = Part.makeCompound([p.copy() for p in _station_parts])
+barrel0 = Part.makeCompound([
+    barrel_clamp.copy(), barrel_collar.copy(), fixed_barrel.copy(),
+])
 st0_bb = station0.BoundBox
 
 
-def place_station(R, ang_deg):
-    """Feed (+Y) toward pack axis; AirTAC hangs outward."""
+def place_shape(shape, R, ang_deg):
+    """Rails / AirTAC (−Y) toward pack axis; feed (+Y) radial out."""
     a = math.radians(ang_deg)
     ux, uy = math.cos(a), math.sin(a)
-    s = station0.copy()
-    # +Y → inward (−radial)
-    tx, ty = -ux, -uy
+    s = shape.copy()
+    # +Y → outward (+radial); −Y (rails) → inward
+    tx, ty = ux, uy
     s.rotate(V(0, 0, 0), V(0, 0, 1), -math.degrees(math.atan2(tx, ty)))
     s.translate(V(R * ux, R * uy, 0))
     return s
 
 
-def pack_at(R):
-    return [place_station(R, k * 60.0) for k in range(N)]
+def pack_of(shape, R):
+    return [place_shape(shape, R, k * 60.0) for k in range(N)]
 
 
-def min_neighbour_gap(stations):
+def min_neighbour_gap(shapes):
     g = 1e9
     for i in range(N):
         for j in range(i + 1, N):
-            d = stations[i].distToShape(stations[j])[0]
+            d = shapes[i].distToShape(shapes[j])[0]
             if d < g:
                 g = d
     return g
 
 
-# Densest R (feed-in / AirTAC-out). Pin after search so re-renders stay fast.
-# Search once: set SEARCH_R = True (or leave unset); result cached below.
+def tess_max_r(shape, defl=1.0):
+    pts = shape.tessellate(defl)[0]
+    return max(math.hypot(p.x, p.y) for p in pts)
+
+
+def zone_max_r(shapes, z0, z1, defl=1.0):
+    """Farthest XY radius of solids clipped to [z0, z1]."""
+    r = 0.0
+    slab = Part.makeBox(4000, 4000, z1 - z0, V(-2000, -2000, z0))
+    for s in shapes:
+        c = s.common(slab)
+        if c.Volume <= 1e-6:
+            continue
+        pts = c.tessellate(defl)[0]
+        if not pts:
+            continue
+        r = max(r, max(math.hypot(p.x, p.y) for p in pts))
+    return r
+
+
+# Densest R: binary search on CORE clearance (rails may duplicate).
 try:
     SEARCH_R
 except NameError:
     SEARCH_R = False
-PINNED_R = 61.51             # from SEARCH_R run (gap ≈ 0.51 mm)
+PINNED_R = 66.29              # from SEARCH_R (core gap ≈ 0.50 mm)
 if SEARCH_R:
-    r_lo, r_hi = 55.0, DESIGN_R
-    assert min_neighbour_gap(pack_at(r_hi)) >= CLEAR, "design R not clear in feed-in pose"
-    for _ in range(10):
+    r_lo, r_hi = 50.0, DESIGN_R + 10.0
+    assert min_neighbour_gap(pack_of(core0, r_hi)) >= CLEAR, "hi R not clear for core"
+    for _ in range(14):
         mid = 0.5 * (r_lo + r_hi)
-        if min_neighbour_gap(pack_at(mid)) >= CLEAR:
+        if min_neighbour_gap(pack_of(core0, mid)) >= CLEAR:
             r_hi = mid
         else:
             r_lo = mid
     R_PACK = r_hi
 else:
     R_PACK = PINNED_R
-stations = pack_at(R_PACK)
-gap = min_neighbour_gap(stations)
+
+cores = pack_of(core0, R_PACK)
+stations = pack_of(station0, R_PACK)
+barrels = pack_of(barrel0, R_PACK)
+gap_core = min_neighbour_gap(cores)
+gap_rails = min_neighbour_gap(pack_of(rails_s, R_PACK))
 
 pack = Part.makeCompound(stations)
 bb = pack.BoundBox
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
 
+# Width at barrels: tess Ø of all station solids in the barrel Z window.
+z_b0, z_b1 = z_stop, z_stop + BARREL_SHOW
+barrel_od = 2.0 * zone_max_r(stations, z_b0, z_b1)
+barrel_od_hw = 2.0 * zone_max_r(barrels, z_b0, z_b1)
+full_od = 2.0 * tess_max_r(pack)
+# Mitrailleuse ceiling = smaller live pack (J).
+mitra_ceil = MITRA_J_OD
+barrel_vs_prev = PREV_BARREL_OD - barrel_od
+barrel_vs_j = MITRA_J_OD - barrel_od
+barrel_vs_g = MITRA_G_OD - barrel_od
+
 checks = [
     ("six stations", len(stations) == 6),
-    ("neighbour gap %.2f mm >= %.2f" % (gap, CLEAR), gap >= CLEAR - 1e-6),
+    ("core neighbour gap %.2f mm >= %.2f" % (gap_core, CLEAR),
+     gap_core >= CLEAR - 1e-6),
     ("pack volume", pack.Volume > 1e5),
-    ("R <= design PACK_PITCH (%.2f <= %.1f)" % (R_PACK, DESIGN_R),
-     R_PACK <= DESIGN_R + 1e-6),
+    ("length not grown (%.0f <= prev station Z %.0f)"
+     % (gun_L, st0_bb.ZLength + 1),
+     gun_L <= st0_bb.ZLength + 1.0),
+    ("barrel Ø %.1f < mitrailleuse J Ø%.1f" % (barrel_od, MITRA_J_OD),
+     barrel_od < MITRA_J_OD - 1e-6),
+    ("barrel Ø %.1f < mitrailleuse G Ø%.1f" % (barrel_od, MITRA_G_OD),
+     barrel_od < MITRA_G_OD - 1e-6),
 ]
 report = [
     NAME,
     "  sketch                 : dense pack of REAL linear_breech stations (closed)",
     "  source                 : gatling/linear_breech.py + fat_coax_qev.py",
     "  stations               : %d closed; no bench feet / no wheeled carriage" % N,
-    "  orientation            : feed radial IN, AirTAC/rails OUT (densest clear pose)",
+    "  orientation            : rails/AirTAC radial IN, feed OUT "
+    "(barrel end narrower; rail duplicates at QEV OK)",
     "  design PACK_PITCH      : %.1f mm" % DESIGN_R,
-    "  dense pack R           : %.2f mm (neighbour gap %.2f mm)" % (R_PACK, gap),
-    "  tightened              : R %.1f → %.2f mm (Δ %.1f); clear %.1f mm"
-    % (DESIGN_R, R_PACK, DESIGN_R - R_PACK, CLEAR),
+    "  dense pack R           : %.2f mm (core gap %.2f mm; rail gap %.2f mm)"
+    % (R_PACK, gap_core, gap_rails),
+    "  tightened vs design    : R %.1f → %.2f mm" % (DESIGN_R, R_PACK),
     "  station bbox           : %.0f x %.0f x %.0f mm (X x Y x Z)"
     % (st0_bb.XLength, st0_bb.YLength, st0_bb.ZLength),
     "  overall LxWxH          : %.0f x %.0f x %.0f mm (Z x Y x X)"
     % (gun_L, gun_W, gun_H),
+    "  full pack Ø (tess)     : %.1f mm" % full_od,
+    "  width at barrels       : Ø%.1f mm (barrel-Z tess; hw-only Ø%.1f)"
+    % (barrel_od, barrel_od_hw),
+    "  was (rails out)        : barrel Ø%.1f @ R%.2f → now −%.1f mm"
+    % (PREV_BARREL_OD, PREV_R, barrel_vs_prev),
+    "  vs mitrailleuse        : J Ø%.1f (−%.1f); G Ø%.1f (−%.1f)"
+    % (MITRA_J_OD, barrel_vs_j, MITRA_G_OD, barrel_vs_g),
     "  not drawn              : hopper, MQR, crank, open ghost, bench feet",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
@@ -145,8 +209,8 @@ for i, st in enumerate(stations):
     sc.add("Pack", "Station_%d" % (i + 1), st, ("st_a", "st_b", "st_c")[i % 3])
 
 for text, pos in [
-    ("6x linear_breech @ R%.1f" % R_PACK, (0, bb.YMax + 25, bb.ZMin + 50)),
-    ("R %.0f→%.1f mm, gap %.1f" % (DESIGN_R, R_PACK, gap),
+    ("6x linear_breech rails-IN @ R%.1f" % R_PACK, (0, bb.YMax + 25, bb.ZMin + 50)),
+    ("barrel Ø%.0f < mitra JØ%.0f / GØ%.0f" % (barrel_od, MITRA_J_OD, MITRA_G_OD),
      (0, bb.YMax + 25, (bb.ZMin + bb.ZMax) / 2)),
     ("L≈%.0f W≈%.0f H≈%.0f" % (gun_L, gun_W, gun_H),
      (bb.XMax + 20, 0, (bb.ZMin + bb.ZMax) / 2)),
