@@ -5,8 +5,10 @@ Dense pack of the real gatling linear-breech station (not a block silhouette).
 Loads gatling/linear_breech.py as a library (closed pose) and places six copies
 on a ring. Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end
 transverse shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198).
-Carriage / rails / AirTAC may duplicate near the hub — only the core
-(chamber + plugs + yoke + barrel clamps) must clear CLEAR between neighbours.
+Carriage / rails / AirTAC / barrel-clamp rail-feet may duplicate near the hub —
+only the pneumatic core (chamber + plugs + yoke + tube) must clear CLEAR
+between neighbours. Barrel-clamp rings stay inside CLAMP_OD (flush M3, no
+external bolt lugs).
 
 Overall station length is pinned to TARGET_L: clip everything aft of the
 rear-plug face (open-stroke rail stubs, carriage thumb, AirTAC overhang) and
@@ -71,9 +73,11 @@ MITRA_J_OD = 192.5
 MITRA_G_OD = 198.0
 PREV_R = 61.51
 PREV_BARREL_OD = 199.6
-RAILS_IN_BARREL_OD = 171.6
-BARREL_OD_SLACK = 1.0
+# Barrel-zone Ø at yoke-limited R≈58.5 (rails-in); was 171.6 at clamp-foot R66.3.
+RAILS_IN_BARREL_OD = 156.0
+BARREL_OD_SLACK = 2.0
 L_SLACK = 0.6                 # BoundBox / clip tolerance around TARGET_L
+PREV_SKIN_W = 193.0           # authentic-skin transverse before this tighten
 
 
 def clip_aft(shape, z_min):
@@ -100,14 +104,15 @@ def clip_list(parts, z_min):
     return out
 
 
-# Core must clear; rails / carriage / AirTAC may overlap at the hub.
+# Core must clear; rails / carriage / AirTAC / clamp feet may overlap at hub.
+# Clamps stay in the station draw but out of the neighbour-gap core: their
+# rail feet set R≈66.3, while yoke/plug ears alone allow R≈58.5.
 CORE_KEYS = [k for k in qev_closed if k != "Carriage"]
-_core_raw = [qev_closed[k] for k in CORE_KEYS] + [
-    barrel_clamp, barrel_collar, fixed_barrel,
-]
+_core_raw = [qev_closed[k] for k in CORE_KEYS] + [fixed_barrel]
 _rail_raw = [
     qev_closed["Carriage"], rails_s, cradle,
     vent_body, vent_fittings, vent_plunger,
+    barrel_clamp, barrel_collar,
 ]
 _core_parts = clip_list(_core_raw, Z_AFT_CLIP)
 _rail_parts = clip_list(_rail_raw, Z_AFT_CLIP)
@@ -167,8 +172,8 @@ def zone_max_r(shapes, z0, z1, defl=1.0):
 try:
     SEARCH_R
 except NameError:
-    SEARCH_R = False
-PINNED_R = 66.29
+    SEARCH_R = False         # set True to re-binsearch; pin is yoke/plug-ear floor
+PINNED_R = 58.50             # yoke / rear-plug ears r≈33; N=6 CLEAR=0.5 → R=58.50
 if SEARCH_R:
     r_lo, r_hi = 50.0, DESIGN_R + 10.0
     assert min_neighbour_gap(pack_of(core0, r_hi)) >= CLEAR, "hi R not clear for core"
@@ -209,9 +214,9 @@ barrel_len = BARREL_SHOW
 # Contrast M134: multi mid-clamps + full enclosed receiver — not drawn.
 PLATE_T = 14.0                # front / rear barrel-plate thickness
 PLATE_LIP = 1.5               # front plate past barrel tip
-PLATE_RIM = 4.0               # radial past barrel OD at R_PACK
-CASE_WALL = 3.0
-CASE_CLEAR = 2.0              # radial clear over chamber pack
+PLATE_RIM = 3.0               # radial past barrel OD at R_PACK (tight)
+CASE_WALL = 2.0               # min printable casing wall
+CASE_CLEAR = 0.5              # radial clear over chamber pack (was 2.0)
 CASE_OVERLAP = 18.0           # casing overlaps rear plate slightly forward
 z_tip = z_stop + BARREL_SHOW
 z_stroke_end = qev_closed["Carriage"].BoundBox.ZMin - STROKE
@@ -297,8 +302,12 @@ report = [
     "bare barrels, breech casing only) — not full-length tube; not M134 mid-clamps",
     "  refs                   : US36836 / 1878 Ordnance Gatling description",
     "  design PACK_PITCH      : %.1f mm" % DESIGN_R,
-    "  dense pack R           : %.2f mm (core gap %.2f mm; rail gap %.2f mm)"
+    "  dense pack R           : %.2f mm (core gap %.2f mm; rail/clamp-foot gap %.2f mm)"
     % (R_PACK, gap_core, gap_rails),
+    "  R floor                : yoke/rear-plug ears (r≈33); clamp rail-feet would want R≈66.3 "
+    "(allowed to hub-overlap like rails)",
+    "  was skin WxH           : %.0f x %.0f → now %.0f x %.0f"
+    % (PREV_SKIN_W, PREV_SKIN_W, gun_W, gun_H),
     "  barrel length (show)   : %.1f mm (station L=%.0f)"
     % (barrel_len, TARGET_L),
     "  front barrel-plate     : Z %.1f…%.1f; Ø%.1f (muzzle)"
