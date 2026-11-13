@@ -402,8 +402,13 @@ hub_r = max(6.0, R_PACK - BARREL_OD / 2 - 4.0)
 SPAR_R = 4.0
 RING_T = 6.0
 RING_WALL = 4.0
+# Hopper seat ring at breech Z (around pack) — bin + auger tube sit on it.
+HOP_RING_T = 18.0
 win_z0 = z_stop - BENCH_STROKE - 5.0
 win_z1 = z_stop + 15.0
+z_feed = z_stop - BENCH_STROKE / 2
+z_hop0 = z_feed - HOP_RING_T / 2
+z_hop1 = z_hop0 + HOP_RING_T
 
 
 def barrel_plate(z0, z1, od_r):
@@ -418,7 +423,7 @@ def barrel_plate(z0, z1, od_r):
 
 
 def build_pack_frame(r_od):
-    """Open frame: thin rings + spars. Gap at LOAD φ=180. No drum shell."""
+    """Open frame: rings + spars + breech hopper seat ring. No drum shell."""
     parts = []
     for z0, z1 in (
             (z_case0, z_case0 + RING_T),
@@ -426,6 +431,14 @@ def build_pack_frame(r_od):
             (z_rear0, z_rear1)):
         ring = tube(2.0 * r_od, 2.0 * (r_od - RING_WALL), z0, z1)
         parts.append(ring)
+    # Wide hopper seat ring around pack at breech (LOAD port cut later).
+    hop_ring = tube(2.0 * r_od, 2.0 * (r_od - RING_WALL), z_hop0, z_hop1)
+    # Feed port through ring at φ=180 (−X before flip) — auger mouth.
+    port_w = PELLET_D + 6.0
+    port = Part.makeBox(r_od + 20.0, port_w, HOP_RING_T + 4.0,
+                        V(-(r_od + 20.0), -port_w / 2, z_hop0 - 2.0))
+    hop_ring = hop_ring.cut(port)
+    parts.append(hop_ring)
     casc = Part.makeCylinder(r_od * 0.45, 5.0, V(0, 0, z_case0 - 5.0))
     casc = casc.cut(Part.makeCylinder(hub_r + 2.0, 9.0, V(0, 0, z_case0 - 7.0)))
     parts.append(casc)
@@ -455,28 +468,20 @@ full_shell_vol = tube(
     2.0 * r_case_od, 2.0 * r_case_id, z_case0, z_case1).Volume
 frame_ok = pack_frame.Volume < 0.55 * full_shell_vol
 
-# --- hopper + shaft-driven auger in LOAD window (φ=180); then flip to top ----
-# Built at φ=180 (−X). Final FLIP_Z=180 puts hopper on +X (up, gun_sketch).
+# --- hopper + shaft-driven auger seated on breech frame ring -----------------
+# Built at φ=180 (−X). Final FLIP_Z=180 puts hopper on +X (top, gun_sketch).
+# Bin + short auger tube sit on hopper seat ring (no radial stand/strut).
 # Single-start auger, pitch ≈ Øpellet, 1:1 bevel from pack shaft → one soft
 # ball per pack revolution into LOAD 120–240°.
 feed_ang = 180.0
 FLIP_Z = 180.0                 # whole gun upside-down: hopper → +X top
 a180 = math.radians(feed_ang)
 ux_f, uy_f = math.cos(a180), math.sin(a180)
-z_feed = z_stop - BENCH_STROKE / 2
 pd = PELLET_D
 AUGER_PITCH = pd + 1.2         # one Ø23.8 ball per turn of a single-start screw
 AUGER_STARTS = 1
 AUGER_RATIO = 1.0              # auger turns per pack-shaft turn (bevel 1:1)
-bin_w, bin_d, bin_h = 60.0, 58.0, 75.0
-
-
-def place_feed_shape(shape):
-    s = shape.copy()
-    s.rotate(V(0, 0, 0), V(0, 0, 1),
-             -math.degrees(math.atan2(ux_f, uy_f)))
-    s.translate(V(R_PACK * ux_f, R_PACK * uy_f, 0))
-    return s
+bin_w, bin_d, bin_h = 60.0, 48.0, 70.0
 
 
 def flip_up(shape):
@@ -489,7 +494,7 @@ def flip_up(shape):
 def make_auger_along_z(pitch, length, r_core, r_od):
     """Single-start screw approx along +Z: core + helical flight bars."""
     core = Part.makeCylinder(r_core, length, V(0, 0, 0), V(0, 0, 1))
-    n = max(36, int(length * 2.0))
+    n = max(24, int(length * 2.0))
     bars = [core]
     chord = max(3.0, pitch * 0.28)
     for i in range(n):
@@ -506,59 +511,66 @@ def make_auger_along_z(pitch, length, r_core, r_od):
 
 
 def build_hopper_auger(r_od):
-    """Bin box sits on frame OD (no stand). Local +Y = radial out from station.
-    place_feed_shape adds R_PACK, so world radius of local y is R_PACK+y.
-    Flush ⇒ y_bin0 = r_od − R_PACK (box inner face on frame envelope).
+    """World coords: bin + short auger housing on hopper seat ring OD.
+    No radial stand — tube length ≈ ring wall only, through LOAD port.
+    Pre-flip feed direction is −X (φ=180).
     """
     z_n = z_feed
     tube_id = pd + 2.5
     tube_od = tube_id + 6.0
-    # Mouth into open breech (local, past chamber OD).
-    y0 = CH_OD / 2 + 2.0
-    # Inner face of bin on frame OD: world R_PACK+y_bin0 == r_od.
-    y_bin0 = r_od - R_PACK
-    if y_bin0 < y0 + 8.0:
-        y_bin0 = y0 + 8.0
-    tube_len = max(8.0, y_bin0 - y0)
-    # Short throat only — not a pedestal under the box.
-    tube = Part.makeCylinder(tube_od / 2, tube_len, V(0, y0, z_n), V(0, 1, 0))
+    # Short housing: through ring wall into LOAD, not a pole from axis.
+    r_tube0 = r_od - RING_WALL - 1.0
+    r_tube1 = r_od + 6.0
+    tube_len = r_tube1 - r_tube0
+    # Cylinder along −X (feed outboard before flip).
+    tube = Part.makeCylinder(
+        tube_od / 2, tube_len, V(-r_tube0, 0, z_n), V(-1, 0, 0))
     tube = tube.cut(Part.makeCylinder(
-        tube_id / 2, tube_len + 4.0, V(0, y0 - 2.0, z_n), V(0, 1, 0)))
-    bin_o = Part.makeBox(bin_w, bin_d, bin_h,
-                         V(-bin_w / 2, y_bin0, z_n - bin_h / 2))
-    bin_i = Part.makeBox(bin_w - 6.0, bin_d - 4.0, bin_h - 6.0,
-                         V(-(bin_w - 6.0) / 2, y_bin0 + 2.0,
+        tube_id / 2, tube_len + 4.0, V(-r_tube0 + 2.0, 0, z_n), V(-1, 0, 0)))
+    # Bin box sits on ring OD (inner face at −r_od along X).
+    bin_o = Part.makeBox(bin_d, bin_w, bin_h,
+                         V(-(r_od + bin_d), -bin_w / 2, z_n - bin_h / 2))
+    bin_i = Part.makeBox(bin_d - 4.0, bin_w - 6.0, bin_h - 6.0,
+                         V(-(r_od + bin_d - 2.0), -(bin_w - 6.0) / 2,
                            z_n - (bin_h - 6.0) / 2))
-    mouth = Part.makeCylinder(tube_id / 2 + 1.0, 12.0,
-                              V(0, y_bin0 - 2.0, z_n), V(0, 1, 0))
+    mouth = Part.makeCylinder(tube_id / 2 + 1.0, 10.0,
+                              V(-(r_od - 2.0), 0, z_n), V(-1, 0, 0))
     body = tube.fuse(bin_o).cut(bin_i).cut(mouth)
     try:
         body = body.removeSplitter()
     except Exception:
         pass
-    aug_len = max(AUGER_PITCH * 1.6, tube_len - 2.0)
+    # Auger screw inside the short housing (one pocket ≈ one pitch).
+    aug_len = max(AUGER_PITCH * 1.1, tube_len - 1.0)
     r_core, r_od_a = 4.0, tube_id / 2 - 1.0
     aug = make_auger_along_z(AUGER_PITCH, aug_len, r_core, r_od_a)
-    aug.rotate(V(0, 0, 0), V(1, 0, 0), -90.0)
-    aug.translate(V(0, y0 + 1.0, z_n))
-    # Pack shaft → bevel 1:1 → auger (unchanged drive topology).
+    aug.rotate(V(0, 0, 0), V(0, 1, 0), 90.0)   # +Z → −X
+    aug.translate(V(-r_tube0 - 1.0, 0, z_n))
+    # Pack shaft → bevel 1:1 near ring ID → short stub into auger (not a stand).
     drive = G.cyl(7.0, z_case0 - 25.0, z_n + 20.0)
-    bevel_z = Part.makeCylinder(16.0, 10.0, V(0, 0, z_n - 5.0))
-    bevel_y = Part.makeCylinder(16.0, 10.0, V(0, 0, z_n), V(0, 1, 0))
-    stub = Part.makeCylinder(5.0, max(8.0, y0 + 4.0), V(0, 0, z_n), V(0, 1, 0))
-    drive = drive.fuse(bevel_z).fuse(bevel_y).fuse(stub).removeSplitter()
-    y_pocket = y0 + 1.0 + AUGER_PITCH * 0.4
-    p_aug = Part.makeSphere(pd / 2, V(0, y_pocket, z_n))
-    p_bin = Part.makeSphere(pd / 2, V(0, y_bin0 + bin_d * 0.4, z_n + pd * 0.5))
-    p_breech = Part.makeSphere(pd / 2, V(0, 0, (z_tip + pd / 2) - BENCH_STROKE))
-    # World radial of bin inner face minus frame OD (0 = flush).
-    flush_gap = abs((R_PACK + y_bin0) - r_od)
+    bevel_z = Part.makeCylinder(14.0, 10.0, V(0, 0, z_n - 5.0))
+    # Radial bevel/stub only from near ring ID, not from axis as a pole.
+    stub_r0 = max(R_PACK * 0.35, r_od - RING_WALL - 25.0)
+    bevel_x = Part.makeCylinder(14.0, 8.0, V(-stub_r0, 0, z_n), V(-1, 0, 0))
+    stub = Part.makeCylinder(5.0, r_tube0 - stub_r0 + 4.0,
+                             V(-stub_r0, 0, z_n), V(-1, 0, 0))
+    drive = drive.fuse(bevel_z).fuse(bevel_x).fuse(stub).removeSplitter()
+    p_aug = Part.makeSphere(pd / 2, V(-(r_tube0 + aug_len * 0.45), 0, z_n))
+    p_bin = Part.makeSphere(
+        pd / 2, V(-(r_od + bin_d * 0.55), 0, z_n + pd * 0.4))
+    p_breech = place_shape(
+        Part.makeSphere(pd / 2, V(0, 0, (z_tip + pd / 2) - BENCH_STROKE)),
+        R_PACK, feed_ang)
+    flush_gap = 0.0   # bin face built at r_od
+    on_ring = (tube_len <= RING_WALL + 10.0
+               and r_tube0 >= r_od - RING_WALL - 2.0)
     return dict(
         body=body, auger=aug, drive=drive,
         p_aug=p_aug, p_bin=p_bin, p_breech=p_breech,
         pitch=AUGER_PITCH, starts=AUGER_STARTS, ratio=AUGER_RATIO,
         pellets_per_rev=AUGER_STARTS * AUGER_RATIO, tube_id=tube_id,
-        y0=y0, y_bin0=y_bin0, aug_len=aug_len, flush_gap=flush_gap)
+        tube_len=tube_len, r_tube0=r_tube0, aug_len=aug_len,
+        flush_gap=flush_gap, on_ring=on_ring)
 
 
 open_carr = place_shape(shifted(qev_closed["Carriage"], -BENCH_STROKE),
@@ -566,15 +578,10 @@ open_carr = place_shape(shifted(qev_closed["Carriage"], -BENCH_STROKE),
 
 
 def seat_hopper(r_od):
-    """Place hopper; never nudge radially — that would open a stand gap."""
+    """Hopper already in world coords on the seat ring — no radial nudge."""
     h = build_hopper_auger(r_od)
-    body = place_feed_shape(h["body"])
-    auger = place_feed_shape(h["auger"])
-    drive = place_feed_shape(h["drive"])
-    p_aug = place_feed_shape(h["p_aug"])
-    p_bin = place_feed_shape(h["p_bin"])
-    p_breech = place_shape(h["p_breech"], R_PACK, feed_ang)
-    return body, auger, drive, p_aug, p_bin, p_breech, h
+    return (h["body"], h["auger"], h["drive"],
+            h["p_aug"], h["p_bin"], h["p_breech"], h)
 
 
 hopper, auger, auger_drive, pellet_aug, pellet_bin, pellet, hop_m = seat_hopper(
@@ -586,8 +593,7 @@ auger_ok = (
     and abs(hop_m["pitch"] - (pd + 1.2)) < 0.05
     and hop_m["pitch"] >= pd
     and hop_m["pitch"] < 1.5 * pd)
-# Box on frame: flush_gap≈0; also bin must touch/overlap frame envelope.
-hopper_flush_ok = hop_m["flush_gap"] < 1.0
+hopper_flush_ok = hop_m["flush_gap"] < 1.0 and hop_m["on_ring"]
 feed_clear = hopper.common(open_carr).Volume < 1.0
 feed_ok = feed_clear and auger_ok and hopper_flush_ok
 one_per_cycle_ok = (
@@ -759,7 +765,7 @@ def rebuild_housing_for_od():
         and abs(hop_m["pitch"] - (pd + 1.2)) < 0.05
         and hop_m["pitch"] >= pd
         and hop_m["pitch"] < 1.5 * pd)
-    hopper_flush_ok = hop_m["flush_gap"] < 1.0
+    hopper_flush_ok = hop_m["flush_gap"] < 1.0 and hop_m["on_ring"]
     feed_clear = hopper.common(open_carr).Volume < 1.0
     feed_ok = feed_clear and auger_ok and hopper_flush_ok
     one_per_cycle_ok = (
@@ -881,7 +887,7 @@ checks = [
     ("crank sideways / not in LOAD", crank_ok and crank_side_after),
     ("triggers on side / not in LOAD", trig_ok and trig_side_after),
     ("hoses clear of cam track & stroke rail", hoses_ok),
-    ("hopper flush + clear of open carriage", feed_ok),
+    ("hopper on seat ring + clear of open carriage", feed_ok),
     ("auger 1:1 single-start (1 pellet/rev)", auger_ok),
     ("one soft pellet per LOAD cycle", one_per_cycle_ok),
     ("hopper on top (+X) after flip", hopper_top_ok),
@@ -913,7 +919,7 @@ for n, ang, u, dz, tag in phases:
     report.append("    %d @ %3.0f°  u=%.2f  dz=%6.1f  %s" % (n, ang, u, dz, tag))
 report += [
     "  skin                  : open frame (rings+spars); no full breech casing",
-    "  feed                  : flush top hopper; shaft→bevel 1:1→auger → LOAD",
+    "  feed                  : bin+auger tube on breech seat ring; 1:1 → LOAD",
     "  auger                 : single-start pitch %.1f; 1 soft Ø%.1f / rev"
     % (hop_m["pitch"], pd),
     "  crank                 : side hub on frame (−Y after flip); not in LOAD",
