@@ -91,7 +91,7 @@ def obfuscate_air(text):
     """Drop internal hose routing; leave short wires outside the shell."""
     return _replace_once(
         text,
-        r"\n# -+ air:.*?\nair_cut = pipe_along\(supply_pts, 3\.6\).*?\n",
+        r"\n# -+ air:.*?\nair_cut = _supply_pipe\(3\.6\).*?\n",
         "\n" + _AIR_WIRES.lstrip("\n") + "\n",
         "hammer_assembly external wires",
     )

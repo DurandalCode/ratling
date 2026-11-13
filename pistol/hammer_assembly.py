@@ -438,13 +438,11 @@ rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] +
 # would be a floating island once the side band is cut away - the side plate carries it as a cantilever.
 frame = frame.fuse(slider_stop).fuse(rod_boss)
 _tick('stop + rib + rod fused')
-# The rod is Ø3 x 94 and ends in the stop (z 25.5). The hole used to end there too, so the ceiling
-# closed over it: a blind pocket in the stop instead of a way through. Keep going out the top of the
-# shell (the crown here is about z 32) so the rod drops in from above. The foot stays blind: the bore
-# starts 0.3 mm under the rod and 1.2 mm above the underside (z -70), so nothing breaks the bottom.
-_bore_z0 = GUIDE_ROD["z"][0] - 0.3
-frame = frame.cut(Part.makeCylinder(GUIDE_ROD["d"] / 2, 40.0 - _bore_z0,
-                                    V(GUIDE_ROD["x"], GUIDE_ROD["y"], _bore_z0), ZA))
+# One coaxial Ø3.3 passage through both ends of the shell; follow the current guide axis.
+# Recut after the registration tongues and bolt supports so neither end can close again.
+_guide_rod_hole = Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200.0,
+                                   V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100.0), ZA)
+frame = frame.cut(_guide_rod_hole)
 shaft_holes = Part.makeCylinder(4.0, 2 * fy[1], V(HAMMER_PIVOT.x, -fy[1], HAMMER_PIVOT.z), YA)   # the axle: a press fit
 frame = frame.cut(shaft_holes)
 _tick('shaft holes cut')
@@ -855,6 +853,9 @@ _trigger_axle_hole = Part.makeCylinder(TRIGGER_AXLE_D / 2, 2 * (CHEEK["y"][1] + 
                                     V(TRIGGER_PIVOT.x, -CHEEK["y"][1] - 1, TRIGGER_PIVOT.z), YA)
 frame_lower = frame_lower.cut(_trigger_axle_hole).removeSplitter()
 side_plate_r = side_plate_r.cut(_trigger_axle_hole).removeSplitter()
+frame_lower = frame_lower.cut(_guide_rod_hole).removeSplitter()
+frame_upper = frame_upper.cut(_guide_rod_hole).removeSplitter()
+side_plate_r = side_plate_r.cut(_guide_rod_hole).removeSplitter()
 frame_lower = _biggest(frame_lower, vmin=1000.0)
 frame_upper = _biggest(frame_upper, vmin=1000.0)
 # The band's inboard supports keep their seats in the now integral left wall.
@@ -1085,10 +1086,10 @@ if CHECKS:
         Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 40, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -40), ZA))
     _wrap = SLIDER_H.common(_ring).Volume / _ring.Volume
     checks["slider wraps its guide rod: %.0f %% of a 1 mm ring round the hole is solid (>= 98)" % (_wrap * 100)] = _wrap >= 0.98
-    # The bore has to leave through the ceiling. It used to die inside the stop, and the closed cap read as a lump.
-    _bore = Part.makeCylinder(GUIDE_ROD["d"] / 2 - 0.05, 16.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], 22.0), ZA)
-    _left = hit(_bore, side_plate_r.fuse(frame))
-    checks["guide rod hole through the ceiling (%.1f mm3 left in the bore)" % _left] = _left < 0.05
+    # Check the finished parts: later supports must not close either end of the guide passage.
+    _bore = Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.10, 200.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], -100.0), ZA)
+    _left = sum(hit(_bore, s_) for s_ in (frame_lower, frame_upper, side_plate_r))
+    checks["guide rod hole through ceiling and floor (%.1f mm3 left in the bore)" % _left] = _left < 0.05
     # The slider's steel pin must have a hole to sit in: drawn over solid plastic it only looked fixed.
     _sl0, _pin0 = slider_h(0.5)
     checks["slider pin sits in its hole (%.1f mm3 of it inside solid plastic)" % hit(_sl0, _pin0)] = hit(_sl0, _pin0) < 0.05
@@ -1174,7 +1175,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Frame_right": "right cover: 2 x M3 x 50 upper, 1 x M3 x 45 lower-middle, 1 x M3 x 40 lower-front, 1 x M3 x 40 lower-rear. Standard M3 nuts in externally accessible hex seats; head and nut wells keep hardware recessed. Inward support tubes locate with 0.2 mm radial clearance",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
             "Hammer_axle": "steel rod Ø8 x %.1f (or an M8 bolt's shank), supported by both walls; right end 0.5 mm below the outside face" % (SHAFT_Y[1] - SHAFT_Y[0]),
-            "Guide_rod": "steel rod Ø3 x 94: the slider's guide. The bore is open at the ceiling and blind in the foot (1.2 mm of floor under the rod, the underside stays closed), the rod ends in the stop", "Trigger": "pivot: M3 stud through the lower frame and right cover, Ø3.2 coaxial holes; nuts outside",
+            "Guide_rod": "steel rod Ø3 x 94: the slider's guide. Coaxial Ø3.3 passage open through both ceiling and floor", "Trigger": "pivot: M3 stud through the lower frame and right cover, Ø3.2 coaxial holes; nuts outside",
             "Tie_rods": "4 x M4 x 50 socket head + nut, rubber O7 x 1.5 + steel O9 x 0.8 washer under each head (as v1.1); the heads stand 6.3 mm off the cap's back face - the frame's pockets are cast for them",
             "Lock_bolts": "2 x M3 x 30 self-tappers into the body's face pilots, heads in the frame's front pockets (drawn as a O5.5 x 3 envelope)"}
 FILL = {"Valve_body_v11": 0.8, "Valve_cap_v11": 0.8}               # airtight; the rest ~45 % (walls + infill)

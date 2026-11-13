@@ -276,8 +276,7 @@ except NameError:
     HAMMER_RIGHT_FACE = 45.0
 HAMMER_BEARING_WALL, HAMMER_BEARING_CLEAR = 2.5, 0.20
 HAMMER_JOURNAL_END = HAMMER_RIGHT_FACE - HAMMER_BEARING_WALL - HAMMER_BEARING_CLEAR
-GUIDE_ROD = dict(x=-9.7, y=28.6, d=3.0, z=(-68.5, 25.5))   # Ø3 rod, 94 mm: drops in from the ceiling and
-                                                             # stops 1.2 mm short of the underside (z -70)
+GUIDE_ROD = dict(x=-9.7, y=28.6, d=3.0, z=(-68.5, 25.5))   # Ø3 rod, 94 mm; the shell bore opens at both ends
 
 
 # Two M3 x 6 shoulder joints: standard cylindrical heads, M3 nuts and Ø7 x 0.5 washers.
