@@ -10,22 +10,22 @@ in two 6000 bearings (10 x 26 x 8) carries the disk; the crank sits at
 phi 90. A stationary guard follows the motion law from just before the
 drop (170 deg) until the fitting tip is half a pellet inside the bore.
 Under the chutes a kicker dumps the pellet into a tray at that close angle
-so a run can be counted. The hopper is a low cup on a ring held by two
-posts, not a rod.
+so a run can be counted. The hopper is a low wide cup on a ring. Two short stanchions stand on
+the muzzle face of the disk and reach the ring; nothing runs down to
+the base on a long post.
 
 One seat, three meters. Set METER before exec ("A1", "A2" or "A4"); default
 A1.
 
-  A1  auger x6. Bevel 20/20 (1:1) plus a compound spur 2 x 3. One
-      stage of x6 would be a wheel about 240 mm across, because the layshaft
-      has to sit aft of the front bearing; two stages keep the blanks
-      printable. Single start, pitch 30 mm, tube ID 28, gate 22 x 3 mm
-      every pitch (clear pocket 27 mm) joined by a peripheral rib. The
-      drive shaft enters through the cup, past the last gate, so the outlet
-      and the working pockets stay clear of a core. A continuous diametral
-      helicoid fills the axis, and a Ø23.8 ball in a Ø28 tube always covers
-      the axis, so that helicoid cannot leave a pocket; the gates are the
-      wall the plan asked for (one ball fits, two do not).
+  A1  auger x6, packed against the disk. Bevel 16/16 (1:1, module 1.5)
+      sits just forward of the disk. The layshaft cannot cross the chute
+      band, so a miter 12/12 drops it through a hole in the disk (inboard
+      of the covers) and it runs under the disk. Spur 32/16 x 32/16 x
+      36/24 (2 x 2 x 1.5) climbs back to the auger at the cup rim; the
+      largest blank is Ø57. Two working pitches. Single start, pitch 30,
+      tube ID 28, gate 22 x 3. The drive shaft enters through the open
+      top of the cup, past the last gate. A continuous diametral helicoid
+      fills the axis, so the gates are the wall (one ball fits, two do not).
   A2  three-pocket star, axis parallel to the pack shaft, spur 2:1, TPU lip
       on the inlet. 3 pockets x 2 turns = 6 drops.
   A4  two-finger escapement. A six-lobe cam on the disk times the fingers.
@@ -117,10 +117,10 @@ AUG_WIDTH = 22.0                            # diametral bar; side gap (28-22)/2 
 AUG_TUBE_ID = 28.0
 AUG_TUBE_OD = 34.0
 AUG_POCKET = AUG_PITCH - AUG_THICK          # 27 mm: one ball, not two
-AUG_TURNS = 3                               # working turns in the tube
-AUG_TAIL = 1                                # one more turn stirring the cup
+AUG_TURNS = 2                               # pocket plus the next ball; not a tower
+AUG_TAIL = 1                                # one gate stirring the cup
 SPUR_M = 1.5
-BEVEL_M, BEVEL_Z, BEVEL_FACE = 2.0, 20, 8.0
+BEVEL_M, BEVEL_Z, BEVEL_FACE = 1.5, 16, 6.0
 
 # Star (A2) and escapement (A4).
 STAR_POCKET_D = PELLET_D + 1.2              # one ball, not two across
@@ -130,11 +130,12 @@ ESC_TUBE_ID = PELLET_D + 3.0                # 26.8: one across, not two
 ESC_GAP = PELLET_D + 1.2                    # clear distance between the fingers
 CAM_LOBES = 6
 
-# Cup. Void is checked against 30..50 balls at sphere packing 0.55 and 0.64.
-CUP_ID = 92.0
-CUP_WALL = 3.5
-CUP_H = 76.0
-CUP_FLOOR = 4.0
+# Low wide cup. Same 30..50 balls as the tall ID 92 x 76, in less height,
+# so the rim lands near the disk diameter instead of twice past it.
+CUP_ID = 124.0
+CUP_WALL = 3.2
+CUP_H = 36.0
+CUP_FLOOR = 3.0
 PACK_LO, PACK_HI = 0.55, 0.64
 
 X = App.Vector(1, 0, 0)
@@ -224,8 +225,8 @@ X_COVER_MAX = max(c.BoundBox.XMax for c in chutes)
 Z_COVER_MIN = min(c.BoundBox.ZMin for c in chutes)
 Z_COVER_MAX = max(c.BoundBox.ZMax for c in chutes)
 
-# Disk plane first. The bevel has to finish aft of the front bearing, and the
-# spur stack has to reach from that layshaft up to the auger at Z_BALL.
+# Disk. The bevel sits just forward of it, so the spur stack that climbs
+# to the auger is short and the blanks stay small.
 DISK_R = PACK_R + 40.0
 DISK_T = 8.0
 z_disk1 = Z_COVER_MIN - 1.2
@@ -233,48 +234,66 @@ z_disk0 = z_disk1 - DISK_T
 z_brg_f1 = z_disk0 - 3.0
 z_brg_f0 = z_brg_f1 - BRG_W
 
-# Bevel 1:1, 45 deg. Apex at the origin of the gear, teeth toward +Z, hub
-# behind the big end. Reach is apex -> back of the hub.
+# Bevel 1:1, 45 deg. Apex at the origin of the gear, teeth toward +Z.
 _delta = math.radians(45.0)
 _Re = (BEVEL_M * BEVEL_Z) / (2.0 * math.sin(_delta))
 BEVEL_AE = _Re * math.cos(_delta)
-BEVEL_HUB_L = 18.0
+BEVEL_HUB_L = 8.0
 BEVEL_REACH = BEVEL_AE + BEVEL_HUB_L
+BEVEL_TIP_R = BEVEL_M * (BEVEL_Z / 2.0 + math.cos(_delta))
 
-# Compound spur, 2 x 3 = 6. One 6:1 pair across this span is a ~240 mm wheel.
-S1_PIN, S1_WHEEL = 32, 64                       # layshaft -> mid shaft
-S2_PIN, S2_WHEEL = 28, 84                       # mid shaft -> auger
+# The bevel apex is just clear of the disk face. The spur stack is not
+# driven from here: a straight shaft at this height runs through the chutes.
+# 2 x 2 x 1.5 = 6, climbed from a shaft that comes back under the disk.
+S1_PIN, S1_WHEEL = 16, 32
+S2_PIN, S2_WHEEL = 16, 32
+S3_PIN, S3_WHEEL = 24, 36
 CD1 = SPUR_M * (S1_PIN + S1_WHEEL) / 2.0
 CD2 = SPUR_M * (S2_PIN + S2_WHEEL) / 2.0
-SPUR_RATIO = (S1_WHEEL / float(S1_PIN)) * (S2_WHEEL / float(S2_PIN))
-z_apex = Z_BALL - (CD1 + CD2)
-Z_LAY = z_apex
-Z_MID = Z_LAY + CD1
+CD3 = SPUR_M * (S3_PIN + S3_WHEEL) / 2.0
+SPUR_RATIO = ((S1_WHEEL / float(S1_PIN)) * (S2_WHEEL / float(S2_PIN))
+              * (S3_WHEEL / float(S3_PIN)))
+z_apex = z_disk1 + BEVEL_TIP_R + 1.5
+Z_LOW = Z_BALL - (CD1 + CD2 + CD3)
+Z_MID1 = Z_LOW + CD1
+Z_MID2 = Z_MID1 + CD2
 
-# Outlet just past the cover, then three pitches of tube. The seat is the
-# top of that tube. The cup stands on the seat; the pinion is past the cup
-# so the shaft that drives the screw never crosses a working pocket.
+# 1:1 miter, small enough to sit between the lay hub and the covers.
+MITER_M, MITER_Z, MITER_FACE = 1.0, 12, 5.0
+MITER_HUB_L, MITER_HUB_D = 4.0, 12.0
+MITER_AE = MITER_M * MITER_Z / 2.0              # 45 deg, apex to big end
+X_MITER = 33.0
+
+# Two pitches past a throat that holds one ball. The seat is the top of
+# that tube. Gears sit on the cup rim, not on a shaft past a tall hopper.
 X_LIP = PACK_R + PELLET_D / 2.0 + 2.2
-X_TUBE0 = X_LIP + PELLET_D + 10.0               # one ball fits in the throat
+X_TUBE0 = X_LIP + PELLET_D + 6.0
 X_TUBE1 = X_TUBE0 + AUG_TURNS * AUG_PITCH
 X_SEAT = X_TUBE1
-RING_T = 8.0
+RING_T = 6.0
 X_CUP_END = X_SEAT + RING_T + 0.15 + CUP_FLOOR + CUP_H
-PIN_TIP = SPUR_M * (S2_PIN + 2) / 2.0
-X_MESH2 = X_CUP_END + PIN_TIP + 6.0             # auger pinion, past the cup
-X_MESH = X_MESH2 - 14.0                         # first stage beside it
+# Stage 3 (the auger) sits one face past the cup rim. Stage 2 is the next
+# face out, still above the rim, so the shaft between them misses the cup.
+# Stage 1 is down beside the tube, under the cup: the layshaft stops there
+# instead of climbing the whole height on one post.
+SPUR_FACE = 8.0
+X_MESH3 = X_CUP_END + 6.0
+X_MESH2 = X_MESH3 + SPUR_FACE + 4.0
+X_MESH1 = X_TUBE0 + 42.0
 GUIDE_LEN = X_TUBE0 - X_LIP
 
-# Rear bearing and crank aft of the bevel apex (the teeth are all on +Z).
-z_brg_r1 = z_apex - 12.0
+# Crank and rear bearing stay aft of the disk. The bevel is forward of it.
+z_brg_r1 = z_brg_f0 - 14.0
 z_brg_r0 = z_brg_r1 - BRG_W
 z_crank0 = z_brg_r0 - 14.0
 
 disk = Part.makeCylinder(DISK_R, DISK_T, V(0, 0, z_disk0))
-# Boss on the muzzle face. The aft face stays clear of the front bearing.
-hub = Part.makeCylinder(16.0, 6.0, V(0, 0, z_disk1 - 2.0))
+# Boss kept inside the disk thickness. The bevel lives just forward of this face.
+hub = Part.makeCylinder(16.0, 4.0, V(0, 0, z_disk1 - 4.0))
 disk = disk.fuse(hub)
 disk = disk.cut(Part.makeCylinder(SHAFT_D / 2.0 + 0.15, 80.0, V(0, 0, z_brg_f0 - 2.0)))
+# Clearance hole for the dropped layshaft, inboard of the chute pads.
+disk = disk.cut(Part.makeCylinder(6.0, DISK_T + 8.0, V(X_MITER, 0.0, z_disk0 - 4.0)))
 # Six pads the chutes sit on (0.4 mm shy of the cover, so the print is a separate part).
 for phi in STATION_PHI:
     c = polar(phi, PACK_R, 0.0)
@@ -282,7 +301,9 @@ for phi in STATION_PHI:
     disk = disk.fuse(pad)
 disk = disk.removeSplitter()
 
-shaft = Part.makeCylinder(SHAFT_D / 2.0, z_disk1 - z_crank0 + 6.0, V(0, 0, z_crank0 - 4.0))
+shaft = Part.makeCylinder(SHAFT_D / 2.0,
+                          z_apex + BEVEL_REACH + 4.0 - (z_crank0 - 4.0),
+                          V(0, 0, z_crank0 - 4.0))
 
 
 def bearing_at(z0):
@@ -299,8 +320,8 @@ BASE_T = 10.0
 base = Part.makeBox(360.0, 280.0, BASE_T, V(-180.0, -140.0, 0.0))
 # The base lies in the machine XY? No: down is -X, the shaft is along Z.
 # Rebuild the base as a plate normal to X, under the pack.
-base = Part.makeBox(BASE_T, 300.0, z_disk1 - z_crank0 + 30.0,
-                    V(BASE_TOP - BASE_T, -150.0, z_crank0 - 20.0))
+base = Part.makeBox(BASE_T, 200.0, z_disk1 - z_crank0 + 24.0,
+                    V(BASE_TOP - BASE_T, -100.0, z_crank0 - 16.0))
 
 
 def housing(z0):
@@ -355,14 +376,15 @@ port = Part.makeBox(40.0, 2 * PORT_HY, 2 * PORT_HZ,
                     V(GUARD_R_IN - 4.0, -PORT_HY, Z_BALL - PORT_HZ))
 guard = guard.cut(port).removeSplitter()
 
-# ---------------------------------------------------------------- seat ring, two posts, cup
-# The ring is the one seat. Posts stand either side of the pack and a yoke
-# grips the ring; nothing spikes through the bore.
-RING_OD = 88.0
-RING_ID = 44.0
-BOLT_PCD = 70.0
+# ---------------------------------------------------------------- seat ring, two short stanchions, cup
+# The ring is the one seat. Stanchions stand on the muzzle face of the disk,
+# just outside the covers, and a short arm reaches the ring. No post down
+# to the base, and nothing through the bore.
+RING_OD = 80.0
+RING_ID = 42.0
+BOLT_PCD = 64.0
 BOLT_D = 4.4
-POST_Y = 155.0
+POST_Y = CUP_ID / 2.0 + CUP_WALL + 10.0
 
 
 def bolt_centers():
@@ -380,19 +402,23 @@ for by, bz in bolt_centers():
                                       V(X_SEAT - 2.0, by, bz), X))
 ring = ring.removeSplitter()
 
+x_foot = X_COVER_MAX + 6.0
 posts = []
 yoke = []
 for sy in (-1.0, 1.0):
-    # Post from the base up to the seat, outside the swept chutes.
-    post = Part.makeBox(X_SEAT + RING_T - BASE_TOP, 16.0, 16.0,
-                        V(BASE_TOP, sy * POST_Y - 8.0, Z_BALL - 8.0))
-    posts.append(post)
-    # Arm from the post to the ring OD, not across the bore.
+    # Leg from the disk face forward to the pellet plane, outside the covers.
+    leg = Part.makeBox(12.0, 12.0, Z_BALL - 6.0 - (z_disk1 + 1.0),
+                       V(x_foot, sy * POST_Y - 6.0, z_disk1 + 1.0))
+    posts.append(leg)
+    # Arm out to the seat, then in to the ring OD. Not across the bore.
+    arm = Part.makeBox(X_SEAT - x_foot, 12.0, 12.0,
+                       V(x_foot, sy * POST_Y - 6.0, Z_BALL - 6.0))
+    posts.append(arm)
     y_near = sy * (RING_OD / 2.0 - 1.0)
     y0, y1 = (y_near, sy * POST_Y) if sy > 0 else (sy * POST_Y, y_near)
-    arm = Part.makeBox(RING_T, y1 - y0, 14.0,
-                       V(X_SEAT, y0, Z_BALL - 7.0))
-    yoke.append(arm)
+    link = Part.makeBox(RING_T, y1 - y0, 12.0,
+                        V(X_SEAT, y0, Z_BALL - 6.0))
+    yoke.append(link)
 frame_top = ring
 for p in posts + yoke:
     frame_top = frame_top.fuse(p)
@@ -492,35 +518,67 @@ if METER == "A1":
     # Shaft from the last gate (in the cup) out through the open top to the
     # pinion. It does not enter the working pockets or the outlet throat.
     x_last = X_TUBE0 + (n_gates - 1) * AUG_PITCH
-    stub = Part.makeCylinder(4.0, X_MESH2 + 6.0 - (x_last - 2.0),
+    stub = Part.makeCylinder(4.0, X_MESH3 + 6.0 - (x_last - 2.0),
                              V(x_last - 2.0, 0, Z_BALL), X)
-    g_s1w = spur_x(S1_WHEEL, SPUR_M, 8.0, 8.4, 0.0)
-    g_s1w.translate(V(X_MESH, 0, Z_LAY))
-    g_s1p = spur_x(S1_PIN, SPUR_M, 8.0, 8.4, 180.0 / S1_PIN)
-    g_s1p.translate(V(X_MESH, 0, Z_MID))
-    g_s2w = spur_x(S2_WHEEL, SPUR_M, 8.0, 8.4, 0.0)
-    g_s2w.translate(V(X_MESH2, 0, Z_MID))
-    g_s2p = spur_x(S2_PIN, SPUR_M, 8.0, 8.4, 180.0 / S2_PIN)
-    g_s2p.translate(V(X_MESH2, 0, Z_BALL))
-    lay = Part.makeCylinder(4.0, X_MESH + 6.0 - 40.0, V(40.0, 0, Z_LAY), X)
-    mid = Part.makeCylinder(4.0, X_MESH2 - X_MESH + 12.0, V(X_MESH - 6.0, 0, Z_MID), X)
+
+    def miter(phase, rot_axis, rot_deg, origin):
+        g, _info = GR.bevel_gear(MITER_M, MITER_Z, MITER_FACE, MITER_HUB_D, MITER_HUB_L,
+                                 8.4, backlash=0.30, phase_deg=phase)
+        if rot_deg:
+            g.rotate(O, rot_axis, rot_deg)
+        g.translate(origin)
+        return g
+
+    # Upper miter: layshaft in from -X, drop shaft out toward -Z.
+    up_m = V(X_MITER, 0, z_apex)
+    m_in = miter(0.0, Y, -90.0, up_m)
+    m_down = miter(180.0 / MITER_Z, X, 180.0, up_m)
+    # Lower miter: drop shaft in from +Z, layshaft out toward +X under the disk.
+    lo_m = V(X_MITER, 0, Z_LOW)
+    m_up = miter(0.0, Z, 0.0, lo_m)
+    m_out = miter(180.0 / MITER_Z, Y, 90.0, lo_m)
+    lay = Part.makeCylinder(4.0, (X_MITER - MITER_AE) - (BEVEL_AE + 2.0),
+                            V(BEVEL_AE + 2.0, 0, z_apex), X)
+    drop = Part.makeCylinder(4.0, (z_apex - MITER_AE) - (Z_LOW + MITER_AE),
+                             V(X_MITER, 0, Z_LOW + MITER_AE))
+    low = Part.makeCylinder(4.0, X_MESH1 + 6.0 - (X_MITER + MITER_AE),
+                            V(X_MITER + MITER_AE, 0, Z_LOW), X)
+    mid1 = Part.makeCylinder(4.0, X_MESH2 - X_MESH1 + 12.0,
+                             V(X_MESH1 - 6.0, 0, Z_MID1), X)
+    mid2 = Part.makeCylinder(4.0, X_MESH2 - X_MESH3 + 12.0,
+                             V(X_MESH3 - 6.0, 0, Z_MID2), X)
+    g_s1p = spur_x(S1_PIN, SPUR_M, SPUR_FACE, 8.4, 180.0 / S1_PIN)
+    g_s1p.translate(V(X_MESH1, 0, Z_LOW))
+    g_s1w = spur_x(S1_WHEEL, SPUR_M, SPUR_FACE, 8.4, 0.0)
+    g_s1w.translate(V(X_MESH1, 0, Z_MID1))
+    g_s2p = spur_x(S2_PIN, SPUR_M, SPUR_FACE, 8.4, 180.0 / S2_PIN)
+    g_s2p.translate(V(X_MESH2, 0, Z_MID1))
+    g_s2w = spur_x(S2_WHEEL, SPUR_M, SPUR_FACE, 8.4, 0.0)
+    g_s2w.translate(V(X_MESH2, 0, Z_MID2))
+    g_s3p = spur_x(S3_PIN, SPUR_M, SPUR_FACE, 8.4, 180.0 / S3_PIN)
+    g_s3p.translate(V(X_MESH3, 0, Z_MID2))
+    g_s3w = spur_x(S3_WHEEL, SPUR_M, SPUR_FACE, 8.4, 0.0)
+    g_s3w.translate(V(X_MESH3, 0, Z_BALL))
     g_pack, _bv = GR.bevel_gear(BEVEL_M, BEVEL_Z, BEVEL_FACE, 18.0, BEVEL_HUB_L, SHAFT_D + 0.4,
                                 backlash=0.30, phase_deg=0.0)
-    g_lay, _bv2 = GR.bevel_gear(BEVEL_M, BEVEL_Z, BEVEL_FACE, 16.0, 12.0, 8.4,
+    g_lay, _bv2 = GR.bevel_gear(BEVEL_M, BEVEL_Z, BEVEL_FACE, 16.0, 6.0, 8.4,
                                 backlash=0.30, phase_deg=180.0 / BEVEL_Z)
     g_lay.rotate(O, Y, 90)
     g_pack.translate(V(0, 0, z_apex))
     g_lay.translate(V(0, 0, z_apex))
-    meter_parts = [screw, auger_tube, guide, fl, stub, g_s1w, g_s1p, g_s2w, g_s2p,
-                   lay, mid, g_pack, g_lay]
-    gear_pairs = [(g_s1w, g_s1p), (g_s2w, g_s2p), (g_pack, g_lay)]
+    meter_parts = [screw, auger_tube, guide, fl, stub, g_s1p, g_s1w, g_s2p, g_s2w,
+                   g_s3p, g_s3w, lay, drop, low, mid1, mid2, m_in, m_down, m_up, m_out,
+                   g_pack, g_lay]
+    gear_pairs = [(g_s1w, g_s1p), (g_s2w, g_s2p), (g_s3w, g_s3p),
+                  (g_pack, g_lay), (m_in, m_down), (m_up, m_out)]
     pocket_center = screw_m.multiply(V(0, 0, AUG_PITCH / 2.0))
     pocket_solid = screw.fuse(auger_tube)
     pocket_axis = X
     pocket_radial = Y
     deliveries = int(round((BEVEL_Z / float(BEVEL_Z)) * SPUR_RATIO))
-    ratio_txt = "bevel %d/%d (1:1) x spur %d/%d x %d/%d = %.0f" % (
-        BEVEL_Z, BEVEL_Z, S1_WHEEL, S1_PIN, S2_WHEEL, S2_PIN, SPUR_RATIO)
+    ratio_txt = "bevel %d/%d, miter %d/%d, spur %d/%d x %d/%d x %d/%d = %.0f" % (
+        BEVEL_Z, BEVEL_Z, MITER_Z, MITER_Z, S1_WHEEL, S1_PIN, S2_WHEEL, S2_PIN,
+        S3_WHEEL, S3_PIN, SPUR_RATIO)
     meter_note = "A1 auger, tube ID %.0f, pitch %.0f, pocket %.0f, %d turns + %d in the cup" % (
         AUG_TUBE_ID, AUG_PITCH, AUG_POCKET, AUG_TURNS, AUG_TAIL)
     check_screw_solids = len(screw.Solids)
@@ -530,7 +588,9 @@ elif METER == "A2":
     # 2:1 spur, three pockets. Fill and discharge are 120 deg apart, so the
     # cup feeds the pocket at 60 deg and the chute takes the one at 180.
     m_star = 2.0
-    STAR_R = 40.0
+    # Small enough that the rim clears the seat, which now sits just past
+    # two auger pitches. Pockets still open through the OD.
+    STAR_R = 28.0
     # CD = m*(z + 2z)/2 = 3*z for m = 2. Snap up so the rim clears the guard.
     STAR_PIN = max(18, int(math.ceil((GUARD_R_OUT + 3.0 + STAR_R) / 3.0)))
     STAR_WHEEL = 2 * STAR_PIN
@@ -784,8 +844,13 @@ check(30.0 <= n_lo and n_hi <= 50.0,
 # Shoulder over the ring, spigot in the bore: the cup is carried by the ring.
 check(0.05 <= cup.distToShape(ring)[0] <= 0.4,
       "cup sits on the ring (gap %.2f mm), not on a rod" % cup.distToShape(ring)[0])
-check(frame_top.BoundBox.YLength > 200.0,
-      "seat yoke spans %.0f mm (two posts)" % frame_top.BoundBox.YLength)
+check(frame_top.BoundBox.YLength > RING_OD and frame_top.BoundBox.XMin > DISK_R * 0.7,
+      "seat hangs on the disk (span %.0f, from x %.0f), not on a floor post"
+      % (frame_top.BoundBox.YLength, frame_top.BoundBox.XMin))
+reach = max([cup.BoundBox.XMax] + [p.BoundBox.XMax for p in meter_parts])
+check(reach < X_CUP_END + 30.0,
+      "cup and gears end at x %.0f, cup rim at %.0f (disk R %.0f)"
+      % (reach, X_CUP_END, DISK_R))
 
 # Kicker meets the pellet and misses the chute and the guard.
 dump_ball = Part.makeSphere(PELLET_D / 2.0, polar(DUMP_PHI, PACK_R, Z_BALL))
