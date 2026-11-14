@@ -4,7 +4,8 @@ Gatling breech mechanism (not a freeze).
 
 Stroke from linear_breech (65.8 mm) → angle→stroke law → outboard cam liner →
 printed stroke rail → open pack frame (no full casing) → six phases →
-flush top hopper + shaft auger (1 soft pellet / rev) → side crank → hoses.
+hopper on seat ring + shaft auger (1 soft pellet / rev) → side crank →
+air: MQR on soft coupling, shaft bearings, 6×M5 to AirTAC R, buffer, deadman.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism.py').read())"
 
@@ -678,64 +679,135 @@ for tr in (trig_pack, trig_feed):
                 trig_ok = False
 trig_ok = trig_ok and crank_side_ok
 
-# --- hoses: port → out past track/rail, then aft outside cam → hub -----------
-# Local R-port sits at y = vent_y + T (toward local +Y = radial-out after place).
-# Straight port→hub crosses the stroke-rail cage and cam liner — route around.
-hose_r = 2.0
-PORT_R_SHIFT = 0.0             # radial bump of exit ring if still tight
+# --- air (stage 5): shaft bearings + soft coupling + MQR + 6×M5 + buffer -----
+# MQR is air-only: pack axle rides its own bearings; soft coupling drives rotor.
+# Six M5 lines → each AirTAC R; route outside cam track & stroke rail.
+# Feed / hopper seat ring unchanged.
+hose_r = 2.5                   # ~M5 PU OD sketch
+PORT_R_SHIFT = 0.0
 stroke_rails_pack = Part.makeCompound(rails_placed)
-# Exit ring must clear rail envelope and cam OD.
 r_exit0 = max(rail_r_max, cam_od / 2.0) + CLEAR + 6.0 + hose_r
-z_hose_aft = min(z_cam0, z_rail_lo) - 12.0
-hub_hose = G.cyl(16.0, z_hose_aft - 4.0, z_hose_aft + 4.0)
+z_clear_air = min(z_rail_lo, z_cam0) - 4.0
+
+# MQR6 clone sizes (same as mqr_axis_sketch.py).
+AXLE_OD, AXLE_ID = 16.0, 10.0
+BRG_OD, BRG_ID, BRG_T = 36.0, AXLE_OD + 0.3, 14.0
+ROTOR_OD, ROTOR_L = 46.0, 29.0
+STATOR_OD, STATOR_L = 46.0, 53.0
+MQR_THROUGH = 6.0
+SOFT_OD, SOFT_L, SOFT_GAP = 40.0, 28.0, 4.0   # jaw + spider gap
+BUFFER_OD, BUFFER_L = 80.0, 150.0             # ≈0.75 L free volume
+BUFFER_VOL_L = (math.pi * (BUFFER_OD / 2) ** 2 * BUFFER_L) / 1.0e6
+
+# Aft stack: bearings → soft coupling → MQR rotor → stator (muzzle = +Z).
+z_brg_f1 = z_case0 - 4.0
+z_brg_f0 = z_brg_f1 - BRG_T
+z_brg_r1 = z_brg_f0 - 40.0
+z_brg_r0 = z_brg_r1 - BRG_T
+z_axle0 = z_brg_r0 - 8.0
+z_soft1 = z_brg_r0 - 6.0
+z_soft0 = z_soft1 - SOFT_L
+z_rotor1 = z_soft0 - SOFT_GAP
+z_rotor0 = z_rotor1 - ROTOR_L
+z_stator1 = z_rotor0
+z_stator0 = z_stator1 - STATOR_L
+z_hose_aft = 0.5 * (z_rotor0 + z_rotor1)
 
 
 def port_world(ang, dz, which="R"):
     """AirTAC port centre in world after place_shape (local +Y → radial out)."""
     a = math.radians(ang)
     ux, uy = math.cos(a), math.sin(a)
-    # place_shape: rotate so local +Y → radial, then translate to (R·ux, R·uy).
-    y_loc = vent_y + AIRTAC["T"] + PORT_R_SHIFT   # R/P face (outer)
+    y_loc = vent_y + AIRTAC["T"] + PORT_R_SHIFT
     if which == "A":
-        y_loc = vent_y - PORT_R_SHIFT              # A face (inner / −Y local)
-    # After rot that maps +Y→radial: local (0, y_loc) → radial offset y_loc.
+        y_loc = vent_y - PORT_R_SHIFT
     r = R_PACK + y_loc
     z = z_stem + AIRTAC["ports"][which] + dz
     return V(r * ux, r * uy, z), ux, uy
 
 
-def build_hoses(r_exit):
+def build_bearing(z_a, z_b):
+    race = tube(BRG_OD, BRG_ID, z_a, z_b)
+    foot = Part.makeBox(28.0, 12.0, z_b - z_a,
+                        V(-14.0, -BRG_OD / 2 - 10.0, z_a))
+    return race.fuse(foot).removeSplitter()
+
+
+def build_air_stack():
+    """Axle on 2 bearings; soft coupling; MQR rotor/stator; buffer; deadman."""
+    axle = tube(AXLE_OD, AXLE_ID, z_axle0, z_case0 + 10.0)
+    brg_f = build_bearing(z_brg_f0, z_brg_f1)
+    brg_r = build_bearing(z_brg_r0, z_brg_r1)
+    # Soft jaw coupling: pack hub / spider / MQR hub — gap so MQR takes no load.
+    hub_pack = tube(SOFT_OD, AXLE_OD + 0.2, z_soft1 - 10.0, z_soft1)
+    hub_mqr = tube(SOFT_OD, MQR_THROUGH + 0.5, z_soft0, z_soft0 + 10.0)
+    spider = Part.makeCylinder(SOFT_OD * 0.45, SOFT_GAP,
+                               V(0, 0, z_soft0 + 10.0))
+    soft = hub_pack.fuse(hub_mqr).fuse(spider).removeSplitter()
+    rotor = tube(ROTOR_OD, MQR_THROUGH, z_rotor0, z_rotor1)
+    for k in range(N):
+        a = math.radians(k * 60.0)
+        # M5 stub on rotor OD (channel to station k).
+        stub = Part.makeCylinder(
+            4.0, 8.0,
+            V((ROTOR_OD / 2 - 1) * math.cos(a),
+              (ROTOR_OD / 2 - 1) * math.sin(a), z_hose_aft),
+            V(math.cos(a), math.sin(a), 0))
+        rotor = rotor.fuse(stub)
+    rotor = rotor.removeSplitter()
+    stator = tube(STATOR_OD, MQR_THROUGH, z_stator0, z_stator1)
+    inlet = Part.makeCylinder(6.0, 14.0, V(0, STATOR_OD / 2 - 2, z_stator0 + 20.0),
+                              V(0, 1, 0))
+    stator = stator.fuse(inlet).removeSplitter()
+    # Buffer 0.5–1 L beside stator (+Y side = crank side pre-flip).
+    buf_y = r_case_od + BUFFER_OD / 2 + 8.0
+    buffer = tube(BUFFER_OD, BUFFER_OD - 4.0, z_stator0, z_stator0 + BUFFER_L,
+                  0.0, buf_y)
+    # Dead-man ball valve on inlet (+Y, near buffer).
+    dm_body = Part.makeCylinder(12.0, 28.0, V(0, buf_y - BUFFER_OD / 2 - 8.0,
+                                             z_stator0 + 18.0), V(0, 1, 0))
+    dm_lever = Part.makeBox(6.0, 8.0, 22.0,
+                            V(-3.0, buf_y - BUFFER_OD / 2 + 6.0,
+                              z_stator0 + 28.0))
+    deadman = dm_body.fuse(dm_lever).removeSplitter()
+    # Supply stub buffer → stator inlet.
+    p_buf = V(0, buf_y - BUFFER_OD / 2, z_stator0 + 20.0)
+    p_in = V(0, STATOR_OD / 2 + 10.0, z_stator0 + 20.0)
+    supply = Part.makeCylinder(4.0, p_buf.distanceToPoint(p_in), p_in,
+                               p_buf.sub(p_in))
+    return dict(
+        axle=axle, brg_f=brg_f, brg_r=brg_r, soft=soft,
+        rotor=rotor, stator=stator, buffer=buffer, deadman=deadman,
+        supply=supply, buf_y=buf_y)
+
+
+def build_m5_lines(r_exit):
+    """Six M5 lines: AirTAC R → out past cam/rail → aft → MQR rotor stub."""
     segs = []
     for k in range(N):
         ang = k * 60.0
         dz = cam_dz(ang)
         p_port, ux, uy = port_world(ang, dz, "R")
-        # 1) short stub off the fitting (radial out a few mm).
         p1 = V((R_PACK + vent_y + AIRTAC["T"] + PORT_R_SHIFT + 8.0) * ux,
                (R_PACK + vent_y + AIRTAC["T"] + PORT_R_SHIFT + 8.0) * uy,
                p_port.z)
-        # 2) go aft at that radius (stay inboard of cam radially if needed,
-        #    but behind the stroke-rail Z so we miss the cage).
-        z_clear = min(z_rail_lo, z_cam0) - 4.0
-        p2 = V(p1.x, p1.y, z_clear)
-        # 3) radial out past cam/rail envelope (outside housing).
-        p3 = V(r_exit * ux, r_exit * uy, z_clear)
-        # 4) aft manifold ring, then in to hub — all aft of cam.
+        p2 = V(p1.x, p1.y, z_clear_air)
+        p3 = V(r_exit * ux, r_exit * uy, z_clear_air)
         p4 = V(r_exit * ux, r_exit * uy, z_hose_aft)
-        p5 = V(10.0 * ux, 10.0 * uy, z_hose_aft)
+        p5 = V((ROTOR_OD / 2 + 6.0) * ux, (ROTOR_OD / 2 + 6.0) * uy, z_hose_aft)
         for p0, p1_ in ((p_port, p1), (p1, p2), (p2, p3), (p3, p4), (p4, p5)):
             vec = p1_.sub(p0)
             if vec.Length > 1.0:
                 segs.append(Part.makeCylinder(hose_r, vec.Length, p0, vec))
-        # Pilot A stub: short outward-then-aft only (no plunge through rails).
+        # Short pilot A vent stub (not through cam track).
         pA, _, _ = port_world(ang, dz, "A")
-        pA1 = V(pA.x - 6.0 * ux, pA.y - 6.0 * uy, pA.z)  # slightly inboard
-        pA2 = V(pA1.x, pA1.y, z_clear)
+        pA1 = V(pA.x - 6.0 * ux, pA.y - 6.0 * uy, pA.z)
+        pA2 = V(pA1.x, pA1.y, z_clear_air)
         for p0, p1_ in ((pA, pA1), (pA1, pA2)):
             vec = p1_.sub(p0)
             if vec.Length > 1.0:
-                segs.append(Part.makeCylinder(hose_r * 0.8, vec.Length, p0, vec))
-    return Part.makeCompound(segs).fuse(hub_hose).removeSplitter()
+                segs.append(Part.makeCylinder(hose_r * 0.7, vec.Length, p0, vec))
+    return Part.makeCompound(segs)
 
 
 def hose_clear(hs):
@@ -775,22 +847,31 @@ def rebuild_housing_for_od():
         and feed_clear)
 
 
+air = build_air_stack()
+pack_axle = air["axle"]
+brg_f = air["brg_f"]
+brg_r = air["brg_r"]
+soft_coup = air["soft"]
+mqr_rotor = air["rotor"]
+mqr_stator = air["stator"]
+air_buffer = air["buffer"]
+deadman = air["deadman"]
+air_supply = air["supply"]
+
 r_exit = max(r_exit0, r_case_od + 8.0)
-hoses_s = build_hoses(r_exit)
+hoses_s = build_m5_lines(r_exit)
 ok_h, d_cam_h, d_rail_h = hose_clear(hoses_s)
 print("hose try exit=%.1f cam=%.2f rail=%.2f" % (r_exit, d_cam_h, d_rail_h),
       flush=True)
 for _try in range(6):
     if ok_h:
         break
-    # Bump exit ring / port / casing until clear.
     if d_rail_h < CLEAR:
         PORT_R_SHIFT += 4.0
         moved_notes.append("PORT_R_SHIFT→%.1f (hose↔rail=%.2f)" % (
             PORT_R_SHIFT, d_rail_h))
     if d_cam_h < CLEAR:
         r_exit = max(r_exit + 6.0, cam_od / 2 + CLEAR + 12.0)
-        # Grow housing so exit stays outside OD.
         need_od = r_exit - 8.0
         if need_od > r_case_od:
             CASE_CLEAR_USE = need_od - CASE_WALL - (R_PACK + CH_OD / 2)
@@ -802,12 +883,25 @@ for _try in range(6):
         moved_notes.append("hose exit r→%.1f (hose↔cam=%.2f)" % (
             r_exit, d_cam_h))
     r_exit = max(r_exit, r_case_od + 8.0)
-    hoses_s = build_hoses(r_exit)
+    hoses_s = build_m5_lines(r_exit)
     ok_h, d_cam_h, d_rail_h = hose_clear(hoses_s)
     print("hose try exit=%.1f cam=%.2f rail=%.2f" % (r_exit, d_cam_h, d_rail_h),
           flush=True)
 
 hoses_ok = ok_h
+# Air-stack checks (geometry, not a freeze).
+mqr_soft_ok = soft_coup.Volume > 1000.0 and SOFT_GAP >= 3.0
+mqr_no_axle = pack_axle.common(
+    G.cyl(MQR_THROUGH + 0.5, min(z_rotor0, z_stator0),
+          max(z_rotor1, z_stator1))).Volume < 1.0
+bearings_ok = (brg_f.Volume > 500.0 and brg_r.Volume > 500.0
+               and pack_axle.distToShape(brg_f)[0] >= 0.05
+               and pack_axle.distToShape(brg_r)[0] >= 0.05)
+buffer_ok = 0.5 <= BUFFER_VOL_L <= 1.0 + 1e-6
+deadman_ok = deadman.Volume > 500.0
+lines_ok = hoses_ok and abs(N - 6) < 1e-9
+air_ok = (mqr_soft_ok and mqr_no_axle and bearings_ok
+          and buffer_ok and deadman_ok and lines_ok)
 # Re-check crank/triggers after possible hose rebuild.
 crank_bb = crank.BoundBox
 crank_side_geom = (crank_bb.YLength > crank_bb.XLength
@@ -844,8 +938,16 @@ crank = flip_up(crank)
 trig_pack = flip_up(trig_pack)
 trig_feed = flip_up(trig_feed)
 hoses_s = flip_up(hoses_s)
+pack_axle = flip_up(pack_axle)
+brg_f = flip_up(brg_f)
+brg_r = flip_up(brg_r)
+soft_coup = flip_up(soft_coup)
+mqr_rotor = flip_up(mqr_rotor)
+mqr_stator = flip_up(mqr_stator)
+air_buffer = flip_up(air_buffer)
+deadman = flip_up(deadman)
+air_supply = flip_up(air_supply)
 hopper_top_ok = hopper.BoundBox.Center.x > 0.0
-# After flip crank/triggers sit on −Y (side), not +X (up).
 crank_side_after = abs(crank.BoundBox.Center.y) > abs(crank.BoundBox.Center.x)
 trig_side_after = (abs(trig_pack.BoundBox.Center.y) > abs(trig_pack.BoundBox.Center.x)
                    and abs(trig_feed.BoundBox.Center.y) > abs(trig_feed.BoundBox.Center.x))
@@ -856,7 +958,9 @@ pack = Part.makeCompound(stations)
 pellets = Part.makeCompound([pellet_aug, pellet_bin, pellet])
 assembly = Part.makeCompound([
     pack, cam, front_plate, rear_plate, pack_frame,
-    hopper, auger, auger_drive, pellets, crank, trig_pack, trig_feed, hoses_s,
+    hopper, auger, auger_drive, pellets, crank, trig_pack, trig_feed,
+    pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
+    air_buffer, deadman, air_supply, hoses_s,
 ])
 bb = assembly.BoundBox
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
@@ -886,7 +990,9 @@ checks = [
     ("open frame (not full casing)", frame_ok),
     ("crank sideways / not in LOAD", crank_ok and crank_side_after),
     ("triggers on side / not in LOAD", trig_ok and trig_side_after),
-    ("hoses clear of cam track & stroke rail", hoses_ok),
+    ("M5 lines clear of cam track & stroke rail", hoses_ok),
+    ("air: MQR soft-coupled + bearings + buffer + deadman", air_ok),
+    ("buffer %.2f L in 0.5–1 L" % BUFFER_VOL_L, buffer_ok),
     ("hopper on seat ring + clear of open carriage", feed_ok),
     ("auger 1:1 single-start (1 pellet/rev)", auger_ok),
     ("one soft pellet per LOAD cycle", one_per_cycle_ok),
@@ -898,7 +1004,7 @@ checks = [
 ]
 report = [
     NAME,
-    "  sketch                 : open frame + flush auger hopper + side crank/triggers",
+    "  sketch                 : frame + hopper ring + air (MQR) + side crank/triggers",
     "  stroke (bench)         : %.1f mm; rail L=%.1f" % (BENCH_STROKE, stroke_rail_L),
     "  law                    : FIRE 330–30; OPEN 30–120; LOAD 120–240; CLOSE 240–330",
     "  cam                    : outboard liner Ø%.1f R=%.1f" % (cam_od, CAM_R),
@@ -925,9 +1031,12 @@ report += [
     "  crank                 : side hub on frame (−Y after flip); not in LOAD",
     "  trigger pack          : dog clutch on pack shaft — breaks rotation drive",
     "  trigger feed          : sliding idler on auger bevel — stops screw only",
-    "  hoses                 : port→outside→hub; past cam & stroke rail",
+    "  air MQR               : rotor on soft coupling; axle on 2 bearings (not MQR)",
+    "  air lines             : 6×M5 rotor→AirTAC R; outside cam & stroke rail",
+    "  air buffer            : Ø%.0f×%.0f ≈ %.2f L; dead-man on inlet"
+    % (BUFFER_OD, BUFFER_L, BUFFER_VOL_L),
     "  overall LxWxH         : %.0f x %.0f x %.0f mm" % (gun_L, gun_W, gun_H),
-    "  not drawn             : wheeled carriage, full-length shroud",
+    "  not drawn             : wheeled carriage, full-length shroud, backpack tank",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 print("\n".join(report))
@@ -949,6 +1058,10 @@ FV.STYLES["pellet"] = ((0.88, 0.88, 0.92), 15)
 FV.STYLES["crank"] = ((0.25, 0.25, 0.28), 10)
 FV.STYLES["trig"] = ((0.55, 0.22, 0.18), 15)
 FV.STYLES["hose"] = ((0.20, 0.55, 0.45), 35)
+FV.STYLES["mqr"] = ((0.45, 0.70, 0.95), 25)
+FV.STYLES["brg"] = ((0.35, 0.55, 0.85), 20)
+FV.STYLES["buffer"] = ((0.55, 0.60, 0.65), 40)
+FV.STYLES["deadman"] = ((0.75, 0.25, 0.20), 15)
 
 os.makedirs(OUT_DIR, exist_ok=True)
 sc = FV.Scene(NAME)
@@ -969,14 +1082,24 @@ sc.add("Feed", "Pellet_load", pellet, "pellet")
 sc.add("Drive", "Crank", crank, "crank")
 sc.add("Drive", "Trigger_pack_clutch", trig_pack, "trig")
 sc.add("Drive", "Trigger_auger_stop", trig_feed, "trig")
-sc.add("Hoses", "Pilot_supply_stubs", hoses_s, "hose")
+sc.add("Air", "Pack_axle", pack_axle, "drive")
+sc.add("Air", "Bearing_front", brg_f, "brg")
+sc.add("Air", "Bearing_rear", brg_r, "brg")
+sc.add("Air", "Soft_coupling", soft_coup, "drive")
+sc.add("Air", "MQR_rotor", mqr_rotor, "mqr")
+sc.add("Air", "MQR_stator", mqr_stator, "mqr")
+sc.add("Air", "Buffer_tank", air_buffer, "buffer")
+sc.add("Air", "Deadman_valve", deadman, "deadman")
+sc.add("Air", "Supply_stub", air_supply, "hose")
+sc.add("Air", "M5_lines_to_R", hoses_s, "hose")
 
 for n, ang, u, dz, tag in phases:
     aw = math.radians(ang + FLIP_Z)
     sc.label("Labels", "%d° %s" % (ang, tag),
              ((R_PACK + 70) * math.cos(aw), (R_PACK + 70) * math.sin(aw),
               z_stop + cam_dz(ang)))
-sc.label("Labels", "frame · flush auger · 2 triggers · Ø%.0f" % case_od,
+sc.label("Labels", "MQR soft-coupled · buffer %.2f L · Ø%.0f" % (
+            BUFFER_VOL_L, case_od),
          (0, bb.YMax + 40, (bb.ZMin + bb.ZMax) / 2))
 
 sc.finish(hidden_groups=("Labels",), opaque_groups=())
