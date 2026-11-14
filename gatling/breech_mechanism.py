@@ -1202,12 +1202,12 @@ sc.add("Air", "M5_lines_to_R", hoses_s, "hose")
 
 
 def _arrow(p0, p1, r=1.4):
-    """Shaft + cone tip from p0 (label side) toward p1 (part)."""
+    """Shaft + cone tip from p0 (label) to p1 (on the named part)."""
     vec = p1.sub(p0)
     L = vec.Length
     if L < 12.0:
         return Part.makeSphere(r * 2, p0)
-    tip_L = min(12.0, L * 0.2)
+    tip_L = min(12.0, L * 0.18)
     direction = App.Vector(vec)
     shaft = Part.makeCylinder(r, L - tip_L, p0, direction)
     tip_base = p0.add(App.Vector(vec.x, vec.y, vec.z).multiply((L - tip_L) / L))
@@ -1218,40 +1218,70 @@ def _arrow(p0, p1, r=1.4):
         return Part.makeCompound([shaft, tip])
 
 
-# Russian callouts (one per subsystem). Positions after flip (+X top, −Y crank).
+def _c(shape):
+    b = shape.BoundBox.Center
+    return App.Vector(b.x, b.y, b.z)
+
+
+def _on(shape, guess):
+    """Snap guess onto the target solid (mm)."""
+    _d, pts, _info = shape.distToShape(Part.Vertex(guess))
+    p = pts[0][0]
+    return App.Vector(p.x, p.y, p.z)
+
+
+def _lab_xy(tip, dy, dz):
+    """Label offset in machine Y/Z — after VIEW_ROT that is screen X/Y.
+
+    Radial +X offsets look like depth arrows and land on the wrong part in iso.
+    """
+    return App.Vector(tip.x, tip.y + dy, tip.z + dz)
+
+
+# Tips snapped onto each solid (after flip: +X top, −Y crank).
+# Hopper = bin box on +X; шнек = feed tube at seat ring (hopper body, not screw).
+_hb = hopper.BoundBox
+_tip_hopper = _on(hopper, App.Vector(_hb.XMax, 0.0, _hb.Center.z + 8.0))
+_tip_auger = _on(hopper, App.Vector(r_case_od + 6.0, 28.0, z_feed))
+_ga = math.radians((GUARD_A + GUARD_B) / 2.0 + FLIP_Z)
+_tip_guard = _on(feed_guard, App.Vector(
+    r_guard_od * math.cos(_ga), r_guard_od * math.sin(_ga),
+    0.5 * (z_guard0 + z_guard1)))
+# Outer rim of front blue frame disk (+X top) — the spoked bearing seat.
+_tip_brg = _on(brg_f, App.Vector(r_case_od - 2.5, 0.0, _c(brg_f).z))
+# MQR rotor OD on +X, aft of soft coupling — not the buffer tank.
+_tip_mqr = _on(mqr_rotor, App.Vector(ROTOR_OD / 2.0, 0.0, _c(mqr_rotor).z))
+_tip_soft = _on(soft_coup, App.Vector(SOFT_OD / 2.0, 0.0, _c(soft_coup).z))
+_st = stations[3]
+_tip_station = _on(_st, _c(_st))
+_tip_pack = _on(front_plate, App.Vector(R_PACK, 0.0, 0.5 * (z_front0 + z_rear0)))
+_tip_cam = _on(cam, App.Vector(0.0, cam_od / 2.0, _c(cam).z))
+
 _show_labels = os.environ.get("SHOW_LABELS", "").strip().lower() in (
     "1", "true", "yes")
+# (text, tip on part, label dy, label dz) — dy/dz in machine frame → screen.
 _callouts = [
-    ("Станция", stations[2].BoundBox.Center),
-    ("Пакет", V(0, 0, 0.5 * (bb.ZMin + bb.ZMax))),
-    ("Кулачок", cam.BoundBox.Center),
-    ("Рукоять", crank.BoundBox.Center),
-    ("Муфта", trig_pack.BoundBox.Center),
-    ("Стоп подачи", trig_feed.BoundBox.Center),
-    ("Бункер", hopper.BoundBox.Center),
-    ("Шнек ×6", auger.BoundBox.Center),
-    ("Обойма", feed_guard.BoundBox.Center),
-    ("MQR", mqr_rotor.BoundBox.Center),
-    ("Буфер", air_buffer.BoundBox.Center),
-    ("Дедмен", deadman.BoundBox.Center),
-    ("Подшипники", brg_f.BoundBox.Center),
-    ("Ремень", sling.BoundBox.Center),
-    ("Ручка", carry_handle.BoundBox.Center),
+    ("Станция", _tip_station, 110.0, 40.0),
+    ("Пакет", _tip_pack, 40.0, 130.0),
+    ("Кулачок", _tip_cam, 100.0, -40.0),
+    ("Рукоять", _on(crank, _c(crank)), -90.0, 50.0),
+    ("Муфта", _tip_soft, 120.0, -20.0),
+    ("Стоп подачи", _on(trig_feed, _c(trig_feed)), -110.0, 70.0),
+    ("Бункер", _tip_hopper, -140.0, -30.0),
+    ("Шнек ×6", _tip_auger, 140.0, -40.0),
+    ("Обойма", _tip_guard, 30.0, -130.0),
+    ("MQR", _tip_mqr, 130.0, -40.0),
+    ("Буфер", _on(air_buffer, _c(air_buffer)), -90.0, -50.0),
+    ("Дедмен", _on(deadman, _c(deadman)), -110.0, 70.0),
+    ("Подшипники", _tip_brg, 150.0, -30.0),
+    ("Ремень", _on(sling, _c(sling)), -40.0, 110.0),
+    ("Ручка", _on(carry_handle, _c(carry_handle)), 50.0, 100.0),
 ]
-# Spread labels on a ring outside the gun for readable arrows.
-_r_lab = max(bb.XLength, bb.YLength) * 0.55 + 80.0
-_z_mid = 0.5 * (bb.ZMin + bb.ZMax)
-for _i, (_txt, _tgt) in enumerate(_callouts):
-    _ang = math.radians(12.0 + _i * (360.0 / len(_callouts)))
-    # Prefer top/side hemisphere for readability after iso view.
-    _lab = V(_r_lab * math.cos(_ang), _r_lab * math.sin(_ang),
-             _z_mid + 40.0 * math.sin(_ang * 0.5))
-    # Tip points at the part; shaft starts near the label.
-    _p0 = _lab
-    _p1 = App.Vector(_tgt.x, _tgt.y, _tgt.z)
+for _i, (_txt, _tip, _dy, _dz) in enumerate(_callouts):
+    _lab = _lab_xy(_tip, _dy, _dz)
     if _show_labels:
-        sc.add("Callouts", "Arrow_%d" % _i, _arrow(_p0, _p1), "callout")
-        sc.label("Labels", _txt, (_lab.x, _lab.y, _lab.z + 8.0))
+        sc.add("Callouts", "Arrow_%d" % _i, _arrow(_lab, _tip), "callout")
+        sc.label("Labels", _txt, (_lab.x, _lab.y, _lab.z))
 
 if not _show_labels:
     for n, ang, u, dz, tag in phases:
