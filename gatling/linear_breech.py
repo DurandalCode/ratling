@@ -83,13 +83,19 @@ CARR_WEB = 6.0
 
 # Barrel clamps: two split rings on the real barrel (breech + forward) for coax.
 # Both sit on the rails; two points beat one for barrel/QEV alignment.
+# Flush M3 through the ring wall (no external bolt lugs) — hex pack neighbour
+# gap is then set by clamp OD / yoke ears, not by tangential lug ears.
 CLAMP_L = 28.0
 CLAMP_OD = BARREL_OD + 14.0
-CLAMP_BOLT_R = CLAMP_OD / 2 + 4.0
 CLAMP_BOLT = 3.4                 # M3 through the halves
-CLAMP_GAP = 1.0                  # split at ±Y so top feed is not blocked by a bridge
+CLAMP_BOLT_X = 0.25 * (BARREL_OD + 0.3 + CLAMP_OD)  # mid-wall, ±X
+CLAMP_GAP = 1.0                  # split at Y=0 (top/bottom); feed on +Y
 CLAMP_SPAN = 70.0                # clear gap between breech clamp and forward collar
-BARREL_SHOW = 160.0              # fixed barrel drawn ahead of the breech clamp
+# Fixed barrel drawn ahead of the breech clamp. Override before exec (breech_pack 2×).
+try:
+    BARREL_SHOW
+except NameError:
+    BARREL_SHOW = 160.0
 # Forward QEV bushings: second rail guide under the chamber front (rear bushings
 # stay on the rear-plug bridge). Span along Z ≈ chamber length for coax to the bore.
 NOSE_BUSH_L = BUSH_L
@@ -306,12 +312,10 @@ rails_s = G.fuse_all(rails)
 
 # ---------------------------------------------------------------- barrel clamps (printed, two halves each)
 def make_barrel_clamp(z0, z1, feed_notch=False):
-    """Split L/R ring on the barrel with feet on the rails."""
+    """Top/bottom split ring on the barrel with feet on the rails."""
     ring = tube(CLAMP_OD, BARREL_OD + 0.3, z0, z1)
     for sx in (-1, 1):
-        lug = G.cyl(8.0, z0, z1, sx * CLAMP_BOLT_R, 0.0).cut(
-            G.cyl(CLAMP_BOLT, z0 - 1, z1 + 1, sx * CLAMP_BOLT_R, 0.0))
-        ring = ring.fuse(lug)
+        ring = ring.cut(G.cyl(CLAMP_BOLT, z0 - 1, z1 + 1, sx * CLAMP_BOLT_X, 0.0))
     for x, y in rail_centers():
         foot = G.cyl(BUSH_OD, z0, z1, x, y).cut(
             G.cyl(RAIL_HOLE, z0 - 1, z1 + 1, x, y))
