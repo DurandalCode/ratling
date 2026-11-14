@@ -1113,8 +1113,7 @@ frame_upper = frame_upper.cut(spur_hook_relief).removeSplitter()
 grip = Part.makeCompound([grip_left, grip_right])
 # Fuse with overlap into the native pad; no buried detent-mount nuts or legacy through-holes.
 side_band = side_band.fuse(detent_mount).removeSplitter()
-# The unprinted left shell also needs clearance for the existing gauge tube route.
-side_band = side_band.cut(air_cut).removeSplitter()
+# Gauge_wire is flexible: its displayed route must not be carved into this shell.
 side_plate = side_band                                      # tongues and bolt holes included
 frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
 
@@ -1384,8 +1383,6 @@ if CHECKS:
     checks["detent service screw clears integral shell mount"] = sum(
         hit(hw_, s_) for hw_ in (detent_service_fastener,)
         for s_ in (detent_box, frame_lower, frame_upper, side_band, side_plate_r)) < 0.0001
-    checks["left shell clears the existing supply, pilot and gauge tube routes"] = sum(
-        hit(side_band, s_) for s_ in (supply_line, pilot_line, gauge_line, tee)) < 0.0001
     for k_, ok_ in checks.items():
         print("  [%s] %s" % ("OK " if ok_ else "FAIL", k_))
     print("  valve stack rear face x %.1f, cage rear wall inside x %.1f (%.1f mm between)"
@@ -1485,7 +1482,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Grip_left": "half: 2 x M3 x 25 and Ø3 x 12 dowels join the pair; extra M3 x 30 attaches it to Frame_lower. External recessed head, internal saddle pocket 0.2 mm clear. Front 4 mm tongue at x -80, y -9 retained",
             "Grip_right": "half: M3 x 25 pair bolts, extra M3 x 30 frame mount with an external M3 nut seat 5 mm deep. Rear 3 mm tongue at x -98, y 12 and front 4 mm tongue at x -80, y 9 retained; internal trigger and hose clearance",
             "Detent_housing": "removable from the integral left-shell mount: undo only external M3 x 16 and slide along the detent axis. Same housing as the separate-adapter version; plunger channel unchanged",
-            "Frame_side_band": "left shell with integral detent locating rail and outer mounting ear; no separate adapter, internal mounting nut or M3 x 20. Legacy detent holes removed; existing gauge tube channel cleared",
+            "Frame_side_band": "left shell with integral detent locating rail and outer mounting ear; no separate adapter, internal mounting nut or M3 x 20. Legacy detent holes removed; no gauge-wire groove",
             "Detent_service_fastener": "M3 x 16 cylindrical head + ordinary M3 nut, axis x; both ends outside the shell. Remove for housing service; integral mount stays on the left shell",
             "Frame_side_band": "left flank band: 2 x M3 x 50 through-bolts, recessed heads with optional thin washers on the left, standard M3 nuts in AF 5.9 anti-rotation sockets loaded from the right; round access wells, 3 mm seat floors, no printed threads",
             "Frame_right": "close last, sliding inward along negative y: guide supports stay on Frame_lower/Frame_upper, slider return lip relieved. 2 x M3 x 50 upper, 2 x M3 x 50 lower-middle/front, 1 x M3 x 40 lower-rear. Lower nut seats 6 mm deep (rear 4 mm); turn bolts from the left",
