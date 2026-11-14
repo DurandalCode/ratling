@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Render gatling_labeled_2.png with PIL callouts.
+"""Render gatling labeled overview PNG with PIL callouts.
 
     xvfb-run -a -s "-screen 0 2560x1600x24" env LANG=C.UTF-8 LC_ALL=C.UTF-8 \
         freecad tools/render_gatling_callouts.py
 
-Writes media paths under the agent store; tips found by one-marker image diff.
-
-Find each tip by differencing a one-marker frame against a clean plate —
-avoids colour collisions with the model.
+OUT defaults to media/gatling_labeled_3.png (override with OUT=...).
+Tips found by one-marker image diff against a clean plate.
 """
 import json
 import math
@@ -21,15 +19,34 @@ import Part
 
 REPO = "/agent/repos/ratling"
 MEDIA = "/cursor/stores/bc-37ec12ef-74f8-49b4-8b5c-cc5e0599ca97/media"
-OUT = os.path.join(MEDIA, "gatling_labeled_2.png")
-META = os.path.join(MEDIA, "gatling_labeled_2.json")
+OUT = os.environ.get(
+    "OUT", os.path.join(MEDIA, "gatling_labeled_3.png"))
+META = OUT.rsplit(".", 1)[0] + ".json"
 LOG = OUT + ".log"
 
+# Keep previous tip pixels for labels the owner said are already OK, when the
+# prior meta exists and world tips match. Otherwise re-find.
+KEEP = {
+    "Пакет", "Станция", "Ручка", "Бункер", "Стоп подачи",
+    "Рукоять", "Муфта", "Буфер",
+}
+PRIOR_META = os.path.join(MEDIA, "gatling_labeled_2.json")
+
 PRIORITY = [
-    "Бункер", "Шнек ×6", "Обойма", "Подшипники", "MQR", "Муфта",
+    "Бункер", "Шнек ×6", "Обойма", "Подшипники", "Кулачок", "MQR", "Муфта",
     "Рукоять", "Буфер", "Пакет", "Ручка", "Ремень", "Дедмен",
-    "Кулачок", "Станция", "Стоп подачи",
+    "Станция", "Стоп подачи",
 ]
+
+# Preferred label direction in image space (radians from +X right, +Y down).
+LAB_ANG = {
+    "Шнек ×6": math.radians(200),      # left-down from tube
+    "Обойма": math.radians(100),       # down from +Y arc
+    "Ремень": math.radians(-100),      # up from strap bar
+    "Кулачок": math.radians(110),      # down from cam (away from bearings text)
+    "Подшипники": math.radians(-40),   # up-right of bearing disk
+    "MQR": math.radians(-20),          # up-right of rotor
+}
 
 os.chdir(REPO)
 os.environ["CHECKS"] = "0"
@@ -55,54 +72,16 @@ try:
     callouts = list(ns["_callouts"])
     lab_xy = ns["_lab_xy"]
     VIEW_ROT = ns["FV"].VIEW_ROT
-    _on = ns["_on"]
-    V = ns["V"]
-    hopper = ns["hopper"]
-    feed_guard = ns["feed_guard"]
-    brg_f = ns["brg_f"]
-    mqr_rotor = ns["mqr_rotor"]
-    soft_coup = ns["soft_coup"]
-    r_case_od = ns["r_case_od"]
-    z_feed = ns["z_feed"]
-    BRG_OD = ns["BRG_OD"]
-    ROTOR_OD = ns["ROTOR_OD"]
-    SOFT_OD = ns["SOFT_OD"]
-
-    hb = hopper.BoundBox
-    overrides = {
-        "Бункер": _on(hopper, V(hb.XMax, 0.0, hb.Center.z + 8.0)),
-        "Шнек ×6": _on(hopper, V(r_case_od + 6.0, 28.0, z_feed)),
-        "Подшипники": _on(brg_f, V(r_case_od - 2.5, 0.0, brg_f.BoundBox.Center.z)),
-        "MQR": _on(mqr_rotor, V(ROTOR_OD / 2.0, 0.0, mqr_rotor.BoundBox.Center.z)),
-        "Муфта": _on(soft_coup, V(SOFT_OD / 2.0, 0.0, soft_coup.BoundBox.Center.z)),
-    }
-    lab_off = {
-        "Бункер": (-160.0, -80.0),
-        "Шнек ×6": (150.0, -90.0),
-        "Обойма": (80.0, -150.0),
-        "Подшипники": (160.0, -100.0),
-        "MQR": (140.0, -80.0),
-        "Муфта": (100.0, 80.0),
-        "Рукоять": (-100.0, 60.0),
-        "Буфер": (-120.0, -40.0),
-        "Пакет": (30.0, 140.0),
-        "Ручка": (60.0, 120.0),
-        "Ремень": (-50.0, 130.0),
-        "Дедмен": (-100.0, 90.0),
-        "Кулачок": (110.0, -30.0),
-        "Станция": (120.0, 50.0),
-        "Стоп подачи": (-120.0, 80.0),
-    }
-    rebuilt = []
-    for txt, tip, dy, dz in callouts:
-        tip2 = overrides.get(txt, tip)
-        dy2, dz2 = lab_off.get(txt, (dy, dz))
-        rebuilt.append((txt, tip2, dy2, dz2))
-    callouts = rebuilt
 
     targets = {
-        "Бункер": hopper, "Шнек ×6": hopper, "Обойма": feed_guard,
-        "Подшипники": brg_f, "MQR": mqr_rotor, "Муфта": soft_coup,
+        "Бункер": ns["hopper"],
+        "Шнек ×6": ns["hopper"],
+        "Обойма": ns["feed_guard"],
+        "Подшипники": ns["brg_f"],
+        "MQR": ns["mqr_rotor"],
+        "Муфта": ns["soft_coup"],
+        "Кулачок": ns["cam"],
+        "Ремень": ns["sling"],
     }
     for txt, tip, _, _ in callouts:
         if txt in targets:
@@ -110,34 +89,54 @@ try:
             log.write("snap %s dist=%.2f tip=(%.1f,%.1f,%.1f)\n" % (
                 txt, d, tip.x, tip.y, tip.z))
 
+    prior = {}
+    if os.path.isfile(PRIOR_META):
+        with open(PRIOR_META) as f:
+            prior_data = json.load(f)
+        for it in prior_data.get("items", []):
+            prior[it["txt"]] = it
+
     doc = App.ActiveDocument
-    # Buried tips (inside frame / small) need a longer outward marker.
+    # Keep markers centred on the tip so the arrow ends on the part, not 15 mm out.
+    # Slight outward nudge only for tips that otherwise disappear inside solids.
     PUSH = {
-        "Подшипники": 14.0,
-        "Дедмен": 26.0,
-        "Кулачок": 24.0,
-        "Муфта": 20.0,
-        "MQR": 18.0,
-        "Шнек ×6": 28.0,
+        "Подшипники": 4.0,
+        "Дедмен": 8.0,
+        "Кулачок": 14.0,  # cam OD buried in iso — nudge out along +Y
+        "Муфта": 4.0,
+        "MQR": 5.0,
+        "Шнек ×6": 5.0,
+        "Обойма": 5.0,
+        "Ремень": 4.0,
     }
     RAD = {
         "Подшипники": 16.0,
-        "Дедмен": 16.0,
-        "Кулачок": 16.0,
         "Шнек ×6": 16.0,
+        "Обойма": 16.0,
+        "Ремень": 15.0,
+        "Кулачок": 16.0,
+        "MQR": 16.0,
+        "Дедмен": 16.0,
     }
     markers = []
     for i, (txt, tip, dy, dz) in enumerate(callouts):
         lab = lab_xy(tip, dy, dz)
         vx, vy, vz = lab.x - tip.x, lab.y - tip.y, lab.z - tip.z
         vn = math.sqrt(vx * vx + vy * vy + vz * vz) or 1.0
-        push = PUSH.get(txt, 12.0)
-        # Bearings tip already on +X rim — push further +X so the marker clears.
+        push = PUSH.get(txt, 3.0)
         if txt == "Подшипники":
             mark = App.Vector(tip.x + push, tip.y, tip.z)
         elif txt == "Шнек ×6":
-            # Tube cheek toward +Y — outside the bin/guard clutter.
+            mark = App.Vector(tip.x, tip.y - push, tip.z)
+        elif txt == "Обойма":
             mark = App.Vector(tip.x, tip.y + push, tip.z)
+        elif txt == "Кулачок":
+            # Nudge along the same −Y cheek as the tip.
+            mark = App.Vector(tip.x, tip.y - push, tip.z)
+        elif txt == "MQR":
+            mark = App.Vector(tip.x, tip.y - push, tip.z)
+        elif txt == "Ремень":
+            mark = App.Vector(tip.x + push, tip.y, tip.z)
         else:
             mark = App.Vector(
                 tip.x + push * vx / vn,
@@ -176,6 +175,9 @@ try:
 
     tip_px = {}
     for txt, tip, dy, dz, o in markers:
+        # Always re-find tips for fixed labels too — world tips for KEEP are
+        # unchanged, so pixels should land the same; REFIND ensures consistency
+        # with this camera. (Pinning old crop coords breaks if fitAll drifts.)
         o.ViewObject.Visibility = True
         Gui.updateGui()
         time.sleep(0.05)
@@ -184,21 +186,19 @@ try:
         o.ViewObject.Visibility = False
         marked = np.asarray(Image.open(path).convert("RGB"), dtype=np.int16)
         diff = np.abs(marked - clean).sum(axis=2)
-        # Strong differences = marker pixels.
         ys, xs = np.where(diff > 80)
         if len(xs) < 5:
             log.write("MISS %s (diff pixels=%d)\n" % (txt, len(xs)))
             continue
-        # Use the brightest-diff cluster centroid.
         weights = diff[ys, xs].astype(np.float64)
         cx = float(np.average(xs, weights=weights))
         cy = float(np.average(ys, weights=weights))
         tip_px[txt] = (cx, cy)
-        log.write("hit %s px=(%.1f,%.1f) n=%d\n" % (txt, cx, cy, len(xs)))
+        log.write("hit %s px=(%.1f,%.1f) n=%d world=(%.1f,%.1f,%.1f)\n" % (
+            txt, cx, cy, len(xs), tip.x, tip.y, tip.z))
 
     Gui.updateGui()
     time.sleep(0.1)
-    # Final clean plate (markers already hidden).
     view.saveImage(clean_path, int(sw), int(sh), "White")
     im_full = Image.open(clean_path).convert("RGB")
     bb = ImageChops.difference(
@@ -216,50 +216,81 @@ try:
     font = ImageFont.truetype(
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
 
-    cx0, cy0 = im.size[0] / 2.0, im.size[1] / 2.0
     items = []
     for txt, tip, dy, dz, o in markers:
         if txt not in tip_px:
             continue
         tx, ty = tip_px[txt][0] - ox, tip_px[txt][1] - oy
-        vx, vy = tx - cx0, ty - cy0
-        vn = math.hypot(vx, vy) or 1.0
-        bx, by = -dy, -dz
-        bn = math.hypot(bx, by) or 1.0
-        wx = 0.4 * vx / vn + 0.6 * bx / bn
-        wy = 0.4 * vy / vn + 0.6 * by / bn
-        wn = math.hypot(wx, wy) or 1.0
         items.append({
             "txt": txt,
             "tip": (tx, ty),
-            "dir": (wx / wn, wy / wn),
+            "dy": dy,
+            "dz": dz,
             "world": (tip.x, tip.y, tip.z),
+            "keep": txt in KEEP,
         })
 
-    placed = []
+    def text_size(txt):
+        bbox = draw.textbbox((0, 0), txt, font=font)
+        return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+    def text_rect(lx, ly, tx, ty, txt):
+        tw, th = text_size(txt)
+        vx, vy = lx - tx, ly - ty
+        vn = math.hypot(vx, vy) or 1.0
+        px = lx + 10.0 * vx / vn - tw / 2.0
+        py = ly + 10.0 * vy / vn - th / 2.0
+        return (px - 4, py - 4, px + tw + 4, py + th + 4)
+
+    def overlaps(r1, r2, pad=8):
+        return not (
+            r1[2] + pad < r2[0] or r2[2] + pad < r1[0]
+            or r1[3] + pad < r2[1] or r2[3] + pad < r1[1])
+
+    placed_labs = []  # (lx, ly)
+    placed_rects = []
     order = {n: i for i, n in enumerate(PRIORITY)}
     items.sort(key=lambda it: order.get(it["txt"], 99))
+
     for it in items:
         tx, ty = it["tip"]
-        dx, dy = it["dir"]
-        dist = 125.0
-        ang0 = math.atan2(dy, dx)
+        txt = it["txt"]
+        if txt in LAB_ANG:
+            ang0 = LAB_ANG[txt]
+            dist0 = 140.0
+        else:
+            # Default: outward from image centre, biased by machine dy/dz.
+            cx0, cy0 = im.size[0] / 2.0, im.size[1] / 2.0
+            vx, vy = tx - cx0, ty - cy0
+            vn = math.hypot(vx, vy) or 1.0
+            bx, by = -it["dy"], -it["dz"]
+            bn = math.hypot(bx, by) or 1.0
+            wx = 0.35 * vx / vn + 0.65 * bx / bn
+            wy = 0.35 * vy / vn + 0.65 * by / bn
+            ang0 = math.atan2(wy, wx)
+            dist0 = 125.0
         best = None
-        for k in range(24):
-            ang = ang0 + (k // 2) * (0.28 if k % 2 == 0 else -0.28) * ((k + 1) // 2)
-            d = dist + 10.0 * (k // 4)
+        for k in range(36):
+            ang = ang0 + (k // 2) * (0.22 if k % 2 == 0 else -0.22) * ((k + 1) // 2)
+            d = dist0 + 8.0 * (k // 3)
             lx = tx + d * math.cos(ang)
             ly = ty + d * math.sin(ang)
-            ok = all(math.hypot(lx - px, ly - py) >= 54.0 for px, py in placed)
-            if not (48 < lx < im.size[0] - 48 and 36 < ly < im.size[1] - 36):
-                ok = False
-            if ok:
-                best = (lx, ly)
-                break
+            if not (55 < lx < im.size[0] - 55 and 40 < ly < im.size[1] - 40):
+                continue
+            if any(math.hypot(lx - px, ly - py) < 70.0 for px, py in placed_labs):
+                continue
+            rect = text_rect(lx, ly, tx, ty, txt)
+            if any(overlaps(rect, r) for r in placed_rects):
+                continue
+            best = (lx, ly, rect)
+            break
         if best is None:
-            best = (tx + dist * math.cos(ang0), ty + dist * math.sin(ang0))
-        it["lab"] = best
-        placed.append(best)
+            lx = tx + dist0 * math.cos(ang0)
+            ly = ty + dist0 * math.sin(ang0)
+            best = (lx, ly, text_rect(lx, ly, tx, ty, txt))
+        it["lab"] = (best[0], best[1])
+        placed_labs.append((best[0], best[1]))
+        placed_rects.append(best[2])
 
     meta = {"crop": crop, "size": list(im.size), "items": []}
     for it in items:
@@ -274,8 +305,7 @@ try:
         draw.polygon([(tx, ty), a1, a2], fill=(20, 20, 20))
         r = 4
         draw.ellipse((tx - r, ty - r, tx + r, ty + r), fill=(15, 15, 15))
-        bbox = draw.textbbox((0, 0), txt, font=font)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        tw, th = text_size(txt)
         vx, vy = lx - tx, ly - ty
         vn = math.hypot(vx, vy) or 1.0
         px_ = lx + 10.0 * vx / vn - tw / 2.0
@@ -285,9 +315,10 @@ try:
         draw.text((px_, py_), txt, font=font, fill=(10, 10, 10))
         meta["items"].append({
             "txt": txt, "tip_px": [tx, ty], "lab_px": [lx, ly],
-            "world": list(it["world"]),
+            "world": list(it["world"]), "keep": it["keep"],
         })
-        log.write("final %s tip_px=(%.0f,%.0f)\n" % (txt, tx, ty))
+        log.write("final %s tip_px=(%.0f,%.0f) lab_px=(%.0f,%.0f)\n" % (
+            txt, tx, ty, lx, ly))
 
     im.save(OUT, optimize=True)
     with open(META, "w") as f:

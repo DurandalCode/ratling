@@ -1239,23 +1239,29 @@ def _lab_xy(tip, dy, dz):
 
 
 # Tips snapped onto each solid (after flip: +X top, −Y crank).
-# Hopper = bin box on +X; шнек = feed tube at seat ring (hopper body, not screw).
 _hb = hopper.BoundBox
 _tip_hopper = _on(hopper, App.Vector(_hb.XMax, 0.0, _hb.Center.z + 8.0))
-_tip_auger = _on(hopper, App.Vector(r_case_od + 6.0, 28.0, z_feed))
-_ga = math.radians((GUARD_A + GUARD_B) / 2.0 + FLIP_Z)
+# Feed tube at seat ring (hopper body cheek), not a barrel and not the bin.
+_tip_auger = _on(hopper, App.Vector(r_case_od + 2.0, -22.0, z_feed))
+# Guard arc apex on +Y — side clear of the barrel cluster in iso.
 _tip_guard = _on(feed_guard, App.Vector(
-    r_guard_od * math.cos(_ga), r_guard_od * math.sin(_ga),
-    0.5 * (z_guard0 + z_guard1)))
-# Outer rim of front blue frame disk (+X top) — the spoked bearing seat.
+    0.0, r_guard_od, 0.5 * (z_guard0 + z_guard1)))
+# Blue frame-disk rim on +X (top) — spoked bearing seat; labels fan away from cam.
 _tip_brg = _on(brg_f, App.Vector(r_case_od - 2.5, 0.0, _c(brg_f).z))
-# MQR rotor OD on +X, aft of soft coupling — not the buffer tank.
-_tip_mqr = _on(mqr_rotor, App.Vector(ROTOR_OD / 2.0, 0.0, _c(mqr_rotor).z))
+# MQR rotor OD on −Y, aft of soft coupling — not buffer / not station.
+_tip_mqr = _on(mqr_rotor, App.Vector(0.0, -ROTOR_OD / 2.0, _c(mqr_rotor).z))
 _tip_soft = _on(soft_coup, App.Vector(SOFT_OD / 2.0, 0.0, _c(soft_coup).z))
 _st = stations[3]
 _tip_station = _on(_st, _c(_st))
 _tip_pack = _on(front_plate, App.Vector(R_PACK, 0.0, 0.5 * (z_front0 + z_rear0)))
-_tip_cam = _on(cam, App.Vector(0.0, cam_od / 2.0, _c(cam).z))
+# Cam liner track toward −Y (crank side) — clear of +X bearings and hopper/шнек.
+_a_cam = math.radians(-45.0)
+_tip_cam = _on(cam, App.Vector(
+    (cam_od / 2.0) * math.cos(_a_cam),
+    (cam_od / 2.0) * math.sin(_a_cam),
+    _c(cam).z))
+# Black strap bar well aft of the carry handle (distinct from ручка / hopper).
+_tip_sling = _on(sling, App.Vector(sling.BoundBox.XMax - 1.0, 0.0, z_cg - 90.0))
 
 _show_labels = os.environ.get("SHOW_LABELS", "").strip().lower() in (
     "1", "true", "yes")
@@ -1263,18 +1269,18 @@ _show_labels = os.environ.get("SHOW_LABELS", "").strip().lower() in (
 _callouts = [
     ("Станция", _tip_station, 110.0, 40.0),
     ("Пакет", _tip_pack, 40.0, 130.0),
-    ("Кулачок", _tip_cam, 100.0, -40.0),
+    ("Кулачок", _tip_cam, -120.0, 80.0),
     ("Рукоять", _on(crank, _c(crank)), -90.0, 50.0),
     ("Муфта", _tip_soft, 120.0, -20.0),
     ("Стоп подачи", _on(trig_feed, _c(trig_feed)), -110.0, 70.0),
     ("Бункер", _tip_hopper, -140.0, -30.0),
-    ("Шнек ×6", _tip_auger, 140.0, -40.0),
-    ("Обойма", _tip_guard, 30.0, -130.0),
-    ("MQR", _tip_mqr, 130.0, -40.0),
+    ("Шнек ×6", _tip_auger, -150.0, 40.0),
+    ("Обойма", _tip_guard, 40.0, -140.0),
+    ("MQR", _tip_mqr, -140.0, 60.0),
     ("Буфер", _on(air_buffer, _c(air_buffer)), -90.0, -50.0),
     ("Дедмен", _on(deadman, _c(deadman)), -110.0, 70.0),
-    ("Подшипники", _tip_brg, 150.0, -30.0),
-    ("Ремень", _on(sling, _c(sling)), -40.0, 110.0),
+    ("Подшипники", _tip_brg, 160.0, -80.0),
+    ("Ремень", _tip_sling, 40.0, 140.0),
     ("Ручка", _on(carry_handle, _c(carry_handle)), 50.0, 100.0),
 ]
 for _i, (_txt, _tip, _dy, _dz) in enumerate(_callouts):
