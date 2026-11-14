@@ -589,11 +589,12 @@ sector_spacer = (cyl_x(SECTOR_SPACER["od"], SECTOR_SPACER["x_rear"], SECTOR_SPAC
 
 # ---------------------------------------------------------------- trigger: one stage, onto the vertical vent valve
 # A sickle lever hanging down off the back-set pivot at rest: the finger face hollowed (the pad sits
-# in it), the claw curling forward at the end. The separate rigid pad has a rounded button contact
-# and a stop beside it. The pull first closes a 0.3 mm gap, then moves the button 2.6 mm
+# in it), the claw curling forward at the end. A separately printed carrier retains the steel button pin.
+# Its ledge stops against the valve body. The pull closes a 0.3 mm gap, then moves the button 2.6 mm
 # (the click is at 2.0); the finger face sits nearer the grip in the middle of the guard.
 TRIGGER_WIDTH = 6.0
-TRIGGER_CAM_X, TRIGGER_CAM_Z, TRIGGER_CAM_R = -11.5, -3.3, 1.8
+TRIGGER_CAM_X, TRIGGER_CAM_Z, TRIGGER_CAM_R = -11.5, -3.0, 1.5
+TRIGGER_PIN_D, TRIGGER_PIN_L, TRIGGER_PIN_Y = 3.0, 24.0, 1.0
 TRIGGER_PAD_T, TRIGGER_TARGET_PUSH = 8.0, 2.6
 TRIGGER_OUTLINE = [(0.0, 3.3), (4.0, 2.0), (8.0, 1.0), (9.5, -4.0), (8.0, -11.0), (7.0, -17.0),
                    (7.2, -22.0), (8.6, -23.5), (11.0, -25.5), (13.5, -26.5), (12.5, -28.0), (9.0, -28.0),
@@ -631,31 +632,30 @@ def _trigger_blank():
 
 
 def _trigger_mount_parts():
-    # Separate prints put the lever and the long pad's bending loads in their layer planes.
+    # The lever and pin carrier print in their own bending planes.
     body = _trigger_blank().cut(box(-20, 0, 3, 30, -16, 4)).fuse(box(-12.5, -2.5, -3, 3, -14, 1.5)).removeSplitter()
-    # The broad y=3 mating faces are pulled together by an M3 bolt along y.
-    # The shallow rectangular key locates the pad; it does not carry bending across a loose dovetail.
     body = body.cut(box(-12.5, -6.5, 2.2, 4.1, -11.8, -2.8)).removeSplitter()
     key = box(-12.35, -6.65, 2.4, 3.2, -11.65, -2.95)
-    pad = box(-13, -6, 3, 26, TRIGGER_CAM_Z - TRIGGER_PAD_T, TRIGGER_CAM_Z).fuse(key)
+    pad = box(-13, -6, 3, 26, -3.3 - TRIGGER_PAD_T, -3.3).fuse(key)
     pad = pad.fuse(box(-13, -6, 3, 12, -13.5, _LUG_Z - 0.3)).removeSplitter()
-    _plunger_y = VENT_Y0 + AIRTAC["T"] / 2
-    pad = pad.fuse(Part.makeCylinder(TRIGGER_CAM_R, 8, V(TRIGGER_CAM_X, _plunger_y - 4, TRIGGER_CAM_Z), YA))
-    # Rounded contact avoids wedging the button with the rear edge of a tilting flat pad.
+    pad = pad.fuse(Part.makeCylinder(2.1, 4, V(TRIGGER_CAM_X, 3, TRIGGER_CAM_Z), YA))
+    pad = pad.fuse(box(-13.3, -9.3, 25.15, 26, TRIGGER_CAM_Z - 3, TRIGGER_CAM_Z + 1.2))
     pad = pad.fuse(box(-13, -10, 8, 12, TRIGGER_CAM_Z, _LUG_Z)).removeSplitter()
     # Keep the root clear through the stroke plus 2 degrees for valve seating and print tolerances.
     keep = _rot_y(box(TRIGGER_PIVOT.x - 14.7, 100, -100, 100, -200, 100), TRIGGER_PIVOT, -(TRIGGER_TRAVEL + 2.0)).translated(-TRIGGER_PIVOT)
     body, pad = body.common(keep).removeSplitter(), pad.common(keep).removeSplitter()
     x, z = -9.5, -7.0
     bore = Part.makeCylinder(1.7, 34, V(x, -4, z), YA)
-    head = Part.makeCylinder(3.2, 3.5, V(x, -4, z), YA)   # open the edge cleanly; R3 would be tangent to x=-12.5
-    nut = _drive_hex_y(x, z, 8.5, 11.2, 5.9).fuse(box(-20, x, 8.5, 11.2, z - 3.4, z + 3.4))
+    head = Part.makeCylinder(3.2, 3.5, V(x, -4, z), YA)
+    nut = _drive_hex_y(x, z, 8.5, 11.2, 5.9).fuse(box(x, 0, 8.5, 11.2, z - 3.4, z + 3.4))
     body = body.cut(bore).cut(head).removeSplitter()
     pad = pad.cut(bore).cut(nut).removeSplitter()
+    pin_hole = Part.makeCylinder(1.6, 24.3, V(TRIGGER_CAM_X, 0.85, TRIGGER_CAM_Z), YA)
+    body = body.cut(pin_hole).removeSplitter()
+    pad = pad.cut(pin_hole).removeSplitter()
     screw = Part.makeCylinder(1.5, 12, V(x, -0.5, z), YA).fuse(Part.makeCylinder(2.75, 3, V(x, -3.5, z), YA))
     nut = _drive_hex_y(x, z, 8.5, 10.9, 5.5).cut(bore)
     return body, pad, Part.makeCompound([screw, nut])
-
 
 
 # ---------------------------------------------------------------- vent valve: an AirTAC M3R110-06 without its roller
@@ -717,7 +717,9 @@ _theta = math.radians(TRIGGER_TRAVEL)
 _LUG_Z = (VENT_Z0 - TRIGGER_PIVOT.z + _LUG_X * math.sin(_theta)) / math.cos(_theta)
 _z_at = lambda deg: TRIGGER_PIVOT.z - _LUG_X * math.sin(math.radians(deg)) + _LUG_Z * math.cos(math.radians(deg))
 TRIGGER_BODY, TRIGGER_PAD, TRIGGER_PAD_FASTENER = _trigger_mount_parts()
-TRIGGER = Part.makeCompound([TRIGGER_BODY, TRIGGER_PAD])
+TRIGGER_PIN = Part.makeCylinder(TRIGGER_PIN_D / 2, TRIGGER_PIN_L, V(TRIGGER_CAM_X, TRIGGER_PIN_Y, TRIGGER_CAM_Z), YA)
+TRIGGER = Part.makeCompound([TRIGGER_BODY, TRIGGER_PAD, TRIGGER_PIN])
+
 
 
 def vent_port(name):
@@ -776,13 +778,14 @@ def pose(st):
             "Crank_fastener": _rot_y(CRANK_FASTENER, H, hammer_rot(c)),
             "Trigger": _rot_y(TRIGGER_BODY.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
             "Trigger_pad": _rot_y(TRIGGER_PAD.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
-            "Trigger_pad_fastener": _rot_y(TRIGGER_PAD_FASTENER.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"])} | ({} if FLEX_PAWL else {"Pawl": turned(tooth_, sec)}) \
+            "Trigger_pad_fastener": _rot_y(TRIGGER_PAD_FASTENER.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
+            "Trigger_pin": _rot_y(TRIGGER_PIN.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"])} \
+        | ({} if FLEX_PAWL else {"Pawl": turned(tooth_, sec)}) \
         | ({} if LOCKLESS else {"Sleeve": lock_sleeve(lock_h(c)), "Pusher": pusher_shape(lock_h(c))})
 
 
 STYLE = dict(STYLE)
-STYLE.update({"Crank_fastener": ((0.75, 0.75, 0.78), 0), "Hammer": ((0.35, 0.25, 0.2), 0), "Pusher": ((0.75, 0.45, 0.85), 0)})
-STYLE.update({"Trigger_pad": ((0.25, 0.55, 0.8), 0), "Trigger_pad_fastener": ((0.75, 0.75, 0.78), 0)})
+STYLE.update({"Trigger_pad": ((0.25, 0.55, 0.8), 0), "Trigger_pad_fastener": ((0.75, 0.75, 0.78), 0), "Trigger_pin": ((0.75, 0.75, 0.78), 0), "Crank_fastener": ((0.75, 0.75, 0.78), 0), "Hammer": ((0.35, 0.25, 0.2), 0), "Pusher": ((0.75, 0.45, 0.85), 0)})
 STYLE.update({"Slider_cap": ((0.25, 0.55, 0.8), 0), "Slider_cap_fastener": ((0.75, 0.75, 0.78), 0)})
 for k in ("Lever", "Wedge"):
     STYLE.pop(k, None)
@@ -818,7 +821,7 @@ for i in range(11):
                       % (c, hammer_rot(c), slider_z(c), sector_turn(c), block_drive(c), "" if LOCKLESS else "  lock %.2f" % lock_h(c)))
 for tg in (0.0, 0.5, 1.0):                       # trigger stroke with the hammer down
     sh = pose(dict(cock=0.0, block=0.0, bend=0.0, trig=tg))
-    for a_ in ("Trigger", "Trigger_pad", "Trigger_pad_fastener"):
+    for a_ in ("Trigger", "Trigger_pad", "Trigger_pad_fastener", "Trigger_pin"):
         for fx_, s_ in FIXED.items():
             worst[(a_, fx_)] = max(worst.get((a_, fx_), 0.0), sh[a_].common(s_).Volume)
         worst[(a_, "Hammer")] = max(worst.get((a_, "Hammer"), 0.0), sh[a_].common(sh["Hammer"]).Volume)
