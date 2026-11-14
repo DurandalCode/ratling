@@ -433,7 +433,7 @@ guard = guard.cut(_guard_rear_shaft).removeSplitter()
 _tick('chin + guard built')
 
 # ---------------------------------------------------------------- detent housing
-# Permanent shoe uses the original shell holes; its removable housing has a separate external bolt.
+# The locating rail and outer mounting ear are integral with Frame_side_band.
 def _detent_service_parts():
     core = turned(box(HUB_X0 + BOLT_X0 - 2, HUB_X0 + BOLT_X0 + BOLT[0] + 2, -BOLT[1] / 2 - 2, BOLT[1] / 2 + 2,
                       -HUB_R - 24, -HUB_R - 1.5), DETENT_ANGLE + 90)
@@ -443,13 +443,9 @@ def _detent_service_parts():
     foot = box(fx[1] - 8, db.XMin + 0.9, -63.5, -44.5, db.ZMax - 10, db.ZMax)
     foot = foot.cut(cyl_x(2 * 47.6, HUB_X0, 50)).cut(core)
     housing = core.fuse(foot)
-    adapter = box(-12.5, -2, -48.5, -44.5, cz - 6, cz + 6).fuse(box(-12.5, -9, -63.5, -44.5, cz - 6, cz + 6))
-    # One fixed M3 x 20 and a short locating stub use the two existing M3 through-holes.
-    adapter = adapter.fuse(Part.makeCylinder(1.6, 2.4, V(cx, -44.5, db.ZMax - 7.5), YA))
-    root_shaft = Part.makeCylinder(1.6, 30, V(cx, -55, db.ZMax - 2.5), YA)
-    adapter = adapter.cut(root_shaft)
+    mount = box(-12.5, -2, -48.5, -43.8, cz - 6, cz + 6).fuse(box(-12.5, -9, -63.5, -44.5, cz - 6, cz + 6))
     housing = housing.cut(box(-13, -1.8, -48.7, -44.3, cz - 6.2, cz + 6.2))
-    # Open above the permanent screw head so the housing can leave along the detent's angled axis.
+    # Keep this open root relief compatible with the previous removable housing.
     housing = housing.cut(box(cx - 3.2, cx + 3.2, -52, -44.3, db.ZMax - 5.7, db.ZMax + 2))
     outward = turned(Part.Vertex(V(0, 0, -1)), DETENT_ANGLE + 90).Vertexes[0].Point
     across = V(0, -outward.z, outward.y)
@@ -459,25 +455,17 @@ def _detent_service_parts():
         points = [c + outward * d + across * t for d, t in ((d0, -half_w), (d1, -half_w), (d1, half_w), (d0, half_w))]
         return Part.Face(Part.makePolygon(points + [points[0]])).extrude(V(x1 - x0, 0, 0))
 
-    adapter = adapter.fuse(rail(-9.2, -7.6, -2.5, 2.5, 1.0))
+    mount = mount.fuse(rail(-9.2, -7.6, -2.5, 2.5, 1.0))
     housing = housing.cut(rail(-9.01, -7.4, -25, 2.7, 1.2))
     service_shaft = Part.makeCylinder(1.7, 40, V(-20, -58.5, cz), XA)
     housing = housing.cut(service_shaft).cut(_drive_hex_x(-58.5, cz, -2.5, 15, 5.9)).removeSplitter()
-    adapter = adapter.cut(service_shaft).removeSplitter()
+    mount = mount.cut(service_shaft).removeSplitter()
     service_bolt = Part.makeCylinder(1.5, 16, V(-12.5, -58.5, cz), XA).fuse(Part.makeCylinder(2.75, 3, V(-15.5, -58.5, cz), XA))
     service_nut = _drive_hex_x(-58.5, cz, -2.5, -0.1, 5.5).cut(service_shaft)
-    root_bolt = Part.makeCylinder(1.5, 20, V(cx, -48.5, db.ZMax - 2.5), YA).fuse(
-        Part.makeCylinder(2.75, 3, V(cx, -51.5, db.ZMax - 2.5), YA))
-    root_nut = _drive_hex_y(cx, db.ZMax - 2.5, -31, -28.6, 5.5).cut(root_shaft)
-    return housing, adapter, Part.makeCompound([service_bolt, service_nut]), Part.makeCompound([root_bolt, root_nut]), outward, db, foot
+    return housing, mount, Part.makeCompound([service_bolt, service_nut]), outward, db, foot
 
 
-detent_box, detent_adapter, detent_service_fastener, detent_adapter_fastener, DETENT_REMOVE_DIRECTION, _db, detent_bracket = _detent_service_parts()
-# These are the unchanged shell passages, not the removable housing's service fastener.
-_detent_hole_y0 = _db.YMin - 1
-# The existing shell geometry remains compatible with the previous two-hole housing.
-detent_bolts = Part.makeCompound([Part.makeCylinder(1.7, -25.0 - _detent_hole_y0, V(fx[1] - 5, _detent_hole_y0, z_), YA)
-                                for z_ in (_db.ZMax - 2.5, _db.ZMax - 7.5)])
+detent_box, detent_mount, detent_service_fastener, DETENT_REMOVE_DIRECTION, _db, detent_bracket = _detent_service_parts()
 _tick('detent built')
 
 # ---------------------------------------------------------------- the cage: open on the left, a side plate on screws
@@ -485,7 +473,7 @@ def _boss_base(x_, z_):
     """The y of the room's wall at this boss: the drum's bore, or the ball's behind the drum."""
     return -(_room_wall(x_, z_) + 0.5)
 bosses = Part.makeCompound([Part.makeCylinder(BOSS_D / 2, BOSS_L, V(x_, _boss_base(x_, z_), z_), YA) for x_, z_ in SIDE_BOSSES])
-frame = frame.fuse(bosses).fuse(box(-60, fx[1], -44.5, -31, _db.ZMax - 10, _db.ZMax)).cut(detent_bolts)   # original pad and two passages retained for the permanent adapter
+frame = frame.fuse(bosses).fuse(box(-60, fx[1], -44.5, -31, _db.ZMax - 10, _db.ZMax))   # solid seat for the integral left-shell detent mount
 tc = TRIGGER_CHEEKS
 _tick('bosses + detent pad fused')
 cheek_top = TRIGGER_PIVOT.z + 3.5
@@ -525,7 +513,7 @@ _tick('shaft holes cut')
 side_cut = box(HEEL_X - 1, fx[1] + 1, -fy[1] - 1, -(SLAB["y"] - 3.0), SLAB["z"][0] - 1, fz[1] + 1)   # the flank band plus the slab's left wall: the whole side opens
 # Keep the slab's left wall integral with the tray and lid; only the flank band opens.
 side_cut = side_cut.cut(box(HEEL_X - 2, fx[1] + 2, -SLAB["y"], 100, SLAB["z"][0] - 2, -5.0))
-side_plate = frame.common(side_cut).fuse(Part.makeCompound(_standoffs(-1))).fuse(spring_rib).cut(detent_bolts)   # + the spring shelf
+side_plate = frame.common(side_cut).fuse(Part.makeCompound(_standoffs(-1))).fuse(spring_rib)   # + the spring shelf
 if len(side_plate.Solids) > 1:          # OCCT leaves face-sliver crumbs in the cuts' windows: keep the real body
     side_plate = Part.makeCompound([s_ for s_ in side_plate.Solids if s_.Volume > 50.0])
 _tick('side plate common')
@@ -1123,6 +1111,10 @@ spur_hook_relief = spur_hook_relief.cut(Part.makeCylinder(36, 12, V(H.x, -6, H.z
 frame_lower = frame_lower.cut(spur_hook_relief).removeSplitter()
 frame_upper = frame_upper.cut(spur_hook_relief).removeSplitter()
 grip = Part.makeCompound([grip_left, grip_right])
+# Fuse with overlap into the native pad; no buried detent-mount nuts or legacy through-holes.
+side_band = side_band.fuse(detent_mount).removeSplitter()
+# The unprinted left shell also needs clearance for the existing gauge tube route.
+side_band = side_band.cut(air_cut).removeSplitter()
 side_plate = side_band                                      # tongues and bolt holes included
 frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
 
@@ -1147,8 +1139,7 @@ if CHECKS:
             st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=tg))
             for n in moving:
                 for other_name, other in (("frame", Part.makeCompound([frame_lower, frame_upper])), ("side plate", side_plate), ("right plate", side_plate_r), ("skin", skin), ("grip", grip),
-                                          ("detent box", detent_box), ("detent adapter", detent_adapter),
-                                          ("detent mount hardware", Part.makeCompound([detent_service_fastener, detent_adapter_fastener])), ("guard", guard), ("spacer", sector_spacer),
+                                          ("detent box", detent_box), ("detent service screw", detent_service_fastener), ("guard", guard), ("spacer", sector_spacer),
                                           ("air lines", Part.makeCompound([supply_line, pilot_line, gauge_line, tee])),
                                           ("vent valve", valve_bodies), ("crest", crest),
                                           ("valve clamp", Part.makeCompound([valve_clamp, valve_clamp_liner, valve_clamp_fasteners])),
@@ -1368,7 +1359,7 @@ if CHECKS:
     # Printability and the trigger's loaded joint are stricter than a solid-volume clash threshold.
     import MeshPart
     for _name, _part in (("Frame_lower", frame_lower), ("Frame_upper", frame_upper), ("Frame_right", side_plate_r),
-                         ("Trigger", TRIGGER_BODY), ("Trigger_pad", TRIGGER_PAD), ("Detent_housing", detent_box), ("Detent_adapter", detent_adapter)):
+                         ("Trigger", TRIGGER_BODY), ("Trigger_pad", TRIGGER_PAD), ("Detent_housing", detent_box), ("Frame_side_band", side_band)):
         _mesh = MeshPart.meshFromShape(Shape=_part, LinearDeflection=0.05, AngularDeflection=0.15, Relative=False)
         checks["%s has a closed manifold print mesh" % _name] = _mesh.isSolid() and not _mesh.hasNonManifolds()
     _pad_tilt = TRIGGER_PAD.copy()
@@ -1385,14 +1376,16 @@ if CHECKS:
                        for fixed_ in (frame_lower, frame_upper, side_plate_r, grip_left, grip_right, guard))
     checks["trigger has 2 deg of case clearance beyond nominal valve stop (%.6f mm3)" % _trig_reserve] = _trig_reserve < 0.0001
     _detent_out = Part.makeCompound([detent_box, turned(detent_bolt_print, DETENT_ANGLE + 90)])
-    _detent_fixed = (detent_adapter, detent_adapter_fastener, frame_lower, frame_upper, side_band, side_plate_r,
+    _detent_fixed = (frame_lower, frame_upper, side_band, side_plate_r,
                      rest["Block"], valve_body, valve_cap, lock_housing_h, axle)
     _detent_remove_hit = max(hit(_detent_out.translated(DETENT_REMOVE_DIRECTION * d_), s_)
                             for d_ in (0, 0.2, 1, 2, 4, 8, 12, 20) for s_ in _detent_fixed)
     checks["detent housing and plunger withdraw without opening shell (%.6f mm3)" % _detent_remove_hit] = _detent_remove_hit < 0.0001
-    checks["detent adapter and service screws clear printed parts"] = sum(
-        hit(hw_, s_) for hw_ in (detent_service_fastener, detent_adapter_fastener)
-        for s_ in (detent_box, detent_adapter, frame_lower, frame_upper, side_band, side_plate_r)) < 0.0001
+    checks["detent service screw clears integral shell mount"] = sum(
+        hit(hw_, s_) for hw_ in (detent_service_fastener,)
+        for s_ in (detent_box, frame_lower, frame_upper, side_band, side_plate_r)) < 0.0001
+    checks["left shell clears the existing supply, pilot and gauge tube routes"] = sum(
+        hit(side_band, s_) for s_ in (supply_line, pilot_line, gauge_line, tee)) < 0.0001
     for k_, ok_ in checks.items():
         print("  [%s] %s" % ("OK " if ok_ else "FAIL", k_))
     print("  valve stack rear face x %.1f, cage rear wall inside x %.1f (%.1f mm between)"
@@ -1433,9 +1426,9 @@ for n, s_, c, tr in (("Frame_lower", frame_lower, IRON, 0), ("Frame_upper", fram
                       ("Guard_fasteners", guard_fasteners, (0.75, 0.75, 0.78), 0),
                       ("Frame_side_band", side_band, (0.28, 0.27, 0.26), 0),
                       ("Frame_right", side_plate_r, (0.32, 0.31, 0.30), 0), ("Frame_skin", skin, IRON, 0), ("Trigger_guard", guard, IRON, 0),
-                     ("Detent_housing", detent_box, IRON, 0), ("Detent_adapter", detent_adapter, (0.35, 0.55, 0.35), 0),
+                     ("Detent_housing", detent_box, IRON, 0), 
                      ("Detent_service_fastener", detent_service_fastener, (0.75, 0.75, 0.78), 0),
-                     ("Detent_adapter_fastener", detent_adapter_fastener, (0.75, 0.75, 0.78), 0), ("Grip_left", grip_left, WOOD, 0), ("Grip_right", grip_right, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
+                     ("Grip_left", grip_left, WOOD, 0), ("Grip_right", grip_right, WOOD, 0), ("Rags", Part.makeCompound(rags), RAG, 0),
                      ("Pommel", pommel, IRON, 0), ("Pommel_claws", Part.makeCompound(claws), DIRTY, 0),
                      ("Warpstone_pommel", warp_pommel, WARP, 0), ("Hose", hose, (0.08, 0.08, 0.08), 0), ("Gauge_line", gauge_line, (0.15, 0.4, 0.8), 0),
                      ("Tee", tee, BRASS, 0),
@@ -1455,12 +1448,12 @@ _tick('doc built')
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Slider_cap", "Bolt", "Hammer",
-              "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Frame_lower", "Frame_upper", "Valve_clamp", "Frame_side_band", "Frame_right", "Detent_housing", "Detent_adapter", "Grip_left", "Grip_right", "Trigger_guard",
+              "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Frame_lower", "Frame_upper", "Valve_clamp", "Frame_side_band", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
               "Top_strap", "Axle_plug", "Sector_spacer",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Valve_clamp_liner", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
-    "buy": ("Chamber_axle", "Vent_valve", "Detent_service_fastener", "Detent_adapter_fastener", "Pin", "Crank_fastener", "Slider_cap_fastener", "Trigger_pad_fastener", "Trigger_pin", "Valve_clamp_fasteners", "Frame_join_fastener", "Grip_mount_fastener", "Guard_fasteners", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
+    "buy": ("Chamber_axle", "Vent_valve", "Detent_service_fastener", "Pin", "Crank_fastener", "Slider_cap_fastener", "Trigger_pad_fastener", "Trigger_pin", "Valve_clamp_fasteners", "Frame_join_fastener", "Grip_mount_fastener", "Guard_fasteners", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
 BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
@@ -1491,10 +1484,9 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Guard_fasteners": "2 x M3 x 12 cylindrical-head bolts + ordinary M3 nuts at the floor, 1 x M3 x 20 + ordinary M3 nut at the grip; independent of the grip mount",
             "Grip_left": "half: 2 x M3 x 25 and Ø3 x 12 dowels join the pair; extra M3 x 30 attaches it to Frame_lower. External recessed head, internal saddle pocket 0.2 mm clear. Front 4 mm tongue at x -80, y -9 retained",
             "Grip_right": "half: M3 x 25 pair bolts, extra M3 x 30 frame mount with an external M3 nut seat 5 mm deep. Rear 3 mm tongue at x -98, y 12 and front 4 mm tongue at x -80, y 9 retained; internal trigger and hose clearance",
-            "Detent_housing": "removable on external adapter: undo only the M3 x 16 cross-bolt and slide out along the detent axis; external M3 nut pocket. Functional plunger channel unchanged",
-            "Detent_adapter": "permanent PETG shoe on the existing two shell holes: one M3 x 20 + nut and integral 3.2 mm locating stub. Fit once with the side band accessible; print flat x=-12.5 face down. Its rail guides removal without opening the shell",
-            "Detent_service_fastener": "M3 x 16 cylindrical head + ordinary M3 nut, axis x; both ends outside the shell. Remove for housing service; adapter stays in place",
-            "Detent_adapter_fastener": "M3 x 20 cylindrical head + ordinary M3 nut through the original upper hole; installed once, not removed for housing changes",
+            "Detent_housing": "removable from the integral left-shell mount: undo only external M3 x 16 and slide along the detent axis. Same housing as the separate-adapter version; plunger channel unchanged",
+            "Frame_side_band": "left shell with integral detent locating rail and outer mounting ear; no separate adapter, internal mounting nut or M3 x 20. Legacy detent holes removed; existing gauge tube channel cleared",
+            "Detent_service_fastener": "M3 x 16 cylindrical head + ordinary M3 nut, axis x; both ends outside the shell. Remove for housing service; integral mount stays on the left shell",
             "Frame_side_band": "left flank band: 2 x M3 x 50 through-bolts, recessed heads with optional thin washers on the left, standard M3 nuts in AF 5.9 anti-rotation sockets loaded from the right; round access wells, 3 mm seat floors, no printed threads",
             "Frame_right": "close last, sliding inward along negative y: guide supports stay on Frame_lower/Frame_upper, slider return lip relieved. 2 x M3 x 50 upper, 2 x M3 x 50 lower-middle/front, 1 x M3 x 40 lower-rear. Lower nut seats 6 mm deep (rear 4 mm); turn bolts from the left",
             "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
