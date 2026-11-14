@@ -765,10 +765,12 @@ SOFT_OD, SOFT_L, SOFT_GAP = 40.0, 28.0, 4.0   # jaw + spider gap
 BUFFER_OD, BUFFER_L = 80.0, 150.0             # ≈0.75 L free volume
 BUFFER_VOL_L = (math.pi * (BUFFER_OD / 2) ** 2 * BUFFER_L) / 1.0e6
 
-# Aft stack: bearings → soft coupling → MQR rotor → stator (muzzle = +Z).
-z_brg_f1 = z_case0 - 4.0
+# Aft stack: bearings in frame → soft coupling → MQR rotor → stator (+Z muzzle).
+# Front bearing in aft cascabel/ring; rear bearing in a frame disk tied by spars.
+BRG_NAME = "6202-ish (Ø16 shaft, race OD %.0f × %.0f)" % (BRG_OD, BRG_T)
+z_brg_f1 = z_case0 + 2.0
 z_brg_f0 = z_brg_f1 - BRG_T
-z_brg_r1 = z_brg_f0 - 40.0
+z_brg_r1 = z_case0 - 55.0
 z_brg_r0 = z_brg_r1 - BRG_T
 z_axle0 = z_brg_r0 - 8.0
 z_soft1 = z_brg_r0 - 6.0
@@ -792,18 +794,33 @@ def port_world(ang, dz, which="R"):
     return V(r * ux, r * uy, z), ux, uy
 
 
-def build_bearing(z_a, z_b):
+def build_bearing_in_frame(z_a, z_b, r_frame):
+    """Pack-shaft race seated in a frame disk with spars (MQR not in load path)."""
     race = tube(BRG_OD, BRG_ID, z_a, z_b)
-    foot = Part.makeBox(28.0, 12.0, z_b - z_a,
-                        V(-14.0, -BRG_OD / 2 - 10.0, z_a))
-    return race.fuse(foot).removeSplitter()
+    hub = tube(BRG_OD + 10.0, BRG_OD - 0.2, z_a, z_b)
+    rim = tube(2.0 * r_frame, 2.0 * (r_frame - 5.0), z_a, z_b)
+    parts = [race, hub, rim]
+    for ang in (30.0, 150.0, 270.0):   # skip LOAD φ=180
+        a = math.radians(ang)
+        sx0 = (BRG_OD / 2 + 2) * math.cos(a)
+        sy0 = (BRG_OD / 2 + 2) * math.sin(a)
+        L = max(8.0, r_frame - 5.0 - (BRG_OD / 2 + 2))
+        spoke = Part.makeCylinder(
+            4.0, L,
+            V(sx0, sy0, 0.5 * (z_a + z_b)),
+            V(math.cos(a), math.sin(a), 0))
+        parts.append(spoke)
+    try:
+        return G.fuse_all(parts).removeSplitter()
+    except Exception:
+        return Part.makeCompound(parts)
 
 
 def build_air_stack():
-    """Axle on 2 bearings; soft coupling; MQR rotor/stator; buffer; deadman."""
-    axle = tube(AXLE_OD, AXLE_ID, z_axle0, z_case0 + 10.0)
-    brg_f = build_bearing(z_brg_f0, z_brg_f1)
-    brg_r = build_bearing(z_brg_r0, z_brg_r1)
+    """Axle on 2 frame bearings; soft coupling; MQR; buffer; deadman."""
+    axle = tube(AXLE_OD, AXLE_ID, z_axle0, z_case0 + 20.0)
+    brg_f = build_bearing_in_frame(z_brg_f0, z_brg_f1, r_case_od)
+    brg_r = build_bearing_in_frame(z_brg_r0, z_brg_r1, r_case_od * 0.85)
     # Soft jaw coupling: pack hub / spider / MQR hub — gap so MQR takes no load.
     hub_pack = tube(SOFT_OD, AXLE_OD + 0.2, z_soft1 - 10.0, z_soft1)
     hub_mqr = tube(SOFT_OD, MQR_THROUGH + 0.5, z_soft0, z_soft0 + 10.0)
@@ -961,9 +978,14 @@ mqr_soft_ok = soft_coup.Volume > 1000.0 and SOFT_GAP >= 3.0
 mqr_no_axle = pack_axle.common(
     G.cyl(MQR_THROUGH + 0.5, min(z_rotor0, z_stator0),
           max(z_rotor1, z_stator1))).Volume < 1.0
-bearings_ok = (brg_f.Volume > 500.0 and brg_r.Volume > 500.0
-               and pack_axle.distToShape(brg_f)[0] >= 0.05
-               and pack_axle.distToShape(brg_r)[0] >= 0.05)
+# Axle clears races; front seat kisses aft frame ring (load in frame, not MQR).
+bearings_ok = (
+    brg_f.Volume > 500.0 and brg_r.Volume > 500.0
+    and pack_axle.distToShape(brg_f)[0] >= 0.05
+    and pack_axle.distToShape(brg_r)[0] >= 0.05
+    and brg_f.distToShape(pack_frame)[0] < 8.0
+    and abs(0.5 * (z_brg_f0 + z_brg_f1) - z_case0) < BRG_T + 4.0
+    and mqr_no_axle)
 buffer_ok = 0.5 <= BUFFER_VOL_L <= 1.0 + 1e-6
 deadman_ok = deadman.Volume > 500.0
 lines_ok = hoses_ok and abs(N - 6) < 1e-9
@@ -1064,6 +1086,7 @@ checks = [
     ("triggers on side / not in LOAD", trig_ok and trig_side_after),
     ("M5 lines clear of cam track & stroke rail", hoses_ok),
     ("air: MQR soft-coupled + bearings + buffer + deadman", air_ok),
+    ("pack shaft bearings seated in frame", bearings_ok),
     ("buffer %.2f L in 0.5–1 L" % BUFFER_VOL_L, buffer_ok),
     ("hopper on seat ring + clear of open carriage", feed_ok),
     ("auger ×6 single-start (6 pellets/rev)", auger_ok),
@@ -1109,6 +1132,7 @@ report += [
     "  trigger feed          : sliding idler on auger bevel — stops screw only",
     "  carry                 : handle near CG on top; sling loops front/aft",
     "  air MQR               : rotor on soft coupling; axle on 2 bearings (not MQR)",
+    "  bearings              : 2× %s in frame disks" % BRG_NAME,
     "  air lines             : 6×M5 rotor→AirTAC R; outside cam & stroke rail",
     "  air buffer            : Ø%.0f×%.0f ≈ %.2f L; dead-man on inlet"
     % (BUFFER_OD, BUFFER_L, BUFFER_VOL_L),
@@ -1141,6 +1165,7 @@ FV.STYLES["buffer"] = ((0.55, 0.60, 0.65), 40)
 FV.STYLES["deadman"] = ((0.75, 0.25, 0.20), 15)
 FV.STYLES["guard"] = ((0.60, 0.62, 0.70), 70)
 FV.STYLES["carry"] = ((0.28, 0.28, 0.30), 15)
+FV.STYLES["callout"] = ((0.15, 0.15, 0.15), 0)
 
 os.makedirs(OUT_DIR, exist_ok=True)
 sc = FV.Scene(NAME)
@@ -1175,15 +1200,70 @@ sc.add("Air", "Deadman_valve", deadman, "deadman")
 sc.add("Air", "Supply_stub", air_supply, "hose")
 sc.add("Air", "M5_lines_to_R", hoses_s, "hose")
 
-for n, ang, u, dz, tag in phases:
-    aw = math.radians(ang + FLIP_Z)
-    sc.label("Labels", "%d° %s" % (ang, tag),
-             ((R_PACK + 70) * math.cos(aw), (R_PACK + 70) * math.sin(aw),
-              z_stop + cam_dz(ang)))
-sc.label("Labels", "×6 feed · guard · carry · MQR · Ø%.0f" % case_od,
-         (0, bb.YMax + 40, (bb.ZMin + bb.ZMax) / 2))
 
-sc.finish(hidden_groups=("Labels",), opaque_groups=())
+def _arrow(p0, p1, r=1.4):
+    """Shaft + cone tip from p0 (label side) toward p1 (part)."""
+    vec = p1.sub(p0)
+    L = vec.Length
+    if L < 12.0:
+        return Part.makeSphere(r * 2, p0)
+    tip_L = min(12.0, L * 0.2)
+    direction = App.Vector(vec)
+    shaft = Part.makeCylinder(r, L - tip_L, p0, direction)
+    tip_base = p0.add(App.Vector(vec.x, vec.y, vec.z).multiply((L - tip_L) / L))
+    tip = Part.makeCone(r * 2.8, 0.3, tip_L, tip_base, direction)
+    try:
+        return shaft.fuse(tip).removeSplitter()
+    except Exception:
+        return Part.makeCompound([shaft, tip])
+
+
+# Russian callouts (one per subsystem). Positions after flip (+X top, −Y crank).
+_show_labels = os.environ.get("SHOW_LABELS", "").strip().lower() in (
+    "1", "true", "yes")
+_callouts = [
+    ("Станция", stations[2].BoundBox.Center),
+    ("Пакет", V(0, 0, 0.5 * (bb.ZMin + bb.ZMax))),
+    ("Кулачок", cam.BoundBox.Center),
+    ("Рукоять", crank.BoundBox.Center),
+    ("Муфта", trig_pack.BoundBox.Center),
+    ("Стоп подачи", trig_feed.BoundBox.Center),
+    ("Бункер", hopper.BoundBox.Center),
+    ("Шнек ×6", auger.BoundBox.Center),
+    ("Обойма", feed_guard.BoundBox.Center),
+    ("MQR", mqr_rotor.BoundBox.Center),
+    ("Буфер", air_buffer.BoundBox.Center),
+    ("Дедмен", deadman.BoundBox.Center),
+    ("Подшипники", brg_f.BoundBox.Center),
+    ("Ремень", sling.BoundBox.Center),
+    ("Ручка", carry_handle.BoundBox.Center),
+]
+# Spread labels on a ring outside the gun for readable arrows.
+_r_lab = max(bb.XLength, bb.YLength) * 0.55 + 80.0
+_z_mid = 0.5 * (bb.ZMin + bb.ZMax)
+for _i, (_txt, _tgt) in enumerate(_callouts):
+    _ang = math.radians(12.0 + _i * (360.0 / len(_callouts)))
+    # Prefer top/side hemisphere for readability after iso view.
+    _lab = V(_r_lab * math.cos(_ang), _r_lab * math.sin(_ang),
+             _z_mid + 40.0 * math.sin(_ang * 0.5))
+    # Tip points at the part; shaft starts near the label.
+    _p0 = _lab
+    _p1 = App.Vector(_tgt.x, _tgt.y, _tgt.z)
+    if _show_labels:
+        sc.add("Callouts", "Arrow_%d" % _i, _arrow(_p0, _p1), "callout")
+        sc.label("Labels", _txt, (_lab.x, _lab.y, _lab.z + 8.0))
+
+if not _show_labels:
+    for n, ang, u, dz, tag in phases:
+        aw = math.radians(ang + FLIP_Z)
+        sc.label("Labels", "%d° %s" % (ang, tag),
+                 ((R_PACK + 70) * math.cos(aw), (R_PACK + 70) * math.sin(aw),
+                  z_stop + cam_dz(ang)))
+    sc.label("Labels", "×6 feed · guard · bearings · MQR · Ø%.0f" % case_od,
+             (0, bb.YMax + 40, (bb.ZMin + bb.ZMax) / 2))
+
+_hide = () if _show_labels else ("Labels",)
+sc.finish(hidden_groups=_hide, opaque_groups=("Callouts",))
 doc = sc.doc
 doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
