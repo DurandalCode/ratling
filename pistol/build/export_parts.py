@@ -62,7 +62,7 @@ BRIDGED = {"block_rear_disc": 600.0}
 
 # name, shape, the part's direction that goes down onto the bed, group, note
 PARTS = [
-    ("lock_housing", lock_housing_h, -X_, "standard", "the lock's housing, no lock (only the shot's impulse passes, no standing pressure): a plain Ø16 through bore ending in the sleeve's nose, 0.3 mm off the hub; flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
+    ("lock_housing", lock_housing_h, -X_, "strong_supports", "the lock's housing, no lock (only the shot's impulse passes, no standing pressure): a plain Ø16 through bore ending in the sleeve's nose, 0.3 mm off the hub; flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg); the sector's support ring is printed in (was the separate Sector_spacer): OD31 / bore 25.6, rear plane 7 mm forward of the valve body's face, blind front pocket clears the pawl, closed 6.5 mm rear rim - supports under the raised rim"),
     ("block_rear_disc", hub, -X_, "standard", "breech seats on the bed; barrels glued 5 mm into it"),
     ("block_front_disc", front_plate, X_, "standard", "barrels glued into it"),
     ("sector", sector_base, -X_, "strong", "rear face on the bed (the tongue is its first layer), the ramped pawl tooth up, 6 mm tall; on the axle in front of the lock housing; the slider's pin in its arm"),
@@ -71,7 +71,6 @@ PARTS = [
     ("detent_bolt", detent_bolt_print, X_, "strong", "V tip; a Ø4 pen spring behind it; flat on its x face; %.2f mm smaller than its channel a side (the first print would not go in)" % BOLT_CLEAR),
     ("detent_housing", detent_box, X_, "strong_supports", "removable from the band's integral mount: on its side, the box's broad face on the bed; the channel lies flat, supports grow into it - file it before the wedge goes in; one cross M3 x 16 + nut (both ends outside), slides out along the detent axis for service"),
     ("hammer", hammer_body, Y_, "impact", "one part: hub, spur, sleeve, crank, spring-stop rib; turns on the Ø8 axle (ream 8.2); the crank joint is an M3 x 6 bolt with a captive nut on its printed shoulder (no glued pin)"),
-    ("sector_spacer", sector_spacer, X_, "strong", "the ring on the tube between the sector and the QEV body; bore Ø25.6, the wedge is the pawl boss's road; file to fit the stack"),
     ("trigger", TRIGGER_BODY, -Y_, "strong", "the lever: blade's flat side on the bed, the pivot bore prints vertical and round; no pad in it - the pad is its own part. Pivot: an M3 stud through the lower frame and the right cover, nuts outside"),
     ("trigger_pad", TRIGGER_PAD, X_, "strong", "the pin carrier: broad x = -6 face on the bed, keep the mating face free of support scars; carries the smooth steel pin Ø3 x 24 in its open channel (root bore in the lever, distal stop); one M3 x 12 along y (nut slides in from -x)"),
     ("frame_lower", frame_lower, -Y_, "supports", "the lower half on its -Y side (40 mm tall, bed ~2250 mm2; on -X it stood 107 mm on 1000 mm2): the slab (the QEV socket, the vent, the lock, the trigger) and the tail; the tongues to the upper half"),
@@ -98,7 +97,7 @@ if not FLEX_PAWL:               # the pawl is a plunger in a boss on the sector,
         ("pawl", pawl_tooth, -X_, "strong", "the plunger: Ø6 body, a rigid 4.0 x 3.4 mm tooth (the ramp is in the disc's notch); its back face on the bed, the tooth up; in the sector's boss on a 0.5 x 6 x 10 mm steel spring (8 coils, from the 304 kit)"),
         ("pawl_plug", PAWL_PLUG, -X_, "strong", "closes the boss's rear behind the spring: pressed in and glued with CA")]
 if not LOCKLESS:                # the old lock: a sleeve with a pusher behind its flange
-    PARTS[0:1] = [("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg)"),
+    PARTS[0:1] = [("lock_housing", lock_housing_h, -X_, "airtight", "the lock's housing: flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg); the sector's support ring is printed in - supports under its raised rear rim"),
                   ("lock_sleeve", lock_sleeve(1.0), X_, "airtight", "nose down (the sealing face on the bed, the flange chamfered over it); plain, no O-ring; the pusher glued to its flange"),
                   ("lock_pusher", pusher_shape(1.0), -X_, "strong", "ring behind the sleeve's flange; its cam pin: a Ø3 steel pin")]
 _ref = "exports/stage3_qev_v13" if VALVE == "v13" else "exports/stage3_qev"

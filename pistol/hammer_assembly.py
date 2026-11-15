@@ -1138,7 +1138,7 @@ if CHECKS:
             st = pose(dict(cock=c, block=block_drive(c), bend=0.0, trig=tg))
             for n in moving:
                 for other_name, other in (("frame", Part.makeCompound([frame_lower, frame_upper])), ("side plate", side_plate), ("right plate", side_plate_r), ("skin", skin), ("grip", grip),
-                                          ("detent box", detent_box), ("detent service screw", detent_service_fastener), ("guard", guard), ("spacer", sector_spacer),
+                                          ("detent box", detent_box), ("detent service screw", detent_service_fastener), ("guard", guard), ("lock housing + sector support", lock_housing_h),
                                           ("air lines", Part.makeCompound([supply_line, pilot_line, gauge_line, tee])),
                                           ("vent valve", valve_bodies), ("crest", crest),
                                           ("valve clamp", Part.makeCompound([valve_clamp, valve_clamp_liner, valve_clamp_fasteners])),
@@ -1168,7 +1168,7 @@ if CHECKS:
                   "tie rods/frame+plates": hit(valve_rods, frame) + hit(valve_rods, side_plate) + hit(valve_rods, side_plate_r),
                   "lock bolts/frame+plates": hit(lock_bolts, frame) + hit(lock_bolts, side_plate) + hit(lock_bolts, side_plate_r),
                   "tie rods/springs": hit(valve_rods, mainsprings),   # the coils sit outside the heads' reach now
-                  "tie rods/housing+spacer": hit(valve_rods, lock_housing_h) + hit(valve_rods, sector_spacer),
+                  "tie rods/integral lock housing": hit(valve_rods, lock_housing_h),
                   "plug/axle+nose+strap": hit(axle_plug, axle) + hit(axle_plug, nose) + hit(axle_plug, top_strap)}
     inside = mini_valves.common(grip.fuse(outer).fuse(_vv)).Volume / mini_valves.Volume
     spur_out = lambda c: hammer_shape(c).cut(outer).Volume
@@ -1265,7 +1265,7 @@ if CHECKS:
                                  valve_body.translated(V(0, 0, _gap)).common(frame).Volume,
                                  valve_body.translated(V(0, 0, -_gap)).common(frame).Volume))
     checks["mechanism clears the dress over the hammer and trigger strokes"] = not [v_ for (n_, o_), v_ in worst.items()
-                                                                                      if v_ > (0.0001 if n_ in ("Trigger", "Trigger_pad", "Trigger_pad_fastener", "Trigger_pin") else 0.05) and not (o_ == "spacer" and v_ < 5.0)]   # the spacer touches by design; OCCT's common of its 0.1-gap faces returns junk (the bbox falls outside both parts)
+                                                                                      if v_ > (0.0001 if n_ in ("Trigger", "Trigger_pad", "Trigger_pad_fastener", "Trigger_pin") else 0.05)]
     for k_, v_ in fixed_hits.items():
         checks["fixed: %s (%.1f mm3)" % (k_, v_)] = v_ < (2.0 if k_.startswith("slider/stop") else 0.05)   # the stop pad is meant to touch
     # Sliding fits need air: a part cut to its neighbour's exact size will not go in once printed (the detent bolt did not).
@@ -1334,7 +1334,7 @@ if CHECKS:
         _ps = pose(dict(cock=_c, block=block_drive(_c), bend=0.0, trig=0.0))
         _installed = Part.makeCompound(list(_ps.values()) + [frame_lower, frame_upper, side_band, guide_rod, shaft,
             valve_clamp, valve_clamp_liner, valve_clamp_fasteners, frame_join_fastener, grip_mount_fastener, grip_left, grip_right,
-            valve_bodies, valve_body, valve_cap, lock_housing_h, detent_box, sector_spacer, axle, mainsprings])
+            valve_bodies, valve_body, valve_cap, lock_housing_h, detent_box, axle, mainsprings])
         for _dy in (0.0, 0.2, 1.0, 3.0, 6.0, 12.0, 24.0, 40.0):
             _cover_hit = max(_cover_hit, hit(side_plate_r.translated(V(0, _dy, 0)), _installed))
         _targets = Part.makeCompound([_ps[n_] for n_ in ("Slider", "Hammer", "Crank_fastener")])
@@ -1383,6 +1383,16 @@ if CHECKS:
     checks["detent service screw clears integral shell mount"] = sum(
         hit(hw_, s_) for hw_ in (detent_service_fastener,)
         for s_ in (detent_box, frame_lower, frame_upper, side_band, side_plate_r)) < 0.0001
+    _lock_mesh = MeshPart.meshFromShape(Shape=lock_housing_h, LinearDeflection=0.03, AngularDeflection=0.12, Relative=False)
+    checks["integral Lock_housing and sector ring are one manifold print"] = \
+        lock_housing_h.isValid() and len(lock_housing_h.Solids) == 1 and _lock_mesh.isSolid() and not _lock_mesh.hasNonManifolds()
+    checks["original lock mounting and bore are retained"] = _lock_without_sector_ring.cut(lock_housing_h).Volume < 0.0001
+    _rear_rim = cyl_x(SECTOR_SUPPORT["od"], SECTOR_SUPPORT["x_rear"], SECTOR_SUPPORT["pocket_rear"] - 0.01, 0, 0).cut(
+        cyl_x(SECTOR_SUPPORT["bore"], SECTOR_SUPPORT["x_rear"] - 1, SECTOR_SUPPORT["pocket_rear"] + 1, 0, 0))
+    checks["sector support has a continuous 360-degree rear rim"] = _rear_rim.cut(lock_housing_h).Volume < 0.0001
+    _support_hit = max(hit(pose(dict(cock=c_ / 20, block=block_drive(c_ / 20), bend=b_, trig=0))[n_], lock_housing_h)
+                       for c_ in range(21) for b_ in (0, 1) for n_ in ("Sector", "Pawl") if n_ in rest)
+    checks["sector and pawl clear integral support through full travel (%.6f mm3)" % _support_hit] = _support_hit < 0.0001
     for k_, ok_ in checks.items():
         print("  [%s] %s" % ("OK " if ok_ else "FAIL", k_))
     print("  valve stack rear face x %.1f, cage rear wall inside x %.1f (%.1f mm between)"
@@ -1409,7 +1419,6 @@ for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve
                      ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 0), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 0),
                      ("Vent_valve", mini_valves, (0.3, 0.3, 0.8), 0), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0),
                      ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0), ("Guide_rod", guide_rod, (0.75, 0.75, 0.78), 0),
-                     ("Sector_spacer", sector_spacer, (0.8, 0.8, 0.82), 0),
                      ("Tie_rods", valve_rods, (0.72, 0.72, 0.75), 0), ("Lock_bolts", lock_bolts, (0.72, 0.72, 0.75), 0)):
     add(g_mech, n, s_, c, tr)
 for n, s_ in rest.items():
@@ -1446,7 +1455,7 @@ _tick('doc built')
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Slider_cap", "Bolt", "Hammer",
               "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Frame_lower", "Frame_upper", "Valve_clamp", "Frame_side_band", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
-              "Top_strap", "Axle_plug", "Sector_spacer",
+              "Top_strap", "Axle_plug",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Valve_clamp_liner", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
@@ -1486,7 +1495,7 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Detent_service_fastener": "M3 x 16 cylindrical head + ordinary M3 nut, axis x; both ends outside the shell. Remove for housing service; integral mount stays on the left shell",
             "Frame_side_band": "left flank band: 2 x M3 x 50 through-bolts, recessed heads with optional thin washers on the left, standard M3 nuts in AF 5.9 anti-rotation sockets loaded from the right; round access wells, 3 mm seat floors, no printed threads",
             "Frame_right": "close last, sliding inward along negative y: guide supports stay on Frame_lower/Frame_upper, slider return lip relieved. 2 x M3 x 50 upper, 2 x M3 x 50 lower-middle/front, 1 x M3 x 40 lower-rear. Lower nut seats 6 mm deep (rear 4 mm); turn bolts from the left",
-            "Sector_spacer": "a full ring on the chamber tube with the sector's own sweep carved through (the pawl boss's road), from the sector's ring to the QEV body's face: fixes its seat; the length is the model's span - file to fit on a printed stack",
+            "Lock_housing": "one print with complete OD31 / bore25.6 sector-support ring. Ring rear plane 7 mm forward of Valve_body mating face; blind front pocket clears pawl, 6.5 mm rear rim stays closed. Original sector seat and 0.05 mm running gap retained; print supports under raised rear rim; no separate Sector_spacer",
             "Hammer_axle": "steel rod Ø8 x %.1f (or an M8 bolt's shank), supported by both walls; right end 0.5 mm below the outside face" % (SHAFT_Y[1] - SHAFT_Y[0]),
             "Guide_rod": "steel rod Ø3 x 94: the slider's guide. Coaxial Ø3.3 passage open through both ceiling and floor", "Trigger": "PETG lever; finger face 24 mm toward the grip, in the middle of the guard. Print on its broad negative-y side; separate rigid pin carrier clamped against a broad face by M3 x 12 + nut. Pivot: M3 stud",
             "Tie_rods": "4 x M4 x 50 socket head + nut, rubber O7 x 1.5 + steel O9 x 0.8 washer under each head (as v1.1); the heads stand 6.3 mm off the cap's back face - the frame's pockets are cast for them",
