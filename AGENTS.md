@@ -86,6 +86,13 @@ APPS=/Applications/FreeCAD.app/Contents/Resources/bin
 "$APPS/freecadcmd" -c "REPO='$PWD'; exec(open('module/stage3v4_coaxial_chamber.py').read())"
 ```
 
+Осторожно с MCP-мостом (`tools.freecad.*`): если FCStd открыт в GUI-инстансе владельца,
+`execute_python` в нём может **автосохранить открытый документ** — свежеперегенерированный файл
+на диске затирается старой сценой из памяти (случилось 2026-11-15 со стендом гэтлинга: FCBak в
+13:18, STL от 13:05). Перед регенерацией закрывай документ в GUI (через мост: `App.closeDocument`),
+и только потом открывай свежий. Повторный `open -a FreeCAD <файл>` не перечитывает уже открытый
+документ — надо закрыть и открыть.
+
 ## FreeCAD на облачной ВМ
 
 Окружение Cursor ставит FreeCAD 1.0.2 при сборке машины: `install` в `.cursor/environment.json`
