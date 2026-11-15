@@ -947,10 +947,11 @@ side_plate_r = side_plate_r.cut(_guide_pinch_relief).removeSplitter()
 _vent_top = VENT_Z0 + AIRTAC["L"]
 vent_top_keeper = box(HEEL_X + 0.5, VENT_X - 5.5, 8, 14, _vent_top + 0.2, _vent_top + 3.2)
 frame_upper = frame_upper.fuse(vent_top_keeper).removeSplitter()
-# Removable top clamp for the main valve. Two broad feet bear on the case shoulders,
-# leaving the upper tube clear; the nuts belong to the fixed upper frame, not the right cover.
+# Removable top clamp for the main valve. A continuous I-section joins the shoulder feet,
+# with a curved valve clearance below; the nuts belong to the fixed upper frame, not the right cover.
 VALVE_CLAMP_X, VALVE_CLAMP_BOLTS = (-46.0, -36.0), (-52.0, -30.0)
 VALVE_CLAMP_PLANE, VALVE_CLAMP_T = DRUM_R, 4.0
+VALVE_CLAMP_WEB_T = 4.0
 
 
 def _valve_clamp_envelope(extra):
@@ -980,6 +981,13 @@ for _sg in (-1, 1):
     _rc_feet.append(box(_rcx0, _rcx1, _ya, _yb, -4, _rcz))
     valve_clamp = valve_clamp.fuse(_rc_feet[-1])
     _rc_slots.append(box(_rcx0 - 0.2, _rcx1 + 0.2, _ya - 0.2, _yb + 0.2, -4.2, _rcz + 1.5))
+# The central web ties both long feet to the bridge instead of leaving two cantilever prongs.
+_rc_web_x = (_rcx0 + _rcx1) / 2
+valve_clamp = valve_clamp.fuse(box(_rc_web_x - VALVE_CLAMP_WEB_T / 2, _rc_web_x + VALVE_CLAMP_WEB_T / 2,
+                                  -18, 18, -4, _rcz + 1))
+# A through slot lets the web lift with the clamp without catching the fixed shell roof.
+_rc_slots.append(box(_rc_web_x - VALVE_CLAMP_WEB_T / 2 - 0.25, _rc_web_x + VALVE_CLAMP_WEB_T / 2 + 0.25,
+                     -14.2, 14.2, -4.2, _rcz + 1.5))
 _rc_inner = _valve_clamp_envelope(0.7)
 valve_clamp = valve_clamp.cut(_rc_inner).removeSplitter()
 valve_clamp_liner = _rc_inner.cut(_valve_clamp_envelope(0.2)).common(Part.makeCompound(_rc_feet))
@@ -1468,13 +1476,13 @@ BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.Boun
             "Slider": "open-top crank yoke with removable Slider_cap: engage the mounted crank before closing the window; guide rod stays on the fixed frame when the right cover comes off",
             "Slider_cap": "slide 3.2 mm toward positive x to release the left locating tongue, then lift in z; reverse to install over the crank collar and washer",
             "Slider_cap_fastener": "1 x M3 x 6 cylindrical-head bolt + M3 nut, no washer; cap seats against its post before tightening. Install before closing Frame_right",
-            "Valve_clamp": "PETG top clamp: two broad shoulder feet, 4 mm bridge; print upside down on the flat top. Install after seating the main valve, before closing Frame_right. Tighten alternately only until the valve is held; a gap above the frame pads accommodates the sealant (0..6 mm)",
+            "Valve_clamp": "PETG top clamp: continuous I-section with 4 mm web tying the shoulder feet to the 4 mm bridge; matching web slot required in Frame_upper. Print upside down on the flat top. Install after seating the main valve, before closing Frame_right. Tighten alternately only until the valve is held; a gap above the frame pads accommodates the sealant (0..6 mm)",
             "Valve_clamp_liner": "two 0.5 mm rubber/EVA contact strips, cut to the feet; no hard screw tip against the valve",
             "Valve_clamp_fasteners": "2 x M3 x 16 cylindrical-head bolts + 2 ordinary M3 nuts retained in Frame_upper; full nut engagement throughout 0..6 mm clamp lift",
             "Frame_join_fastener": "M3 x 30 cylindrical-head bolt from below + M3 nut loaded from the left into Frame_upper. Join the lower and upper frames before closing Frame_right; an annular shoulder locates the joint",
             "Grip_mount_fastener": "M3 x 30 cylindrical-head bolt from the left + ordinary M3 nut loaded from the right; recessed external seats, 3 mm bearing floors. Fastens the grip to the lower frame's internal saddle, independent of Frame_right",
             "Frame_lower": "open-bottom trigger clearance; independent M3 x 30 joint to Frame_upper from below. Internal U-shaped grip saddle with a separate transverse M3 x 30 mount; hose passage through the saddle",
-            "Frame_upper": "independent guide support, main valve clamp mounts, and a 0.2 mm top keeper for the button valve; retained nut for the lower/upper frame assembly screw",
+            "Frame_upper": "independent guide support, main valve clamp mounts and I-section web slot, and a 0.2 mm top keeper for the button valve; retained nut for the lower/upper frame assembly screw",
             "Trigger_pad_fastener": "M3 x 12 cylindrical-head bolt along +y + standard M3 nut, no washer; seat the pad against the lever broad y=3 face, slide nut into its open side pocket from positive x, tighten from negative y",
             "Trigger_pad": "PETG carrier for smooth steel pin 3 x 24; 3.2 mm root bore, open contact channel and distal axial stop. Print on broad x=-6 side",
             "Trigger_pin": "smooth steel pin diameter 3 x 24 mm; captured between blind root and carrier end lip, 0.3 mm total end play. Remove the carrier to withdraw the pin",
