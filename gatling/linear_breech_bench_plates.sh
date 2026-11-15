@@ -26,10 +26,12 @@ report() {
 }
 
 # Chamber end + seat + front cover with pellet gutter (holds air at 2 bar).
-# Supports: seat cone and cover tip/gutter overhang past the 0.4 bed check.
+# NO supports since 2026-11-15: the seat's flare, the O-ring groove walls and the
+# cover's ledges were sloped for printing. The remaining down-faces are the seal
+# seats (cover 272 mm2, seat 28, plug 0) - short bridges, no supports needed.
 python3 tools/print_plate.py gatling_breech_bench_airtight \
   "$Q/rear_plug.stl" "$Q/seat_ring.stl" "$B/front_cover_feed.stl" \
-  --filament "$PLA" --airtight --infill 60% --pattern gyroid --support --brim 5 \
+  --filament "$PLA" --airtight --infill 60% --pattern gyroid --brim 5 \
   | report airtight
 
 # Feet, carriage, nose clamp, rail stops, barrel clamps, AirTAC cradle, yoke + tools.

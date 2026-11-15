@@ -169,7 +169,8 @@ sh gatling/linear_breech_bench_plates.sh
 ```
 
 Два проекта в `exports/print/`: `gatling_breech_bench_airtight.3mf` (пробка, седло, крышка
-с жёлобом — сопло 0.4, airtight) и `gatling_breech_bench_08.3mf` (опоры, салазки, упоры,
+с жёлобом — сопло 0.4, airtight, **без поддержек** с 2026-11-15: нависания заменены склонами,
+см. ниже) и `gatling_breech_bench_08.3mf` (опоры, салазки, упоры,
 хомуты, люлька AirTAC, ярмо, шаблон, конус — сопло 0.8). Мембрана, трубы и AirTAC не печатаются.
 
 Один проект «всё, кроме QEV» — `sh gatling/breech_mech_plates.sh` → `gatling_breech_mech_08.3mf`

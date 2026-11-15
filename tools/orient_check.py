@@ -21,7 +21,9 @@ import re
 import struct
 import sys
 
-BED_Z = 0.3             # faces this close to z = 0 are the first layer's contact
+BED_Z = 1.6             # faces within this many mm of the lowest point print as their own first layers:
+                        # a sub-1.6 mm gap under a flat face droops onto the bed or bridges; on a seal
+                        # face that is no worse than the scars supports would leave there
 OVERHANG_COS = 0.7071   # a downward face steeper than 45 deg prints in the air
 OVERHANG_MM2 = 300.0
 OVERHANG_FRAC = 0.08

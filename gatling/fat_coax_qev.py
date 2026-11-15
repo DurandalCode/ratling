@@ -68,6 +68,8 @@ ORING_SQUEEZE = 0.18        # chamber O-rings; 18 % at Ø34.6 (was 15 % at Ø35:
 BR_SQUEEZE = 0.12           # v4.1: the barrel's 24 x 2 a little easier, it was cut by the barrel's edge going in
 GROOVE_W = 1.3              # x CS
 LEAD_CHAMFER = 1.0
+GROOVE_SLOPE = 1.2               # z-run per radial step on groove walls: they print without supports;
+                                 # also bounded by the 1.2 mm wall between the front plug's two grooves
 # v4.3: two M3 threaded rods outside the tube hold the stack (no glue, nothing drilled through the tube).
 TIE_D, TIE_HOLE, TIE_STRESS_A = 3.0, 3.4, 5.03     # M3: stress area mm2
 TIE_R, TIE_ANGLES = 29.0, (30.0, 210.0)            # clears Ø50; each alone in a hex pack gap
@@ -173,7 +175,7 @@ seat_r = SEAT_D / 2
 seat_out_r = seat_r + SEAT_LAND
 ring_out_r = CH_ID / 2 - 0.3              # Ø34.0, as printed before the bore was measured: it fits
 z_flare = SEAT_TUBE_H
-z_flare_end = z_flare + (sock_out_r - seat_out_r)
+z_flare_end = z_flare + (sock_out_r - seat_out_r) * GROOVE_SLOPE   # the flare also prints supportless
 z_sh = z_flare + (sock_r + SHOULDER_WALL - seat_out_r)    # barrel stop: shoulder in the seat ring
 z_sock = z_sh + SOCKET_LEN
 z_spg0 = z_sh + SP_LAND0                                 # spigot groove: 45 deg from the OD down to the root
@@ -211,8 +213,10 @@ def shaft_groove(z_sq, toward):
     z_sq, 45 deg wall on the `toward` side (+1 / -1), which prints as a ceiling."""
     w = GROOVE_W * CH_ORING[1]
     z1 = z_sq + toward * w
-    z2 = z1 + toward * (spigot_r - ch_root_r)
-    return revolve([(ch_root_r, z_sq), (spigot_r + 1, z_sq), (spigot_r + 1, z2 + toward * 1), (ch_root_r, z1)]), \
+    z2 = z1 + toward * (spigot_r - ch_root_r) * GROOVE_SLOPE
+    return revolve([(ch_root_r, z_sq),
+                    (spigot_r + 1, z_sq - toward * (spigot_r + 1 - ch_root_r) * GROOVE_SLOPE),
+                    (spigot_r + 1, z2 + toward * 1), (ch_root_r, z1)]), \
         (min(z_sq, z2), max(z_sq, z2))
 
 
@@ -221,8 +225,9 @@ def bore_groove(z_sq, toward):
     on the `toward` side."""
     w = GROOVE_W * BR_ORING[1]
     z1 = z_sq + toward * w
-    z2 = z1 + toward * (br_root_r - sock_r)
-    return revolve([(sock_r - 1, z_sq), (br_root_r, z_sq), (br_root_r, z1), (sock_r - 1, z2 + toward * 1)]), \
+    z2 = z1 + toward * (br_root_r - sock_r) * GROOVE_SLOPE
+    return revolve([(sock_r - 1, z_sq - toward * (br_root_r - sock_r + 1) * GROOVE_SLOPE),
+                    (br_root_r, z_sq), (br_root_r, z1), (sock_r - 1, z2 + toward * 1)]), \
         (min(z_sq, z2), max(z_sq, z2))
 
 
@@ -262,7 +267,7 @@ pilot_cuts = [revolve([(0, z_floor), (MOUTH_R - MOUTH_CHAMFER, z_floor), (MOUTH_
                        (MOUTH_R, z_f), (MOUTH_R, z_f + 1), (0, z_f + 1)]),
               cyl(PILOT_D, z_ry + G18_TAP_DEPTH, z_floor + 0.01),
               cyl(G18_TAP_D, z_ry - 1, z_ry + G18_TAP_DEPTH),
-              Part.makeCone(G18_TAP_D / 2, PILOT_D / 2, (G18_TAP_D - PILOT_D) / 2, V(0, 0, z_ry + G18_TAP_DEPTH))]
+              Part.makeCone(G18_TAP_D / 2, PILOT_D / 2, (G18_TAP_D - PILOT_D) / 2 * GROOVE_SLOPE, V(0, 0, z_ry + G18_TAP_DEPTH))]
 for i in range(GROOVE_N):
     g = Part.makeBox(MOUTH_R - 2, GROOVE_WIDTH, GROOVE_DEPTH + 0.5, V(0, -GROOVE_WIDTH / 2, z_floor - GROOVE_DEPTH))
     g.rotate(V(0, 0, 0), Z, 360.0 / GROOVE_N * i + 45)
@@ -285,7 +290,7 @@ sr = sr.fuse(revolve([(STOP_LIP_R0, -t_c), (ring_out_r, -t_c), (ring_out_r, 0.01
 sr_cuts = [revolve([(0, -1), (seat_r, -1), (seat_r, z_sh), (SP_BORE / 2, z_sh), (SP_BORE / 2, z_sock + 1), (0, z_sock + 1)]),
            revolve([(sp_r, z_sh), (sock_r, z_sh), (sock_r, z_sock - LEAD_CHAMFER), (sock_r + LEAD_CHAMFER, z_sock + 0.01),
                     (sock_r + LEAD_CHAMFER, z_sock + 1), (SP_BORE / 2 - 0.01, z_sock + 1), (SP_BORE / 2 - 0.01, z_sp),
-                    (sp_r - LEAD_CHAMFER, z_sp), (sp_r, z_sp - LEAD_CHAMFER), (sp_r, z_spg2), (sp_root_r, z_spg2),
+                    (sp_r - LEAD_CHAMFER, z_sp), (sp_r, z_sp - LEAD_CHAMFER), (sp_r, z_spg2 + (sp_r - sp_root_r) * GROOVE_SLOPE), (sp_root_r, z_spg2),
                     (sp_root_r, z_spg1), (sp_r, z_spg0)])]
 sr = sr.cut(G.fuse_all(sr_cuts)).removeSplitter()
 # O-ring cone: sleeve over the tube's end, its face on the tube's end, taper in front (printed taper up)
@@ -338,8 +343,8 @@ fp_bgroove, fp_bgroove_z = bore_groove(z_fp_tip + FP_GROOVE_WALL, -1)
 # Front cover: chamber plug + stub lip + stop disc + self-centering fitting (no muzzle part).
 front_cover = revolve([
     (sock_r, z_fp_tip), (spigot_r - LEAD_CHAMFER, z_fp_tip), (spigot_r, z_fp_tip + LEAD_CHAMFER),
-    (spigot_r, z_tf), (CH_OD / 2, z_tf), (CH_OD / 2, z_fs),
-    (fp_out_r, z_fs + (CH_OD / 2 - fp_out_r)), (fp_out_r, z_fp_end),
+    (spigot_r, z_tf), (CH_OD / 2 - 0.4, z_tf), (CH_OD / 2, z_tf + 0.4), (CH_OD / 2, z_fs),
+    (fp_out_r, z_fs + (CH_OD / 2 - fp_out_r)), (fp_out_r, z_fp_end - 3.4),
     (fit_flange_r, z_fp_end), (fit_flange_r, z_stop),
     (fit_body_r, z_stop), (fit_body_r, z_fit_cyl1),
     (fit_tip_r, z_fit1), (0, z_fit1),
@@ -347,7 +352,8 @@ front_cover = revolve([
 ]).removeSplitter()
 front_cover = front_cover.cut(G.fuse_all([
     cyl(2 * sock_r, z_fp_tip - 1, z_stub_end + 0.01),
-    cyl(2 * lip_r, z_stub_end - 0.01, z_lip1 + 0.01),
+    # The pocket's far end funnels into the fitting bore: no sharp down-facing ledge.
+    Part.makeCone(lip_r, FIT_BORE / 2, z_lip1 - z_stub_end + 0.5, V(0, 0, z_stub_end - 0.5)),
     cyl(FIT_BORE, z_lip1 - 0.01, z_fit1 + 1),
 ]))
 front_cover = front_cover.cut(G.fuse_all([fp_groove, fp_bgroove])).removeSplitter()
