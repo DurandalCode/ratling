@@ -1,11 +1,12 @@
 #!/bin/sh
 # Gatling linear-breech station parts -> Bambu Studio project (PLA, sliced).
 #
-# The one station part the bench plates do not carry: the moving carriage
-# (rear + nose rail bushings, thumb, bridge). The hand bench drives its own
-# carriage_handle; this carriage is the one the cam rail of the real mechanism
-# pushes. 0.4 nozzle: the rail bushings are running fits, no drill-out wanted;
-# stands on its bushing end as exported (best of the six faces), brim + supports.
+# The two station parts the bench plates do not carry in station form:
+#   carriage  - the rear pusher (bridge on the QEV tie studs, plain rail bores
+#               in its plate; the hand bench drives its own carriage_handle)
+#   nose_clamp- the front rail guide, its own part now: a clamp on the Al
+#               chamber tube (split at Y=0, 2 x M3), bores in its skirt
+# 0.4 nozzle: the rail bores are running fits, no drill-out wanted.
 #
 # Not printed: Al chamber tube, Al rails 8x1, steel barrel, AirTAC, hardware.
 #
@@ -19,6 +20,7 @@ set -e
 cd "$(dirname "$0")/.."
 python3 tools/print_plate.py gatling_breech_carriage \
   exports/gatling_linear_breech/carriage.stl \
+  exports/gatling_linear_breech/nose_clamp.stl \
   --filament "Bambu PLA Basic @BBL P2S" --infill 60% --walls 5 --pattern gyroid \
   --support --brim 5 \
-  | python3 -c 'import sys,json;r=json.load(sys.stdin);print("carriage:",r["plates"],"plate(s),",", ".join("%d min %.0f g"%(s["minutes"],s["grams"]) for s in r["sliced"]))'
+  | python3 -c 'import sys,json;r=json.load(sys.stdin);print("station parts:",r["plates"],"plate(s),",", ".join("%d min %.0f g"%(s["minutes"],s["grams"]) for s in r["sliced"]))'

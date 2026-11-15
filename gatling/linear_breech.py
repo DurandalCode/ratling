@@ -73,13 +73,14 @@ RAIL_Y = -(CH_OD / 2 + RAIL_OD / 2 + 1.0)
 RAIL_PAST_REAR = 20.0            # rail behind open rear plug
 RAIL_PAST_FRONT = 40.0           # rail ahead of barrel clamp
 
-# Carriage: bushings on the rails + bridge bolted to the rear plug ears (M3 holes).
+# Carriage: plain rail bores in its plate + bridge bolted to the rear plug ears (M3 holes).
 BUSH_L = 28.0
 BUSH_OD = RAIL_OD + 7.0
 CARR_T = 8.0                     # bridge thickness behind the rear plug
 CARR_EAR_R = EAR_R + 2.0
 CARR_BOLT = TIE_HOLE
 CARR_WEB = 6.0
+NOSE_GAP = 1.0                   # nose clamp split at Y=0 (as the barrel clamps)
 
 # Barrel clamps: two split rings on the real barrel (breech + forward) for coax.
 # Both sit on the rails; two points beat one for barrel/QEV alignment.
@@ -96,8 +97,8 @@ try:
     BARREL_SHOW
 except NameError:
     BARREL_SHOW = 160.0
-# Forward QEV bushings: second rail guide under the chamber front (rear bushings
-# stay on the rear-plug bridge). Span along Z ≈ chamber length for coax to the bore.
+# Nose guide: second rail station under the chamber front (the rear one stays on the
+# rear-plug bridge). Its own part now - a clamp on the Al chamber tube, 2 x M3.
 NOSE_BUSH_L = BUSH_L
 
 # Pellet cradle fused into the front cover (one print with the QEV lid). Fitting
@@ -159,15 +160,15 @@ rails = [
 ]
 rails_s = G.fuse_all(rails)
 
-# ---------------------------------------------------------------- carriage (printed)
-# One solid: rear bridge on the plug + vertical webs down to bushings under the tube.
-z_bush0 = z_ry - CARR_T - 4.0
-z_bush1 = z_bush0 + BUSH_L
+# ---------------------------------------------------------------- carriage (printed, rear pusher)
+# The Al rails are the tubes: the carriage rides them through plain bores in its
+# plate - no printed sleeve barrels, they only duplicated the rails. The bridge
+# sandwiches on the QEV tie studs between the rear washers and the plug ears.
 bridge = G.cyl(CH_OD + 2.0, z_ry - CARR_T, z_ry)
 for a in TIE_ANGLES:
     p = at(TIE_R, a)
     bridge = bridge.fuse(G.cyl(2 * CARR_EAR_R, z_ry - CARR_T, z_ry, p.x, p.y))
-# Flat plate under the rear plug spanning both rails, then bushing barrels.
+# Flat plate under the rear plug spanning both rails; the rail bores run through it.
 plate = Part.makeBox(2 * RAIL_X + BUSH_OD, BUSH_OD + 2.0, CARR_T,
                      V(-RAIL_X - BUSH_OD / 2, RAIL_Y - BUSH_OD / 2 - 1.0, z_ry - CARR_T))
 # Vertical webs from the bridge disc down to the plate (overlap both).
@@ -175,52 +176,62 @@ webs = []
 for x, y in rail_centers():
     webs.append(Part.makeBox(CARR_WEB, abs(RAIL_Y) + BUSH_OD / 2, CARR_T + 2.0,
                              V(x - CARR_WEB / 2, RAIL_Y - BUSH_OD / 2, z_ry - CARR_T - 1.0)))
-    webs.append(G.cyl(BUSH_OD, z_bush0, z_bush1, x, y))
 carriage = G.fuse_all([bridge, plate] + webs).removeSplitter()
 carriage = carriage.cut(G.fuse_all(
     [G.cyl(CARR_BOLT, z_ry - CARR_T - 1, z_ry + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES]
-    + [G.cyl(RAIL_HOLE, z_bush0 - 2, z_bush1 + 2, x, y) for x, y in rail_centers()]
+    + [G.cyl(RAIL_HOLE, z_ry - CARR_T - 1, z_ry + 1, x, y) for x, y in rail_centers()]
 )).removeSplitter()
 
-# Forward (nose) bushings under the chamber front — second guide so the fitting
-# stays coaxial with the barrel while the breech closes. Bottom saddle only (+Y open).
+# ---------------------------------------------------------------- nose guide (printed, clamps the chamber)
+# Second rail guide under the chamber front, now its own part: the long link bars
+# that used to tie it to the rear carriage are gone (they only duplicated the rails
+# and actually clashed with them). Like the barrel clamps, it grips the Al chamber
+# tube - split at Y=0, 2 x M3 through the side walls - and rides the rails through
+# plain bores in its skirt plate.
 z_nose1 = z_fs - 2.0
 z_nose0 = z_nose1 - NOSE_BUSH_L
 y_ch_clear = -CH_OD / 2 - 0.5          # stay below the chamber tube
 y_link0 = RAIL_Y - BUSH_OD / 2 - 1.0
+z_mid = (z_nose0 + z_nose1) / 2
 nose_parts = []
-# Flat plate under the chamber spanning both rails (below the tube OD).
+# Skirt plate under the chamber spanning both rails (below the tube OD).
 nose_h = y_ch_clear - y_link0
-assert nose_h >= 4.0, "no room for nose plate under chamber"
+assert nose_h >= 4.0, "no room for nose skirt under chamber"
 nose_plate = Part.makeBox(2 * RAIL_X + BUSH_OD, nose_h, 10.0,
-                          V(-RAIL_X - BUSH_OD / 2, y_link0,
-                            (z_nose0 + z_nose1) / 2 - 5.0))
-# Half-band under the chamber OD (cut the upper half away).
+                          V(-RAIL_X - BUSH_OD / 2, y_link0, z_mid - 5.0))
+# Lower clamp half: band under the chamber OD (cut above -NOSE_GAP / 2).
 nose_band = tube(CH_OD + 6.0, CH_OD + 0.5, z_nose0 + 6.0, z_nose1 - 6.0)
 nose_band = nose_band.cut(Part.makeBox(CH_OD + 20.0, CH_OD + 20.0, NOSE_BUSH_L,
-                                       V(-(CH_OD + 20.0) / 2, 0.0, z_nose0 - 1.0)))
+                                       V(-(CH_OD + 20.0) / 2, -NOSE_GAP / 2, z_nose0 - 1.0)))
 nose_parts.append(nose_plate)
 nose_parts.append(nose_band)
 for x, y in rail_centers():
-    # Web from plate up to rail bushing (stops below chamber).
-    web_h = min(abs(RAIL_Y) + BUSH_OD / 2, y_ch_clear - y_link0)
-    nose_parts.append(Part.makeBox(CARR_WEB, web_h, 12.0,
-                                   V(x - CARR_WEB / 2, y_link0,
-                                     (z_nose0 + z_nose1) / 2 - 6.0)))
-    # Full bushing barrel, then trim anything that enters the chamber envelope
-    # (rail axes sit close under Ø50 — a full Ø15 barrel would nick the tube).
-    nb = G.cyl(BUSH_OD, z_nose0, z_nose1, x, y)
-    nb = nb.cut(G.cyl(CH_OD + 1.0, z_nose0 - 1, z_nose1 + 1))
-    nose_parts.append(nb)
-    # Link bar under the rail: ties rear bushings to nose into one printable carriage.
-    nose_parts.append(Part.makeBox(CARR_WEB + 2.0, 6.0, z_nose0 - z_bush1 + 2.0,
-                                   V(x - (CARR_WEB + 2.0) / 2, y_link0,
-                                     z_bush1 - 1.0)))
-nose = G.fuse_all(nose_parts).removeSplitter()
-nose = nose.cut(G.fuse_all(
+    # Web at each rail: thickens the skirt around the bore (stops below the band).
+    nose_parts.append(Part.makeBox(CARR_WEB, nose_h, 12.0,
+                                   V(x - CARR_WEB / 2, y_link0, z_mid - 6.0)))
+nose_lower = G.fuse_all(nose_parts).removeSplitter()
+nose_lower = nose_lower.cut(G.fuse_all(
     [G.cyl(RAIL_HOLE, z_nose0 - 2, z_nose1 + 2, x, y) for x, y in rail_centers()]
+    # Open each bore's top through the skirt edge: the chamber sits 1 mm above the
+    # rail, too close for a printable 0.35 mm lip; the rail stays captured ~300 deg.
+    + [Part.makeBox(RAIL_HOLE + 1.0, 0.7, NOSE_BUSH_L + 4.0,
+                    V(x - (RAIL_HOLE + 1.0) / 2, RAIL_Y + RAIL_HOLE / 2 - 0.5, z_nose0 - 2.0))
+       for x, y in rail_centers()]
 )).removeSplitter()
-carriage = carriage.fuse(nose).removeSplitter()
+# Upper clamp half: the closing ring over the tube (+Y side).
+nose_upper = tube(CH_OD + 6.0, CH_OD + 0.5, z_nose0 + 6.0, z_nose1 - 6.0)
+nose_upper = nose_upper.cut(Part.makeBox(CH_OD + 20.0, CH_OD + 20.0, NOSE_BUSH_L,
+                                         V(-(CH_OD + 20.0) / 2, NOSE_GAP / 2, z_nose0 - 1.0)))
+# 2 x M3 through the ring side walls at +-X (mid-wall), closing the halves on the tube.
+_nose_bolt_r = (CH_OD + 0.5 + CH_OD + 6.0) / 4.0
+for _s in (-1.0, 1.0):
+    _bolt = Part.makeCylinder(TIE_HOLE / 2, CH_OD + 8.0,
+                              V(_s * _nose_bolt_r, -(CH_OD + 8.0) / 2, z_mid), V(0, 1, 0))
+    nose_lower = nose_lower.cut(_bolt)
+    nose_upper = nose_upper.cut(_bolt)
+nose_lower = nose_lower.removeSplitter()
+nose_upper = nose_upper.removeSplitter()
+nose = Part.makeCompound([nose_lower, nose_upper])
 
 # ---------------------------------------------------------------- AirTAC M3R110 (bought) + L-thumb on carriage
 # Plunger points -Z (tip aft). Body toward the barrel. Closing (+Z) drives an L-pad
@@ -378,6 +389,7 @@ qev_closed = {
     "Tie_rods": hardware,
     "Pilot_fitting": fitting,
     "Carriage": carriage,
+    "Nose_clamp": nose,
 }
 # Drop the library's free-floating real_barrel; this sketch owns the fixed one.
 
@@ -397,13 +409,21 @@ pellet = Part.makeSphere(PELLET_D / 2, V(0, 0, pellet_z))
 # ---------------------------------------------------------------- checks
 qev_body = G.fuse_all([rp, front_cover_feed, chamber, front_yoke, hardware, barrel_stub])
 rail_to_qev = rails_s.distToShape(qev_body)[0]
-# Bushing: rail axis inside the uncut bushing barrel (the hole voids fail isInside).
-bush_ok = all(
-    G.cyl(BUSH_OD, z0, z1, x, y).isInside(
-        V(x, y, (z0 + z1) / 2), 1e-3, True)
-    for x, y in rail_centers()
-    for z0, z1 in ((z_bush0, z_bush1), (z_nose0, z_nose1))
-)
+# Guides: the rails pass clean through both plates (plain bores, no printed
+# sleeves) and keep a wall of material below each bore. The probe rod is a touch
+# under the bore: a same-size cylinder leaves boolean slivers on coincident faces.
+_probe = RAIL_HOLE - 0.2
+_pass_rear = [G.cyl(_probe, z_ry - CARR_T + 1, z_ry - 1, x, y) for x, y in rail_centers()]
+_pass_nose = [G.cyl(_probe, z_nose0 + 9.0, z_nose1 - 9.0, x, y) for x, y in rail_centers()]
+bush_ok = (all(p.common(carriage).Volume < 1e-4 for p in _pass_rear)
+           and all(p.common(nose_lower).Volume < 1e-4 for p in _pass_nose)
+           and all(carriage.isInside(V(x, RAIL_Y - RAIL_HOLE / 2 - 1.5, z_ry - CARR_T / 2), 1e-3, True)
+                   for x, y in rail_centers())
+           and all(nose_lower.isInside(V(x, RAIL_Y - RAIL_HOLE / 2 - 1.5, (z_nose0 + z_nose1) / 2), 1e-3, True)
+                   for x, y in rail_centers()))
+# The rails must not touch either guide anywhere else (the old link bars
+# overlapped the rail tubes by ~1050 mm3 along their whole length).
+rail_clash = rails_s.common(carriage).Volume + rails_s.common(nose).Volume
 nose_vs_chamber = nose.distToShape(chamber)[0]
 nose_vs_clamp = nose.distToShape(barrel_clamp)[0]
 collar_vs_clamp = barrel_collar.distToShape(barrel_clamp)[0]
@@ -415,7 +435,8 @@ open_cradle_z1 = z_feed1 - STROKE
 feed_box = Part.makeBox(CH_OD, 80, STROKE + 10,
                         V(-CH_OD / 2, 2.0, z_stop - STROKE - 5))
 feed_hit_rail = rails_s.common(feed_box).Volume
-feed_hit_carr_open = qev_open["Carriage"].common(feed_box).Volume if SHOW_OPEN else 0.0
+feed_hit_carr_open = (qev_open["Carriage"].common(feed_box).Volume
+                      + qev_open["Nose_clamp"].common(feed_box).Volume) if SHOW_OPEN else 0.0
 # Pack: rails must clear a neighbour module at PACK_PITCH (hex / square).
 nbr = qev_body.translated(V(PACK_PITCH, 0, 0))
 rail_to_nbr = rails_s.distToShape(nbr)[0]
@@ -444,14 +465,17 @@ feed_vs_clamp = feed.distToShape(barrel_clamp)[0]
 feed_low = feed.BoundBox.YMax <= CRADLE_Y_TOP + 0.2
 
 checks = [
-    ("carriage valid single solid (with thumb + nose)", G.single_solid(carriage)),
+    ("carriage (rear pusher) valid single solid (with thumb)", G.single_solid(carriage)),
+    ("nose clamp: lower half single solid", G.single_solid(nose_lower)),
+    ("nose clamp: upper half single solid", G.single_solid(nose_upper)),
     ("barrel clamp valid (may be multi-solid halves)", barrel_clamp.Volume > 1000),
     ("forward barrel collar valid (may be multi-solid halves)", barrel_collar.Volume > 1000),
     ("front cover+feed cradle valid single solid", G.single_solid(front_cover_feed)),
     ("AirTAC cradle valid single solid", G.single_solid(cradle)),
     ("rails clear of closed QEV body (%.1f mm >= %.1f)" % (rail_to_qev, RAIL_CLEAR),
      rail_to_qev >= RAIL_CLEAR),
-    ("carriage has rear+nose bushings on both rail axes", bush_ok),
+    ("carriage + nose clamp have plain rail bores at both stations", bush_ok),
+    ("rails pass clean through both guides (clash %.2f mm3)" % rail_clash, rail_clash < 0.01),
     ("nose saddle clear of chamber (%.1f mm)" % nose_vs_chamber, nose_vs_chamber >= 0.2),
     ("nose bushings clear of breech clamp (%.1f mm)" % nose_vs_clamp, nose_vs_clamp >= 0.5),
     ("forward collar clear of breech clamp (%.1f mm span)" % collar_vs_clamp,
@@ -503,8 +527,8 @@ report = [
     % (STROKE, FIT_INSERT, PELLET_D, STROKE_MARGIN, open_gap if SHOW_OPEN else -1),
     "  rails                  : Al tube Ø%.0f x %.0f, axes (±%.0f, %.1f), z %.0f .. %.0f (%.0f mm)"
     % (RAIL_OD, RAIL_WALL, RAIL_X, RAIL_Y, z_rail0, z_rail1, z_rail1 - z_rail0),
-    "  carriage               : rear bushings Ø%.0f x %.0f + nose Ø%.0f x %.0f under chamber; bridge on rear M3"
-    % (BUSH_OD, BUSH_L, BUSH_OD, NOSE_BUSH_L),
+    "  carriage               : rear pusher (plain rail bores in the plate, bridge on the tie studs)"
+    " + nose clamp 2xM3 on the chamber (bores in its skirt); no sleeves, no link bars",
     "  barrel clamps          : breech + forward (span %.0f), split L/R on Ø%.1f, feet on rails"
     % (CLAMP_SPAN, BARREL_OD),
     "  pellet cradle          : on front cover, low gutter OD %.1f past tip by %.0f mm; tip pushes"
@@ -529,7 +553,7 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
         "Rear_plug": "stator", "Seat_ring": "rotor", "Diaphragm": "shoe",
         "Front_cover": "stator", "Front_yoke": "stator", "Barrel_stub": "ghost",
         "Chamber_tube": "ghost", "Tie_rods": "steel", "Pilot_fitting": "steel",
-        "Carriage": "stator",
+        "Carriage": "stator", "Nose_clamp": "rotor",
     }
     for n, s in qev_closed.items():
         sc.add("Closed", n, s, styles_qev.get(n, "stator"))
@@ -551,7 +575,7 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
         ("ОТКРЫТО: пулька на жёлобе крышки, ход %.0f мм" % STROKE, (55, 40, pellet_z)),
         ("РЕЛЬСЫ Ø%.0f x %.0f под модулем (+Y свободен)" % (RAIL_OD, RAIL_WALL),
          (55, RAIL_Y - 15, (z_rail0 + z_rail1) / 2)),
-        ("САЛАЗКИ: задние + носовые втулки", (55, 0, (z_bush0 + z_nose1) / 2)),
+        ("САЛАЗКИ: задний толкатель + носовой хомут (2×M3)", (55, 0, (z_ry - CARR_T + z_nose1) / 2)),
         ("AirTAC M3R110: сброс только на ЗАКРЫТИИ", (55, vent_y - 20, (z_stem + z_vent1) / 2)),
         ("ХОМУТ У КАЗЁННИКА", (55, 0, z_clamp0 + CLAMP_L / 2)),
         ("НАСАДКА НА СТВОЛЕ (2-я опора)", (55, 0, (z_clamp2_0 + z_clamp2_1) / 2)),
@@ -576,6 +600,7 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
     # Cover: flange/chamber face on the bed (no flip — tip-down overhangs more).
     # Clamps and AirTAC cradle: +Z on the bed.
     for n, s, flip in (("carriage", carriage, False),
+                       ("nose_clamp", nose, False),
                        ("barrel_clamp", barrel_clamp, True),
                        ("barrel_collar", barrel_collar, True),
                        ("front_cover_feed", front_cover_feed, False),

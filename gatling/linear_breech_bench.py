@@ -69,7 +69,7 @@ y_floor = y_pad_top - FOOT_T
 open_carr_z0 = carriage.BoundBox.ZMin - STROKE
 # Front foot under the forward barrel collar (longer stance than the breech clamp).
 front_z = (z_clamp2_0 + z_clamp2_1) / 2
-# Rear foot on the rail tip, entirely aft of the open carriage (thumb + bushings).
+# Rear foot on the rail tip, entirely aft of the open carriage (thumb + rail bores).
 rear_z = z_rail0 + FOOT_PAD_Z / 2
 assert rear_z + FOOT_PAD_Z / 2 <= open_carr_z0 - 2.0, "rear foot into open carriage"
 
@@ -135,15 +135,16 @@ tip_ok = half_width >= 0.30 * tip_lever and stance_z >= 0.8 * tip_lever
 post_height_ok = (front_foot.BoundBox.YMax >= y_rail_bot - 0.5
                   and rear_foot.BoundBox.YMax >= y_rail_bot - 0.5)
 
-carr_closed = carriage_handled
-carr_open = shifted(carriage_handled, -STROKE)
+# The moving station set: rear pusher with its T-handle + the nose clamp.
+moving_closed = [carriage_handled, nose]
+moving_open = [shifted(carriage_handled, -STROKE), shifted(nose, -STROKE)]
 # Clearance vs each foot (compound distToShape can be flaky on multi-solid).
 def min_clear(parts, sh):
     return min(p.distToShape(sh)[0] for p in parts)
 
 feet = [front_foot, rear_foot]
-bed_vs_closed = min_clear(feet, carr_closed)
-bed_vs_open = min_clear(feet, carr_open)
+bed_vs_closed = min(min_clear(moving_closed, f) for f in feet)
+bed_vs_open = min(min_clear(moving_open, f) for f in feet)
 bed_vs_qev = min_clear(feet, qev_body)
 handle_vs_vent = handle.distToShape(vent_body)[0]
 
@@ -257,6 +258,7 @@ def write(shape, name, flip=False, lay=None):
 write(front_foot, "foot_front", lay="pad")
 write(rear_foot, "foot_rear", lay="pad")
 write(carriage_handled, "carriage_handle")
+write(nose, "nose_clamp")
 write(stops[0], "rail_stop")
 write(barrel_clamp, "barrel_clamp", flip=True)
 write(barrel_collar, "barrel_collar", flip=True)
