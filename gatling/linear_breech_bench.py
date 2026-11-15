@@ -4,10 +4,11 @@ Bench for one Gatling linear-breech station: small feet under the rails.
 
 Loads gatling/linear_breech.py as a library. The aluminium rails are the beam;
 print only two feet (front under the barrel clamp, rear aft of the open
-carriage) plus a T-handle on the carriage. No long floor slab.
+carriage); the carriage is pushed by hand on the QEV / bridge disc. No handle,
+no long floor slab.
 
-Prove on the bench: open → drop a pellet from +Y → close (AirTAC dumps) →
-module fires. Crank / hopper / rotary union stay off this stand.
+Prove on the bench: open → drop a pellet from +Y → close → press the AirTAC
+tip → module fires. Crank / hopper / rotary union stay off this stand.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech_bench.py').read())"
 
@@ -50,14 +51,11 @@ V = App.Vector
 
 # ---------------------------------------------------------------- feet parameters
 # Two discrete feet — rails span between them. Wide enough in X so a hand shove
-# on the T-handle does not tip; short in Z (print volume, not a giant frame).
+# on the QEV does not tip; short in Z (print volume, not a giant frame).
 FOOT_PAD_X = 76.0                # full width of each foot pad
 FOOT_PAD_Z = 16.0                # short: open carriage leaves ~20 mm at the rail tip
 FOOT_T = 6.0                     # pad thickness
 POST_W = 16.0
-HANDLE_STEM = 40.0               # T-handle up into +Y (feed side)
-HANDLE_BAR = 50.0
-HANDLE_D = 12.0
 STOP_T = 6.0                     # printed end stops on the rail tips
 SCREW_D = 4.2                    # M4 clearance through pads → clamp to table
 SCREW_R = 30.0                   # hole centres from foot mid-plane X=0
@@ -116,28 +114,19 @@ for x, y in rail_centers():
         stops.append(st)
 stops_s = G.fuse_all(stops)
 
-# T-handle on the carriage: stem into +Y so you push/pull by hand from the feed side.
-handle_stem = Part.makeCylinder(HANDLE_D / 2, HANDLE_STEM,
-                                V(0, CH_OD / 2 - 2.0, z_ry - CARR_T / 2), Y)
-handle_bar = Part.makeCylinder(HANDLE_D / 2, HANDLE_BAR,
-                               V(-HANDLE_BAR / 2, CH_OD / 2 - 2.0 + HANDLE_STEM,
-                                 z_ry - CARR_T / 2), X)
-handle = handle_stem.fuse(handle_bar).removeSplitter()
-carriage_handled = carriage.fuse(handle).removeSplitter()
-
-# ---------------------------------------------------------------- checks
-# Tip: foot half-width in X vs handle height; Z stance is the rail span between feet.
-handle_y = CH_OD / 2 - 2.0 + HANDLE_STEM
-tip_lever = handle_y - y_floor
+# No handle: you push/pull the carriage by the QEV / bridge disc itself.
+# Tip: foot half-width in X vs the push height on the QEV; Z stance is the rail span between feet.
+push_y = CH_OD / 2
+tip_lever = push_y - y_floor
 half_width = FOOT_PAD_X / 2
 stance_z = (front_z - FOOT_PAD_Z / 2) - (rear_z + FOOT_PAD_Z / 2)
 tip_ok = half_width >= 0.30 * tip_lever and stance_z >= 0.8 * tip_lever
 post_height_ok = (front_foot.BoundBox.YMax >= y_rail_bot - 0.5
                   and rear_foot.BoundBox.YMax >= y_rail_bot - 0.5)
 
-# The moving station set: rear pusher with its T-handle + the nose clamp.
-moving_closed = [carriage_handled, nose]
-moving_open = [shifted(carriage_handled, -STROKE), shifted(nose, -STROKE)]
+# The moving station set: rear pusher + the nose clamp.
+moving_closed = [carriage, nose]
+moving_open = [shifted(carriage, -STROKE), shifted(nose, -STROKE)]
 # Clearance vs each foot (compound distToShape can be flaky on multi-solid).
 def min_clear(parts, sh):
     return min(p.distToShape(sh)[0] for p in parts)
@@ -146,17 +135,15 @@ feet = [front_foot, rear_foot]
 bed_vs_closed = min(min_clear(moving_closed, f) for f in feet)
 bed_vs_open = min(min_clear(moving_open, f) for f in feet)
 bed_vs_qev = min_clear(feet, qev_body)
-handle_vs_vent = handle.distToShape(vent_body)[0]
 
 # Print budget: both feet together should stay well under a long slab (~150 cm³).
 vol_ok = bed_vol < 80e3   # mm³
 
-station_ok = G.single_solid(carriage) and abs((z_push_closed - z_plunger_free) - VENT_PUSH) < 1e-6
+station_ok = G.single_solid(carriage)
 
 checks = [
     ("front foot valid single solid", G.single_solid(front_foot)),
     ("rear foot valid single solid", G.single_solid(rear_foot)),
-    ("carriage+handle valid single solid", G.single_solid(carriage_handled)),
     ("pads below rails, AirTAC hangs free (y_floor %.1f)" % y_floor,
      y_floor < RAIL_Y - 15.0 and min_clear(feet, vent_body) >= 0.5),
     ("feet reach the rail underside", post_height_ok),
@@ -166,9 +153,8 @@ checks = [
     ("feet clear of closed carriage (%.1f mm)" % bed_vs_closed, bed_vs_closed >= 0.5),
     ("feet clear of open carriage (%.1f mm)" % bed_vs_open, bed_vs_open >= 0.5),
     ("feet clear of QEV body (%.1f mm)" % bed_vs_qev, bed_vs_qev >= 0.5),
-    ("T-handle clear of AirTAC (%.1f mm)" % handle_vs_vent, handle_vs_vent >= 5.0),
     ("end stops present on both rail tips", stops_s.Volume > 100),
-    ("station library: carriage solid + close press %.1f mm" % VENT_PUSH, station_ok),
+    ("station library: carriage solid", station_ok),
 ]
 
 report = [
@@ -178,9 +164,8 @@ report = [
     % (FOOT_PAD_X, FOOT_T, FOOT_PAD_Z, y_floor),
     "  volume                 : %.0f cm3 both feet; front z %.0f, rear z %.0f, stance %.0f mm"
     % (bed_vol / 1000.0, front_z, rear_z, stance_z),
-    "  handle                 : T on carriage, stem %.0f mm into +Y; shove closed to dump AirTAC"
-    % HANDLE_STEM,
-    "  station                : stroke %.1f mm, AirTAC press on close %.1f mm" % (STROKE, VENT_PUSH),
+    "  station                : stroke %.1f mm; AirTAC tip unpressed - dump the pilot by hand"
+    % STROKE,
     "  not drawn              : regulator plumbing, chronograph stand",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
@@ -207,7 +192,7 @@ for n, s in qev_closed.items():
     if n == "Carriage":
         continue
     sc.add("Closed", n, s, styles_qev.get(n, "stator"))
-sc.add("Closed", "Carriage", carriage_handled, "stator")
+sc.add("Closed", "Carriage", carriage, "stator")
 sc.add("Fixed", "Rails", rails_s, "steel")
 sc.add("Fixed", "Barrel_clamp", barrel_clamp, "stator")
 sc.add("Fixed", "Barrel_collar", barrel_collar, "stator")
@@ -222,14 +207,14 @@ sc.add("Bought", "AirTAC_plunger", vent_plunger, "shoe")
 if SHOW_OPEN:
     for n, s in qev_open.items():
         if n == "Carriage":
-            sc.add("Open", "Open_Carriage", shifted(carriage_handled, -STROKE), "ghost")
+            sc.add("Open", "Open_Carriage", shifted(carriage, -STROKE), "ghost")
         else:
             sc.add("Open", "Open_" + n, s, "ghost")
     sc.add("Open", "Pellet", pellet, "flow")
 
 for text, pos in [
     ("ДВЕ ОПОРЫ — рельсы сами балка", (0, y_floor - 12, (front_z + rear_z) / 2)),
-    ("РУЧКА: руками открыть / закрыть", (0, handle_y + 10, z_ry - CARR_T / 2)),
+    ("РУКАМИ: открыть / закрыть, толкать за QEV", (0, push_y + 10, z_ry - CARR_T / 2)),
     ("ЗАКРЫТО → AirTAC сброс → выстрел", (60, 0, z_stop)),
     ("ОТКРЫТО → пулька сверху (+Y)", (60, 40, z_stop - STROKE / 2)),
 ]:
@@ -257,7 +242,6 @@ def write(shape, name, flip=False, lay=None):
 # One rail-stop ring (four copies on the plate); feet pad-down; clamps/cradle tip-up.
 write(front_foot, "foot_front", lay="pad")
 write(rear_foot, "foot_rear", lay="pad")
-write(carriage_handled, "carriage_handle")
 write(nose, "nose_clamp")
 write(stops[0], "rail_stop")
 write(barrel_clamp, "barrel_clamp", flip=True)

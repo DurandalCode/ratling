@@ -32,10 +32,10 @@ python3 tools/print_plate.py gatling_breech_bench_airtight \
   --filament "$PLA" --airtight --infill 60% --pattern gyroid --support --brim 5 \
   | report airtight
 
-# Feet, carriage+T-handle, nose clamp, rail stops, barrel clamps, AirTAC cradle, yoke + tools.
+# Feet, carriage, nose clamp, rail stops, barrel clamps, AirTAC cradle, yoke + tools.
 # 0.8: bushing and barrel holes will need a drill-out (same as pistol body_08).
 python3 tools/print_plate.py gatling_breech_bench_08 \
-  "$S/foot_front.stl" "$S/foot_rear.stl" "$S/carriage_handle.stl" "$S/nose_clamp.stl" \
+  "$S/foot_front.stl" "$S/foot_rear.stl" "$B/carriage.stl" "$S/nose_clamp.stl" \
   "$S/rail_stop.stl:4" \
   "$S/barrel_clamp.stl" "$S/barrel_collar.stl" "$S/airtac_cradle.stl" \
   "$Q/front_yoke.stl" "$Q/jig_guide.stl" "$Q/oring_cone.stl" \
