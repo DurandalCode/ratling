@@ -21,6 +21,10 @@ Q=exports/gatling_fat_coax_qev
 B=exports/gatling_linear_breech
 S=exports/gatling_linear_breech_bench
 PLA='Bambu PLA Basic @BBL P2S'
+if [ -f "$S/feeder_frame.stl" ]; then
+  echo "Refusing to slice: this plate layout predates the 2026-11-16 feeder/stop import; update the part set first." >&2
+  exit 1
+fi
 report() {
   python3 -c "import sys,json;r=json.load(sys.stdin);print('$1:',r['plates'],'plate(s),',', '.join('%d min %.0f g'%(s['minutes'],s['grams']) for s in r['sliced']))"
 }

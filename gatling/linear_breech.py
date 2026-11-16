@@ -57,6 +57,29 @@ exec(open(os.path.join(REPO, "gatling", "fat_coax_qev.py")).read(), globals())
 OUT_DIR = os.path.join(REPO, "exports", "gatling_linear_breech")
 NAME = "gatling_linear_breech"
 
+# Length adaptation keeps the rear seat fixed and shifts the complete front end.
+CHAMBER_LENGTH = 200.0
+_chamber_z0, _chamber_old_z1 = chamber.BoundBox.ZMin, chamber.BoundBox.ZMax
+chamber_extension = CHAMBER_LENGTH - chamber.BoundBox.ZLength
+chamber = G.cyl(CH_OD, _chamber_z0, _chamber_z0 + CHAMBER_LENGTH).cut(
+    G.cyl(47.0, _chamber_z0 - 1, _chamber_z0 + CHAMBER_LENGTH + 1)).removeSplitter()
+for _front_part in (front_cover, front_yoke):
+    _front_part.translate(V(0, 0, chamber_extension))
+barrel_stub = G.cyl(BARREL_OD, barrel_stub.BoundBox.ZMin,
+                     barrel_stub.BoundBox.ZMax + chamber_extension).cut(
+    G.cyl(BARREL_ID, barrel_stub.BoundBox.ZMin - 1,
+          barrel_stub.BoundBox.ZMax + chamber_extension + 1)).removeSplitter()
+# Retain the original end hardware; extend only the straight M3 tie-rod spans.
+_tie_cut_z = 40.0
+_tie_rear = hardware.common(Part.makeBox(100, 100, _tie_cut_z + 100, V(-50, -50, -100)))
+_tie_front = hardware.common(Part.makeBox(100, 100, 300, V(-50, -50, _tie_cut_z)))
+_tie_front.translate(V(0, 0, chamber_extension))
+_tie_links = [G.cyl(3.0, _tie_cut_z - 0.1, _tie_cut_z + chamber_extension + 0.1,
+                   at(TIE_R, a).x, at(TIE_R, a).y) for a in TIE_ANGLES]
+hardware = G.fuse_all([_tie_rear, _tie_front] + _tie_links).removeSplitter()
+z_fs += chamber_extension
+z_stop += chamber_extension
+
 # ---------------------------------------------------------------- breech parameters
 # Stroke: fitting fully out + gap for a ØBARREL_ID pellet to drop past the stop face.
 PELLET_D = BARREL_ID
@@ -91,12 +114,13 @@ CLAMP_OD = BARREL_OD + 14.0
 CLAMP_BOLT = 3.4                 # M3 through the halves
 CLAMP_BOLT_X = 0.25 * (BARREL_OD + 0.3 + CLAMP_OD)  # mid-wall, ±X
 CLAMP_GAP = 1.0                  # split at Y=0 (top/bottom); feed on +Y
-CLAMP_SPAN = 70.0                # clear gap between breech clamp and forward collar
+CLAMP_SPAN = 70.0                # minimum; adjusted below for the fixed barrel length
 # Fixed barrel drawn ahead of the breech clamp. Override before exec (breech_pack 2×).
 try:
     BARREL_SHOW
 except NameError:
-    BARREL_SHOW = 160.0
+    BARREL_SHOW = 400.0
+CLAMP_SPAN = max(CLAMP_SPAN, BARREL_SHOW - 2 * CLAMP_L - 34.0)
 # Nose guide: second rail station under the chamber front (the rear one stays on the
 # rear-plug bridge). Its own part now - a clamp on the Al chamber tube, 2 x M3.
 NOSE_BUSH_L = BUSH_L
@@ -216,7 +240,7 @@ nose_lower = nose_lower.cut(G.fuse_all(
 # Upper clamp half: the closing ring over the tube (+Y side).
 nose_upper = tube(CH_OD + 6.0, CH_OD + 0.5, z_nose0 + 6.0, z_nose1 - 6.0)
 nose_upper = nose_upper.cut(Part.makeBox(CH_OD + 20.0, CH_OD + 20.0, NOSE_BUSH_L,
-                                         V(-(CH_OD + 20.0) / 2, NOSE_GAP / 2, z_nose0 - 1.0)))
+                                         V(-(CH_OD + 20.0) / 2, NOSE_GAP / 2 - (CH_OD + 20.0), z_nose0 - 1.0)))
 # 2 x M3 through the ring side walls at +-X (mid-wall), closing the halves on the tube.
 _nose_bolt_r = (CH_OD + 0.5 + CH_OD + 6.0) / 4.0
 for _s in (-1.0, 1.0):
@@ -235,7 +259,7 @@ nose = Part.makeCompound([nose_lower, nose_upper])
 a = AIRTAC
 # Tip reference: the valve stays put, its tip VENT_PUSH aft of the closed plate's rear face.
 z_push_closed = z_ry - CARR_T - 4.0          # closed-carriage reference face (was the L-pad's)
-z_plunger_free = z_push_closed - VENT_PUSH    # tip at rest
+z_plunger_free = z_push_closed - VENT_PUSH + 16.5  # manual valve, ahead of carriage sweep
 z_stem = z_plunger_free + a["plunger"][1]     # stem face (plunger roots here, points -Z)
 z_vent1 = z_stem + a["L"]                     # forward end of the body (toward barrel)
 # Body under the rails, clear of +Y feed.
@@ -302,15 +326,19 @@ rails_s = G.fuse_all(rails)
 def make_barrel_clamp(z0, z1, feed_notch=False):
     """Top/bottom split ring on the barrel with feet on the rails."""
     ring = tube(CLAMP_OD, BARREL_OD + 0.3, z0, z1)
-    for sx in (-1, 1):
-        ring = ring.cut(G.cyl(CLAMP_BOLT, z0 - 1, z1 + 1, sx * CLAMP_BOLT_X, 0.0))
     for x, y in rail_centers():
         foot = G.cyl(BUSH_OD, z0, z1, x, y).cut(
             G.cyl(RAIL_HOLE, z0 - 1, z1 + 1, x, y))
-        web = Part.makeBox(abs(x) - BARREL_OD / 2 + 2, 6.0, z1 - z0,
-                           V(min(0.0, x) + (BARREL_OD / 2 - 2 if x < 0 else 0),
-                             -3.0, z0))
+        web = Part.makeBox(6.0, -RAIL_Y - 10.0, z1 - z0,
+                           V(x - 3.0, RAIL_Y, z0))
         ring = ring.fuse(foot).fuse(web)
+    ring = ring.cut(G.cyl(BARREL_OD + 0.3, z0 - 1, z1 + 1))
+    for x, y in rail_centers():
+        ring = ring.cut(G.cyl(RAIL_HOLE, z0 - 1, z1 + 1, x, y))
+    # Cross bolts behind the feed notch pull the upper/lower halves together.
+    for sx in (-1, 1):
+        ring = ring.cut(Part.makeCylinder(CLAMP_BOLT / 2, CLAMP_OD + 2,
+                        V(sx * CLAMP_BOLT_X, -CLAMP_OD / 2 - 1, z1 - 5.0), Y))
     kerf = Part.makeBox(CLAMP_OD * 2, CLAMP_GAP, (z1 - z0) + 4,
                         V(-CLAMP_OD, -CLAMP_GAP / 2, z0 - 2))
     ring = ring.cut(kerf)
@@ -381,7 +409,7 @@ qev_open = {n: shifted(s, -STROKE) for n, s in qev_closed.items()} if SHOW_OPEN 
 
 # Pellet on the open cradle, ahead of the open fitting tip.
 pellet_z = (z_tip + PELLET_D / 2) - STROKE
-pellet = Part.makeSphere(PELLET_D / 2, V(0, 0, pellet_z))
+# Pellet geometry omitted; its nominal size only defines the future feed envelope.
 
 # ---------------------------------------------------------------- checks
 qev_body = G.fuse_all([rp, front_cover_feed, chamber, front_yoke, hardware, barrel_stub])
@@ -435,11 +463,15 @@ feed_vs_clamp = feed.distToShape(barrel_clamp)[0]
 feed_low = feed.BoundBox.YMax <= CRADLE_Y_TOP + 0.2
 
 checks = [
+    ("chamber tube is valid and 200 mm long", G.single_solid(chamber) and abs(chamber.BoundBox.ZLength - CHAMBER_LENGTH) < 1e-6),
+    ("extended barrel stub valid single solid", G.single_solid(barrel_stub)),
+    ("extended tie rods valid two solids", hardware.isValid() and len(hardware.Solids) == 2),
+    ("fixed barrel matches requested length", G.single_solid(fixed_barrel) and abs(fixed_barrel.BoundBox.ZLength - BARREL_SHOW) < 1e-6),
     ("carriage (rear pusher) valid single solid", G.single_solid(carriage)),
     ("nose clamp: lower half single solid", G.single_solid(nose_lower)),
     ("nose clamp: upper half single solid", G.single_solid(nose_upper)),
-    ("barrel clamp valid (may be multi-solid halves)", barrel_clamp.Volume > 1000),
-    ("forward barrel collar valid (may be multi-solid halves)", barrel_collar.Volume > 1000),
+    ("barrel clamp valid two connected halves", barrel_clamp.isValid() and len(barrel_clamp.Solids) == 2),
+    ("forward barrel collar valid two connected halves", barrel_collar.isValid() and len(barrel_collar.Solids) == 2),
     ("front cover+feed cradle valid single solid", G.single_solid(front_cover_feed)),
     ("AirTAC cradle valid single solid", G.single_solid(cradle)),
     ("rails clear of closed QEV body (%.1f mm >= %.1f)" % (rail_to_qev, RAIL_CLEAR),
@@ -485,6 +517,10 @@ checks = [
     ("AirTAC cradle clear of closed QEV (%.1f mm)" % airtac_cradle_vs_qev,
      airtac_cradle_vs_qev >= 0.5),
     ("AirTAC body clear of rails (%.1f mm)" % vent_vs_rails, vent_vs_rails >= 0.5),
+    ("open nose clears manual valve cradle", shifted(nose, -STROKE).distToShape(cradle)[0] >= 0.5),
+    ("manual valve and cradle ahead of rear carriage sweep",
+     min(s.BoundBox.ZMin for s in (cradle, vent_body, vent_fittings, vent_plunger))
+     >= carriage.BoundBox.ZMax + 0.5),
 ]
 
 report = [
@@ -535,7 +571,6 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
     if SHOW_OPEN:
         for n, s in qev_open.items():
             sc.add("Open", "Open_" + n, s, "ghost")
-        sc.add("Open", "Pellet", pellet, "flow")
 
     for text, pos in [
         ("ЗАКРЫТО: упор в ствол, жёлоб крышки в канале", (55, 0, z_stop - 5)),

@@ -21,6 +21,10 @@ Q=exports/gatling_fat_coax_qev
 B=exports/gatling_linear_breech
 S=exports/gatling_linear_breech_bench
 PLA='Bambu PLA Basic @BBL P2S'
+if [ -f "$S/feeder_frame.stl" ]; then
+  echo "Refusing to slice: this plate layout predates the 2026-11-16 feeder/stop import; update the part set first." >&2
+  exit 1
+fi
 python3 tools/print_plate.py gatling_breech_mech_08 \
   "$S/foot_front.stl" "$S/foot_rear.stl" \
   "$B/carriage.stl" "$B/nose_clamp.stl" \
