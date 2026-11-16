@@ -1,5 +1,6 @@
 {
   "id": "gatling",
+  "obfuscate": true,
   "roots": ["gatling/linear_breech_bench.py"],
   "build_pre": {},
   "editable": ["gatling/linear_breech_bench.py"],
@@ -11,5 +12,5 @@
     "ratling/params.py",
     "ratling/fcview.py"
   ],
-  "note": "One-station stand. Edit the stand file only (top basket over the open slot). The sliding station and the drive housing are context and are not taken back. Mating geometry is left real so the basket fits the live station."
+  "note": "One-station stand. Edit the stand file only (top basket over the open slot). On out the imported coax module is a solid envelope; the station and that envelope are context and are not taken back. The slot and the stroke stay put so the basket fits the live station."
 }
