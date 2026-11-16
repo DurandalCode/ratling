@@ -1,5 +1,15 @@
 {
   "id": "gatling",
-  "extends": "mitrailleuse",
-  "note": "Concept B (rotating pack) has no live generators yet; same file set as mitrailleuse until then."
+  "roots": ["gatling/linear_breech_bench.py"],
+  "build_pre": {},
+  "editable": ["gatling/linear_breech_bench.py"],
+  "context": [
+    "gatling/linear_breech.py",
+    "gatling/fat_coax_qev.py",
+    "ratling/__init__.py",
+    "ratling/geom.py",
+    "ratling/params.py",
+    "ratling/fcview.py"
+  ],
+  "note": "One-station stand. Edit the stand file only (top basket over the open slot). The sliding station and the drive housing are context and are not taken back. Mating geometry is left real so the basket fits the live station."
 }

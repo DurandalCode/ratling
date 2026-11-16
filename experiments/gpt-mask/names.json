@@ -2,7 +2,7 @@
  "_comment": "words: live word -> neutral word (lowercase letters, unique, must not occur in the exposed sources; mask_sync checks). forbidden_substrings: nothing containing these may leave the repo.",
  "words": {
   "ratling": "mechanismus",
-  "mitrailleuse": "carrier",
+  "mitrailleuse": "wagon",
   "pistol": "handheld",
   "valve": "relay",
   "valves": "relays",
@@ -17,7 +17,7 @@
   "pressure": "stressor",
   "pressurized": "energized",
   "pressurizes": "energizes",
-  "supply": "feed",
+  "supply": "intake",
   "hose": "cable",
   "exhaust": "discharge",
   "barrel": "spindle",
@@ -52,7 +52,7 @@
   "diaphragm": "membrane",
   "schrader": "tyrevalve",
   "gauge": "sensor",
-  "slider": "carriage",
+  "slider": "sled",
   "plunger": "rammer",
   "piston": "ramhead",
   "leaks": "seeps",
@@ -62,7 +62,24 @@
   "pneumatics": "fluidics",
   "warpstone": "gemstone",
   "cock": "snapback",
-  "six": "multi"
+  "six": "sextet",
+  "gatling": "carousel",
+  "pellet": "marble",
+  "pellets": "marbles",
+  "projectile": "pebble",
+  "projectiles": "pebbles",
+  "dump": "purge",
+  "dumps": "purges",
+  "dumped": "purged",
+  "dumping": "purging",
+  "hopper": "basket",
+  "hoppers": "baskets",
+  "bleed": "weep",
+  "chronograph": "stopwatch",
+  "regulator": "governor",
+  "seat": "sill",
+  "seats": "sills",
+  "bar": "spar"
  },
  "forbidden_substrings": [
   "ratling",
@@ -77,6 +94,7 @@
   "pneumat"
  ],
  "exact": {
-  "AirTAC": "BrandXx"
+  "AirTAC": "BrandXx",
+  "M3R110": "K7N440"
  }
 }

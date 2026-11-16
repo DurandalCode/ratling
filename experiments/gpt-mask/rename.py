@@ -4,7 +4,8 @@ Reversible renaming of our Python sources for the external Mechanismus work tree
 
 A table of whole words (live -> neutral, names.json) is applied to every letter run in the text and
 in file paths: identifiers, strings, comments. Case style survives (valve / Valve / VALVE), mixed-case
-runs (makeCylinder, BoundBox) are never touched unless listed under "exact", so FreeCAD's API stays intact. Russian words are
+runs (makeCylinder, BoundBox) are never touched unless listed under "exact", so FreeCAD's API stays intact.
+Exact keys that are not plain letters (a catalog number) are swapped as literal substrings. Russian words are
 dropped on the way out (strip_russian) and never come back as such. Line count never changes, which is
 what lets edits travel line by line and merge as plain 3-way text.
 """
@@ -69,13 +70,24 @@ def strip_russian(text):
     return _RU.sub("", text)
 
 
+def _literals(text, mapping):
+    """Whole-string swaps for keys the letter-run pass cannot see (digits, punctuation)."""
+    items = [(k, v) for k, v in mapping.items() if not k.isalpha()]
+    for k, v in sorted(items, key=lambda kv: -len(kv[0])):
+        text = text.replace(k, v)
+    return text
+
+
 def forward(text, names):
-    return _RUN.sub(_swap(names["words"], names["exact"]), strip_russian(text))
+    text = _literals(strip_russian(text), names["exact"])
+    return _RUN.sub(_swap(names["words"], names["exact"]), text)
 
 
 def reverse(text, names):
     inv = {v: k for k, v in names["words"].items()}
-    return _RUN.sub(_swap(inv, {v: k for k, v in names["exact"].items()}), text)
+    inv_exact = {v: k for k, v in names["exact"].items()}
+    text = _RUN.sub(_swap(inv, inv_exact), text)
+    return _literals(text, inv_exact)
 
 
 forward_path = forward
@@ -97,7 +109,10 @@ def check_table(names, texts):
         if v in vocab:
             problems.append("neutral word %r (for %r) already occurs in the sources" % (v, k))
     for k, v in sorted(names["exact"].items()):
-        if v.lower() in vocab:
+        if k.isalpha():
+            if v.lower() in vocab:
+                problems.append("neutral spelling %r (for %r) already occurs in the sources" % (v, k))
+        elif any(v in t for t in texts):
             problems.append("neutral spelling %r (for %r) already occurs in the sources" % (v, k))
     return problems
 

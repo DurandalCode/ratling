@@ -199,6 +199,11 @@ Mac, замеры. Агент, который упёрся в такое дей�
 
 ### Покупки
 
+- [ ] **Бункер на стенд гатлинга — отдать GPT** (`experiments/gpt-mask`, профиль `gatling`):
+  `experiments/gpt-mask/mask out -p gatling` пишет внешнюю папку (не репозиторий). В чат GPT,
+  словами выгрузки: корзина (`basket`) сверху на стенд, один шарик (`marble`) в открытую щель с +Y.
+  Править только файл стенда; станция и корпус привода — контекст, `mask in -p gatling` их не берёт.
+  Не блокирует печать станции.
 - [ ] **Стенд линейного затвора гатлинга** (`gatling/linear_breech_bench_plates.sh`, [`gatling.md`](gatling.md)):
   на Mac: прогнать fat coax + linear_breech + bench в FreeCAD, затем
   `sh gatling/linear_breech_bench_plates.sh` → `exports/print/gatling_breech_bench_airtight.3mf`

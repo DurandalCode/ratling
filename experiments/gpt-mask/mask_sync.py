@@ -17,6 +17,10 @@ Pistol only: on `out` the geometry GPT sees is obfuscated (solid stack instead o
 exhaust unit, one drum instead of six tubes, external wires instead of internal hose runs).
 Those context files are never taken back by `in`; only the housing file is editable.
 
+Gatling stand: words only, no geometry rewrite. The stand file is editable; the sliding station,
+the drive housing and the shared libraries are context and are not taken back. The slot, the
+stroke and the marble size stay as drawn, so a basket added on the stand fits the live station.
+
   python3 experiments/gpt-mask/mask_sync.py out -p pistol
   python3 experiments/gpt-mask/mask_sync.py in  -p pistol
 
@@ -39,7 +43,7 @@ import rename  # noqa: E402
 import obfuscate_pistol  # noqa: E402
 from product_lib import list_products, load_product  # noqa: E402
 
-README = """# Mechanismus
+PISTOL_README = """# Mechanismus
 
 Cosplay prop for a costume: a handheld rotary piece with a printed shell around a drive pack.
 The whole mechanism is in this folder (shell + drive). Plain FreeCAD Python — run a generator,
@@ -74,6 +78,72 @@ Output goes to `exports/`.
   drive stand-ins.
 """
 
+GATLING_README = """# Mechanismus
+
+Cosplay prop for a costume: a sliding carriage on two rails, held up by two small printed feet.
+When the carriage is back, the open slot on top takes one soft marble from +Y.
+Plain FreeCAD Python — run the stand generator, read its report, edit the files in place.
+
+What you are looking at:
+
+- The stand is two feet under the rails. This is the printed piece to reshape.
+- The carriage slides on the rails. Closed, a nose fills the slot. Open, there is room for one marble.
+- A top basket for the marbles belongs over that open slot.
+- The pack on the carriage is the costume's drive housing. The bought block under the rails is the cue switch.
+
+## Run
+
+```sh
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
+{runs}
+```
+
+Every line printed as `[OK ]` / `[FAIL]` is a check; `[FAIL]` means the change broke something.
+Output goes to `exports/`.
+
+## Rules
+
+- Edit the stand file in place. Do not rename, add or delete files.
+- Keep line endings and the overall line structure; make local changes, do not reformat or reflow
+  untouched code (changes are exchanged as line diffs).
+- Generators run each other by relative path; keep those paths as they are.
+- Keep the vocabulary of the existing code for names you do not need to change.
+- Put the basket on the stand. Leave the sliding station and the drive housing alone — they are the
+  prop's drive stand-ins.
+"""
+
+GENERIC_README = """# Mechanismus
+
+Printed costume prop. Plain FreeCAD Python — run a generator, read its report, edit the files in place.
+
+## Run
+
+```sh
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
+{runs}
+```
+
+Every line printed as `[OK ]` / `[FAIL]` is a check; `[FAIL]` means the change broke something.
+Output goes to `exports/`.
+
+## Rules
+
+- Edit the existing files in place. Do not rename, add or delete files.
+- Keep line endings and the overall line structure; make local changes, do not reformat or reflow
+  untouched code (changes are exchanged as line diffs).
+- Generators run each other by relative path; keep those paths as they are.
+- Keep the vocabulary of the existing code for names you do not need to change.
+"""
+
+
+def work_readme(product_id, runs):
+    if product_id == "pistol":
+        body = PISTOL_README
+    elif product_id == "gatling":
+        body = GATLING_README
+    else:
+        body = GENERIC_README
+    return body.format(runs=runs)
 
 
 def die(msg, code=1):
@@ -153,6 +223,28 @@ class Side(object):
     def obfuscate(self):
         return bool(self.product.get("obfuscate")) and self.id == "pistol"
 
+    def listed(self, key):
+        return self.product.get(key) or []
+
+    def guards_edits(self):
+        """True when `in` may take only the files listed as editable."""
+        return bool(self.listed("editable")) or self.obfuscate()
+
+    def is_editable(self, rel):
+        editable = self.listed("editable")
+        if editable:
+            return rel in editable
+        if self.obfuscate():
+            return obfuscate_pistol.is_editable(rel)
+        return True
+
+    def is_context(self, rel):
+        if self.listed("context") or self.listed("editable"):
+            return rel in self.listed("context")
+        if self.obfuscate():
+            return obfuscate_pistol.is_context(rel)
+        return False
+
     def expose(self, rel, live_text):
         """Live text as written to the work folder: obfuscated (pistol) then renamed."""
         text = live_text
@@ -161,9 +253,9 @@ class Side(object):
         return self.fwd(text)
 
     def take_on_in(self, rel):
-        if not self.obfuscate():
-            return True
-        return obfuscate_pistol.is_editable(rel)
+        if self.guards_edits():
+            return self.is_editable(rel)
+        return True
 
     def save_base(self, rel, neutral_text):
         write(self.neutral_base(rel), neutral_text)
@@ -212,7 +304,7 @@ def cmd_out(product_id, dest, force):
         work_now = read_opt(wpath)
         nb = read_opt(s.neutral_base(f))
         # Context placeholders are always refreshed from live; GPT edits there are discarded.
-        if s.obfuscate() and obfuscate_pistol.is_context(f):
+        if s.is_context(f):
             if work_now != fwd:
                 write(wpath, fwd)
                 wrote += 1
@@ -240,7 +332,7 @@ def cmd_out(product_id, dest, force):
                 merged.append(s.npath(f))
                 s.save_base(f, fwd)
 
-    write(os.path.join(s.work, "README.md"), README.format(runs="\n".join(s.commands(True))))
+    write(os.path.join(s.work, "README.md"), work_readme(product_id, "\n".join(s.commands(True))))
 
     print("mask_sync out [%s] → %s  (%d files: %d written, %d merged, %d with pending edits kept)"
           % (product_id, s.work, len(s.files), wrote, len(merged), len(kept)))
@@ -265,7 +357,7 @@ def cmd_in(product_id, src):
         nb = read_opt(s.neutral_base(f))
         if not s.take_on_in(f):
             if work_now is not None and nb is not None and work_now != nb:
-                print("  ignored %s: context placeholder (housing only)" % s.npath(f))
+                print("  ignored %s: not editable" % s.npath(f))
             same += 1
             continue
         if work_now is None or nb is None or work_now == nb:
@@ -339,8 +431,11 @@ def cmd_status(product_id):
                 parts.append("live changed since last crossing (run `out`)")
             state = ", ".join(parts) or "in sync"
         tag = ""
-        if s.obfuscate():
-            tag = " [housing]" if obfuscate_pistol.is_editable(f) else (" [context]" if obfuscate_pistol.is_context(f) else "")
+        if s.guards_edits():
+            if s.is_editable(f):
+                tag = " [editable]"
+            elif s.is_context(f):
+                tag = " [context]"
         print("  %-44s %s%s" % (f, state, tag))
 
 
