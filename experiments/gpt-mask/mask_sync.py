@@ -17,9 +17,11 @@ Pistol only: on `out` the geometry GPT sees is obfuscated (solid stack instead o
 exhaust unit, one drum instead of six tubes, external wires instead of internal hose runs).
 Those context files are never taken back by `in`; only the housing file is editable.
 
-Gatling stand: words only, no geometry rewrite. The stand file is editable; the sliding station,
-the drive housing and the shared libraries are context and are not taken back. The slot, the
-stroke and the marble size stay as drawn, so a basket added on the stand fits the live station.
+Gatling stand: on `out` the imported coax module is replaced by its outer solids (the real
+nose, flange, ears, tube, yoke and rods, as geometry, without the stack source). The stand
+file is editable; the station, that form and the shared libraries are context and are not
+taken back. The slot, the stroke and the marble size stay as drawn, so a basket added on the
+stand fits the live station.
 
   python3 experiments/gpt-mask/mask_sync.py out -p pistol
   python3 experiments/gpt-mask/mask_sync.py in  -p pistol
@@ -40,8 +42,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 sys.path.insert(0, HERE)
 import rename  # noqa: E402
+import obfuscate_gatling  # noqa: E402
 import obfuscate_pistol  # noqa: E402
 from product_lib import list_products, load_product  # noqa: E402
+
+_OBFUSCATORS = {
+    "pistol": obfuscate_pistol,
+    "gatling": obfuscate_gatling,
+}
 
 PISTOL_README = """# Mechanismus
 
@@ -80,16 +88,23 @@ Output goes to `exports/`.
 
 GATLING_README = """# Mechanismus
 
-Cosplay prop for a costume: a sliding carriage on two rails, held up by two small printed feet.
-When the carriage is back, the open slot on top takes one soft marble from +Y.
+Cosplay prop for a costume: one gate of a marble machine, held up by two small printed feet.
 Plain FreeCAD Python — run the stand generator, read its report, edit the files in place.
+
+## Legend
+
+A marble machine. Marbles wait in a basket above the gate. The carriage rides two rails.
+Pull it back and one soft marble drops from +Y into the open slot. Push it forward and the
+nose sets that marble onto the spindle, the track this gate feeds. The bought block under
+the rails is the cue switch: press its tip and the gate lets the marble go. The same gate
+repeats around the rotor. This folder is the one gate, on its stand.
 
 What you are looking at:
 
 - The stand is two feet under the rails. This is the printed piece to reshape.
 - The carriage slides on the rails. Closed, a nose fills the slot. Open, there is room for one marble.
 - A top basket for the marbles belongs over that open slot.
-- The pack on the carriage is the costume's drive housing. The bought block under the rails is the cue switch.
+- The pack on the carriage is the costume's drive housing. The cue switch hangs under the rails.
 
 ## Run
 
@@ -220,8 +235,13 @@ class Side(object):
     def rev(self, text):
         return rename.reverse(text, self.names)
 
+    def obfuscator(self):
+        if not self.product.get("obfuscate"):
+            return None
+        return _OBFUSCATORS.get(self.id)
+
     def obfuscate(self):
-        return bool(self.product.get("obfuscate")) and self.id == "pistol"
+        return self.obfuscator() is not None
 
     def listed(self, key):
         return self.product.get(key) or []
@@ -246,10 +266,11 @@ class Side(object):
         return False
 
     def expose(self, rel, live_text):
-        """Live text as written to the work folder: obfuscated (pistol) then renamed."""
+        """Live text as written to the work folder: product rewrite, then rename."""
         text = live_text
-        if self.obfuscate():
-            text = obfuscate_pistol.apply(rel, text)
+        ob = self.obfuscator()
+        if ob is not None:
+            text = ob.apply(rel, text)
         return self.fwd(text)
 
     def take_on_in(self, rel):
@@ -282,10 +303,11 @@ def cmd_out(product_id, dest, force):
     for f, t in zip(s.files, texts):
         if s.rev(s.fwd(t)) != rename.strip_russian(t):
             die("rename is not reversible for %s" % f)
-    if s.obfuscate():
+    ob = s.obfuscator()
+    if ob is not None:
         try:
             for f, t in zip(s.files, texts):
-                obfuscate_pistol.apply(f, t)
+                ob.apply(f, t)
         except ValueError as e:
             die(str(e))
 
