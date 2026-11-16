@@ -575,7 +575,7 @@ frame, skin = frame.cut(floor_holes), skin.cut(floor_holes)
 # ---------------------------------------------------------------- dress: block straps, frame plates, crest, hammer, vial, gauge, pilot pipe
 block_d = 2 * HUB_R
 straps, spikes, strap_rivets = [], [], []
-for x0, w, tilt in ((HUB_X0 + 12, 12, 0), ((HUB_X0 + HUB_T + STUB) / 2, 8, 4), (HUB_X0 + HUB_T + STUB - 14, 10, -3)):
+for x0, w, tilt in ((HUB_X0 + 12, 12, 0), ((HUB_X0 + HUB_T + STUB) / 2, 8, 4), (HUB_X0 + HUB_T + STUB - 26, 10, -3)):
     s = cyl_x(block_d + 5, x0, x0 + w).cut(cyl_x(block_d - 1, x0 - 1, x0 + w + 1))
     s.rotate(V(x0 + w / 2, 0, 0), YA, tilt)
     straps.append(s)
@@ -1137,6 +1137,22 @@ def hit(a, b):
         return a.translated(V(0, 0.01, 0.01)).common(b).Volume
 
 
+def front_clamp_checks():
+    import MeshPart
+    out = {}
+    for n_, s_ in (("front disc", front_plate), ("front clamp ring", front_clamp_ring)):
+        m_ = MeshPart.meshFromShape(Shape=s_, LinearDeflection=0.05, AngularDeflection=0.15, Relative=False)
+        out[n_ + " is one valid manifold solid"] = s_.isValid() and len(s_.Solids) == 1 and m_.isSolid() and not m_.hasNonManifolds()
+    parts_ = (front_plate, front_clamp_ring, front_clamp_fastener)
+    out["front clamp parts do not overlap"] = sum(hit(parts_[i], parts_[j]) for i in range(3) for j in range(i + 1, 3)) < 0.0001
+    out["front clamp clears tubes, axle, nose and decorative straps"] = sum(
+        hit(s_, t_) for s_ in parts_ for t_ in (barrels, axle, nose, Part.makeCompound(straps))) < 0.0001
+    out["front clamp clears top strap through full rotation (5 degree samples)"] = max(
+        hit(turned(Part.makeCompound(parts_), a_), top_strap) for a_ in range(0, 360, 5)) < 0.0001
+    out["front disc retains thrust-washer datum"] = abs(front_plate.BoundBox.XMax - X_MUZZLE) < 0.0001
+    return out
+
+
 rest = pose(REST)
 if CHECKS:
     moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Slider_cap", "Slider_cap_fastener", "Pin", "Bolt", "Hammer", "Crank_fastener", "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Trigger_pad_fastener", "Trigger_pin") if n_ in rest)
@@ -1208,7 +1224,7 @@ else:
 
 if CHECKS:
     # ---------------------------------------------------------------- checks: pass or fail, not only numbers
-    checks = {}
+    checks = front_clamp_checks()
     checks["frame lower half is one sound solid (%.0f mm3, valid %s)" % (frame_lower.Volume, frame_lower.isValid())] = \
         frame_lower.isValid() and len(frame_lower.Solids) == 1 and frame_lower.Volume > 50000   # rounded tray, with the rear grip seat retained
     checks["frame upper half is one sound solid (%.0f mm3, valid %s)" % (frame_upper.Volume, frame_upper.isValid())] = \
@@ -1461,16 +1477,19 @@ _tick('doc built')
 # ---------------------------------------------------------------- what is printed, cut from EVA, or bought
 # Print only what carries load or moves; the look is EVA foam; tubes, springs, valves, fasteners are bought.
 MATERIAL = {
-    "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Sector", "Pawl", "Slider", "Slider_cap", "Bolt", "Hammer",
+    "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Front_disc", "Front_clamp_ring", "Sector", "Pawl", "Slider", "Slider_cap", "Bolt", "Hammer",
               "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Frame_lower", "Frame_upper", "Valve_clamp", "Frame_side_band", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
               "Top_strap", "Axle_plug",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Valve_clamp_liner", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
-    "buy": ("Chamber_axle", "Vent_valve", "Detent_service_fastener", "Pin", "Crank_fastener", "Slider_cap_fastener", "Trigger_pad_fastener", "Trigger_pin", "Valve_clamp_fasteners", "Frame_join_fastener", "Grip_mount_fastener", "Guard_fasteners", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
+    "buy": ("Front_clamp_fastener", "Chamber_axle", "Vent_valve", "Detent_service_fastener", "Pin", "Crank_fastener", "Slider_cap_fastener", "Trigger_pad_fastener", "Trigger_pin", "Valve_clamp_fasteners", "Frame_join_fastener", "Grip_mount_fastener", "Guard_fasteners", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
-BUY_NOTE = {"Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
+BUY_NOTE = {"Front_disc": "Prototype PETG: six outer flexure jaws, rear 2 mm roots; rear face on bed. Central bore remains free. Clamp holding force requires a physical test.",
+            "Front_clamp_ring": "Prototype PETG split band; seats between disc lips. Print flat on axial face. Do not close split by force; verify tube roundness and retention.",
+            "Front_clamp_fastener": "M3 x 12 socket-head screw and M3 nut; nut loads from positive-z outside face. No drilling or adhesive on tubes.",
+            "Chamber_axle": "tube Ø25 x 0.6, %.0f mm (the chamber)" % axle.BoundBox.XLength, "Block": "+ 6 barrel tubes Ø25 x 0.6, %.0f mm" % BARREL_TUBE,
             "Vent_valve": "AirTAC M3R110-06, roller off. Straight R1/8 push-ins (a G body is the same holes): Ø10 x 20 on A for the 4 mm pilot, Ø12 x 22 on R for the 6 mm supply, a silencer on P. Stamped R next to the stem, P at the far end of that face, A opposite. Supply and exhaust are swapped, so it is normally open. Turned plunger-down, narrow faces sideways (A left, P above R on the right). Drops into its socket from the room (side plate off), stands on two feet - no fasteners", "Pin": "slider/sector: M3 x 6 cylindrical-head bolt, standard M3 nut and Ø7 x 0.5 washer; side-loaded nut, printed shoulder sets 0.2 mm running play",
             "Crank_fastener": "hammer/slider: M3 x 6 cylindrical-head bolt, standard M3 nut and Ø7 x 0.5 washer; captive nut and printed shoulder, 0.2 mm running play",
             "Slider": "open-top crank yoke with removable Slider_cap: engage the mounted crank before closing the window; guide rod stays on the fixed frame when the right cover comes off",

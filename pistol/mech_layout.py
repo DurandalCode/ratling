@@ -75,7 +75,9 @@ Z_FIRE = -R_RING
 BARREL_OD = 25.0
 HUB_R, HUB_X0, HUB_T = 42.5, 0.5, 22.0      # hub rear face at x = HUB_X0
 HUB_SEAT = 9.0                      # the breech seat's depth in the hub; the barrel sockets from there
-FRONT_T = 8.0                       # front plate
+FRONT_T = 8.0                       # front plate in the legacy lever variant
+# The hammer variant overrides this with its front-disc clamp parameters; None keeps the legacy block unchanged.
+FRONT_CLAMP = None
 try:
     STUB                            # barrels past the hub: stubs for the mock-up, or set before exec
 except NameError:
@@ -330,11 +332,55 @@ barrels = Part.makeCompound([cyl_x(BARREL_OD, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T 
                              .cut(cyl_x(23.8, 0, 300, *polar(R_RING, -90 + 60 * i))) for i in range(6)])
 oring_faces = Part.makeCompound([cyl_x(2 * face_groove_out, HUB_X0 - 0.6, HUB_X0, *polar(R_RING, -90 + 60 * i))
                                  .cut(cyl_x(2 * face_groove_in, -5, 5, *polar(R_RING, -90 + 60 * i))) for i in range(6)])
-front_plate = cyl_x(2 * HUB_R - 6, HUB_X0 + HUB_T + STUB - FRONT_T, HUB_X0 + HUB_T + STUB).cut(
-    cyl_x(BARREL_OD + 0.6, 0, 300))
-for i in range(6):
-    front_plate = front_plate.cut(cyl_x(BARREL_OD + 0.3, 0, 300, *polar(R_RING, -90 + 60 * i)))
-block = Part.makeCompound([hub, barrels, front_plate])
+if FRONT_CLAMP is None:
+    front_plate = cyl_x(2 * HUB_R - 6, HUB_X0 + HUB_T + STUB - FRONT_T, HUB_X0 + HUB_T + STUB).cut(
+        cyl_x(BARREL_OD + 0.6, 0, 300))
+    for i in range(6):
+        front_plate = front_plate.cut(cyl_x(BARREL_OD + 0.3, 0, 300, *polar(R_RING, -90 + 60 * i)))
+    front_clamp_ring = Part.makeCompound([])
+    front_clamp_fastener = Part.makeCompound([])
+else:
+    # Prototype PETG flexures and a separate split compression ring. The front face (and thrust-washer
+    # datum) stays fixed; the extra thickness goes rearward.
+    _fc = FRONT_CLAMP
+    _fc_end = HUB_X0 + HUB_T + STUB
+    _fc_back = _fc_end - _fc["thickness"]
+    _fc_band0, _fc_band1 = _fc_back + 2.2, _fc_end - 0.9
+    front_plate = cyl_x(2 * _fc["disc_r"], _fc_back, _fc_end)
+    front_plate = front_plate.fuse(cyl_x(2 * _fc["lip_r"], _fc_back, _fc_back + 2.0))
+    front_plate = front_plate.fuse(cyl_x(2 * _fc["lip_r"], _fc_end - 0.7, _fc_end))
+    front_plate = front_plate.cut(cyl_x(BARREL_OD + 0.6, _fc_back - 1, _fc_end + 1))
+    for i in range(6):
+        a = -90 + 60 * i
+        front_plate = front_plate.cut(cyl_x(_fc["bore"], _fc_back - 1, _fc_end + 1, *polar(R_RING, a)))
+        # Two reliefs join the tube bore, freeing its outer jaw except for the rear root.
+        for t in (-8.0, 8.0):
+            slot = box(_fc_back + _fc["root"], _fc_end + 1, t - _fc["slot"] / 2,
+                       t + _fc["slot"] / 2, 35.0, 46.0)
+            front_plate = front_plate.cut(turned(slot, a - 90))
+    front_plate = front_plate.removeSplitter()
+    _fc_inner = _fc["disc_r"] + _fc["band_clear"]
+    front_clamp_ring = cyl_x(2 * (_fc_inner + _fc["band_t"]), _fc_band0, _fc_band1).cut(
+        cyl_x(2 * _fc_inner, _fc_band0 - 1, _fc_band1 + 1))
+    front_clamp_ring = front_clamp_ring.cut(box(_fc_band0 - 1, _fc_band1 + 1, 0, 60, -_fc["split"] / 2, _fc["split"] / 2))
+    for z0, z1 in ((-6.0, -_fc["split"] / 2), (_fc["split"] / 2, 6.0)):
+        front_clamp_ring = front_clamp_ring.fuse(box(_fc_band0, _fc_band1, 43.0, 49.3, z0, z1))
+    _fc_sx, _fc_sy = (_fc_band0 + _fc_band1) / 2, 45.3
+    _fc_hole = Part.makeCylinder(1.7, 30, V(_fc_sx, _fc_sy, -15), ZA)
+    # Nut opens from the positive-z face; hex flats stop it turning.
+    _fc_hex = [V(_fc_sx + 3.406 * math.cos(math.radians(60 * k)),
+                 _fc_sy + 3.406 * math.sin(math.radians(60 * k)), 3.4) for k in range(7)]
+    _fc_nut_pocket = Part.Face(Part.makePolygon(_fc_hex)).extrude(V(0, 0, 60.0))
+    _fc_head_access = Part.makeCylinder(3.0, 54, V(_fc_sx, _fc_sy, -60), ZA)
+    front_clamp_ring = front_clamp_ring.cut(_fc_hole).cut(_fc_nut_pocket).cut(_fc_head_access).removeSplitter()
+    _fc_nut = Part.Face(Part.makePolygon([V(_fc_sx + 3.175 * math.cos(math.radians(60 * k)),
+        _fc_sy + 3.175 * math.sin(math.radians(60 * k)), 3.4) for k in range(7)])).extrude(V(0, 0, 2.4)).cut(_fc_hole)
+    front_clamp_fastener = Part.makeCompound([Part.makeCylinder(1.5, 12, V(_fc_sx, _fc_sy, -6), ZA).fuse(
+        Part.makeCylinder(2.75, 3, V(_fc_sx, _fc_sy, -9), ZA)), _fc_nut])
+# The complete block is for assemblies and clearance checks; its printable and bought parts stay separate in pose().
+block_core = Part.makeCompound([hub, barrels] if FRONT_CLAMP else [hub, barrels, front_plate])
+block = Part.makeCompound([hub, barrels, front_plate, front_clamp_ring, front_clamp_fastener] if FRONT_CLAMP
+                          else [hub, barrels, front_plate])
 
 # ---------------------------------------------------------------- pawl sector (turns round the axle)
 sector_base = cyl_x(2 * SECTOR_R[1], *SECTOR_X).cut(cyl_x(2 * SECTOR_R[0], SECTOR_X[0] - 1, SECTOR_X[1] + 1))
@@ -460,9 +506,14 @@ def pose(st):
     sl, pin = slider_parts(lv)
     sec = sector_turn(lv)                       # the sector follows the slider
     tooth = pawl_tooth.translated(V(-PAWL_BACK * st["bend"], 0, 0))
-    return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec), "Pawl": turned(tooth, sec),
-            "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Lever": lever_shape(lv),
-            "Sleeve": lock_sleeve(lock_of(lv)), "Wedge": wedge_shape(wedge_lift(lv)), "Trigger": trigger_at(trig)}
+    moving = {"Block": turned(block_core, st["block"]), "Sector": turned(sector_base, sec), "Pawl": turned(tooth, sec),
+              "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Lever": lever_shape(lv),
+              "Sleeve": lock_sleeve(lock_of(lv)), "Wedge": wedge_shape(wedge_lift(lv)), "Trigger": trigger_at(trig)}
+    if FRONT_CLAMP:
+        moving.update({"Front_disc": turned(front_plate, st["block"]),
+                       "Front_clamp_ring": turned(front_clamp_ring, st["block"]),
+                       "Front_clamp_fastener": turned(front_clamp_fastener, st["block"])})
+    return moving
 
 
 valves = Part.makeCompound([cyl_x(MINI_VALVE[0], tip - MINI_VALVE[1], tip - 4.5, y, MINI_Z)
@@ -472,6 +523,8 @@ valve_bodies = Part.makeCompound([cyl_x(MINI_VALVE[0], tip - MINI_VALVE[1], tip 
 rollers = Part.makeCompound([cyl_x(4.6, tip - 0.5, tip, y, MINI_Z) for y, tip in MINI_VALVES])     # plunger tips
 
 STYLE = {"Block": ((0.55, 0.55, 0.6), 50), "Sector": ((0.9, 0.6, 0.1), 0), "Pawl": ((0.95, 0.35, 0.05), 0),
+         "Front_disc": ((0.25, 0.55, 0.8), 0), "Front_clamp_ring": ((0.85, 0.55, 0.2), 0),
+         "Front_clamp_fastener": ((0.75, 0.75, 0.78), 0),
          "Slider": ((0.9, 0.8, 0.2), 0), "Pin": ((0.2, 0.2, 0.2), 0), "Bolt": ((0.8, 0.2, 0.2), 0),
          "Lever": ((0.35, 0.25, 0.2), 0), "Sleeve": ((0.2, 0.7, 0.3), 0), "Wedge": ((0.75, 0.45, 0.85), 0),
          "Trigger": ((0.3, 0.3, 0.3), 0)}

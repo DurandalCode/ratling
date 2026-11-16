@@ -2,7 +2,7 @@
  "_comment": "words: live word -> neutral word (lowercase letters, unique, must not occur in the exposed sources; mask_sync checks). forbidden_substrings: nothing containing these may leave the repo.",
  "words": {
   "ratling": "mechanismus",
-  "mitrailleuse": "wagon",
+  "mitrailleuse": "satchel",
   "pistol": "handheld",
   "valve": "relay",
   "valves": "relays",
