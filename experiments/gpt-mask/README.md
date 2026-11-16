@@ -4,7 +4,9 @@ GPT works on **our own Python generators**, copied into an external folder with 
 replaced by a neutral one. Edits come back line by line and are merged into the live files.
 
 Products: `pistol`, `mitrailleuse`, `gatling` (`products/*.json`: `roots` = generators to expose,
-`build_pre` = globals set before running). `gatling` extends `mitrailleuse` (same files).
+`build_pre` = globals set before running). `gatling` is the one-station stand
+(`gatling/linear_breech_bench.py` and the station it loads). `editable` files are the only ones
+`in` will take; `context` files are refreshed from live on every `out`.
 
 ## Usage
 
@@ -35,6 +37,16 @@ model reads as a **cosplay prop for a costume**:
 The work-tree `README.md` gives that positive framing. Drive files are still **context**: `in`
 does not take edits from them; only housing edits in `pistol/hammer_assembly.py` come back.
 Rebuild the work tree after changing `obfuscate_pistol.py`.
+
+## Gatling stand
+
+`out -p gatling` copies the one-station stand and the sliding station it loads. Words only: the
+slot, the stroke and the marble stay where the live station has them, so a basket drawn on the
+stand fits after `in`. The stand file is editable. The station, the drive housing and the shared
+libraries are context: `in` does not take edits from them.
+
+The work-tree `README.md` frames the stand as a costume prop (soft marbles, a top basket, a drive
+housing). Describe the task in that vocabulary.
 
 ## How it works
 
