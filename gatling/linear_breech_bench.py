@@ -9,6 +9,8 @@ no long floor slab.
 
 Prove on the bench: open → drop a pellet from +Y → close → press the AirTAC
 tip → module fires. Crank / hopper / rotary union stay off this stand.
+The tree separates printable parts from non-printable hardware; transparent
+open-position copies remain nested under their matching category.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/linear_breech_bench.py').read())"
 
@@ -188,29 +190,62 @@ styles_qev = {
     "Front_cover": "stator", "Front_yoke": "stator", "Barrel_stub": "ghost",
     "Chamber_tube": "ghost", "Tie_rods": "steel", "Pilot_fitting": "steel",
 }
+
+PRINTABLE_PARTS = {
+    "Rear_plug", "Seat_ring", "Diaphragm", "Front_cover", "Front_yoke",
+    "Carriage", "Nose_clamp", "Barrel_clamp", "Barrel_collar",
+    "AirTAC_cradle", "Foot_front", "Foot_rear", "Rail_stops",
+}
+NONPRINTABLE_PARTS = {
+    "Barrel_stub", "Chamber_tube", "Tie_rods", "Pilot_fitting",
+    "Rails", "Fixed_barrel", "AirTAC_body", "AirTAC_fittings",
+    "AirTAC_plunger", "Pellet",
+}
+PART_GROUP = {
+    **dict.fromkeys(PRINTABLE_PARTS, "Printable"),
+    **dict.fromkeys(NONPRINTABLE_PARTS, "NonPrintable"),
+}
+SCENE_PARTS = set(qev_closed) | {
+    "Rails", "Barrel_clamp", "Barrel_collar", "Fixed_barrel",
+    "AirTAC_cradle", "Foot_front", "Foot_rear", "Rail_stops",
+    "AirTAC_body", "AirTAC_fittings", "AirTAC_plunger", "Pellet",
+}
+assert set(PART_GROUP) == SCENE_PARTS
+
+printable_group = sc.group("Printable")
+printable_group.Label = "Печатное"
+nonprintable_group = sc.group("NonPrintable")
+nonprintable_group.Label = "Непечатное"
+printable_open_group = sc.group("PrintableOpen")
+printable_open_group.Label = "Открытый вид: печатные копии"
+printable_group.addObject(printable_open_group)
+nonprintable_open_group = sc.group("NonPrintableOpen")
+nonprintable_open_group.Label = "Открытый вид: непечатные элементы"
+nonprintable_group.addObject(nonprintable_open_group)
+
 for n, s in qev_closed.items():
     if n == "Carriage":
         continue
-    sc.add("Closed", n, s, styles_qev.get(n, "stator"))
-sc.add("Closed", "Carriage", carriage, "stator")
-sc.add("Fixed", "Rails", rails_s, "steel")
-sc.add("Fixed", "Barrel_clamp", barrel_clamp, "stator")
-sc.add("Fixed", "Barrel_collar", barrel_collar, "stator")
-sc.add("Fixed", "Fixed_barrel", fixed_barrel, "ghost")
-sc.add("Fixed", "AirTAC_cradle", cradle, "stator")
-sc.add("Fixed", "Foot_front", front_foot, "stator")
-sc.add("Fixed", "Foot_rear", rear_foot, "stator")
-sc.add("Fixed", "Rail_stops", stops_s, "stator")
-sc.add("Bought", "AirTAC_body", vent_body, "steel")
-sc.add("Bought", "AirTAC_fittings", vent_fittings, "ghost")
-sc.add("Bought", "AirTAC_plunger", vent_plunger, "shoe")
+    sc.add(PART_GROUP[n], n, s, styles_qev.get(n, "stator"))
+sc.add(PART_GROUP["Carriage"], "Carriage", carriage, "stator")
+for n, s, style in (
+    ("Rails", rails_s, "steel"),
+    ("Barrel_clamp", barrel_clamp, "stator"),
+    ("Barrel_collar", barrel_collar, "stator"),
+    ("Fixed_barrel", fixed_barrel, "ghost"),
+    ("AirTAC_cradle", cradle, "stator"),
+    ("Foot_front", front_foot, "stator"),
+    ("Foot_rear", rear_foot, "stator"),
+    ("Rail_stops", stops_s, "stator"),
+    ("AirTAC_body", vent_body, "steel"),
+    ("AirTAC_fittings", vent_fittings, "ghost"),
+    ("AirTAC_plunger", vent_plunger, "shoe"),
+):
+    sc.add(PART_GROUP[n], n, s, style)
 if SHOW_OPEN:
     for n, s in qev_open.items():
-        if n == "Carriage":
-            sc.add("Open", "Open_Carriage", shifted(carriage, -STROKE), "ghost")
-        else:
-            sc.add("Open", "Open_" + n, s, "ghost")
-    sc.add("Open", "Pellet", pellet, "flow")
+        sc.add(PART_GROUP[n] + "Open", "Open_" + n, s, "ghost")
+    sc.add(PART_GROUP["Pellet"] + "Open", "Pellet", pellet, "flow")
 
 for text, pos in [
     ("ДВЕ ОПОРЫ — рельсы сами балка", (0, y_floor - 12, (front_z + rear_z) / 2)),
@@ -219,8 +254,9 @@ for text, pos in [
     ("ОТКРЫТО → пулька сверху (+Y)", (60, 40, z_stop - STROKE / 2)),
 ]:
     sc.label("Labels", text, pos)
+sc.group("Labels").Label = "Справка"
 
-sc.finish(hidden_groups=("Labels", "Open"), opaque_groups=())
+sc.finish(hidden_groups=("Labels", "PrintableOpen", "NonPrintableOpen"), opaque_groups=())
 doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
 import MeshPart
