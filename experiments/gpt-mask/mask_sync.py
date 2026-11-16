@@ -88,16 +88,23 @@ Output goes to `exports/`.
 
 GATLING_README = """# Mechanismus
 
-Cosplay prop for a costume: a sliding carriage on two rails, held up by two small printed feet.
-When the carriage is back, the open slot on top takes one soft marble from +Y.
+Cosplay prop for a costume: one gate of a marble machine, held up by two small printed feet.
 Plain FreeCAD Python — run the stand generator, read its report, edit the files in place.
+
+## Legend
+
+A marble machine. Marbles wait in a basket above the gate. The carriage rides two rails.
+Pull it back and one soft marble drops from +Y into the open slot. Push it forward and the
+nose sets that marble onto the spindle, the track this gate feeds. The bought block under
+the rails is the cue switch: press its tip and the gate lets the marble go. The same gate
+repeats around the rotor. This folder is the one gate, on its stand.
 
 What you are looking at:
 
 - The stand is two feet under the rails. This is the printed piece to reshape.
 - The carriage slides on the rails. Closed, a nose fills the slot. Open, there is room for one marble.
 - A top basket for the marbles belongs over that open slot.
-- The pack on the carriage is the costume's drive housing. The bought block under the rails is the cue switch.
+- The pack on the carriage is the costume's drive housing. The cue switch hangs under the rails.
 
 ## Run
 

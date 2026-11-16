@@ -47,8 +47,9 @@ flange, ears, tube, yoke, rods), written as geometry by `obfuscate_gatling.py`. 
 them, so a basket drawn on the stand fits after `in`. The stand file is editable. The station,
 that form and the shared libraries are context: `in` does not take edits from them.
 
-The work-tree `README.md` frames the stand as a costume prop (soft marbles, a top basket, a drive
-housing). Describe the task in that vocabulary.
+The work-tree `README.md` is copied on `out` with a legend: one gate of a costume marble machine
+(basket over the open slot, carriage on two rails, one marble onto the spindle). Describe the
+task in that vocabulary.
 
 ## How it works
 
