@@ -41,12 +41,11 @@ Rebuild the work tree after changing `obfuscate_pistol.py`.
 ## Gatling stand
 
 `out -p gatling` copies the one-station stand and the sliding station it loads. The station
-still runs the coax file, but the copy is a **solid envelope** with the same outer stations
-(rear face, tube, stop, nose) and none of the internal stack (`obfuscate_gatling.py`). The slot,
-the stroke and the marble stay where the live station has them, so a basket drawn on the stand
-fits after `in`. The stand file is editable. The station, the envelope and the shared libraries
-are context: `in` does not take edits from them. Rebuild the work tree after changing
-`obfuscate_gatling.py`.
+still runs the coax file, but the copy is the **outer solids of the live housing** (nose,
+flange, ears, tube, yoke, rods), written as geometry by `obfuscate_gatling.py`. Needs
+`freecadcmd` on `out`. The slot, the stroke and the marble stay where the live station has
+them, so a basket drawn on the stand fits after `in`. The stand file is editable. The station,
+that form and the shared libraries are context: `in` does not take edits from them.
 
 The work-tree `README.md` frames the stand as a costume prop (soft marbles, a top basket, a drive
 housing). Describe the task in that vocabulary.

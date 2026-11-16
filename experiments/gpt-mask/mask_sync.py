@@ -17,10 +17,11 @@ Pistol only: on `out` the geometry GPT sees is obfuscated (solid stack instead o
 exhaust unit, one drum instead of six tubes, external wires instead of internal hose runs).
 Those context files are never taken back by `in`; only the housing file is editable.
 
-Gatling stand: on `out` the imported coax module is replaced by a solid envelope (same outer
-stations, no internal stack). The stand file is editable; the station, that envelope and the
-shared libraries are context and are not taken back. The slot, the stroke and the marble size
-stay as drawn, so a basket added on the stand fits the live station.
+Gatling stand: on `out` the imported coax module is replaced by its outer solids (the real
+nose, flange, ears, tube, yoke and rods, as geometry, without the stack source). The stand
+file is editable; the station, that form and the shared libraries are context and are not
+taken back. The slot, the stroke and the marble size stay as drawn, so a basket added on the
+stand fits the live station.
 
   python3 experiments/gpt-mask/mask_sync.py out -p pistol
   python3 experiments/gpt-mask/mask_sync.py in  -p pistol
