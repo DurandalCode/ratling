@@ -82,7 +82,8 @@ try:
 except NameError:
     HUB_T_HAMMER = 14.0
 # Block: two discs and the bought tubes. The rear disc: breech seats (9 deep, O-ring faces, pawl notches, detent
-# notches in its rim) and 5 mm sockets the barrels are glued into; the front disc 6 mm.
+# notches in its rim) and 5 mm sockets the barrels are glued into; the 12 mm front disc has flexure jaws and a split
+# compression ring, all built with the block in mech_layout.py.
 # The plunger pawl's tooth is rigid and wide (TOOTH_W): the ramp is in the disc's notch, not on the tooth. The notch keeps its
 # drive wall; its floor is the idle gap + the tooth + 0.2 mm either side, then a 45 deg ramp (3 mm) up to the face: 9.7 mm in
 # all, of ~12 mm free between the barrels' O-rings at R 16.5.
@@ -97,8 +98,10 @@ TOOTH_RAMP_RUN = 2.4                    # its length along the arc (the rise is 
 # its leading face reaches the drive wall (y = -2.0) after exactly the idle, its trailing face is 0.45 mm short of the ramp's foot (the arcs of the sector against the planes of the notch).
 NOTCH_RAMP = None if (FLEX_PAWL or not RAMP_IN_DISC) else (16.5 * math.radians(LOST_DEG) + TOOTH_W / 2 + 0.45, RAMP_L, 0.15)   # the drive wall 0.15 mm back: arcs against planes
 MECH_OVERRIDES = dict(ARM_A0=SECTOR_SWING / 2, PIN_R0=24.5 / math.cos(math.radians(SECTOR_SWING / 2)), ARM_R=33.0,
-                      NOTCH_SLACK=16.5 * math.radians(LOST_DEG), HUB_T=HUB_T_HAMMER, FRONT_T=6.0, NOTCH_RAMP=NOTCH_RAMP,
-                      SLIDER_Y=(23.0, 31.5))             # thicker round its guide rod
+                      NOTCH_SLACK=16.5 * math.radians(LOST_DEG), HUB_T=HUB_T_HAMMER, NOTCH_RAMP=NOTCH_RAMP,
+                      SLIDER_Y=(23.0, 31.5),             # thicker round its guide rod
+                      FRONT_CLAMP=dict(disc_r=42.0, lip_r=43.0, bore=25.3, thickness=12.0,
+                                       root=2.0, slot=0.8, band_clear=0.15, band_t=3.0, split=3.0))
 MECH_LIBRARY = True
 exec(open(os.path.join(REPO, "pistol", "mech_layout.py")).read())
 MECH_LIBRARY = False
@@ -756,7 +759,11 @@ def pose(st):
     sl, pin = slider_h(c)
     sec = sector_turn(c)
     tooth_ = pawl_tooth.translated(V(-PAWL_BACK * st["bend"], 0, 0))
-    return {"Block": turned(block, st["block"]), "Sector": turned(sector_base, sec),
+    return {"Block": turned(block_core, st["block"]),
+            "Front_disc": turned(front_plate, st["block"]),
+            "Front_clamp_ring": turned(front_clamp_ring, st["block"]),
+            "Front_clamp_fastener": turned(front_clamp_fastener, st["block"]),
+            "Sector": turned(sector_base, sec),
             "Slider": sl, "Pin": pin, "Bolt": bolt_shape(st["block"]), "Hammer": hammer_shape(c),
             "Slider_cap": SLIDER_CAP.translated(V(0, 0, slider_z(c))),
             "Slider_cap_fastener": SLIDER_CAP_FASTENER.translated(V(0, 0, slider_z(c))),

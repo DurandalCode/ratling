@@ -64,7 +64,8 @@ BRIDGED = {"block_rear_disc": 600.0}
 PARTS = [
     ("lock_housing", lock_housing_h, -X_, "strong_supports", "the lock's housing, no lock (only the shot's impulse passes, no standing pressure): a plain Ø16 through bore ending in the sleeve's nose, 0.3 mm off the hub; flat on the valve body, 2 x M3 x 30 self-tapping into its breech pilots (90 / 180 deg); the sector's support ring is printed in (was the separate Sector_spacer): OD31 / bore 25.6, rear plane 7 mm forward of the valve body's face, blind front pocket clears the pawl, closed 6.5 mm rear rim - supports under the raised rim"),
     ("block_rear_disc", hub, -X_, "standard", "breech seats on the bed; barrels glued 5 mm into it"),
-    ("block_front_disc", front_plate, X_, "standard", "barrels glued into it"),
+    ("block_front_disc", front_plate, -X_, "strong", "prototype PETG: rear face on the bed; six outer flexure jaws with 2 mm rear roots; central bore free; clamp the tubes with the split ring, no glue or drilling; test retention and tube roundness"),
+    ("block_front_clamp_ring", front_clamp_ring, X_, "strong", "prototype PETG split band, flat on an axial face; M3 x 12 socket-head screw and nut; do not force the split closed; verify tube roundness and retention"),
     ("sector", sector_base, -X_, "strong", "rear face on the bed (the tongue is its first layer), the ramped pawl tooth up, 6 mm tall; on the axle in front of the lock housing; the slider's pin in its arm"),
     ("slider", SLIDER_H, Y_, "strong_supports", "the bracket's outer face on the bed, 15 mm tall, on supports under the plate and the rod boss (on its x face it stood 54 mm tall and peeled off); open-top yoke: engage the mounted crank, then the cap closes it; runs"),
     ("slider_cap", SLIDER_CAP, -Y_, "strong", "the yoke's cap: flat on its broad face; slide 3.2 mm toward +x to release the tongue, lift in z; install over the crank collar and washer before Frame_right closes; 1 x M3 x 6 + nut through its post"),

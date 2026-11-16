@@ -32,14 +32,23 @@ cap_a.translate(V(0, 0, -CAP_T))
 """
 
 _BLOCK_SOLID = """
-# --- solid cylinder drum ---------------------------
+# --- solid cylinder drum and front-clamp envelope ----
 barrels = cyl_x(2 * HUB_R, HUB_X0 + HUB_SEAT, HUB_X0 + HUB_T + STUB).cut(
     cyl_x(BARREL_OD + 0.6, HUB_X0 + HUB_SEAT - 1, HUB_X0 + HUB_T + STUB + 1))
 oring_faces = Part.makeCompound([])
-front_plate = cyl_x(2 * HUB_R - 6, HUB_X0 + HUB_T + STUB - FRONT_T, HUB_X0 + HUB_T + STUB).cut(
-    cyl_x(BARREL_OD + 0.6, 0, 300))
+_fc_end = HUB_X0 + HUB_T + STUB
+_fc_back = _fc_end - FRONT_CLAMP["thickness"]
+_fc_band0, _fc_band1 = _fc_back + 2.2, _fc_end - 0.9
+front_plate = cyl_x(2 * FRONT_CLAMP["disc_r"], _fc_back, _fc_end).cut(
+    cyl_x(BARREL_OD + 0.6, _fc_back - 1, _fc_end + 1))
+front_clamp_ring = cyl_x(2 * (FRONT_CLAMP["disc_r"] + FRONT_CLAMP["band_clear"] + FRONT_CLAMP["band_t"]),
+                         _fc_band0, _fc_band1).cut(
+    cyl_x(2 * (FRONT_CLAMP["disc_r"] + FRONT_CLAMP["band_clear"]), _fc_band0 - 1, _fc_band1 + 1))
+front_clamp_fastener = Part.makeCylinder(1.5, 12, V((_fc_band0 + _fc_band1) / 2, 45.3, -6), ZA)
 hub = cyl_x(2 * HUB_R, HUB_X0, HUB_X0 + HUB_T).cut(cyl_x(BARREL_OD + 0.6, HUB_X0 - 1, HUB_X0 + HUB_T + 1))
-block = Part.makeCompound([hub, barrels, front_plate])
+block_core = Part.makeCompound([hub, barrels] if FRONT_CLAMP else [hub, barrels, front_plate])
+block = Part.makeCompound([hub, barrels, front_plate, front_clamp_ring, front_clamp_fastener] if FRONT_CLAMP
+                          else [hub, barrels, front_plate])
 # --- end solid stub -------------------------------------------------------
 """
 
@@ -81,7 +90,7 @@ def obfuscate_mech_layout(text):
     """Replace the six-tube block with one solid cylinder drum."""
     return _replace_once(
         text,
-        r"\nhub = cyl_x\(2 \* HUB_R, HUB_X0, HUB_X0 \+ HUB_T\).*?\nblock = Part\.makeCompound\(\[hub, barrels, front_plate\]\)\n",
+        r"\nhub = cyl_x\(2 \* HUB_R, HUB_X0, HUB_X0 \+ HUB_T\).*?\nblock = Part\.makeCompound\(.*?\)\n",
         "\n" + _BLOCK_SOLID.lstrip("\n") + "\n",
         "mech_layout solid cylinder drum",
     )
