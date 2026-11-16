@@ -17,6 +17,27 @@ experiments/gpt-mask/mask in -p pistol           # work folder -> live files
 experiments/gpt-mask/mask status -p pistol       # per file: edited in work / changed in live
 ```
 
+### Make shortcuts on the owner's Mac
+
+From the live repository root, these targets use the two standing workspaces and add the app-bundled
+`freecadcmd` to `PATH` automatically:
+
+```sh
+make gatling-out      # live -> ../marble_machine
+make gatling-in       # ../marble_machine -> live
+make gatling-status
+make pistol-out       # live -> ../mechanismus
+make pistol-in        # ../mechanismus -> live
+make pistol-status
+make gpt-out          # both workspaces out
+make gpt-in           # both workspaces in
+make gpt-status       # both statuses
+```
+
+The targets never pass `--force`: edits in editable files are merged with live changes or kept, while
+context files always refresh from live. Override a location only when needed, for example
+`make gatling-out GATLING_WORK=/path/to/workspace`.
+
 The work folder is flat and holds one product at a time (the live product name must not appear in
 the path GPT sees); to work on two products at once, pass an explicit dir to `out`/`in`. The task
 for GPT goes in the chat, not in a file: `out` writes only the sources and a `README.md`.

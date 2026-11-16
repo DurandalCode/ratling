@@ -162,7 +162,14 @@ freecadcmd -c "REPO='$PWD'; exec(open('gatling/pack_sketch.py').read())"
 `exports/gatling_linear_breech_bench/` (`foot_front`, `foot_rear`, `carriage_handle`,
 `rail_stop`, `barrel_clamp`, `barrel_collar`, `airtac_cradle`). Есть `[FAIL]` — не слайсить.
 
-Печать стенда (PLA, на Mac с Bambu Studio):
+Печать стенда (PLA, на Mac с Bambu Studio). Из корня репозитория одна команда пересобирает все три
+генератора, проверяет их отчёты и запускает нарезку:
+
+```sh
+make gatling-plates
+```
+
+`make gatling-stl` делает только свежие STL и проверки. Непосредственно слайсер вызывается так:
 
 ```sh
 sh gatling/linear_breech_bench_plates.sh
