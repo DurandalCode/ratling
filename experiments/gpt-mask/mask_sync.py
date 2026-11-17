@@ -17,11 +17,11 @@ Pistol only: on `out` the geometry GPT sees is obfuscated (solid stack instead o
 exhaust unit, one drum instead of six tubes, external wires instead of internal hose runs).
 Those context files are never taken back by `in`; only the housing file is editable.
 
-Gatling stand: on `out` the imported coax module is replaced by its outer solids (the real
-nose, flange, ears, tube, yoke and rods, as geometry, without the stack source). The stand
-file is editable; the station, that form and the shared libraries are context and are not
-taken back. The slot, the stroke and the marble size stay as drawn, so a basket added on the
-stand fits the live station.
+Gatling stand: on `out` each barrel becomes a solid cylinder of the same outside diameter
+and length, and the valve stack becomes one closed housing (no chamber, bore, port or
+groove). Tie rods stay. The stand file is editable; the station, that form and the shared
+libraries are context and are not taken back. The slot, the stroke and the marble size stay
+as drawn, so a basket added on the stand fits the live station.
 
   python3 experiments/gpt-mask/mask_sync.py out -p pistol
   python3 experiments/gpt-mask/mask_sync.py in  -p pistol
@@ -104,7 +104,8 @@ What you are looking at:
 - The stand is two feet under the rails. This is the printed piece to reshape.
 - The carriage slides on the rails. Closed, a nose fills the slot. Open, there is room for one marble.
 - A top basket for the marbles belongs over that open slot.
-- The pack on the carriage is the costume's drive housing. The cue switch hangs under the rails.
+- The spindle is a solid cylinder. The pack on the carriage is one solid block, the costume's
+  drive housing. The cue switch hangs under the rails.
 
 ## Run
 
