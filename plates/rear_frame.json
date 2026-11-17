@@ -1,0 +1,11 @@
+{
+  "id": "rear_frame",
+  "title": "Mitrailleuse rear frame",
+  "generator": "mitrailleuse/rear_frame.py",
+  "export": "exports/rear_frame",
+  "parts": [
+    {"file": "head_plate.stl", "group": "strong", "project": "rear_frame"},
+    {"file": "trigger_arm.stl", "group": "strong", "project": "rear_frame"},
+    {"file": "bevel_box.stl", "group": "strong", "project": "rear_frame"}
+  ]
+}

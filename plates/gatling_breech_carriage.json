@@ -1,0 +1,10 @@
+{
+  "id": "gatling_breech_carriage",
+  "title": "Gatling linear-breech station parts (carriage + nose clamp)",
+  "generator": "gatling/linear_breech.py",
+  "export": "exports/gatling_linear_breech",
+  "parts": [
+    {"file": "carriage.stl", "group": "mockup", "infill": "60%", "walls": 5, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_carriage"},
+    {"file": "nose_clamp.stl", "group": "mockup", "infill": "60%", "walls": 5, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_carriage"}
+  ]
+}
