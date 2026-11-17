@@ -264,6 +264,18 @@ pie = [V(H_.x, -SPUR_SLOT["y"], H_.z)] + [V(H_.x + SPUR_SLOT["r"] * math.cos(mat
                                           for q in [SPUR_SLOT["a"][0] + (SPUR_SLOT["a"][1] - SPUR_SLOT["a"][0]) * k / 12 for k in range(13)]]
 spur_slot = Part.Face(Part.makePolygon(pie + [pie[0]])).extrude(V(0, 2 * SPUR_SLOT["y"], 0))
 frame, skin = frame.cut(spur_slot), skin.cut(spur_slot)
+# The ball (and the drum it runs into) is a 3 mm shell. The spur slot cuts that
+# wall through, and the printed upper half cracked along the opening. A rib on
+# the inside, beside the slot only, brings that lip to 5 mm. The opening stays
+# y = ±SPUR_SLOT["y"]: the spur is 8 mm thick, so 2.5 mm of air remains a side.
+# Outer Ø85 does not move.
+SPUR_LIP_T, SPUR_LIP_W = 2.0, 8.0
+_shell_in = DRUM_R - 3.0
+_lip_band = (Part.makeSphere(_shell_in, V(DRUM_X0, 0, 0)).cut(Part.makeSphere(_shell_in - SPUR_LIP_T, V(DRUM_X0, 0, 0)))
+             .fuse(cyl_x(2 * _shell_in, DRUM_X0, 30).cut(cyl_x(2 * (_shell_in - SPUR_LIP_T), DRUM_X0 - 1, 31))))
+_slot_wide = spur_slot.fuse(spur_slot.translated(V(0, SPUR_LIP_W, 0))).fuse(spur_slot.translated(V(0, -SPUR_LIP_W, 0)))
+spur_lips = _lip_band.common(_slot_wide).cut(spur_slot)
+frame = frame.fuse(spur_lips).removeSplitter()
 pilot_hole = cyl_x(16, fx[0] - 9.0, DRUM_X0 - math.sqrt((DRUM_R - 3.0) ** 2 - Z_FIRE ** 2) + 2.5,
                    0, Z_FIRE)   # the cap's G1/8 fitting, through the tail's solid tip to the room's wall at the
                                  # pilot's line (the front end is bore-anchored, not fx[0]-anchored: fx[0] moved
