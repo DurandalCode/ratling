@@ -22,10 +22,15 @@ export LC_ALL := C.UTF-8
 
 .DEFAULT_GOAL := help
 
+# make plate PLATE=stage3v4  — slice one (or more) plates/*.json manifests.
+# Optional: POOL=1 merges matching groups across the listed manifests.
+PLATE ?=
+POOL ?=
+
 .PHONY: help gpt-out gpt-in gpt-status \
 	gatling-out gatling-in gatling-status \
 	pistol-out pistol-in pistol-status \
-	plates gatling-plates gatling-stl pistol-plates pistol-stl \
+	plates plate gatling-plates gatling-stl pistol-plates pistol-stl \
 	plates-list plates-plan
 
 help:
@@ -43,14 +48,14 @@ help:
 	  '  make pistol-in        $(PISTOL_WORK) -> live' \
 	  '  make pistol-status    show pistol sync state' \
 	  '' \
-	  'Print plates (fresh STL exports, then Bambu Studio .3mf):' \
-	  '  make plates           slice both complete default print sets' \
-	  '  make gatling-plates   regenerate + slice the gatling hand bench' \
-	  '  make gatling-stl      regenerate and check gatling STLs only' \
-	  '  make pistol-plates    regenerate + slice all pistol print groups' \
-	  '  make pistol-stl       regenerate and check pistol STLs only' \
-	  '  make plates-list      list plates/*.json manifests' \
-	  '  make plates-plan      dry-run plan for default module set' \
+	  'Print plates (Bambu Studio .3mf; needs Studio on macOS):' \
+	  '  make plate PLATE=stage3v4          slice one manifest (STLs already exported)' \
+	  '  make plate PLATE="stage3v4 pistol" slice several' \
+	  '  make plate PLATE="stage3v4 stage3_qev" POOL=1' \
+	  '  make plates                        regenerate + slice gatling bench and pistol' \
+	  '  make gatling-plates / pistol-plates regenerate STLs, then slice that set' \
+	  '  make plates-list                   list plates/*.json manifests' \
+	  '  make plates-plan                   dry-run plan (no Bambu) for stage3v4/qev/v13' \
 	  '' \
 	  'No sync target uses --force. Editable GPT edits are merged or kept;' \
 	  'context files always refresh from live on out.'
@@ -80,13 +85,24 @@ pistol-status:
 	MECHANISMUS="$(PISTOL_WORK)" $(MASK) status -p pistol
 
 # Bambu Studio projects via tools/make_plates.py + plates/*.json (docs/print.md).
-# Always rebuild STLs first: exports/ is gitignored and may hold an older model.
-# A [FAIL] report or invalid pistol part stops slicing.
+# `make plate` slices existing STLs; gatling-/pistol-plates regenerate them first.
+# A [FAIL] report or invalid pistol part stops those regenerate+slice targets.
 plates-list:
 	python3 tools/make_plates.py --list
 
 plates-plan:
 	python3 tools/make_plates.py --dry-run stage3v4 stage3_qev stage3_v13
+
+# Slice manifests that are already exported. Example:
+#   make plate PLATE=stage3v4
+#   make plate PLATE="stage3v4 stage3_qev" POOL=1
+plate:
+	@if [ -z "$(PLATE)" ]; then \
+	  printf '%s\n' 'usage: make plate PLATE=<id>…   (see make plates-list)' \
+	                '       make plate PLATE="stage3v4 stage3_qev" POOL=1' >&2; \
+	  exit 1; \
+	fi
+	python3 tools/make_plates.py $(if $(POOL),--pool,) $(PLATE)
 
 plates: gatling-plates pistol-plates
 
