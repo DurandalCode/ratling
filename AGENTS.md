@@ -2,14 +2,15 @@
 
 Проп-игрушка (реквизит, не настоящее оружие): многоствольная пневматика низкого давления,
 напечатанная на 3D-принтере, плюс покупные трубы и фитинги. Начиналось
-как поворотный селектор 1 → 25 (`README.md`), сейчас делаются два изделия на общем стволе
-(стальная трубка 25 × 0.6): **митральеза** из модулей v4.4 (16 или 19 стволов) и шестиствольный
-**пистолет**.
+как поворотный селектор 1 → 25 (`README.md`). Сейчас на общем стволе (стальная трубка 25 × 0.6):
+**гатлинг QEV** (главный приоритет) и шестиствольный **пистолет**. Модуль v4.4 —
+эталон соосного dump для гатлинга. Папка `mitrailleuse/` на диске есть, в текущий статус не
+входит — не править без прямой просьбы.
 
 **Сначала прочитай [`docs/status.md`](docs/status.md)**: какие файлы живые, какие ждут теста,
 какие заморожены или выброшены. Брошенные генераторы лежат в [`archive/`](archive/README.md)
 (`stage3v2`, `stage3v3`, рычажный пистолет, казённик Schrader). Живые версии рядом по имени
-(`stage3_qev` — клапан v1.1, `stage3v4` — модуль митральезы), и правка не того файла — самая
+(`stage3_qev` — клапан v1.1, `stage3v4` — соосный dump), и правка не того файла — самая
 частая потеря времени.
 
 **Задача трогает геометрию, STL или картинки модели?** Тогда понадобится FreeCAD 1.0.2.
@@ -20,15 +21,11 @@
 
 | Тема | Живые файлы | Документ |
 |---|---|---|
-| Модуль ствола митральезы | `module/stage3v4_coaxial_chamber.py` (v4.4), `module/stage3v4_plates.sh` | докстринг файла |
-| Пакет, плита и каркас митральезы | `mitrailleuse/pack_layouts.py`, `mitrailleuse/pack_plate.py`, `mitrailleuse/make_plates.sh`, `mitrailleuse/pack_frame.py`, `mitrailleuse/carry_mount.py`, `mitrailleuse/rear_frame.py`, `mitrailleuse/pilot_hoses.py` | `docs/pack.md` |
-| Эскиз митральезы, ротор | `mitrailleuse/valve_head.py` (концепт головки на 19, не печать), `mitrailleuse/valve_rotor.py` (числа). Ниппельные `rotor_timing.py`, `head_bench.py`, `rotor_bench.py` — провал стенда Б, не развивать | `docs/rotor.md` |
-| Зарядник митральезы (вафля, шомполы) | `mitrailleuse/loader.py` (→ `pack_frame.py` до `# --- build`) | `docs/loader.md` |
-| Скин «ратлинг» (внешний вид, не детали) | `mitrailleuse/skin/ratling_skin.py`, `mitrailleuse/skin/run_skin.py` | `docs/skin.md` |
-| Вес | `tools/print_mass.py` | `docs/weights.md` |
-| Клапан v1.1 и стенд | `module/stage3_qev.py`, `stage3_floating_seal.py`, `stage3_vent_head.py`, `stage3_v13.py` | докстринги |
-| Гатлинг QEV (эскиз) | `gatling/fat_coax_qev.py`, `gatling/linear_breech.py`, `gatling/linear_breech_bench.py` | `docs/gatling.md` |
+| Гатлинг QEV (приоритет) | `gatling/fat_coax_qev.py`, `gatling/linear_breech.py`, `gatling/linear_breech_bench.py` | `docs/gatling.md` |
 | Пистолет | `pistol/hammer_assembly.py`, `pistol/hammer_layout.py`, `pistol/build/` | `pistol/build/README.md` |
+| Модуль v4.4 (эталон соосного dump) | `module/stage3v4_coaxial_chamber.py`, `module/stage3v4_plates.sh` | докстринг файла |
+| Клапан v1.1 / v1.3 / v1.5 | `module/stage3_qev.py`, `stage3_floating_seal.py`, `stage3_vent_head.py`, `stage3_v13.py`, `stage3_v15.py` | докстринги |
+| Вес | `tools/print_mass.py` | `docs/weights.md` |
 | Печать | `tools/make_plates.py`, `tools/print_plate.py`, `plates/*.json`, `*_plates.sh` | `docs/print.md`, `.claude/skills/plates/SKILL.md` |
 | Конвейер правок через GPT (Mechanismus) | `experiments/gpt-mask/mask`, `mask_sync.py`, `rename.py`, `obfuscate_pistol.py`, `names.json`, `products/*.json` | `experiments/gpt-mask/README.md` |
 | Трубка 25 мм, пробка, селектор | `connectors/`, `selector/`, `ratling/params.py` | `docs/requirements.md` |
@@ -41,8 +38,7 @@
   REPO = '/Users/danilaorehov/ratling'      # путь у владельца; в облаке — путь клона
   exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
   ```
-  Без FreeCAD работают: `python3 -m ratling.params`, `python3 mitrailleuse/pack_layouts.py`,
-  `python3 mitrailleuse/rotor_timing.py`, `python3 mitrailleuse/rotor_cycle_gif.py` (нужен Pillow),
+  Без FreeCAD работают: `python3 -m ratling.params`,
   `tools/make_plates.py` / `tools/print_plate.py` (слайсинг — Bambu Studio на macOS;
   `--dry-run` / `--check` работают без него). На облачной ВМ FreeCAD надо поставить: раздел
  «FreeCAD на облачной ВМ» ниже.
@@ -63,22 +59,12 @@
   детали, без отчёта и экспорта». Цепочки, которые легко сломать:
   - `pistol/hammer_assembly.py` → `hammer_layout.py` → `mech_layout.py` → `module/stage3_qev.py`;
   - `module/stage3_v13.py` → `stage3_qev.py` с `OVERRIDE = {...}`;
-  - `mitrailleuse/pack_plate.py` и `pack_mockup.py` → `pack_layouts.py` (берут `LAYOUTS`);
-  - `mitrailleuse/pack_frame.py` → `pack_layouts.py` и `module/stage3v4_coaxial_chamber.py` с `STAGE3V4_LIBRARY = True`
-    (берёт детали и размеры модуля, `TURNS` повторяет `TIE_TURNS` из `pack_plate.py`);
-  - `mitrailleuse/carry_mount.py` → `pack_frame.py` до строки `# --- build` (берёт плиты, направляющие, модули).
-  - `mitrailleuse/rear_frame.py` → `pack_frame.py` до `# --- build` и `rotor_bench.py` с `ROTOR_BENCH_LIBRARY = True`
-    (берёт головку стенда как есть). `RAIL_Z0` в `pack_frame.py` — задний торец плиты головки, `Z0 - HP_T` в
-    `rear_frame.py`: меняешь одно — поправь другое.
-  - `mitrailleuse/pilot_hoses.py` → `rear_frame.py` до `# --- checks` дважды, с `HEAD_N = 16` и `19` (берёт головку,
-    её фитинги, модули в пакете).
-  - Число стволов головки: `ROTOR_N` перед `exec` в `rotor_bench.py`, `HEAD_N` в `rear_frame.py` (по умолчанию 16,
-    выгрузка у 19 в `exports/rotor_bench19/`, `exports/rear_frame19/`). Блоки головки — `BLOCK_PORTS`.
+  - `gatling/linear_breech.py` → `fat_coax_qev.py` с библиотечным флагом;
+  - `gatling/linear_breech_bench.py` → `linear_breech.py` как библиотека.
+  Папку `mitrailleuse/` не трогать без прямой просьбы.
 - Параметры — константы в начале каждого генератора, а не в `ratling/params.py` (тот только для
   селектора). Некоторые переменные можно задать до `exec` (`VALVE`, `BARREL_TUBE`, `LAYERS`,
   `OVERRIDE`): смотри `try: X / except NameError` в начале файла.
-- Числа модуля продублированы в плите: `TIE_R`, `TIE_ANGLES` в `pack_plate.py`, шаг 40 и Ø38 в
-  `pack_layouts.py`. Меняешь шпильки или трубу камеры в v4.4 — поправь и их, и `docs/pack.md`.
 - Новая версия модуля обычно правит живой файл, а прошлые версии остаются абзацами в его
   докстринге («vX (kept below for history)»). Действует только верхняя версия.
 
@@ -105,9 +91,8 @@ APPS=/Applications/FreeCAD.app/Contents/Resources/bin
 зовёт `sh tools/install_freecad.sh` (AppImage → `/opt/freecad`, ссылки `freecad` и `freecadcmd`
 в `/usr/local/bin`). Скрипт идемпотентный: если бинарь уже есть, ничего не качает. На машине
 без этого окружения запусти его сам. Нужен FreeCAD, если задача меняет геометрию
-(любой `.py` в `module/`, `mitrailleuse/pack_plate.py`, `pistol/`, `selector/`, `connectors/`),
-выгружает STL или рисует картинку. Для правок документов, `pack_layouts.py` и расчётов на
-бумаге он не нужен.
+(любой `.py` в `gatling/`, `module/`, `pistol/`, `selector/`, `connectors/`),
+выгружает STL или рисует картинку. Для правок документов и расчётов на бумаге он не нужен.
 
 ```sh
 sh tools/install_freecad.sh          # FreeCAD 1.0.2 AppImage → /opt/freecad, ссылки в /usr/local/bin
@@ -172,7 +157,7 @@ freecadcmd -c "REPO='$PWD'; exec(open('module/stage3v4_coaxial_chamber.py').read
   деталей реального устройства, имя производителя) — добавь в `words` пару `живое: нейтральное`.
   Нейтральное — только строчные латинские буквы, уникальное, не встречается в исходниках.
   Слово смешанного регистра (`AirTAC`) идёт в `exact` с учётом регистра.
-- Проверка без FreeCAD: `experiments/gpt-mask/mask out -p pistol` (и `mitrailleuse`). Он
+- Проверка без FreeCAD: `experiments/gpt-mask/mask out -p pistol` (и `gatling`). Он
   отказывается писать, если нейтральное слово уже есть в коде, если в выгрузке осталось слово из
   `forbidden_substrings` или замена необратима. Новый корень проекта (имя, которое не должно
   уйти) добавляй и в `forbidden_substrings`.
