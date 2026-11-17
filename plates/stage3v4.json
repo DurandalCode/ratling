@@ -1,0 +1,17 @@
+{
+  "id": "stage3v4",
+  "title": "Stage 3 v4.4 coaxial chamber module",
+  "generator": "module/stage3v4_coaxial_chamber.py",
+  "export": "exports/stage3v4_coaxial_chamber",
+  "parts": [
+    {"file": "rear_plug.stl", "group": "airtight", "infill": "100%", "project": "stage3v44_airtight"},
+    {"file": "seat_ring.stl", "group": "airtight", "infill": "100%", "project": "stage3v44_airtight"},
+    {"file": "front_plug.stl", "group": "airtight", "infill": "100%", "project": "stage3v44_airtight"},
+    {"file": "front_yoke.stl", "group": "strong", "project": "stage3v44_strong"},
+    {"file": "muzzle_clamp_half.stl", "group": "strong", "count": 2, "project": "stage3v44_strong"},
+    {"file": "oring_cone.stl", "group": "strong", "project": "stage3v44_strong"},
+    {"file": "jig_guide.stl", "group": "strong", "project": "stage3v44_strong"},
+    {"file": "muzzle_sleeve.stl", "group": "mockup", "pattern": "gyroid", "project": "stage3v44_sleeve_pla"},
+    {"file": "rear_plug.stl", "group": "airtight", "filament": "pla", "project": "stage3v44_rear_plug_pla"}
+  ]
+}

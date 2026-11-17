@@ -1,0 +1,17 @@
+{
+  "id": "stage3_v13",
+  "title": "Stage 3 v1.3 QEV valve",
+  "generator": "module/stage3_v13.py",
+  "export": "exports/stage3_qev_v13",
+  "parts": [
+    {"file": "body.stl", "group": "airtight", "project": "stage3v13_airtight"},
+    {"file": "cap.stl", "group": "airtight", "project": "stage3v13_airtight"},
+    {"file": "chamber_plug.stl", "group": "airtight", "project": "stage3v13_airtight"},
+    {"file": "barrel_breech.stl", "group": "airtight", "project": "stage3v13_airtight"},
+    {"file": "plug_yoke.stl", "group": "strong", "project": "stage3v13_strong"},
+    {"file": "tube_clip.stl", "group": "strong", "project": "stage3v13_strong"},
+    {"file": "jig_base.stl", "group": "strong", "project": "stage3v13_strong"},
+    {"file": "jig_ring.stl", "group": "strong", "project": "stage3v13_strong"},
+    {"file": "jig_puck.stl", "group": "strong", "project": "stage3v13_strong"}
+  ]
+}

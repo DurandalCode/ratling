@@ -1,0 +1,16 @@
+{
+  "id": "stage3_qev",
+  "title": "Stage 3 v1.1 QEV valve (bench)",
+  "generator": "module/stage3_qev.py",
+  "export": "exports/stage3_qev",
+  "parts": [
+    {"file": "body.stl", "group": "airtight", "project": "stage3v11_airtight"},
+    {"file": "cap.stl", "group": "airtight", "project": "stage3v11_airtight"},
+    {"file": "chamber_plug.stl", "group": "airtight", "project": "stage3v11_airtight"},
+    {"file": "barrel_breech.stl", "group": "airtight", "project": "stage3v11_airtight"},
+    {"file": "tube_clip.stl", "group": "strong", "project": "stage3v11_strong"},
+    {"file": "jig_base.stl", "group": "strong", "project": "stage3v11_strong"},
+    {"file": "jig_ring.stl", "group": "strong", "project": "stage3v11_strong"},
+    {"file": "jig_puck.stl", "group": "strong", "project": "stage3v11_strong"}
+  ]
+}

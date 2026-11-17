@@ -1,0 +1,15 @@
+{
+  "id": "pack_frame",
+  "title": "Mitrailleuse pack frame and carry mount",
+  "generators": ["mitrailleuse/pack_frame.py", "mitrailleuse/carry_mount.py"],
+  "parts": [
+    {"file": "exports/pack_frame/a16_rear_plate.stl", "group": "strong", "project": "pack_frame_a16"},
+    {"file": "exports/pack_frame/a16_front_plate.stl", "group": "strong", "project": "pack_frame_a16"},
+    {"file": "exports/carry_mount/a16_cg_plate.stl", "group": "strong", "count": 2, "project": "pack_frame_a16"},
+    {"file": "exports/pack_frame/a19_rear_plate.stl", "group": "strong", "project": "pack_frame_a19"},
+    {"file": "exports/pack_frame/a19_front_plate.stl", "group": "strong", "project": "pack_frame_a19"},
+    {"file": "exports/carry_mount/a19_cg_plate.stl", "group": "strong", "count": 2, "project": "pack_frame_a19"},
+    {"file": "exports/carry_mount/handle.stl", "group": "strong", "project": "carry_mount"},
+    {"file": "exports/carry_mount/tripod_pad.stl", "group": "strong", "project": "carry_mount"}
+  ]
+}

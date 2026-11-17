@@ -29,7 +29,7 @@
 | Клапан v1.1 и стенд | `module/stage3_qev.py`, `stage3_floating_seal.py`, `stage3_vent_head.py`, `stage3_v13.py` | докстринги |
 | Гатлинг QEV (эскиз) | `gatling/fat_coax_qev.py`, `gatling/linear_breech.py`, `gatling/linear_breech_bench.py` | `docs/gatling.md` |
 | Пистолет | `pistol/hammer_assembly.py`, `pistol/hammer_layout.py`, `pistol/build/` | `pistol/build/README.md` |
-| Печать | `tools/print_plate.py`, `*_plates.sh` | `.claude/skills/plates/SKILL.md` |
+| Печать | `tools/make_plates.py`, `tools/print_plate.py`, `plates/*.json`, `*_plates.sh` | `docs/print.md`, `.claude/skills/plates/SKILL.md` |
 | Конвейер правок через GPT (Mechanismus) | `experiments/gpt-mask/mask`, `mask_sync.py`, `rename.py`, `obfuscate_pistol.py`, `names.json`, `products/*.json` | `experiments/gpt-mask/README.md` |
 | Трубка 25 мм, пробка, селектор | `connectors/`, `selector/`, `ratling/params.py` | `docs/requirements.md` |
 
@@ -43,14 +43,20 @@
   ```
   Без FreeCAD работают: `python3 -m ratling.params`, `python3 mitrailleuse/pack_layouts.py`,
   `python3 mitrailleuse/rotor_timing.py`, `python3 mitrailleuse/rotor_cycle_gif.py` (нужен Pillow),
-  `tools/print_plate.py` (ему нужен Bambu Studio на macOS). На облачной ВМ FreeCAD надо поставить: раздел
-  «FreeCAD на облачной ВМ» ниже.
+  `tools/make_plates.py` / `tools/print_plate.py` (слайсинг — Bambu Studio на macOS;
+  `--dry-run` / `--check` работают без него). На облачной ВМ FreeCAD надо поставить: раздел
+ «FreeCAD на облачной ВМ» ниже.
 - Генератор печатает отчёт с проверками `[OK ]` / `[FAIL]`, открывает модель (группы: печать,
   покупное, справка, разрез) и пишет `exports/<NAME>/` (STEP, STL, FCStd). Есть `[FAIL]` —
   не печатать и не слайсить.
 - Печатные детали выгружаются уже в ориентации печати (нижняя точка z = 0). Не поворачивать.
   Правильность ориентации проверяет `tools/orient_check.py` (его запускает `tools/print_plate.py` перед нарезкой): `[FAIL]` по
-  нависаниям останавливает нарезку; поверни деталь в генераторе (`down` в `PARTS`), а не в слайсере.
+ нависаниям останавливает нарезку; поверни деталь в генераторе (`down` в `PARTS`), а не в слайсере.
+- Столы печати: группа детали (`airtight` / `strong` / …) задаётся в `plates/<id>.json` или в
+  `parts.json` пистолета; `python3 tools/make_plates.py <id>` собирает `.3mf` (один проект на
+  группу, столы заполняются по мере роста набора). `--pool` склеивает группы из нескольких
+  манифестов. Не пиши одноразовый `*_plates.sh` со списком STL — правь манифест
+  (`docs/print.md`).
 - `exports/`, `*.stl`, `*.3mf`, `*.step` в git не идут, их всегда можно перегенерировать.
 - Файлы исполняют друг друга через `exec(open(...).read())`. Флаг `*_LIBRARY = True`
   (`STAGE3_LIBRARY`, `STAGE3V4_LIBRARY`, `MECH_LIBRARY` …) перед `exec` значит «только построй

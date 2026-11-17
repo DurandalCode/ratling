@@ -1,0 +1,12 @@
+{
+  "id": "pack_layouts",
+  "title": "Mitrailleuse pack-layout negative plates (PLA)",
+  "generator": "mitrailleuse/pack_plate.py",
+  "export": "exports/pack_layouts/stl",
+  "parts": [
+    {"file": "plate_g_hex_19.stl", "group": "mockup", "process": "0.24mm Standard @BBL P2S", "walls": 2, "project": "plate_g_hex_19"},
+    {"file": "plate_h_hex_37.stl", "group": "mockup", "process": "0.24mm Standard @BBL P2S", "walls": 2, "project": "plate_h_hex_37"},
+    {"file": "plate_i_square_5x5_round.stl", "group": "mockup", "process": "0.24mm Standard @BBL P2S", "walls": 2, "project": "plate_i_square_5x5_round"},
+    {"file": "plate_j_rings_4_12.stl", "group": "mockup", "process": "0.24mm Standard @BBL P2S", "walls": 2, "project": "plate_j_rings_4_12"}
+  ]
+}

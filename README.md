@@ -60,11 +60,13 @@ exec(open(REPO + '/module/stage3v4_coaxial_chamber.py').read())
 в `exports/<имя>/`. Без окна то же самое делает `freecadcmd -c "..."`. Папка `exports/` в git
 не хранится, её всегда можно собрать заново.
 
-Столы для Bambu P2S собирают скрипты `*_plates.sh` через `tools/print_plate.py`. Для этого нужен
-Bambu Studio на macOS. Облачная машина Cursor ставит FreeCAD сама
-(`sh tools/install_freecad.sh`, [.cursor/environment.json](.cursor/environment.json));
-картинку модели без экрана рисует `tools/render_view.py` (см. [AGENTS.md](AGENTS.md)).
-Нарезки `.3mf` в облаке нет.
+Столы для Bambu P2S: манифесты `plates/*.json` (группа печати на деталь) и драйвер
+`tools/make_plates.py` → `tools/print_plate.py`. Слайсинг нужен Bambu Studio на macOS;
+`python3 tools/make_plates.py --dry-run <id>` показывает план без него. Облачная машина
+Cursor ставит FreeCAD сама (`sh tools/install_freecad.sh`,
+[.cursor/environment.json](.cursor/environment.json)); картинку модели без экрана рисует
+`tools/render_view.py` (см. [AGENTS.md](AGENTS.md)). Нарезки `.3mf` в облаке нет; подробности —
+[docs/print.md](docs/print.md).
 
 ## Что где лежит
 
@@ -75,8 +77,9 @@ Bambu Studio на macOS. Облачная машина Cursor ставит FreeC
 | `pistol/` | Пистолет: курковый механизм и рама; в `pistol/build/` печать и сборка. |
 | `archive/` | Брошенные генераторы (модуль v2 и v3, казённик Schrader, рычажный пистолет и ранние эскизы). Не образец для нового. |
 | `selector/`, `ratling/`, `connectors/` | Поворотный селектор 1 → 25, с которого начинался проект (сейчас заморожен), общие функции FreeCAD, пробка для трубки 25 мм. |
-| `tools/` | Слайсинг столов, установка FreeCAD, рендер картинок, вес по STL. |
-| `docs/` | Статус модулей, пакет, ротор, зарядник, вес, требования и концепты селектора. |
+| `plates/` | Манифесты печати: какая деталь в какую группу (`airtight` / `strong` / …). |
+| `tools/` | Слайсинг столов (`make_plates.py`, `print_plate.py`), установка FreeCAD, рендер, вес. |
+| `docs/` | Статус модулей, пакет, ротор, зарядник, печать, вес, требования и концепты селектора. |
 
 ## Документы
 
@@ -87,6 +90,7 @@ Bambu Studio на macOS. Облачная машина Cursor ставит FreeC
 - [docs/loader.md](docs/loader.md): зарядник с дула.
 - [docs/skin.md](docs/skin.md): внешний вид, не детали.
 - [docs/weights.md](docs/weights.md): вес митральезы и пистолета.
+- [docs/print.md](docs/print.md): манифесты групп и сборка `.3mf` для Bambu P2S.
 - [docs/requirements.md](docs/requirements.md), [docs/concepts.md](docs/concepts.md),
   [docs/test-plan.md](docs/test-plan.md): требования, концепты и план испытаний селектора.
 - [AGENTS.md](AGENTS.md): заметки для ИИ-агентов.

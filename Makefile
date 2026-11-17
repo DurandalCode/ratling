@@ -25,7 +25,8 @@ export LC_ALL := C.UTF-8
 .PHONY: help gpt-out gpt-in gpt-status \
 	gatling-out gatling-in gatling-status \
 	pistol-out pistol-in pistol-status \
-	plates gatling-plates gatling-stl pistol-plates pistol-stl
+	plates gatling-plates gatling-stl pistol-plates pistol-stl \
+	plates-list plates-plan
 
 help:
 	@printf '%s\n' \
@@ -48,6 +49,8 @@ help:
 	  '  make gatling-stl      regenerate and check gatling STLs only' \
 	  '  make pistol-plates    regenerate + slice all pistol print groups' \
 	  '  make pistol-stl       regenerate and check pistol STLs only' \
+	  '  make plates-list      list plates/*.json manifests' \
+	  '  make plates-plan      dry-run plan for default module set' \
 	  '' \
 	  'No sync target uses --force. Editable GPT edits are merged or kept;' \
 	  'context files always refresh from live on out.'
@@ -76,8 +79,15 @@ pistol-in:
 pistol-status:
 	MECHANISMUS="$(PISTOL_WORK)" $(MASK) status -p pistol
 
-# Bambu Studio projects. Always rebuild STLs first: exports/ is gitignored and
-# may hold an older model. A [FAIL] report or invalid pistol part stops slicing.
+# Bambu Studio projects via tools/make_plates.py + plates/*.json (docs/print.md).
+# Always rebuild STLs first: exports/ is gitignored and may hold an older model.
+# A [FAIL] report or invalid pistol part stops slicing.
+plates-list:
+	python3 tools/make_plates.py --list
+
+plates-plan:
+	python3 tools/make_plates.py --dry-run stage3v4 stage3_qev stage3_v13
+
 plates: gatling-plates pistol-plates
 
 gatling-plates: gatling-stl

@@ -1,0 +1,13 @@
+{
+  "id": "head_bench",
+  "title": "Mitrailleuse head bench B",
+  "generator": "mitrailleuse/head_bench.py",
+  "export": "exports/head_bench",
+  "parts": [
+    {"file": "head_block.stl", "group": "airtight", "project": "head_bench_airtight"},
+    {"file": "base.stl", "group": "mockup", "infill": "25%", "walls": 4, "pattern": "gyroid", "brim": 5, "project": "head_bench_frame"},
+    {"file": "guide_plate.stl", "group": "mockup", "infill": "25%", "walls": 4, "pattern": "gyroid", "brim": 5, "project": "head_bench_frame"},
+    {"file": "slider.stl", "group": "mockup", "infill": "25%", "walls": 4, "pattern": "gyroid", "brim": 5, "project": "head_bench_frame"},
+    {"file": "follower.stl", "group": "mockup", "count": 2, "infill": "25%", "walls": 4, "pattern": "gyroid", "brim": 5, "project": "head_bench_frame"}
+  ]
+}
