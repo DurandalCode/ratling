@@ -19,13 +19,19 @@
 ## Команды
 
 ```sh
+make plates-list
+make plates-plan                                         # dry-run stage3v4/qev/v13
+make plate PLATE=stage3v4                                # нарезка (нужен Bambu Studio)
+make plate PLATE="stage3v4 stage3_qev" POOL=1            # общий стол на группу
+make plate PLATE=pistol                                  # exports/pistol_build/parts.json
+make plates                                              # пересобрать STL + gatling и pistol
+
+# то же без Make:
 python3 tools/make_plates.py --list
-python3 tools/make_plates.py --dry-run stage3v4          # план без Bambu
-python3 tools/make_plates.py --check stage3v4            # STL на месте + orient_check
-python3 tools/make_plates.py stage3v4                    # нарезка (нужен Bambu Studio)
-python3 tools/make_plates.py --pool stage3v4 stage3_qev  # общий стол на группу
-python3 tools/make_plates.py pistol                      # exports/pistol_build/parts.json
-sh module/stage3v4_plates.sh                             # то же, что make_plates stage3v4
+python3 tools/make_plates.py --dry-run stage3v4
+python3 tools/make_plates.py --check stage3v4
+python3 tools/make_plates.py stage3v4
+sh module/stage3v4_plates.sh                             # обёртка над make_plates stage3v4
 ```
 
 Выход: `exports/print/<project>.3mf` и JSON-отчёт (минуты/граммы по столам).
