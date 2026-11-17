@@ -62,11 +62,14 @@ Rebuild the work tree after changing `obfuscate_pistol.py`.
 ## Gatling stand
 
 `out -p gatling` copies the one-station stand and the sliding station it loads. The station
-still runs the coax file, but the copy is the **outer solids of the live housing** (nose,
-flange, ears, tube, yoke, rods), written as geometry by `obfuscate_gatling.py`. Needs
-`freecadcmd` on `out`. The slot, the stroke and the marble stay where the live station has
-them, so a basket drawn on the stand fits after `in`. The stand file is editable. The station,
-that form and the shared libraries are context: `in` does not take edits from them.
+still runs the coax file. On the way out, `obfuscate_gatling.py` replaces each barrel with a
+**solid cylinder** of the same outside diameter and length (the fixed one is Ø24.98 × 400),
+and replaces the valve stack with **one solid housing** (the Ø47 chamber, the Ø23.8 bore,
+the Ø18 nose passage, the Ø8.8 pilot tap and the seal grooves are filled in; a Ø50.36 shim
+closes the 0.2 mm yoke gap). Needs `freecadcmd` on `out`. The slot, the stroke and the marble
+stay where the live station has them, so a basket drawn on the stand fits after `in`. The
+stand file is editable. The station, that form and the shared libraries are context: `in`
+does not take edits from them.
 
 The work-tree `README.md` is copied on `out` with a legend: one gate of a costume marble machine
 (basket over the open slot, carriage on two rails, one marble onto the spindle). Describe the
