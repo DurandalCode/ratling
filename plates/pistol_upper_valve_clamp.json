@@ -1,0 +1,10 @@
+{
+  "id": "pistol_upper_valve_clamp",
+  "title": "Pistol upper shell and QEV valve clamp only",
+  "generator": "pistol/build/export_parts.py",
+  "export": "exports/pistol_build/stl",
+  "parts": [
+    {"file": "frame_upper.stl", "group": "supports", "nozzle": "0.8", "brim": 5, "project": "pistol_frame_upper_08"},
+    {"file": "valve_clamp.stl", "group": "standard", "brim": 5, "project": "pistol_valve_clamp"}
+  ]
+}
