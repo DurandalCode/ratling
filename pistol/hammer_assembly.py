@@ -1210,6 +1210,20 @@ qev_skirt = _cut(qev_skirt, Part.makeCompound([detent_box, band_low_fastener]))
 side_band = side_band.fuse(qev_skirt).removeSplitter()
 side_band = _biggest(side_band)
 plates = [p_.cut(qev_skirt) for p_ in plates]
+# The hammer axle's left end bears only in the band: the ball's 3 mm shell, crossed at a slant, so the Ø8 bore
+# had 3..4 mm of wall along y and none at all on its +x side. A boss inside the ball (2026-11-18) gives it a
+# full ring from the shell to 1 mm short of the hammer's left face (y -27.5): R 8, a teardrop to +x so its
+# underside is 45 deg as the band prints (front end down). Clear of the stop screw's head (1.9) and the
+# springs (1.9); kept 0.3 inside the outer shell. Coaxial with the axle, so the band still slides off along -y.
+AXLE_BOSS = dict(r=8.0, y1=-28.5)
+_ab_t = AXLE_BOSS["r"] * math.sqrt(2)
+_ab_tri = Part.Face(Part.makePolygon([HAMMER_PIVOT + V(0, -45.0, 0)] + [
+    HAMMER_PIVOT + V(AXLE_BOSS["r"] * math.cos(math.radians(a_)), -45.0, AXLE_BOSS["r"] * math.sin(math.radians(a_))) if a_ is not None
+    else HAMMER_PIVOT + V(_ab_t, -45.0, 0) for a_ in (45, None, -45)] + [HAMMER_PIVOT + V(0, -45.0, 0)])).extrude(V(0, AXLE_BOSS["y1"] + 45.0, 0))
+axle_boss = (Part.makeCylinder(AXLE_BOSS["r"], AXLE_BOSS["y1"] + 45.0, HAMMER_PIVOT + V(0, -45.0, 0), YA).fuse(_ab_tri)
+             .common(Part.makeSphere(DRUM_R - 0.3, V(DRUM_X0, 0, 0))).removeSplitter())
+side_band = side_band.fuse(axle_boss).cut(shaft_holes).removeSplitter()
+side_band = _biggest(side_band)
 # Gauge_wire is flexible: its displayed route must not be carved into this shell.
 side_plate = side_band                                      # tongues and bolt holes included
 frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
