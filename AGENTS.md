@@ -17,6 +17,12 @@
 Облачное окружение ставит его само (`sh tools/install_freecad.sh`, см. `.cursor/environment.json`).
 Если `freecadcmd` нет в `PATH`, запусти тот же скрипт. Подробности в разделе «FreeCAD на облачной ВМ».
 
+**Тебе дали тикет `tasks/NNN-*.md`?** Тогда ты исполнитель: читай только
+[`docs/agent-brief.md`](docs/agent-brief.md) и тикет, остальное в этом файле не для тебя. Судья —
+`python3 tools/verify.py <тикет>` (рамки правки, `[FAIL]`, объёмы тел). Тикеты пишет сильная
+модель по просьбе владельца (скилл `/ticket`, агент opencode `planner`); без просьбы сильная
+модель работает напрямую, как ниже ([`tasks/README.md`](tasks/README.md)).
+
 ## Куда смотреть по теме
 
 | Тема | Живые файлы | Документ |
@@ -26,6 +32,7 @@
 | Модуль v4.4 (эталон соосного dump) | `module/stage3v4_coaxial_chamber.py`, `module/stage3v4_plates.sh` | докстринг файла |
 | Клапан v1.1 / v1.3 / v1.5 | `module/stage3_qev.py`, `stage3_floating_seal.py`, `stage3_vent_head.py`, `stage3_v13.py`, `stage3_v15.py` | докстринги |
 | Вес | `tools/print_mass.py` | `docs/weights.md` |
+| Тикеты для слабых моделей | `tasks/`, `tools/verify.py`, `.opencode/agents/` | `tasks/README.md`, `docs/agent-brief.md` |
 | Печать | `tools/make_plates.py`, `tools/print_plate.py`, `plates/*.json`, `*_plates.sh` | `docs/print.md`, `.claude/skills/plates/SKILL.md` |
 | Конвейер правок через GPT (Mechanismus) | `experiments/gpt-mask/mask`, `mask_sync.py`, `rename.py`, `obfuscate_pistol.py`, `names.json`, `products/*.json` | `experiments/gpt-mask/README.md` |
 | Трубка 25 мм, пробка, селектор | `connectors/`, `selector/`, `ratling/params.py` | `docs/requirements.md` |
