@@ -1,0 +1,10 @@
+---
+description: Working on a ticket from tasks/ (closed edit for a worker model)
+globs: tasks/*.md
+alwaysApply: false
+---
+
+Если тебе дали тикет `tasks/NNN-*.md`, ты исполнитель. Прочитай `docs/agent-brief.md` и тикет,
+больше ничего читать не нужно. Правь только файлы из `allowed`, гоняй
+`python3 tools/verify.py tasks/NNN-*.md` до `VERDICT: PASS`, допиши в тикет раздел
+«## Отчёт исполнителя». Без коммитов. Неясный шаг — вопрос в отчёт, не угадывай.
