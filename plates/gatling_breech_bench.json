@@ -1,26 +1,40 @@
 {
   "id": "gatling_breech_bench",
-  "title": "Gatling linear-breech hand bench (pre-2026-11-16 feeder layout)",
-  "note": "Refuses to slice once feeder_frame.stl appears; update parts before removing the guard in the shell wrapper.",
+  "title": "Gatling linear-breech hand bench with gravity feeder",
   "generators": [
     "gatling/fat_coax_qev.py",
     "gatling/linear_breech.py",
     "gatling/linear_breech_bench.py"
   ],
   "parts": [
-    {"file": "exports/gatling_fat_coax_qev/rear_plug.stl", "group": "airtight", "filament": "pla", "brim": 5, "project": "gatling_breech_bench_airtight"},
-    {"file": "exports/gatling_fat_coax_qev/seat_ring.stl", "group": "airtight", "filament": "pla", "brim": 5, "project": "gatling_breech_bench_airtight"},
-    {"file": "exports/gatling_linear_breech/front_cover_feed.stl", "group": "airtight", "filament": "pla", "brim": 5, "project": "gatling_breech_bench_airtight"},
     {"file": "exports/gatling_linear_breech_bench/foot_front.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
     {"file": "exports/gatling_linear_breech_bench/foot_rear.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
     {"file": "exports/gatling_linear_breech/carriage.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
     {"file": "exports/gatling_linear_breech_bench/nose_clamp.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
-    {"file": "exports/gatling_linear_breech_bench/rail_stop.stl", "group": "mockup", "count": 4, "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
+    {"file": "exports/gatling_linear_breech_bench/rail_stop_left.stl", "group": "mockup", "count": 2, "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
+    {"file": "exports/gatling_linear_breech_bench/rail_stop_right.stl", "group": "mockup", "count": 2, "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
     {"file": "exports/gatling_linear_breech_bench/barrel_clamp.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
     {"file": "exports/gatling_linear_breech_bench/barrel_collar.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
     {"file": "exports/gatling_linear_breech_bench/airtac_cradle.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
     {"file": "exports/gatling_fat_coax_qev/front_yoke.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
     {"file": "exports/gatling_fat_coax_qev/jig_guide.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
-    {"file": "exports/gatling_fat_coax_qev/oring_cone.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"}
+    {"file": "exports/gatling_fat_coax_qev/oring_cone.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
+    {"file": "exports/gatling_linear_breech_bench/feeder_rail_cap.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
+    {"file": "exports/gatling_linear_breech_bench/feeder_guard_left.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
+    {"file": "exports/gatling_linear_breech_bench/feeder_guard_right.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
+    {"file": "exports/gatling_linear_breech_bench/feeder_magazine.stl", "group": "mockup", "nozzle": "0.8", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_bench_08"},
+
+    {"file": "exports/gatling_linear_breech_bench/link_input.stl", "group": "mockup", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_feeder_04"},
+    {"file": "exports/gatling_linear_breech_bench/link_crank.stl", "group": "mockup", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_feeder_04"},
+    {"file": "exports/gatling_linear_breech_bench/link_output.stl", "group": "mockup", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_feeder_04"},
+    {"file": "exports/gatling_linear_breech_bench/link_bracket.stl", "group": "mockup", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_feeder_04"},
+    {"file": "exports/gatling_linear_breech_bench/feeder_frame.stl", "group": "mockup", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_feeder_04"},
+    {"file": "exports/gatling_linear_breech_bench/feeder_rocker.stl", "group": "mockup", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_feeder_04"},
+    {"file": "exports/gatling_linear_breech_bench/feeder_finger_lower.stl", "group": "mockup", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_feeder_04"},
+    {"file": "exports/gatling_linear_breech_bench/feeder_finger_upper.stl", "group": "mockup", "infill": "30%", "walls": 4, "pattern": "gyroid", "support": true, "brim": 5, "project": "gatling_breech_feeder_04"},
+
+    {"file": "exports/gatling_fat_coax_qev/rear_plug.stl", "group": "airtight", "filament": "pla", "brim": 5, "project": "gatling_breech_bench_airtight"},
+    {"file": "exports/gatling_fat_coax_qev/seat_ring.stl", "group": "airtight", "filament": "pla", "brim": 5, "project": "gatling_breech_bench_airtight"},
+    {"file": "exports/gatling_linear_breech/front_cover_feed.stl", "group": "airtight", "filament": "pla", "brim": 5, "project": "gatling_breech_bench_airtight"}
   ]
 }
