@@ -1,0 +1,10 @@
+{
+  "id": "pistol_front_clamp",
+  "title": "Pistol barrel-block front flexure disc and split clamp ring",
+  "generator": "pistol/build/export_parts.py",
+  "export": "exports/pistol_build/stl",
+  "parts": [
+    {"file": "block_front_disc.stl", "group": "strong", "project": "pistol_front_clamp"},
+    {"file": "block_front_clamp_ring.stl", "group": "strong", "project": "pistol_front_clamp"}
+  ]
+}
