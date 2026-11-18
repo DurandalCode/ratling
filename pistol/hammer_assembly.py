@@ -195,7 +195,7 @@ _room = _bore.fuse(_ball_bore)      # the slab and the cheek butt the room, neve
 outer = (_drum.fuse(_ball).fuse(_slab).fuse(_cheek).fuse(_cage).fuse(_fin)).cut(_room).removeSplitter()
 # The mainsprings' fixed legs rest on a rib reaching x -97, where the ball's taper would pinch them:
 # a local notch in the flank opens the shelf's zone (cut here, while the body is still simple).
-outer = outer.cut(box(-99.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # open the shelf's zone, keep a bond strip for the rib at x -90.5..-88
+outer = outer.cut(box(-95.0, -90.5, -33.0, -25.5, -27.0, -15.0))   # the coils' rear corner (x -92); from x -95 since the rib left (2026-11-18): the rear band lug sits behind it
 # The slider rides outside the slab, the cheek its printed shroud: the body's tunnel (up its rod
 # sleeve's travel) and the bracket arm's tunnel are plain boxes over their swept zones, and the crank
 # with its pin crosses the cheek's inner band - cut here for the same reason (simple body, fast and
@@ -365,7 +365,7 @@ def _supply_pipe(r):
 
 
 supply_line = _supply_pipe(3.0)
-TEE = V(-86, 0, -27.3)                              # in the room: under the spring rib (z -23), beside the vent valve (y 7.5)
+TEE = V(-86, 0, -27.3)                              # in the room: behind the spring post, beside the vent valve (y 7.5)
 pilot_pts = [a_end, a_end + a_dir * 8.0, a_end + a_dir * 16.0, V(-93.5, -33.5, -38.5), V(-101, -36, -36),
              V(-110, -36, -32), V(-118, -25, -28.5), V(-113, -12, -27), V(-100, -12, -26.5),
              V(-92, -10, -26.5), TEE, V(-82, 0, Z_FIRE)]
@@ -400,7 +400,8 @@ def _pilot_pipe(radius):
 
 
 pilot_line = _pilot_pipe(2.0)
-gauge_pts = [TEE, V(-82, -12, -28), V(-76, -20, -28), V(-75, -34, -20), V(-63, -38, -10), V(-52, -38, -2), V(-34, -36, 10), V(-30, -37, 15)]
+# the gauge line runs behind the spring post and under the left spring's fixed leg
+gauge_pts = [TEE, V(-84.5, -8, -30), V(-85, -16, -28.5), V(-83.5, -21.5, -26), V(-76, -26, -24), V(-75, -34, -20), V(-63, -38, -10), V(-52, -38, -2), V(-34, -36, 10), V(-30, -37, 15)]
 gauge_line = pipe_along(gauge_pts, 2.0)
 tee = Part.makeSphere(4.0, TEE)
 hose = supply_line
@@ -503,17 +504,44 @@ _tick('cheeks fused')
 z_sl_top = slider_z(1.0) + 6.0
 _stop_prism = box(SLIDER_X[0], SLIDER_X[1], SLIDER_Y[0], SLIDER_Y[1], z_sl_top + 0.05, 44.0)
 slider_stop = _stop_prism.common(Part.makeCylinder(40.0, 96.0, V(-96, 0, 0), XA))   # keep the top 0.5 into the 3 mm shell
-# The mainsprings' fixed legs rest on a rib off the cage's rear wall, below and behind the hammer's hub.
-spring_rib = box(-92.0, -85.0, MAINSPRING["y"][0][0] - 1.0, -5.0,
-                 HAMMER_PIVOT.z - 15.0, HAMMER_PIVOT.z - 10.5).cut(box(-93.0, -91.0, -20.5, -18.5, -24.0, -20.5))
-# x fixed at the springs' rear legs: in the room's air (NOT pivot-following: 3 mm back with the pivot
-# it ploughed into the tail's shell and the slab's rear); the inner-bottom-left corner is cut off:
-# it clipped the ball's shell at (x -92, y -20, z -23)
+# The mainsprings' fixed legs bear on a steel stop screw, not on the left band (2026-11-18). The band hangs on
+# two bolts at its top: under the springs' torque it sprang outward and let the legs off, and the legs had to be
+# held wound while it went on. Now the screw runs along y through a post on the drum's floor (Frame_upper),
+# down and ahead of the hub (SPRING_LEG: -70 deg, r 12, the legs touch its rear). The legs sit at the packs'
+# outer ends (y -25.4, -6.8), the post between them (y -20..-11), the screw's shank out to both. Assembly:
+# hammer and springs in with the band off, push both legs down past the post with a screwdriver (to ~-80 deg,
+# free air), drive the screw in from the left, let go. Service: back the screw out, the springs unload.
+_la = math.radians(SPRING_LEG["a"])
+_ld, _ln = V(math.cos(_la), 0, math.sin(_la)), V(-math.sin(_la), 0, math.cos(_la))
+SPRING_SCREW = dict(d=3.0, pilot=2.5, head=(5.5, 3.0), l=25.0, y0=-26.5)   # M3 x 25 cylindrical head, self-tapped
+SPRING_SCREW_C = HAMMER_PIVOT + _ld * SPRING_LEG["r"] + _ln * (SPRING_SCREW["d"] / 2 + MAINSPRING["d"] / 2)
+_sc = SPRING_SCREW_C
+SPRING_POST = dict(x=(_sc.x - 3.0, _sc.x + 2.5), y=(-20.0, -11.0), z=(-38.0, _sc.z + 3.0))   # its foot fuses into the floor
+spring_post = box(SPRING_POST["x"][0], SPRING_POST["x"][1], SPRING_POST["y"][0], SPRING_POST["y"][1],
+                  SPRING_POST["z"][0], SPRING_POST["z"][1])
+_spring_screw_pilot = Part.makeCylinder(SPRING_SCREW["pilot"] / 2, 40.0, V(_sc.x, -30.0, _sc.z), YA)
+spring_post = spring_post.cut(_spring_screw_pilot)
+spring_stop_screw = (Part.makeCylinder(SPRING_SCREW["head"][0] / 2, SPRING_SCREW["head"][1],
+                                       V(_sc.x, SPRING_SCREW["y0"] - SPRING_SCREW["head"][1], _sc.z), YA)
+                     .fuse(Part.makeCylinder(SPRING_SCREW["d"] / 2, SPRING_SCREW["l"], V(_sc.x, SPRING_SCREW["y0"], _sc.z), YA)))
+_leg_r0 = MAINSPRING["od"] / 2
+_leg_r1 = math.hypot(MAINSPRING["od"] / 2 - MAINSPRING["d"] / 2, SPRING_LEG["cut"])   # a tangent leg's tip, from the pivot
+
+
+def spring_legs(a_):
+    """The two fixed legs at a_ deg (drawn radial, r 7 .. the trimmed tip), at the packs' outer ends."""
+    d_ = V(math.cos(math.radians(a_)), 0, math.sin(math.radians(a_)))
+    return Part.makeCompound([Part.makeCylinder(MAINSPRING["d"] / 2, _leg_r1 - _leg_r0,
+                                                V(HAMMER_PIVOT.x, y_, HAMMER_PIVOT.z) + d_ * _leg_r0, d_)
+                              for y_ in (MAINSPRING["y"][0][0] + MAINSPRING["d"] / 2, MAINSPRING["y"][1][1] - MAINSPRING["d"] / 2)])
+
+
+spring_legs_rest = spring_legs(SPRING_LEG["a"])
+mainsprings = Part.makeCompound([mainsprings, spring_legs_rest])
 rod_boss = Part.makeCylinder(4.0, 4.0, V(GUIDE_ROD["x"], GUIDE_ROD["y"], fz[0] + EVA_T + CAGE_T + 0.1), ZA)   # the guide rod's foot, inside the floor: the old -0.5 stuck a peg out of the underside
-# The spring rib is NOT fused into the frame: its inner reach (y -23..-6) hangs in the room's air and
-# would be a floating island once the side band is cut away - the side plate carries it as a cantilever.
+frame = frame.fuse(spring_post).removeSplitter()
 frame = frame.fuse(slider_stop).fuse(rod_boss)
-_tick('stop + rib + rod fused')
+_tick('stop + spring post + rod fused')
 # One coaxial Ø3.3 passage through both ends of the shell; follow the current guide axis.
 # Recut after the registration tongues and bolt supports so neither end can close again.
 _guide_rod_hole = Part.makeCylinder(GUIDE_ROD["d"] / 2 + 0.15, 200.0,
@@ -525,7 +553,7 @@ _tick('shaft holes cut')
 side_cut = box(HEEL_X - 1, fx[1] + 1, -fy[1] - 1, -(SLAB["y"] - 3.0), SLAB["z"][0] - 1, fz[1] + 1)   # the flank band plus the slab's left wall: the whole side opens
 # Keep the slab's left wall integral with the tray and lid; only the flank band opens.
 side_cut = side_cut.cut(box(HEEL_X - 2, fx[1] + 2, -SLAB["y"], 100, SLAB["z"][0] - 2, -5.0))
-side_plate = frame.common(side_cut).fuse(Part.makeCompound(_standoffs(-1))).fuse(spring_rib)   # + the spring shelf
+side_plate = frame.common(side_cut).fuse(Part.makeCompound(_standoffs(-1)))
 if len(side_plate.Solids) > 1:          # OCCT leaves face-sliver crumbs in the cuts' windows: keep the real body
     side_plate = Part.makeCompound([s_ for s_ in side_plate.Solids if s_.Volume > 50.0])
 _tick('side plate common')
@@ -614,7 +642,7 @@ plates.append(_flank_shell(-59.0, -5.0, +1))
 plates.append(box(SLAB["x"][0], SLAB["x"][1], SLAB["y"], SLAB["y"] + 3.0, SLAB["z"][0], SLAB["z"][1])
               .cut(_vv).cut(sock_cap).cut(sock_body).cut(valve_rods_cut))
 plates.append(box(SLAB["x"][0], SLAB["x"][1], -SLAB["y"] - 3.0, -SLAB["y"], SLAB["z"][0], SLAB["z"][1])
-              .cut(sock_cap).cut(sock_body).cut(valve_rods_cut).cut(box(-99.0, -87.0, -33.0, -25.5, -27.0, -15.0)).cut(pilot_exit))
+              .cut(sock_cap).cut(sock_body).cut(valve_rods_cut).cut(box(-95.0, -87.0, -33.0, -25.5, -27.0, -15.0)).cut(pilot_exit))
 plates.append(box(-90.0, -8.0, CHEEK["y"][1], CHEEK["y"][1] + 3.0, -60.0, 12.0).cut(fit_pockets))
 plate_rivets += [V(x_, CHEEK["y"][1] + 3.0, z_) for x_ in (-84.0, -46.0, -14.0) for z_ in (-52.0, 2.0)]   # the cheek pad
 plate_rivets += [V(x_, -(SLAB["y"] + 3.0), z_) for x_ in (-100.0, -64.0, -30.0) for z_ in (-62.0, -14.0)]   # the left pad
@@ -1133,6 +1161,55 @@ frame_upper = frame_upper.cut(spur_hook_relief).removeSplitter()
 grip = Part.makeCompound([grip_left, grip_right])
 # Fuse with overlap into the native pad; no buried detent-mount nuts or legacy through-holes.
 side_band = side_band.fuse(detent_mount).removeSplitter()
+# The band's lower edge: two lugs, front and rear, each take an M3 x 20 along y, self-tapped into a pilot in the
+# fixed frame (2026-11-18). Before them the band hung on its two top bolts only. Off along -y, screws out first.
+# Front: the lug drops from the band's bottom edge (z -35.7) down the slab's left face onto the tray's solid floor
+# (z -56..-48, full width at x > -28), into Frame_lower; its root climbs the drum's wall to z -30 (the wall, never
+# the room's bore). Rear: down the tail's flank and the slab's face to z -26, into Frame_upper's rear wall (solid
+# y -23..-8 at z -21); its root is the ball's shell. Both stay out of the room and inside the shell above.
+BAND_LOW_BOLTS = (dict(x=-13.0, z=-52.0, lx=(-18.0, -8.0), lz=(-56.0, -30.0), part="lower", pilot=16.5,
+                       skin=Part.makeCylinder(DRUM_R, 200, V(-150, 0, 0), XA).fuse(box(-150, 50, -50, 50, -100, -33.0)),
+                       room=Part.makeCylinder(DRUM_R - 3.0, 200, V(-150, 0, 0), XA)),
+                  dict(x=-99.5, z=-21.0, lx=(-103.0, -96.0), lz=(-26.0, 2.0), part="upper", pilot=14.0,
+                       skin=Part.makeSphere(DRUM_R, V(DRUM_X0, 0, 0)).fuse(box(-150, 50, -50, 50, -100, -5.0)),
+                       room=Part.makeSphere(DRUM_R - 3.0, V(DRUM_X0, 0, 0))))
+BAND_LUG_Y = (-27.0, -23.2)                      # outside the slab's left face (y -23), 3.8 thick
+band_low_lugs, band_low_fasteners = [], []
+for _bl in BAND_LOW_BOLTS:
+    _lug = box(_bl["lx"][0], _bl["lx"][1], BAND_LUG_Y[0], BAND_LUG_Y[1], _bl["lz"][0], _bl["lz"][1]).common(_bl["skin"]).cut(_bl["room"])
+    _lug = max(_lug.Solids, key=lambda q: q.Volume)
+    band_low_lugs.append(_lug)
+    side_band = side_band.fuse(_lug).cut(Part.makeCylinder(SHELL_BOLT_D / 2, 10.0, V(_bl["x"], BAND_LUG_Y[0] - 1, _bl["z"]), YA)).removeSplitter()
+    _pilot = Part.makeCylinder(2.5 / 2, _bl["pilot"] + 0.3, V(_bl["x"], BAND_LUG_Y[1] - 0.3, _bl["z"]), YA)
+    if _bl["part"] == "lower":
+        frame_lower = frame_lower.cut(_pilot).removeSplitter()
+    else:
+        frame_upper = frame_upper.cut(_pilot).removeSplitter()
+    band_low_fasteners.append(Part.makeCylinder(2.75, 3.0, V(_bl["x"], BAND_LUG_Y[0] - 3.0, _bl["z"]), YA)
+                              .fuse(Part.makeCylinder(1.5, 20.0, V(_bl["x"], BAND_LUG_Y[0], _bl["z"]), YA)))
+band_low_lug = Part.makeCompound(band_low_lugs)
+band_low_fastener = Part.makeCompound(band_low_fasteners)
+plates = [p_.cut(band_low_lug).cut(Part.makeCompound([Part.makeCylinder(3.5, 8.0, V(_bl["x"], BAND_LUG_Y[0] - 6.0, _bl["z"]), YA)
+                                                      for _bl in BAND_LOW_BOLTS])) for p_ in plates]   # the EVA pad round the lugs and heads
+# The QEV's left flank (body and cap stand to y -31, past the slab's face at y -23) showed through the
+# window under the drum. The band now carries a skirt over it (2026-11-18): an arc 3 thick round the valve's
+# axis, 0.2 outside its socket envelope (r 34.5), from the cap's rear to the body's face, rising into the
+# drum's shell so it grows out of the band, down to the frame with 0.2 to spare. Below the valve's equator
+# it lies further out than the valve at every height, so the band still slides off along -y.
+QEV_SKIRT = dict(r=BODY_R + VALVE_SOCK + 0.2, t=3.0, x=(X_BODY_TOP - BODY_H - CAP_T - SOCK_AXIAL - 1.0, X_BODY_TOP), clear=0.2)
+_qs = QEV_SKIRT
+qev_skirt = (cyl_x(2 * (_qs["r"] + _qs["t"]), _qs["x"][0], _qs["x"][1], 0, Z_FIRE)
+             .cut(cyl_x(2 * _qs["r"], _qs["x"][0] - 1, _qs["x"][1] + 1, 0, Z_FIRE))
+             .common(box(_qs["x"][0], _qs["x"][1], -60.0, -SLAB["y"], -70.0, -12.0))
+             .cut(Part.makeCylinder(DRUM_R - 3.0, 300, V(-150, 0, 0), XA))
+             .cut(Part.makeSphere(DRUM_R - 3.0, V(DRUM_X0, 0, 0))))
+for _part in (frame_lower, frame_upper):
+    for _dy, _dz in ((0, 0), (_qs["clear"], 0), (-_qs["clear"], 0), (0, _qs["clear"]), (0, -_qs["clear"])):
+        qev_skirt = _cut(qev_skirt, _part.translated(V(0, _dy, _dz)))
+qev_skirt = _cut(qev_skirt, Part.makeCompound([detent_box, band_low_fastener]))
+side_band = side_band.fuse(qev_skirt).removeSplitter()
+side_band = _biggest(side_band)
+plates = [p_.cut(qev_skirt) for p_ in plates]
 # Gauge_wire is flexible: its displayed route must not be carved into this shell.
 side_plate = side_band                                      # tongues and bolt holes included
 frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
@@ -1191,7 +1268,7 @@ if CHECKS:
     fixed_hits = {"air lines/valve": hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_body)
                   + hit(Part.makeCompound([pilot_line, gauge_line, tee]), valve_cap)
                   + hit(Part.makeCompound([pilot_line, gauge_line, tee, supply_line]), vent_body),   # (their ends sit in the fittings)
-                  "air lines/springs+rib": hit(Part.makeCompound([pilot_line, gauge_line, tee]), mainsprings.fuse(spring_rib)),
+                  "air lines/springs+stop": hit(Part.makeCompound([pilot_line, gauge_line, tee]), mainsprings) + hit(Part.makeCompound([pilot_line, gauge_line, tee]), spring_stop_screw.fuse(spring_post)),
                   "slider/stop at full cock": hit(slider_h(1.0)[0], slider_stop.translated(V(0, 0, -0.1))),
                   "side plate/valve": hit(side_plate, valve_body) + hit(side_plate, valve_cap) + hit(side_plate, lock_housing_h),
                   "bosses/valve": hit(bosses, valve_body) + hit(bosses, valve_cap),
@@ -1200,7 +1277,8 @@ if CHECKS:
                   "valve/frame": valve_body.common(frame).Volume + valve_cap.common(frame).Volume,
                   "lock/frame": lock_housing_h.common(frame).Volume, "vent valve/frame": mini_valves.common(frame).Volume,
                   "springs/frame": hit(mainsprings, frame),   # the ball's taper is tighter than the old drum ever was
-                  "spring rib/frame": hit(spring_rib, frame),   # the rib is a cantilever on the left plate, in the room's air
+                  "stop screw/band": hit(spring_stop_screw, side_band),   # the band carries no spring load now
+                  "spring legs, installing (-25..-80 deg)/fixed": sum(hit(spring_legs(a_), Part.makeCompound([frame, side_band, valve_cap, valve_rods, pilot_line, gauge_line, tee])) for a_ in range(-25, -81, -5)),
                   "tie rods/frame+plates": hit(valve_rods, frame) + hit(valve_rods, side_plate) + hit(valve_rods, side_plate_r),
                   "lock bolts/frame+plates": hit(lock_bolts, frame) + hit(lock_bolts, side_plate) + hit(lock_bolts, side_plate_r),
                   "tie rods/springs": hit(valve_rods, mainsprings),   # the coils sit outside the heads' reach now
@@ -1454,6 +1532,8 @@ g_mech = doc.addObject("App::DocumentObjectGroup", "Mechanism")
 for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve_cap_v11", valve_cap, (0.45, 0.65, 0.85), 0),
                      ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 0), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 0),
                      ("Vent_valve", mini_valves, (0.3, 0.3, 0.8), 0), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0),
+                     ("Spring_stop_screw", spring_stop_screw, (0.75, 0.75, 0.78), 0),
+                     ("Band_low_fastener", band_low_fastener, (0.75, 0.75, 0.78), 0),
                      ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0), ("Guide_rod", guide_rod, (0.75, 0.75, 0.78), 0),
                      ("Tie_rods", valve_rods, (0.72, 0.72, 0.75), 0), ("Lock_bolts", lock_bolts, (0.72, 0.72, 0.75), 0)):
     add(g_mech, n, s_, c, tr)
@@ -1495,7 +1575,7 @@ MATERIAL = {
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Valve_clamp_liner", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
-    "buy": ("Front_clamp_fastener", "Chamber_axle", "Vent_valve", "Detent_service_fastener", "Pin", "Crank_fastener", "Slider_cap_fastener", "Trigger_pad_fastener", "Trigger_pin", "Valve_clamp_fasteners", "Frame_join_fastener", "Grip_mount_fastener", "Guard_fasteners", "Mainsprings", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
+    "buy": ("Front_clamp_fastener", "Chamber_axle", "Vent_valve", "Detent_service_fastener", "Pin", "Crank_fastener", "Slider_cap_fastener", "Trigger_pad_fastener", "Trigger_pin", "Valve_clamp_fasteners", "Frame_join_fastener", "Grip_mount_fastener", "Guard_fasteners", "Mainsprings", "Spring_stop_screw", "Band_low_fastener", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
 BUY_NOTE = {"Front_disc": "Prototype PETG: six outer flexure jaws, rear 2 mm roots; rear face on bed. Central bore remains free. Clamp holding force requires a physical test.",
@@ -1517,7 +1597,9 @@ BUY_NOTE = {"Front_disc": "Prototype PETG: six outer flexure jaws, rear 2 mm roo
             "Trigger_pad_fastener": "M3 x 12 cylindrical-head bolt along +y + standard M3 nut, no washer; seat the pad against the lever broad y=3 face, slide nut into its open side pocket from positive x, tighten from negative y",
             "Trigger_pad": "PETG carrier for smooth steel pin 3 x 24; 3.2 mm root bore, open contact channel and distal axial stop. Print on broad x=-6 side",
             "Trigger_pin": "smooth steel pin diameter 3 x 24 mm; captured between blind root and carrier end lip, 0.3 mm total end play. Remove the carrier to withdraw the pin",
-            "Mainsprings": "2 torsion springs, wire Ø1.6, OD 14, 6 coils", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
+            "Mainsprings": "2 torsion springs, wire Ø1.4, OD 14, 6 coils, 60 deg free; both legs trimmed to ~14 mm past the coil; moving legs on the hammer's stop rib, fixed legs on the stop screw",
+            "Band_low_fastener": "2 x M3 x 20 cylindrical head along y, self-tapped: front lug into a Ø2.5 x 16.5 pilot in Frame_lower (x -13, z -52), rear lug into a Ø2.5 x 14 pilot in Frame_upper (x -99.5, z -21)",
+            "Spring_stop_screw": "M3 x 25 cylindrical head, self-tapped from the left into the Ø2.5 pilot of the spring post on Frame_upper; the springs' fixed legs bear on its shank on both sides of the post. Drive it in after the legs are pushed down", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
             "Hammer": "one printed piece; thumb handle 30 mm lower at rest with a short rounded downward finger hook (about 22 mm below the heel including the R3.2 tip, 8 mm thick). Internal crank and sleeve retain their axes; teardrop spring-stop rib, Ø9 root boss; M3 x 6 crank fastener with captive nut",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
             "Pilot_pipe": "PU tube 4/2.5: vent valve A, straight out of the left wall (Ø5 hole at x -91.5, z -39.2), back round the tail and in through the Ø16 hole in its rear to a tee behind the cap, then the cap's G1/8 push-in",

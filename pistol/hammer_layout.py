@@ -281,9 +281,14 @@ PUSHER_T = 3.0
 CAM_RISE = 3.0                      # slider rise that opens the lock
 TRIGGER_TRAVEL = 23.0               # deg; reset below: the pull that brings the trigger onto the vent valve's face
 LOCK_SEAT_N = 20.0                  # sleeve onto the breech's O-ring before the shot (the shot adds ~41 N): bench it
-MAINSPRING = dict(d=1.6, od=14.0, coils=6, y=((-27.5, -16.7), (-16.3, -5.6)))   # music wire torsion springs, x2, both left.
-# 2026-11-08: with the pivot at -85 the ball's shell pinches at the coils' rear corner, so the pair sits
-# ~2.7 further in and each spring's pitch closes ~0.9 (still 6 coils each: the pair's rate is unchanged).
+MAINSPRING = dict(d=1.4, od=14.0, coils=6, free=60.0, leg=35.0, y=((-26.1, -16.3), (-15.9, -6.1)))   # torsion springs, x2, both left.
+# 2026-11-18: the bought spring, 1.4 x O14, 6 coils, 60 deg between the legs, legs ~35 (10 in a pack); was 1.6 x O14.
+# A pack is 7 x 1.4 = 9.8 long. The fixed legs sit at the outer ends (y -25.4, -6.8), the moving legs at the
+# inner ends, on the hammer's stop rib. 2026-11-08: the ball's shell pinches at the coils' rear corner past y -27.
+SPRING_LEG = dict(a=-70.0, r=12.5, cut=14.0)   # the fixed legs at rest: direction from the pivot (deg from +x), where they
+                                    # bear on the stop screw, and their length past the coil after trimming. The preload
+                                    # follows: SPRING_PEG's 45 - (-70) - 60 = 55 deg. On the old rib (-105) it was ~90,
+                                    # and the 1.4 wire would see ~1640 MPa at full cock.
 SPRING_PEG = (45.0, 9.5, 1.5)       # spring-stop contact nose: direction at rest, centre radius, nose radius
                                     # 45 deg since 2026-11-08: at 30 the peg's rim grazed the upper-left rod head's washer
 SLEEVE_R = 7.0                      # the hammer's sleeve on the axle, hub to crank: one printed part
@@ -427,7 +432,7 @@ peg_at = _at(H, SPRING_PEG[0], SPRING_PEG[1])
 # A printed teardrop rib replaces the fragile Ø3 cantilever; its inner nose keeps the spring contact.
 _stop_d = (peg_at - H).normalize()
 _stop_n = _stop_d.cross(YA).normalize()
-_stop_y0 = MAINSPRING["y"][0][0]
+_stop_y0 = -27.5                    # the rib's left end as printed (the old pack's outer end): the hammer stays as is
 
 
 def _spring_stop_point(r_, t_):
@@ -860,12 +865,15 @@ D_ms = ms["od"] - ms["d"]
 k_ms = 200000.0 * ms["d"] ** 4 / (64 * D_ms * ms["coils"]) * math.pi / 180       # N*mm per deg, each
 C_ms = D_ms / ms["d"]
 Ki = (4 * C_ms ** 2 - C_ms - 1) / (4 * C_ms * (C_ms - 1))
-pre = torque * 1000 / 2 / k_ms                                                     # preload angle, deg
+pre = SPRING_PEG[0] - SPRING_LEG["a"] - ms["free"]                                   # preload angle, deg: set by the stop screw
+T_rest = 2 * k_ms * pre / 1000
 T_back = 2 * k_ms * (pre + HAMMER_SWING) / 1000
 stress = 32 * T_back * 1000 / 2 * Ki / (math.pi * ms["d"] ** 3)
-report.append("  mainspring: 2 x torsion, wire Ø%.1f, OD %.0f, %d coils: %.1f N*mm/deg each; wound %.0f deg at rest "
-              "(%.2f N*m), %.0f deg back (%.2f N*m); %.0f MPa (music wire < ~1400); thumb on the spur %.0f N"
-              % (ms["d"], ms["od"], ms["coils"], k_ms, pre, torque, pre + HAMMER_SWING, T_back, stress, T_back * 1000 / SPUR[1]))
+report.append("  mainspring: 2 x torsion, wire Ø%.1f, OD %.0f, %d coils, %.0f deg free: %.1f N*mm/deg each; wound %.0f deg at rest "
+              "(%.2f N*m, %.2f asked for the lock), %.0f deg back (%.2f N*m); %.0f MPa (spring steel < ~1400); thumb on the spur %.0f N;"
+              " %.0f N on the stop screw"
+              % (ms["d"], ms["od"], ms["coils"], ms["free"], k_ms, pre, T_rest, torque, pre + HAMMER_SWING, T_back, stress,
+                 T_back * 1000 / SPUR[1], T_rest * 1000 / SPRING_LEG["r"]))
 _ds = DETENT_SPRING
 report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: 304 spring %.1f x %.0f x %.0f, %d coils, %.2f N/mm: "
               "%.1f N in the notch, %.1f N lifted (%.1f mm off solid); holds the block, clicks under the thumb"
