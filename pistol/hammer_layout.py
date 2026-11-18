@@ -115,8 +115,8 @@ TRIGGER_PIVOT = V(-80.0, 0, -64.0)    # the trigger's pivot: 2 mm lower with the
 
 # ---------------------------------------------------------------- pawl and detent: their springs
 # The pawl is a plunger: it slides in a boss on the sector's back, a Ø3 pen spring behind it pushing it into the
-# notches; the boss swings over the lock housing's flat top. The detent bolt is 12 long, with a Ø4 pen spring
-# in a pocket behind it in its housing.
+# notches; the boss swings over the lock housing's flat top. The detent bolt is 12 long, with a steel spring from the
+# 304 kit in a pocket behind it in its housing (DETENT_SPRING below; it replaced a Ø4 pen spring, too weak to hold the block).
 PAWL_X0 = -6.5                      # the plunger's back at rest (its front in the notch, as mech_layout's tooth)
 PAWL_BOSS_X0 = -14.2                # the boss's back wall
 BOLT_LEN = 12.0
@@ -215,15 +215,35 @@ def bolt_shape(block_deg):
     return turned(bolt_prism(top, BOLT_LEN), DETENT_ANGLE + 90)
 
 
-# The bolt as printed: BOLT_CLEAR smaller a side than the channel cut from it in the housing (the tip keeps its flat and 45 deg flanks).
+# The detent spring: 304 kit 0.4 x 5 x 20 mm, 13 coils (11 active), ~0.21 N/mm (G = 70 GPa), solid 5.2 mm. Its pocket is
+# Ø5.4 and DETENT_POCKET_L deep under the bolt's end at full lift: 7.0 mm with the bolt out (2.7 N, 560 MPa, 1.8 mm off
+# solid), 10.7 with the bolt in its notch (1.95 N of preload). The Ø4 pen spring before it gave well under 1 N.
+# The OD 5 spring goes in through the bolt's channel, so the housing cuts the channel DETENT_CH_X wider a side along x
+# (5.4) and the printed bolt grows with it (4.9 x 5.5, still inside the rim notch's x 2.5..8.5).
+DETENT_SPRING = dict(wire=0.4, od=5.0, free=20.0, coils=13, solid=5.2, k=0.21)      # k in N/mm
+DETENT_POCKET_D, DETENT_POCKET_L = 5.4, 7.0
+DETENT_CH_X = 0.2
+
+
+def detent_channel(block_deg):
+    """The bolt's channel in its housing: bolt_shape, DETENT_CH_X wider a side along x."""
+    top = -HUB_R + bolt_depth(block_deg)
+    hw, tw, wh = BOLT[1] / 2, BOLT_TIP / 2, (BOLT[1] - BOLT_TIP) / 2
+    return turned(prism_x([(-hw, top - BOLT_LEN), (hw, top - BOLT_LEN), (hw, top - wh), (tw, top), (-tw, top), (-hw, top - wh)],
+                          HUB_X0 + BOLT_X0 - DETENT_CH_X, HUB_X0 + BOLT_X0 + BOLT[0] + DETENT_CH_X), DETENT_ANGLE + 90)
+
+
+# The bolt as printed: BOLT_CLEAR smaller a side than its channel in the housing (the tip keeps its flat and 45 deg flanks).
 BOLT_CLEAR = 0.25
 _hw, _tw, _top = BOLT[1] / 2 - BOLT_CLEAR, BOLT_TIP / 2, -HUB_R + BOLT_DEPTH
 detent_bolt_print = prism_x([(-_hw, _top - BOLT_LEN), (_hw, _top - BOLT_LEN), (_hw, _top - (_hw - _tw)), (_tw, _top), (-_tw, _top),
-                             (-_hw, _top - (_hw - _tw))], HUB_X0 + BOLT_X0 + BOLT_CLEAR, HUB_X0 + BOLT_X0 + BOLT[0] - BOLT_CLEAR)
+                             (-_hw, _top - (_hw - _tw))], HUB_X0 + BOLT_X0 - DETENT_CH_X + BOLT_CLEAR,
+                            HUB_X0 + BOLT_X0 + BOLT[0] + DETENT_CH_X - BOLT_CLEAR)
 
 
 def detent_spring_pocket():
-    c = Part.makeCylinder(2.15, 10.5, V(HUB_X0 + BOLT_X0 + BOLT[0] / 2, 0, -HUB_R - BOLT_LEN - 10.5), ZA)
+    c = Part.makeCylinder(DETENT_POCKET_D / 2, DETENT_POCKET_L + 0.01,
+                          V(HUB_X0 + BOLT_X0 + BOLT[0] / 2, 0, -HUB_R - BOLT_LEN - DETENT_POCKET_L), ZA)
     return turned(c, DETENT_ANGLE + 90)
 
 
@@ -846,8 +866,12 @@ stress = 32 * T_back * 1000 / 2 * Ki / (math.pi * ms["d"] ** 3)
 report.append("  mainspring: 2 x torsion, wire Ø%.1f, OD %.0f, %d coils: %.1f N*mm/deg each; wound %.0f deg at rest "
               "(%.2f N*m), %.0f deg back (%.2f N*m); %.0f MPa (music wire < ~1400); thumb on the spur %.0f N"
               % (ms["d"], ms["od"], ms["coils"], k_ms, pre, torque, pre + HAMMER_SWING, T_back, stress, T_back * 1000 / SPUR[1]))
-report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: pen spring Ø4, ~6 N on the V (holds the block, "
-              "clicks under the thumb)")
+_ds = DETENT_SPRING
+report.append("  pawl plunger: pen spring Ø3, ~2 N in the notch; detent: 304 spring %.1f x %.0f x %.0f, %d coils, %.2f N/mm: "
+              "%.1f N in the notch, %.1f N lifted (%.1f mm off solid); holds the block, clicks under the thumb"
+              % (_ds["wire"], _ds["od"], _ds["free"], _ds["coils"], _ds["k"],
+                 _ds["k"] * (_ds["free"] - DETENT_POCKET_L - BOLT_DEPTH), _ds["k"] * (_ds["free"] - DETENT_POCKET_L),
+                 DETENT_POCKET_L - _ds["solid"]))
 report.append("  vent valve: AirTAC M3R110-06 standing at (%.1f, y %.1f..%.0f, bottom z %.1f); trigger pull %.1f deg"
               " lifts its plunger %.1f mm (it clicks at %.1f: %.1f to spare), the lug's shoulder stopping on the body"
               % (VENT_X, VENT_Y0, VENT_Y0 + AIRTAC["T"], VENT_Z0, TRIGGER_TRAVEL, VENT_PUSH, VENT_SWITCH, VENT_PUSH - VENT_SWITCH))

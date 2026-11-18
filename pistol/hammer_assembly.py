@@ -449,7 +449,7 @@ _tick('chin + guard built')
 def _detent_service_parts():
     core = turned(box(HUB_X0 + BOLT_X0 - 2, HUB_X0 + BOLT_X0 + BOLT[0] + 2, -BOLT[1] / 2 - 2, BOLT[1] / 2 + 2,
                       -HUB_R - 24, -HUB_R - 1.5), DETENT_ANGLE + 90)
-    core = core.cut(Part.makeCompound([bolt_shape(0), bolt_shape(30)])).cut(detent_spring_pocket())
+    core = core.cut(Part.makeCompound([detent_channel(0), detent_channel(30)])).cut(detent_spring_pocket())
     db = core.BoundBox
     cx, cz = fx[1] - 5, db.ZMax - 5
     foot = box(fx[1] - 8, db.XMin + 0.9, -63.5, -44.5, db.ZMax - 10, db.ZMax)
