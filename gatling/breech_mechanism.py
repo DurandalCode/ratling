@@ -11,6 +11,12 @@ side crank + carry/strap → air: MQR soft coupling, bearings, 6×M5, buffer, de
 
 Pack R / casing may move if parts will not seat. No wheeled carriage; no
 full-length tube. Exports: exports/gatling_breech_mechanism/
+
+2026-11-19: stations come from linear_breech with PACK_STATION (guides on round
+rail feet, rails end at the muzzle). Every moving part (carriage included) and
+every fixed part clears its neighbours, except the six AirTAC valves with their
+cradles: they overlap ~10 mm off the axis at any R. Open layout task, printed
+in the report with its volume (docs/gatling.md).
 """
 import importlib
 import math
@@ -66,6 +72,7 @@ CLOSE_A, CLOSE_B = 240.0, 330.0
 
 print("load linear_breech…", flush=True)
 GATLING_LINEAR_BREECH_LIBRARY = True
+PACK_STATION = True
 SHOW_OPEN = False
 BARREL_SHOW = BARREL_SHOW_DEFAULT
 exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), globals())
@@ -279,7 +286,7 @@ cores = []
 for k in range(N):
     ang = k * 60.0
     dz = cam_dz(ang)
-    parts = [shifted(qev_closed[n], dz) for n in qev_closed if n != "Carriage"]
+    parts = [shifted(qev_closed[n], dz) for n in qev_closed]  # carriage too (feet)
     cores.append(place_shape(Part.makeCompound(parts), R_PACK, ang))
 gap_core = min_neighbour_gap(cores)
 # If core gap fails, bump R and rebuild cam once.
@@ -293,7 +300,7 @@ if gap_core < CLEAR - 1e-6:
     for k in range(N):
         ang = k * 60.0
         dz = cam_dz(ang)
-        parts = [shifted(qev_closed[n], dz) for n in qev_closed if n != "Carriage"]
+        parts = [shifted(qev_closed[n], dz) for n in qev_closed]  # carriage too (feet)
         cores.append(place_shape(Part.makeCompound(parts), R_PACK, ang))
     gap_core = min_neighbour_gap(cores)
 
@@ -376,8 +383,21 @@ for k in range(N):
     stations.append(station_placed(ang))
     phases.append((k + 1, ang, u, dz, phase_name(ang)))
 
-# Phase-to-phase: core gap already checked; station gap can be 0 at hub (rails-in OK).
-gap_stations = gap_core
+# Phase-to-phase: whole stations (moving + fixed) clear their neighbours, except
+# the AirTAC group, which overlaps near the axis at any R (open hub issue).
+_fixed_clear0 = Part.makeCompound([
+    al_rails0, stroke_rail0, barrel_clamp, barrel_collar, fixed_barrel])
+_hub0 = Part.makeCompound([cradle, vent_body, vent_fittings, vent_plunger])
+_st_clear = [place_shape(Part.makeCompound(
+    [shifted(slide0, cam_dz(k * 60.0)), _fixed_clear0.copy()]), R_PACK, k * 60.0)
+    for k in range(N)]
+# Non-adjacent stations are >= 120 deg apart: only adjacent pairs can touch.
+gap_stations = min(_st_clear[k].distToShape(_st_clear[(k + 1) % N])[0] for k in range(N))
+_hub_a, _hub_b = place_shape(_hub0, R_PACK, 0.0), place_shape(_hub0, R_PACK, 60.0)
+hub_overlap = _hub_a.common(_hub_b).Volume
+hub_r_min = min(math.hypot(p.x, p.y) for p in _hub_a.tessellate(0.5)[0])
+print("station gap %.2f; AirTAC hub overlap %.0f mm3, r_min %.1f"
+      % (gap_stations, hub_overlap, hub_r_min), flush=True)
 
 # --- open pack frame (no full casing): rings + spars ---------------------------
 z_tip_b = z_stop + BARREL_SHOW
@@ -1074,9 +1094,9 @@ checks = [
      follower_on_track(follower, CAM_R, -BENCH_STROKE, R_PACK, 180.0)),
     ("stroke-rail neighbour gap %.2f >= %.2f" % (gap_rails, CLEAR),
      gap_rails >= CLEAR - 1e-6),
-    ("core neighbour gap %.2f >= %.2f" % (gap_core, CLEAR),
+    ("moving-part neighbour gap %.2f >= %.2f (QEV + guides, all phases)" % (gap_core, CLEAR),
      gap_core >= CLEAR - 1e-6),
-    ("station/core neighbour gap %.2f >= %.2f" % (gap_stations, CLEAR),
+    ("station neighbour gap %.2f >= %.2f (all but AirTAC group)" % (gap_stations, CLEAR),
      gap_stations >= CLEAR - 1e-6),
     ("body/rails clear of cam", rail_cam_ok),
     ("open carriage inside frame envelope", case_ok),
@@ -1109,6 +1129,9 @@ report = [
     "  pack R                 : %.2f (start %.2f)%s"
     % (R_PACK, R_PACK_START,
        " — MOVED" if abs(R_PACK - R_PACK_START) > 0.05 else ""),
+    "  hub (OPEN ISSUE)       : 6 AirTAC + cradles overlap at the axis: %.0f mm3 per "
+    "neighbour pair, r_min %.1f mm — not solved by R; move them out (docs/gatling.md)"
+    % (hub_overlap, hub_r_min),
     "  frame envelope Ø       : %.1f (CLEAR %.2f; was casing %.0f)%s"
     % (case_od, CASE_CLEAR_USE, CASE_OD_START,
        " — MOVED" if abs(case_od - CASE_OD_START) > 0.6 else ""),

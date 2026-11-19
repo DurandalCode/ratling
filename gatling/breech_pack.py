@@ -2,13 +2,18 @@
 """
 Dense pack of the real gatling linear-breech station (not a block silhouette).
 
-Loads gatling/linear_breech.py as a library (closed pose) and places six copies
-on a ring. Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end
-transverse shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198).
-Carriage / rails / AirTAC / barrel-clamp rail-feet may duplicate near the hub —
-only the pneumatic core (chamber + plugs + yoke + tube) must clear CLEAR
-between neighbours. Barrel-clamp rings stay inside CLAMP_OD (flush M3, no
-external bolt lugs).
+Loads gatling/linear_breech.py as a library (closed pose, PACK_STATION: guides
+on round rail feet, rails end at the muzzle) and places six copies on a ring.
+Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end transverse
+shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198). Every station
+part clears its neighbours by CLEAR except the six AirTAC valves and their
+cradles: they sit ~10 mm off the axis and overlap at any R. That is an open
+layout task (docs/gatling.md), reported with its volume, not hidden. Barrel-clamp
+rings stay inside CLAMP_OD (flush M3, no external bolt lugs).
+
+2026-11-19: re-laid for the 200 mm chamber station. R 58.5 (pneumatic core
+alone) let the guide plates, rails and clamp feet of neighbours overlap; the
+rail feet now set the floor (~66.3) and R is pinned to breech_mechanism's 67.
 
 Overall station length is pinned to TARGET_L: clip everything aft of the
 rear-plug face (open-stroke rail stubs, carriage thumb, AirTAC overhang) and
@@ -53,6 +58,7 @@ BARREL_SHOW_L500 = 328.1      # previous pack at TARGET_L=500 (aft-clipped)
 V = App.Vector
 
 GATLING_LINEAR_BREECH_LIBRARY = True
+PACK_STATION = True
 SHOW_OPEN = False
 # Probe once for z_stop / rear-plug face, then set BARREL_SHOW for TARGET_L.
 BARREL_SHOW = BARREL_SHOW_DEFAULT
@@ -73,11 +79,9 @@ MITRA_J_OD = 192.5
 MITRA_G_OD = 198.0
 PREV_R = 61.51
 PREV_BARREL_OD = 199.6
-# Barrel-zone Ø at yoke-limited R≈58.5 (rails-in); was 171.6 at clamp-foot R66.3.
-RAILS_IN_BARREL_OD = 156.0
 BARREL_OD_SLACK = 2.0
 L_SLACK = 0.6                 # BoundBox / clip tolerance around TARGET_L
-PREV_SKIN_W = 193.0           # authentic-skin transverse before this tighten
+PREV_SKIN_W = 172.0           # skin W at R 58.5 (2026-11-16, hub parts overlapping)
 
 
 def clip_aft(shape, z_min):
@@ -104,25 +108,22 @@ def clip_list(parts, z_min):
     return out
 
 
-# Core must clear; rails / carriage / AirTAC / clamp feet may overlap at hub.
-# Clamps stay in the station draw but out of the neighbour-gap core: their
-# rail feet set R≈66.3, while yoke/plug ears alone allow R≈58.5.
-CORE_KEYS = [k for k in qev_closed if k != "Carriage"]
-_core_raw = [qev_closed[k] for k in CORE_KEYS] + [fixed_barrel]
-_rail_raw = [
-    qev_closed["Carriage"], rails_s, cradle,
-    vent_body, vent_fittings, vent_plunger,
-    barrel_clamp, barrel_collar,
-]
+# Everything but the AirTAC group must clear the neighbours (CLEAR). The six
+# AirTAC bodies and cradles reach ~10 mm from the axis and overlap at any R:
+# kept in the draw, measured separately as the open hub issue.
+_core_raw = [qev_closed[k] for k in qev_closed] + [
+    fixed_barrel, rails_s, barrel_clamp, barrel_collar]
+_hub_raw = [cradle, vent_body, vent_fittings, vent_plunger]
 _core_parts = clip_list(_core_raw, Z_AFT_CLIP)
-_rail_parts = clip_list(_rail_raw, Z_AFT_CLIP)
-_station_parts = _core_parts + _rail_parts
+_hub_parts = clip_list(_hub_raw, Z_AFT_CLIP)
+_station_parts = _core_parts + _hub_parts
 core0 = Part.makeCompound([p.copy() for p in _core_parts])
+hub0 = Part.makeCompound([p.copy() for p in _hub_parts])
 station0 = Part.makeCompound([p.copy() for p in _station_parts])
 barrel0 = Part.makeCompound(clip_list(
     [barrel_clamp, barrel_collar, fixed_barrel], Z_AFT_CLIP))
 st0_bb = station0.BoundBox
-aft_trim = abs(min(p.BoundBox.ZMin for p in _core_raw + _rail_raw) - Z_AFT_CLIP)
+aft_trim = abs(min(p.BoundBox.ZMin for p in _core_raw + _hub_raw) - Z_AFT_CLIP)
 
 
 def place_shape(shape, R, ang_deg):
@@ -172,8 +173,11 @@ def zone_max_r(shapes, z0, z1, defl=1.0):
 try:
     SEARCH_R
 except NameError:
-    SEARCH_R = False         # set True to re-binsearch; pin is yoke/plug-ear floor
-PINNED_R = 58.50             # yoke / rear-plug ears r≈33; N=6 CLEAR=0.5 → R=58.50
+    SEARCH_R = False         # set True to re-binsearch the floor over core0
+# Floor 66.3: the Ø15 rail feet of the guides and barrel clamps (core alone: 58.5).
+# Pinned to breech_mechanism's R (its 1 mm steps from 66 land on 67), so the cam
+# liner and this view describe one pack.
+PINNED_R = 67.00
 if SEARCH_R:
     r_lo, r_hi = 50.0, DESIGN_R + 10.0
     assert min_neighbour_gap(pack_of(core0, r_hi)) >= CLEAR, "hi R not clear for core"
@@ -191,6 +195,10 @@ cores = pack_of(core0, R_PACK)
 stations = pack_of(station0, R_PACK)
 barrels = pack_of(barrel0, R_PACK)
 gap_core = min_neighbour_gap(cores)
+# Open hub issue: AirTAC group of one station against its neighbour.
+_hub_a, _hub_b = place_shape(hub0, R_PACK, 0.0), place_shape(hub0, R_PACK, 60.0)
+hub_overlap = _hub_a.common(_hub_b).Volume
+hub_r_min = min(math.hypot(p.x, p.y) for p in _hub_a.tessellate(0.5)[0])
 # Rails may be clipped to stubs; still report neighbour gap of clipped rails.
 _rails_clipped = clip_aft(rails_s.copy(), Z_AFT_CLIP)
 gap_rails = (min_neighbour_gap(pack_of(_rails_clipped, R_PACK))
@@ -265,18 +273,19 @@ case_od = 2.0 * r_case_od
 station_L = bb_stations.ZLength
 bare_barrel_L = z_front0 - z_rear1
 
+clamp_ring_od = 2.0 * (R_PACK + CLAMP_OD / 2)
 checks = [
     ("six stations", len(stations) == 6),
-    ("core neighbour gap %.2f mm >= %.2f" % (gap_core, CLEAR),
+    ("station neighbour gap %.2f mm >= %.2f (all but AirTAC group)" % (gap_core, CLEAR),
      gap_core >= CLEAR - 1e-6),
     ("pack volume", pack.Volume > 1e5),
     ("station L %.1f ≈ %.0f (±%.1f)" % (station_L, TARGET_L, L_SLACK),
      abs(station_L - TARGET_L) <= L_SLACK),
     ("aft clipped at rear plug (ZMin≈%.1f)" % Z_AFT_CLIP,
      abs(st0_bb.ZMin - Z_AFT_CLIP) <= 0.6),
-    ("barrel Ø %.1f ≈ rails-in Ø%.1f (≤ +%.1f)"
-     % (barrel_od, RAILS_IN_BARREL_OD, BARREL_OD_SLACK),
-     barrel_od <= RAILS_IN_BARREL_OD + BARREL_OD_SLACK + 1e-6),
+    ("barrel Ø %.1f within clamp rings Ø%.1f (≤ +%.1f)"
+     % (barrel_od, clamp_ring_od, BARREL_OD_SLACK),
+     barrel_od <= clamp_ring_od + BARREL_OD_SLACK + 1e-6),
     ("front barrel-plate solid", front_plate.Volume > 500),
     ("rear barrel-plate solid", rear_plate.Volume > 500),
     ("breech casing solid", breech_casing.Volume > 1e3),
@@ -294,7 +303,7 @@ report = [
     "  source                 : gatling/linear_breech.py + fat_coax_qev.py",
     "  stations               : %d closed; no bench feet / no wheeled carriage" % N,
     "  orientation            : rails/AirTAC radial IN, feed OUT "
-    "(barrel end narrower; rail duplicates at QEV OK)",
+    "(barrel end narrower; guides on rail feet clear, AirTAC group does not)",
     "  aft trim               : clip Z < rear-plug face (%.1f); cut ≈%.0f mm "
     "(open-stroke rails / thumb / AirTAC overhang)"
     % (Z_AFT_CLIP, aft_trim),
@@ -302,12 +311,16 @@ report = [
     "bare barrels, breech casing only) — not full-length tube; not M134 mid-clamps",
     "  refs                   : US36836 / 1878 Ordnance Gatling description",
     "  design PACK_PITCH      : %.1f mm" % DESIGN_R,
-    "  dense pack R           : %.2f mm (core gap %.2f mm; rail/clamp-foot gap %.2f mm)"
-    % (R_PACK, gap_core, gap_rails),
-    "  R floor                : yoke/rear-plug ears (r≈33); clamp rail-feet would want R≈66.3 "
-    "(allowed to hub-overlap like rails)",
-    "  was skin WxH           : %.0f x %.0f → now %.0f x %.0f"
-    % (PREV_SKIN_W, PREV_SKIN_W, gun_W, gun_H),
+    "  pack R                 : %.2f mm (%s; station gap %.2f mm; rail gap %.2f mm)"
+    % (R_PACK, "searched floor" if SEARCH_R else "pinned = breech_mechanism",
+       gap_core, gap_rails),
+    "  R floor                : rail feet Ø%.0f of guides + barrel clamps ≈66.3; "
+    "pneumatic core alone 58.5 (yoke/plug ears r≈33)" % BUSH_OD,
+    "  hub (OPEN ISSUE)       : 6 AirTAC + cradles overlap at the axis: %.0f mm3 per "
+    "neighbour pair, r_min %.1f mm — not solved by R; move them out (docs/gatling.md)"
+    % (hub_overlap, hub_r_min),
+    "  was skin W (R 58.5)    : %.0f → now %.0f x %.0f"
+    % (PREV_SKIN_W, gun_W, gun_H),
     "  barrel length (show)   : %.1f mm (station L=%.0f)"
     % (barrel_len, TARGET_L),
     "  front barrel-plate     : Z %.1f…%.1f; Ø%.1f (muzzle)"

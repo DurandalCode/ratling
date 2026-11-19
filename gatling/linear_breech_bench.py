@@ -43,6 +43,7 @@ NAME = "gatling_linear_breech_bench"
 
 # ---------------------------------------------------------------- station as library
 GATLING_LINEAR_BREECH_LIBRARY = True
+PACK_STATION = False             # bench guides (plates); a console may still hold True
 SHOW_OPEN = True
 exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), globals())
 OUT_DIR = os.path.join(REPO, "exports", "gatling_linear_breech_bench")

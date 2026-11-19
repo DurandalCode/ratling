@@ -40,6 +40,18 @@ try:
     GATLING_LINEAR_BREECH_LIBRARY
 except NameError:
     GATLING_LINEAR_BREECH_LIBRARY = False
+# Pack variant of the station (breech_pack / breech_mechanism set it before exec):
+# the carriage and the nose guide stand on round feet around each rail, like the
+# barrel clamps, instead of one plate spanning both rails (two neighbours' plates
+# meet at the pack axis below R ~73; feet clear from R ~66.3), and the rails end
+# at the muzzle. Library only: a standalone run writes the STLs the bench plates
+# use, so it always builds the bench variant, even if a console still holds True.
+try:
+    PACK_STATION
+except NameError:
+    PACK_STATION = False
+if not GATLING_LINEAR_BREECH_LIBRARY:
+    PACK_STATION = False
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 import ratling.geom as G
@@ -171,6 +183,9 @@ z_clamp2_0 = z_clamp1 + CLAMP_SPAN
 z_clamp2_1 = z_clamp2_0 + CLAMP_L
 z_rail0 = (z_ry - STROKE) - RAIL_PAST_REAR
 z_rail1 = z_clamp2_1 + RAIL_PAST_FRONT
+if PACK_STATION:
+    # In the pack the rails end in the front barrel-plate, not 6 mm past the muzzle.
+    z_rail1 = min(z_rail1, z_stop + BARREL_SHOW)
 
 # ---------------------------------------------------------------- rails (bought Al tube)
 rails = [
@@ -187,9 +202,13 @@ bridge = G.cyl(CH_OD + 2.0, z_ry - CARR_T, z_ry)
 for a in TIE_ANGLES:
     p = at(TIE_R, a)
     bridge = bridge.fuse(G.cyl(2 * CARR_EAR_R, z_ry - CARR_T, z_ry, p.x, p.y))
-# Flat plate under the rear plug spanning both rails; the rail bores run through it.
-plate = Part.makeBox(2 * RAIL_X + BUSH_OD, BUSH_OD + 2.0, CARR_T,
-                     V(-RAIL_X - BUSH_OD / 2, RAIL_Y - BUSH_OD / 2 - 1.0, z_ry - CARR_T))
+if PACK_STATION:
+    # Pack: a round foot around each rail bore (subset of the bench plate).
+    plate = G.fuse_all([G.cyl(BUSH_OD, z_ry - CARR_T, z_ry, x, y) for x, y in rail_centers()])
+else:
+    # Flat plate under the rear plug spanning both rails; the rail bores run through it.
+    plate = Part.makeBox(2 * RAIL_X + BUSH_OD, BUSH_OD + 2.0, CARR_T,
+                         V(-RAIL_X - BUSH_OD / 2, RAIL_Y - BUSH_OD / 2 - 1.0, z_ry - CARR_T))
 # Vertical webs from the bridge disc down to the plate (overlap both).
 webs = []
 for x, y in rail_centers():
@@ -222,21 +241,31 @@ nose_plate = Part.makeBox(2 * RAIL_X + BUSH_OD, nose_h, 10.0,
 nose_band = tube(CH_OD + 6.0, CH_OD + 0.5, z_nose0 + 6.0, z_nose1 - 6.0)
 nose_band = nose_band.cut(Part.makeBox(CH_OD + 20.0, CH_OD + 20.0, NOSE_BUSH_L,
                                        V(-(CH_OD + 20.0) / 2, -NOSE_GAP / 2, z_nose0 - 1.0)))
-nose_parts.append(nose_plate)
+if PACK_STATION:
+    # Pack: a round foot around each bore instead of the skirt plate; it runs into
+    # the band, so the chamber bore is cut through it below.
+    nose_parts += [G.cyl(BUSH_OD, z_mid - 5.0, z_mid + 5.0, x, y) for x, y in rail_centers()]
+else:
+    nose_parts.append(nose_plate)
 nose_parts.append(nose_band)
 for x, y in rail_centers():
     # Web at each rail: thickens the skirt around the bore (stops below the band).
     nose_parts.append(Part.makeBox(CARR_WEB, nose_h, 12.0,
                                    V(x - CARR_WEB / 2, y_link0, z_mid - 6.0)))
 nose_lower = G.fuse_all(nose_parts).removeSplitter()
-nose_lower = nose_lower.cut(G.fuse_all(
-    [G.cyl(RAIL_HOLE, z_nose0 - 2, z_nose1 + 2, x, y) for x, y in rail_centers()]
-    # Open each bore's top through the skirt edge: the chamber sits 1 mm above the
-    # rail, too close for a printable 0.35 mm lip; the rail stays captured ~300 deg.
-    + [Part.makeBox(RAIL_HOLE + 1.0, 0.7, NOSE_BUSH_L + 4.0,
-                    V(x - (RAIL_HOLE + 1.0) / 2, RAIL_Y + RAIL_HOLE / 2 - 0.5, z_nose0 - 2.0))
-       for x, y in rail_centers()]
-)).removeSplitter()
+if PACK_STATION:
+    # A foot keeps ~3 mm above its bore, so no lip slot; clear the chamber tube.
+    _nose_cuts = ([G.cyl(RAIL_HOLE, z_nose0 - 2, z_nose1 + 2, x, y) for x, y in rail_centers()]
+                  + [G.cyl(CH_OD + 0.5, z_nose0 - 2, z_nose1 + 2)])
+else:
+    _nose_cuts = (
+        [G.cyl(RAIL_HOLE, z_nose0 - 2, z_nose1 + 2, x, y) for x, y in rail_centers()]
+        # Open each bore's top through the skirt edge: the chamber sits 1 mm above the
+        # rail, too close for a printable 0.35 mm lip; the rail stays captured ~300 deg.
+        + [Part.makeBox(RAIL_HOLE + 1.0, 0.7, NOSE_BUSH_L + 4.0,
+                        V(x - (RAIL_HOLE + 1.0) / 2, RAIL_Y + RAIL_HOLE / 2 - 0.5, z_nose0 - 2.0))
+           for x, y in rail_centers()])
+nose_lower = nose_lower.cut(G.fuse_all(_nose_cuts)).removeSplitter()
 # Upper clamp half: the closing ring over the tube (+Y side).
 nose_upper = tube(CH_OD + 6.0, CH_OD + 0.5, z_nose0 + 6.0, z_nose1 - 6.0)
 nose_upper = nose_upper.cut(Part.makeBox(CH_OD + 20.0, CH_OD + 20.0, NOSE_BUSH_L,
@@ -530,8 +559,9 @@ report = [
     % (STROKE, FIT_INSERT, PELLET_D, STROKE_MARGIN, open_gap if SHOW_OPEN else -1),
     "  rails                  : Al tube Ø%.0f x %.0f, axes (±%.0f, %.1f), z %.0f .. %.0f (%.0f mm)"
     % (RAIL_OD, RAIL_WALL, RAIL_X, RAIL_Y, z_rail0, z_rail1, z_rail1 - z_rail0),
-    "  carriage               : rear pusher (plain rail bores in the plate, bridge on the tie studs)"
-    " + nose clamp 2xM3 on the chamber (bores in its skirt); no sleeves, no link bars",
+    "  carriage               : rear pusher (plain rail bores in the %s, bridge on the tie studs)"
+    " + nose clamp 2xM3 on the chamber (bores in its %s); no sleeves, no link bars"
+    % (("feet", "feet") if PACK_STATION else ("plate", "skirt")),
     "  barrel clamps          : breech + forward (span %.0f), split L/R on Ø%.1f, feet on rails"
     % (CLAMP_SPAN, BARREL_OD),
     "  pellet cradle          : on front cover, low gutter OD %.1f past tip by %.0f mm; tip pushes"
