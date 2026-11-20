@@ -2,15 +2,53 @@
 """
 Gatling breech mechanism (not a freeze).
 
-Stroke from linear_breech (65.8 mm) → angle→stroke law → outboard cam liner →
-printed stroke rail → open pack frame (no full casing) → six phases →
-hopper on seat ring + shaft auger ×6 (6 soft pellets / rev) + feed guard →
-side crank + carry/strap → air: MQR soft coupling, bearings, 6×M5, buffer, deadman.
+Stroke from linear_breech (65.8 mm) -> angle->stroke law -> outboard cam liner ->
+six phases -> AirTAC on each carriage, fixed firing ramp and trigger -> star
+feed geared to the pack (rim on the breech clamps + fixed train) -> helical
+guard -> side crank, carry, strap -> air: hollow axle, bearings, MQR, buffer.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism.py').read())"
 
+The full-turn clearance sweep (every station part against every fixed part,
+every 3 deg; neighbours every 5 deg of phase) is a separate run in parallel
+freecadcmd workers, ~4.5 min:
+
+    freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism_sweep.py').read())"
+
 Pack R / casing may move if parts will not seat. No wheeled carriage; no
 full-length tube. Exports: exports/gatling_breech_mechanism/
+
+The model is built in its final pose: hopper and star on +X (top), firing
+sector at the bottom (-X), crank on -Y. Pack angle phi (0 = FIRE) sits at
+world angle phi + 180.
+
+2026-11-20 (owner's choice of the three layouts in docs/gatling.md, plan
+questions 2-4):
+- The AirTAC rides its carriage on a bracket behind the bridge, plunger aft,
+  fittings to the sides. Its line A to the pilot is short and rigid (as on the
+  bench); the supply line R flexes with the stroke. The six valves no longer
+  meet at the axis (the old hub overlap was 11.3 cm3 per pair at any R).
+- A fixed ramp on the firing sector presses the plungers at the closed
+  position: touch 331.6 -> 28.4 deg, 2.5 mm full press on 338..22. The
+  trigger pulls the ramp forward into reach; let go, a spring takes it 4 mm
+  aft and no plunger is pressed. The press pushes the QEV onto its stop.
+- The star of feed_bench.py replaces the auger. A geared rim on the breech
+  clamps (it is the rear barrel-plate, ahead of the clamps; the old plate
+  overlapped the closed QEVs by 22 cm3) drives it through a fixed train
+  120 -> 40 | 18 -> 18 -> 27: three external meshes, -2. A shaft from behind
+  the pack cannot reach the star: the liner and the fingers take r 101.5..107.
+- The guard follows the ball while the station closes (202..279 deg) and
+  stays inside the breech clamp's feed notch.
+- The carriage and the nose guide ride the bought Al tubes, as on the bench:
+  the printed stroke-rail cage sat on their bores (1745 / 2312 mm3) and is
+  gone. The tubes end in a rear disk on the axle.
+- The liner groove is blind (the groove used to cut through the wall and
+  split the drum in two rings); the liner is the frame around the cam, and
+  the spars start ahead of it, off the fingers' orbit.
+- Hollow axle Al 38 x 1.5 on two 6808 (40 x 52 x 7, 1 mm shim); the six
+  1/8" (6 mm) supply lines run inside it to the MQR rotor, so no rotating
+  line crosses a fixed part (the old lines cut the bearing disk, buffer and
+  frame).
 """
 import importlib
 import math
@@ -31,33 +69,37 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 import ratling.geom as G
 import ratling.fcview as FV
-for _m in (G, FV):
+import ratling.gears as GR
+for _m in (G, FV, GR):
     importlib.reload(_m)
+
+try:
+    BREECH_MECH_LIBRARY
+except NameError:
+    BREECH_MECH_LIBRARY = False     # True: build + fast checks only (breech_mechanism_sweep.py)
 
 OUT_DIR = os.path.join(REPO, "exports", "gatling_breech_mechanism")
 NAME = "gatling_breech_mechanism"
 V = App.Vector
+O = V(0, 0, 0)
+ZA = V(0, 0, 1)
 
 TARGET_L = 750.0
 BARREL_SHOW_DEFAULT = 160.0
 N = 6
-R_PACK = 58.50
-R_PACK_START = 58.50
-CASE_OD_START = 201.0          # previous mechanism casing (not a freeze)
+R_PACK = 67.00                  # = breech_pack PINNED_R; rail feet need >= 66.3
+CASE_OD_START = 218.0           # previous frame envelope (2026-11-19)
+L_START = 1033.0                # previous overall length
 CLEAR = 0.5
 PLATE_T, PLATE_LIP, PLATE_RIM = 14.0, 1.5, 3.0
-CASE_WALL, CASE_CLEAR, CASE_OVERLAP = 2.0, 0.5, 18.0
 
-CAM_WALL = 5.0
+CAM_WALL_IN = 2.5               # liner wall inside the groove centre (as before)
+GROOVE_FLOOR = 2.0              # material behind the groove bottom (blind groove)
 FOLLOWER_OD = 5.0
 FOLLOWER_CLEAR = 0.5
 CAM_Z_PAD = 8.0
 CAM_CLEAR_Z = 2.0
 EAR_ENV = 33.0
-
-# Printed stroke-rail cage around the bought Al tubes (length covers STROKE).
-RAIL_CAGE_T = 3.0
-RAIL_CAGE_PAD = 6.0            # past open / closed bushing travel
 
 FIRE_A, FIRE_B = 330.0, 30.0
 OPEN_A, OPEN_B = 30.0, 120.0
@@ -66,6 +108,7 @@ CLOSE_A, CLOSE_B = 240.0, 330.0
 
 print("load linear_breech…", flush=True)
 GATLING_LINEAR_BREECH_LIBRARY = True
+PACK_STATION = True
 SHOW_OPEN = False
 BARREL_SHOW = BARREL_SHOW_DEFAULT
 exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), globals())
@@ -125,1021 +168,764 @@ def phase_name(phi_deg):
     return "?"
 
 
-def place_shape(shape, R, ang_deg):
-    a = math.radians(ang_deg)
-    ux, uy = math.cos(a), math.sin(a)
+def wdeg(phi_deg):
+    """World angle (deg, from +X) of pack angle phi: FIRE at the bottom (-X)."""
+    return phi_deg + 180.0
+
+
+def polar(r, phi_deg, z=0.0):
+    a = math.radians(wdeg(phi_deg))
+    return V(r * math.cos(a), r * math.sin(a), z)
+
+
+def place(shape, phi_deg, dz=0.0):
+    """Station-local shape (+Y radial out, +Z muzzle) at pack angle phi."""
     s = shape.copy()
-    s.rotate(V(0, 0, 0), V(0, 0, 1), -math.degrees(math.atan2(ux, uy)))
-    s.translate(V(R * ux, R * uy, 0))
+    if dz:
+        s.translate(V(0, 0, dz))
+    a = wdeg(phi_deg)
+    s.rotate(O, ZA, a - 90.0)
+    s.translate(V(R_PACK * math.cos(math.radians(a)), R_PACK * math.sin(math.radians(a)), 0))
     return s
 
 
-def min_neighbour_gap(shapes):
-    g = 1e9
-    for i in range(N):
-        for j in range(i + 1, N):
-            g = min(g, shapes[i].distToShape(shapes[j])[0])
+def rot(shape, deg, centre=O):
+    s = shape.copy()
+    s.rotate(centre, ZA, deg)
+    return s
+
+
+def _near(ba, bb_, pad):
+    ba2 = App.BoundBox(ba.XMin - pad, ba.YMin - pad, ba.ZMin - pad,
+                       ba.XMax + pad, ba.YMax + pad, ba.ZMax + pad)
+    return ba2.intersect(bb_)
+
+
+def gap(a, b, pad=2.0):
+    """Min distance, solid by solid with a bounding-box shortcut (99 = far apart)."""
+    if not _near(a.BoundBox, b.BoundBox, pad):
+        return 99.0
+    sa = a.Solids or [a]
+    sb = b.Solids or [b]
+    g = 99.0
+    for x in sa:
+        bx = x.BoundBox
+        if not _near(bx, b.BoundBox, pad):
+            continue
+        for y in sb:
+            if _near(bx, y.BoundBox, pad):
+                g = min(g, x.distToShape(y)[0])
     return g
 
 
-# --- stroke rail (printed cage) + bought Al tubes ----------------------------
-# Carriage bushings travel BENCH_STROKE along the Al tubes. Cage length covers
-# closed and open bushing envelopes so the finger/carriage never runs off.
-z_bush0_c = z_ry - CARR_T - 4.0
-z_bush1_c = z_bush0_c + BUSH_L
-z_nose1_c = z_fs - 2.0
-z_nose0_c = z_nose1_c - NOSE_BUSH_L
-# Closed bushing Z span vs open (shifted −STROKE).
-z_rail_lo = min(z_bush0_c, z_nose0_c) - BENCH_STROKE - RAIL_CAGE_PAD
-z_rail_hi = max(z_bush1_c, z_nose1_c) + RAIL_CAGE_PAD
-stroke_rail_L = z_rail_hi - z_rail_lo
+def gap_solids(a_list, b_list, pad=2.0):
+    """Min gap between two lists of solids, pairwise with bbox prefilter."""
+    g = 99.0
+    for a in a_list:
+        for b in b_list:
+            g = min(g, gap(a, b, pad))
+    return g
 
 
-def make_stroke_rail():
-    """Printed cage around both Al tubes for one station (local frame)."""
-    parts = []
-    for x, y in rail_centers():
-        # Outer sleeve around the bought tube.
-        od = RAIL_OD + 2.0 * RAIL_CAGE_T
-        sleeve = tube(od, RAIL_OD + 0.4, z_rail_lo, z_rail_hi, x, y)
-        parts.append(sleeve)
-    # Web between the two sleeves.
-    (x0, y0), (x1, y1) = rail_centers()
-    web = Part.makeBox(
-        abs(x1 - x0) - RAIL_OD, RAIL_CAGE_T, stroke_rail_L,
-        V(min(x0, x1) + RAIL_OD / 2,
-          (y0 + y1) / 2 - RAIL_CAGE_T / 2,
-          z_rail_lo))
-    parts.append(web)
-    return G.fuse_all(parts).removeSplitter()
+def r_max(shape, defl=0.5):
+    pts = shape.tessellate(defl)[0]
+    return max(math.hypot(p.x, p.y) for p in pts) if pts else 0.0
 
 
-stroke_rail0 = make_stroke_rail()
-# Bought Al tubes (full length for stroke) — keep as bought reference.
-al_rails0 = rails_s
+def tube_path(points, r):
+    """Hose as straight cylinders through the points (sketch of the route)."""
+    segs = []
+    for p0, p1 in zip(points[:-1], points[1:]):
+        v = p1.sub(p0)
+        if v.Length > 0.5:
+            segs.append(Part.makeCylinder(r, v.Length, p0, v))
+            segs.append(Part.makeSphere(r, p1))
+    return Part.makeCompound(segs)
 
-# --- outboard cam liner + radial-out follower --------------------------------
+
+def path_len(points):
+    return sum((b - a).Length for a, b in zip(points[:-1], points[1:]))
+
+
+# ============================================================ station (pack variant)
+# Rails: bought Al tubes, from the rear disk to the muzzle. The carriage and the
+# nose guide ride them through plain bores (feet), as on the bench.
+REAR_DISK_Z0, REAR_DISK_Z1 = -127.0, -121.0     # behind the open carriage and pilot fitting
+REAR_DISK_R = 46.0
+rails_pack = rails_s.common(Part.makeBox(400, 400, 2000, V(-200, -200, REAR_DISK_Z0)))
+qev_slide = [qev_closed[k].copy() for k in qev_closed]
+fixed_station = [rails_pack, barrel_clamp, barrel_collar, fixed_barrel]
+
+# --- AirTAC M3R110 on the carriage: bracket on the bridge's aft face, plunger aft,
+# T (27) across the station, fittings to the sides (A to -x, R and P to +x).
+A_W, A_T, A_L = AIRTAC["W"], AIRTAC["T"], AIRTAC["L"]
+PL_D, PL_L = AIRTAC["plunger"]
+VALVE_Y = 16.5                  # body y 7.5..25.5: 1.0 off the pilot fitting and the finger
+BRACKET_T = 3.0
 z_carr_aft = qev_closed["Carriage"].BoundBox.ZMin
+z_valve1 = z_carr_aft - BRACKET_T
+z_valve0 = z_valve1 - A_L               # stem face
+z_tip_free = z_valve0 - PL_L            # plunger tip, free, station closed
+valve_body = Part.makeBox(A_T, A_W, A_L, V(-A_T / 2, VALVE_Y - A_W / 2, z_valve0))
+valve_fit = Part.makeCompound([
+    Part.makeCylinder(AIRTAC["straight"]["A"][0] / 2, AIRTAC["straight"]["A"][1],
+                      V(-A_T / 2, VALVE_Y, z_valve0 + AIRTAC["ports"]["A"]), V(-1, 0, 0)),
+    Part.makeCylinder(AIRTAC["straight"]["R"][0] / 2, AIRTAC["straight"]["R"][1],
+                      V(A_T / 2, VALVE_Y, z_valve0 + AIRTAC["ports"]["R"]), V(1, 0, 0)),
+    Part.makeCylinder(AIRTAC["silencer"][0] / 2, AIRTAC["silencer"][1],
+                      V(A_T / 2, VALVE_Y, z_valve0 + AIRTAC["ports"]["P"]), V(1, 0, 0))])
+valve_plunger = Part.makeCylinder(PL_D / 2, PL_L, V(0, VALVE_Y, z_tip_free))
+# Bracket: a plate between the bridge and the body, out to the bridge ear at 30 deg
+# (M3 on the QEV tie stud); its own bolt pattern is set at fitting.
+_ear = at(TIE_R, TIE_ANGLES[0])
+valve_bracket = Part.makeBox(A_T, A_W, BRACKET_T, V(-A_T / 2, VALVE_Y - A_W / 2, z_valve1))
+valve_bracket = valve_bracket.fuse(Part.makeBox(_ear.x + 6.0 - A_T / 2, 12.0, BRACKET_T,
+                                                V(A_T / 2 - 0.5, _ear.y - 6.0, z_valve1)))
+valve_bracket = valve_bracket.fuse(G.cyl(2 * CARR_EAR_R, z_valve1, z_carr_aft, _ear.x, _ear.y))
+valve_bracket = valve_bracket.cut(G.cyl(TIE_HOLE, z_valve1 - 1, z_carr_aft + 1, _ear.x, _ear.y)).removeSplitter()
+
+# --- line A (1/8" = 6 mm tube), A port -> pilot fitting: rigid, moves with the carriage.
+HOSE_OD, HOSE_ID = 6.0, 4.0
+_pf = qev_closed["Pilot_fitting"].BoundBox
+_a_end = V(-A_T / 2 - AIRTAC["straight"]["A"][1], VALVE_Y, z_valve0 + AIRTAC["ports"]["A"])
+line_a_pts = [_a_end, V(_a_end.x + 4.0, 3.0, _a_end.z + 3.0), V(-6.0, 0.0, _pf.ZMin - 7.0),
+              V(0.0, 0.0, _pf.ZMin - 3.0), V(0.0, 0.0, _pf.ZMin)]
+line_a = tube_path(line_a_pts, HOSE_OD / 2)
+LINE_A_L = path_len(line_a_pts)
+LINE_A_V = math.pi * (HOSE_ID / 2) ** 2 * LINE_A_L / 1000.0
+
+valve_group = Part.makeCompound([valve_body, valve_fit, valve_bracket, line_a])
+slide0 = Part.makeCompound(qev_slide + [valve_group])     # + follower, set after the cam
+
+# --- line R (supply), R port -> axle window: flexes with the stroke (route is a sketch).
+_r_end = V(A_T / 2 + AIRTAC["straight"]["R"][1], VALVE_Y, z_valve0 + AIRTAC["ports"]["R"])
+AXLE_OD, AXLE_ID = 38.0, 34.6     # Al 38 x 1.5 from the mitrailleuse bench (measured ID ~34.6)
+Z_AXLE_WIN = -110.0               # axle windows the six lines enter, inside the pack hub
+R_BUNDLE = 6.5                    # line centres inside the axle
+
+
+def line_r_pts(dz):
+    """R line in station-local coordinates for carriage offset dz."""
+    z = _r_end.z + dz
+    return [V(_r_end.x, _r_end.y, z),
+            V(A_T / 2 + 2.5 + HOSE_OD / 2, VALVE_Y, z - 3.0),     # turn down beside the body
+            V(A_T / 2 + 2.5 + HOSE_OD / 2, 1.5, z - 6.0),
+            V(0.0, 1.5, z - 10.0),                                # under the body, onto the station's plane
+            V(0.0, -42.0, Z_AXLE_WIN + 8.0),                      # between its own rails (slot in the rear disk)
+            V(0.0, -R_PACK + AXLE_OD / 2 + 2.0, Z_AXLE_WIN - 2.0),
+            V(0.0, -R_PACK + R_BUNDLE, Z_AXLE_WIN - 10.0)]
+
+
+def line_r(dz):
+    return tube_path(line_r_pts(dz), HOSE_OD / 2)
+
+
+# ============================================================ cam liner + follower
 z_cam1 = z_carr_aft - CAM_CLEAR_Z
 z_tip0 = z_cam1 - CAM_Z_PAD * 0.5
 z_cam0 = z_tip0 - BENCH_STROKE - CAM_Z_PAD
+CAM_R = R_PACK + EAR_ENV + CLEAR + CAM_WALL_IN + 1.0       # groove centre radius (104)
+groove_r = FOLLOWER_OD / 2 + FOLLOWER_CLEAR
+cam_id = 2.0 * (CAM_R - CAM_WALL_IN)
+cam_od = 2.0 * (CAM_R + groove_r + GROOVE_FLOOR)
+y_tip = CAM_R - R_PACK
+y_root = CH_OD / 2 + 2.0
+follower = Part.makeCylinder(FOLLOWER_OD / 2, max(6.0, y_tip - y_root), V(0, y_root, z_tip0), V(0, 1, 0))
+follower = follower.fuse(Part.makeSphere(FOLLOWER_OD / 2 + 0.2, V(0, y_tip, z_tip0))).removeSplitter()
+_stem_z1 = z_ry - CARR_T
+if _stem_z1 > z_tip0 + 2.0:
+    follower = follower.fuse(Part.makeCylinder(FOLLOWER_OD / 2, _stem_z1 - z_tip0,
+                                               V(0, y_root + 2.0, z_tip0), ZA)).removeSplitter()
+drum = tube(cam_od, cam_id, z_cam0, z_cam1)
+_balls = []
+for _i in range(36):
+    _ang = 360.0 * _i / 36.0
+    _balls.append(Part.makeSphere(groove_r, polar(CAM_R, _ang, z_tip0 + cam_dz(_ang))))
+cam = drum.cut(Part.makeCompound(_balls))
+try:
+    cam = cam.removeSplitter()
+except Exception:
+    pass
 
 
-def build_cam_and_case(R):
-    """Cam outside ear envelope; casing wraps cam OD. Returns dict of solids/metrics."""
-    cam_r = R + EAR_ENV + CLEAR + CAM_WALL / 2 + 1.0
-    c_od = 2.0 * (cam_r + CAM_WALL / 2)
-    c_id = 2.0 * (cam_r - CAM_WALL / 2)
-    case_clear = c_od / 2 - (R + CH_OD / 2) + CLEAR
-    case_clear = max(CASE_CLEAR, case_clear)
-    r_cid = R + CH_OD / 2 + case_clear
-    r_cod = r_cid + CASE_WALL
-    y_tip = cam_r - R
-    y_root = CH_OD / 2 + 2.0
-    fol = Part.makeCylinder(
-        FOLLOWER_OD / 2, max(6.0, y_tip - y_root),
-        V(0, y_root, z_tip0), V(0, 1, 0))
-    fol = fol.fuse(Part.makeSphere(
-        FOLLOWER_OD / 2 + 0.2, V(0, y_tip, z_tip0))).removeSplitter()
-    stem_z1 = z_ry - CARR_T
-    if stem_z1 > z_tip0 + 2.0:
-        fol = fol.fuse(Part.makeCylinder(
-            FOLLOWER_OD / 2, stem_z1 - z_tip0,
-            V(0, y_root + 2.0, z_tip0), V(0, 0, 1))).removeSplitter()
-    drum = tube(c_od, c_id, z_cam0, z_cam1)
-    # Groove: compound of balls cut once (faster than 48 serial cuts).
-    n_seg = 36
-    groove_r = FOLLOWER_OD / 2 + FOLLOWER_CLEAR
-    balls = []
-    for i in range(n_seg):
-        ang = 360.0 * i / float(n_seg)
-        a = math.radians(ang)
-        balls.append(Part.makeSphere(
-            groove_r,
-            V(cam_r * math.cos(a), cam_r * math.sin(a),
-              z_tip0 + cam_dz(ang))))
-    cut = Part.makeCompound(balls)
-    cam_body = drum.cut(cut)
-    try:
-        cam_body = cam_body.removeSplitter()
-    except Exception:
-        pass
-    if cam_body.isNull() or cam_body.Volume < 1.0:
-        cam_body = drum
-    return dict(
-        CAM_R=cam_r, cam_od=c_od, cam_id=c_id, cam=cam_body, cam_drum=drum,
-        follower=fol, CASE_CLEAR=case_clear,
-        r_case_id=r_cid, r_case_od=r_cod, y_tip=y_tip)
+def follower_on_track(phi):
+    tip = place(Part.makeSphere(FOLLOWER_OD / 2, V(0, y_tip, z_tip0)), phi, cam_dz(phi))
+    ideal = Part.makeSphere(0.5, polar(CAM_R, phi, z_tip0 + cam_dz(phi)))
+    return tip.distToShape(ideal)[0] <= FOLLOWER_CLEAR + 0.3
 
 
-def follower_on_track(fol_shape, cam_r, dz, R, ang, tol=FOLLOWER_CLEAR + 0.3):
-    """True if follower tip is still on the cam groove rail at this pose."""
-    tip = place_shape(shifted(
-        Part.makeSphere(FOLLOWER_OD / 2, V(0, cam_r - R, z_tip0)), dz), R, ang)
-    # Ideal groove point at this angle/Z.
-    a = math.radians(ang)
-    z = z_tip0 + dz
-    ideal = Part.makeSphere(0.5, V(cam_r * math.cos(a), cam_r * math.sin(a), z))
-    return tip.distToShape(ideal)[0] <= tol
+slide0 = Part.makeCompound(qev_slide + [valve_group, follower])
+fixed0 = Part.makeCompound(fixed_station)
 
 
-# Grow R until stroke-rail neighbours clear (cam built once at final R).
-# Cage sleeves collide below ~R66 at N=6.
-moved_notes = []
-R_PACK = max(R_PACK_START, 66.0)
-print("seating stroke rails from R=%.1f…" % R_PACK, flush=True)
-for _try in range(16):
-    rails_placed = [place_shape(stroke_rail0, R_PACK, k * 60.0) for k in range(N)]
-    gap_rails = min_neighbour_gap(rails_placed)
-    cam_r_guess = R_PACK + EAR_ENV + CLEAR + CAM_WALL / 2 + 1.0
-    dummy_fol = Part.makeSphere(FOLLOWER_OD / 2, V(0, cam_r_guess - R_PACK, z_tip0))
-    on0 = follower_on_track(dummy_fol, cam_r_guess, 0.0, R_PACK, 0.0)
-    on_open = follower_on_track(
-        dummy_fol, cam_r_guess, -BENCH_STROKE, R_PACK, 180.0)
-    print("  R=%.2f rail_gap=%.2f on0=%s on_open=%s" % (R_PACK, gap_rails, on0, on_open),
-          flush=True)
-    if gap_rails >= CLEAR - 1e-6 and on0 and on_open:
-        break
-    R_PACK += 1.0
-    moved_notes.append(
-        "R→%.1f (rail_gap=%.2f on0=%s on_open=%s)"
-        % (R_PACK, gap_rails, on0, on_open))
-else:
-    raise SystemExit("could not seat stroke rail / finger at any R")
-
-if abs(R_PACK - R_PACK_START) > 0.05:
-    moved_notes.append("R_PACK %.2f → %.2f" % (R_PACK_START, R_PACK))
-    rails_placed = [place_shape(stroke_rail0, R_PACK, k * 60.0) for k in range(N)]
-    gap_rails = min_neighbour_gap(rails_placed)
-
-print("building cam at R=%.2f…" % R_PACK)
-geom = build_cam_and_case(R_PACK)
-print("cam done; core gaps…")
-cores = []
-for k in range(N):
-    ang = k * 60.0
-    dz = cam_dz(ang)
-    parts = [shifted(qev_closed[n], dz) for n in qev_closed if n != "Carriage"]
-    cores.append(place_shape(Part.makeCompound(parts), R_PACK, ang))
-gap_core = min_neighbour_gap(cores)
-# If core gap fails, bump R and rebuild cam once.
-if gap_core < CLEAR - 1e-6:
-    R_PACK += max(1.0, CLEAR - gap_core + 0.5)
-    moved_notes.append("R→%.2f (core_gap was %.2f)" % (R_PACK, gap_core))
-    rails_placed = [place_shape(stroke_rail0, R_PACK, k * 60.0) for k in range(N)]
-    gap_rails = min_neighbour_gap(rails_placed)
-    geom = build_cam_and_case(R_PACK)
-    cores = []
-    for k in range(N):
-        ang = k * 60.0
-        dz = cam_dz(ang)
-        parts = [shifted(qev_closed[n], dz) for n in qev_closed if n != "Carriage"]
-        cores.append(place_shape(Part.makeCompound(parts), R_PACK, ang))
-    gap_core = min_neighbour_gap(cores)
-
-CAM_R = geom["CAM_R"]
-cam_od = geom["cam_od"]
-cam_id = geom["cam_id"]
-cam = geom["cam"]
-cam_drum = geom["cam_drum"]
-follower = geom["follower"]
-CASE_CLEAR_USE = geom["CASE_CLEAR"]
-r_case_id = geom["r_case_id"]
-r_case_od = geom["r_case_od"]
-y_tip = geom["y_tip"]
-print("pack R=%.2f casing_clear=%.2f cam_od=%.1f" % (R_PACK, CASE_CLEAR_USE, cam_od))
-
-# --- stations ----------------------------------------------------------------
-slide0 = Part.makeCompound(
-    [qev_closed[k].copy() for k in qev_closed] + [follower])
-fixed0 = Part.makeCompound([
-    al_rails0, stroke_rail0, cradle, vent_body, vent_fittings, vent_plunger,
-    barrel_clamp, barrel_collar, fixed_barrel,
-])
+def station(phi):
+    """(moving, fixed, plunger, line R) of the station at pack angle phi."""
+    dz = cam_dz(phi)
+    return (place(slide0, phi, dz), place(fixed0, phi), place(valve_plunger, phi, dz),
+            place(line_r(dz), phi))
 
 
-def station_local(phi_deg):
-    dz = cam_dz(phi_deg)
-    return Part.makeCompound([shifted(slide0, dz), fixed0.copy()])
-
-
-def station_placed(phi_deg, R=None):
-    R = R_PACK if R is None else R
-    return place_shape(station_local(phi_deg), R, phi_deg)
-
-
-# One-station: open carriage inside housing; rails/ears clear of cam.
-probe_notes = list(moved_notes)
-probe_notes.append(
-    "stroke rail L=%.1f (covers 0…−%.1f); rail_gap=%.2f"
-    % (stroke_rail_L, BENCH_STROKE, gap_rails))
-rail_cam_ok = True
-case_ok = True
-for pa in (0.0, 90.0, 180.0):
-    body = place_shape(shifted(Part.makeCompound(
-        [qev_closed[k] for k in qev_closed] + [al_rails0, stroke_rail0]),
-        cam_dz(pa)), R_PACK, pa)
-    d_cam = body.distToShape(cam)[0]
-    carr = place_shape(shifted(qev_closed["Carriage"], cam_dz(pa)), R_PACK, pa)
-    # Open carriage must stay inside casing ID.
-    pts = carr.tessellate(1.0)[0]
-    rmax = max(math.hypot(p.x, p.y) for p in pts) if pts else 0.0
-    clear_case = r_case_id - rmax
-    on = follower_on_track(follower, CAM_R, cam_dz(pa), R_PACK, pa)
-    probe_notes.append(
-        "φ=%.0f body↔cam=%.2f carr_rmax=%.1f case_clear=%.1f finger_on=%s"
-        % (pa, d_cam, rmax, clear_case, on))
-    if d_cam < CLEAR - 1e-3:
-        rail_cam_ok = False
-    if clear_case < CLEAR - 1e-3:
-        case_ok = False
-    if not on and pa in (0.0, 180.0):
-        rail_cam_ok = False
-
-# Grow casing if open carriage scrapes ID.
-if not case_ok:
-    need = max(CASE_CLEAR_USE, rmax - (R_PACK + CH_OD / 2) + CLEAR)
-    CASE_CLEAR_USE = need
-    r_case_id = R_PACK + CH_OD / 2 + CASE_CLEAR_USE
-    r_case_od = r_case_id + CASE_WALL
-    case_ok = True
-    moved_notes.append("CASE_CLEAR → %.2f (open carriage)" % CASE_CLEAR_USE)
-    probe_notes.append("casing CLEAR bumped to %.2f" % CASE_CLEAR_USE)
-
-# --- six phases --------------------------------------------------------------
+# ============================================================ six phases, neighbour gaps
+print("pack R=%.2f liner groove R=%.1f Ø%.1f" % (R_PACK, CAM_R, cam_od), flush=True)
 phases = []
 stations = []
 for k in range(N):
     ang = k * 60.0
-    u = cam_u(ang)
-    dz = cam_dz(ang)
-    stations.append(station_placed(ang))
-    phases.append((k + 1, ang, u, dz, phase_name(ang)))
+    mv, fx, pl, lr = station(ang)
+    stations.append(Part.makeCompound([mv, fx, pl, lr]))
+    phases.append((k + 1, ang, cam_u(ang), cam_dz(ang), phase_name(ang)))
+# Core (QEV + guides) on the six phases, as before.
+_cores = [place(Part.makeCompound(qev_slide), k * 60.0, cam_dz(k * 60.0)) for k in range(N)]
+gap_core = min(_cores[k].distToShape(_cores[(k + 1) % N])[0] for k in range(N))
+# Whole stations incl. the valve group and both lines, on the six phases (every
+# 5 deg in breech_mechanism_sweep.py).
+gap_nbr = min(gap(stations[k], stations[(k + 1) % N]) for k in range(N))
+# Own station: valve group vs its fixed parts, line R vs its QEV and guides.
+gap_own = 99.0
+for k in range(N):
+    p = k * 60.0
+    gap_own = min(gap_own, gap(place(valve_group, p, cam_dz(p)), place(fixed0, p)),
+                  gap(place(line_r(cam_dz(p)), p), place(Part.makeCompound(qev_slide), p, cam_dz(p))))
+print("core gap %.2f, station gap (with valves) %.2f, valve/line to own %.2f" % (gap_core, gap_nbr, gap_own), flush=True)
 
-# Phase-to-phase: core gap already checked; station gap can be 0 at hub (rails-in OK).
-gap_stations = gap_core
+# ============================================================ firing ramp + trigger
+RAMP_GAP, RAMP_PRESS, RAMP_RISE, RAMP_RETRACT = 1.0, 2.5, 10.0, 4.0
+SWITCH = 2.0                    # AirTAC switches at ~2.0 of plunger travel (pistol bench)
+RAMP_HW, RAMP_DEPTH = 4.0, 6.0
+R_TIP = R_PACK + VALVE_Y
+z_ramp_low = z_tip_free - RAMP_GAP
 
-# --- open pack frame (no full casing): rings + spars ---------------------------
-z_tip_b = z_stop + BARREL_SHOW
-z_stroke_end = qev_closed["Carriage"].BoundBox.ZMin - BENCH_STROKE
-z_front0 = z_tip_b - PLATE_T + PLATE_LIP
-z_front1 = z_tip_b + PLATE_LIP
-z_rear0 = z_stop - PLATE_T * 0.35
-z_rear1 = z_rear0 + PLATE_T
-z_case1 = z_rear0 + CASE_OVERLAP
-z_case0 = min(z_stroke_end, z_cam0, z_rail_lo) - 4.0
-# Envelope must clear stroke-rail / cam (frame OD, not a shell).
-rail_r_max = 0.0
-for p in place_shape(stroke_rail0, R_PACK, 0.0).tessellate(1.0)[0]:
-    rail_r_max = max(rail_r_max, math.hypot(p.x, p.y))
-need_id = max(r_case_id, cam_od / 2 + CLEAR, rail_r_max + CLEAR)
-if need_id > r_case_id + 1e-6:
-    CASE_CLEAR_USE = need_id - (R_PACK + CH_OD / 2)
-    r_case_id = need_id
-    r_case_od = r_case_id + CASE_WALL
-    moved_notes.append("frame envelope ID→%.1f (rail/cam)" % r_case_id)
-r_plate = R_PACK + BARREL_OD / 2 + PLATE_RIM
-hub_r = max(6.0, R_PACK - BARREL_OD / 2 - 4.0)
+
+def ramp_h(psi):
+    """Ramp face above its low level at pack angle psi (deg, symmetric about 0)."""
+    a = abs(((psi + 180.0) % 360.0) - 180.0)
+    if a >= 30.0:
+        return 0.0
+    if a <= 30.0 - RAMP_RISE:
+        return RAMP_GAP + RAMP_PRESS
+    t = (30.0 - a) / RAMP_RISE
+    return (RAMP_GAP + RAMP_PRESS) * 0.5 * (1.0 - math.cos(math.pi * t))
+
+
+def _ramp_curve(r):
+    pts = [polar(r, q, z_ramp_low + ramp_h(q)) for q in [x - 30.0 for x in range(61)]]
+    c = Part.BSplineCurve()
+    c.interpolate(pts)
+    return c.toShape()
+
+
+_rf = Part.makeRuledSurface(_ramp_curve(R_TIP - RAMP_HW), _ramp_curve(R_TIP + RAMP_HW))
+_rf = _rf.Faces[0] if hasattr(_rf, "Faces") else _rf
+ramp = _rf.extrude(V(0, 0, -RAMP_DEPTH))
+# Arm through a slot in the liner's aft part to the trigger under the pack.
+_arm_z0, _arm_z1 = z_ramp_low - RAMP_DEPTH, z_ramp_low - 1.0
+TRIG_R1 = cam_od / 2 + 32.0
+_arm = Part.makeBox(TRIG_R1 - (R_TIP + RAMP_HW - 1.0), 8.0, _arm_z1 - _arm_z0,
+                    V(R_TIP + RAMP_HW - 1.0, -4.0, _arm_z0))
+_finger = Part.makeBox(10.0, 14.0, 40.0, V(TRIG_R1 - 10.0, -7.0, _arm_z0 + 5.0))
+trigger = _arm.fuse(_finger).removeSplitter()
+trigger.rotate(O, ZA, wdeg(0.0))
+ramp_fire = ramp.fuse(trigger)
+ramp_safe = shifted(ramp_fire, -RAMP_RETRACT)
+# Slot in the liner for the arm (clear of the groove: at FIRE it is at z_tip0).
+_slot = Part.makeBox(cam_od / 2 + 4.0 - (cam_id / 2 - 2.0), 10.0,
+                     (_arm_z1 + 1.0) - (_arm_z0 - RAMP_RETRACT - 1.0),
+                     V(cam_id / 2 - 2.0, -5.0, _arm_z0 - RAMP_RETRACT - 1.0))
+_slot.rotate(O, ZA, wdeg(0.0))
+cam = cam.cut(_slot)
+slot_vs_groove = (z_tip0 - groove_r) - (_arm_z1 + 1.0)
+
+
+def press_at(psi, ramp_shape, plunger_local=None):
+    """Depth (mm) the ramp reaches into the free plunger of a station at psi."""
+    pl = place(valve_plunger, psi, cam_dz(psi))
+    c = pl.common(ramp_shape)
+    if c.Volume < 1e-6:
+        return 0.0
+    return c.optimalBoundingBox().ZMax - z_tip_free
+
+
+print("ramp sweep…", flush=True)
+press_rows, press_out, body_ramp, safe_gap = [], 0.0, 99.0, 99.0
+first_touch, last_touch, sw_on, sw_off = None, None, None, None
+for _i in range(0, 241):
+    psi = -60.0 + 0.5 * _i
+    d = press_at(psi, ramp_fire)
+    if abs(psi) > 30.0 + 1e-6:
+        press_out = max(press_out, d)
+    if d > 1e-3:
+        first_touch = psi if first_touch is None else first_touch
+        last_touch = psi
+    if d >= SWITCH:
+        sw_on = psi if sw_on is None else sw_on
+        sw_off = psi
+    if _i % 2 == 0:
+        press_rows.append((psi, d))
+        mvb = place(Part.makeCompound([valve_body, valve_fit, valve_bracket]), psi, cam_dz(psi))
+        body_ramp = min(body_ramp, gap(mvb, ramp_fire))
+        safe_gap = min(safe_gap, gap(Part.makeCompound([mvb, place(valve_plunger, psi, cam_dz(psi))]), ramp_safe))
+press_max = max(d for _, d in press_rows)
+press_flat = min(d for p, d in press_rows if abs(p) <= 30.0 - RAMP_RISE)
+print("press max %.2f flat %.2f outside %.3f" % (press_max, press_flat, press_out), flush=True)
+
+# ============================================================ star feed (feed_bench as library)
+print("load feed_bench (star)…", flush=True)
+_fb = {"REPO": REPO, "FEED_BENCH_LIBRARY": True, "PELLET_D": PELLET_D}
+_fb_ok = False
+try:
+    exec(open(os.path.join(REPO, "gatling", "feed_bench.py")).read(), _fb)
+except SystemExit as _e:
+    _fb_ok = (_e.code in (0, None))
+FB_CHECKS = [(t, ok) for t, ok in _fb.get("checks", [])]
+X_STAR, POCKET_R, R_BALL, STAR_R = _fb["X_STAR"], _fb["POCKET_R"], _fb["R_BALL"], _fb["STAR_R"]
+STAR_T, STAR_TURNS = _fb["STAR_T"], _fb["STAR_TURNS"]
+GUARD_R_IN, GUARD_R_OUT, GUARD_HZ = _fb["GUARD_R_IN"], _fb["GUARD_R_OUT"], _fb["GUARD_HZ"]
+GUARD_PHI0 = _fb["GUARD_PHI0"]
+Z_BALL_CLOSED = _fb["Z_BALL"]
+Z_BALL_OPEN = Z_BALL_CLOSED - BENCH_STROKE
+SPEED_RATIO = _fb["SPEED_RATIO"]
+
+
+def to_pack(s):
+    """Bench frame -> this model: the bench turns the other way (mirror y), ball at the open breech."""
+    m = s.mirror(O, V(0, 1, 0))
+    m.translate(V(0, 0, -BENCH_STROKE))
+    return m
+
+
+def star_at(d):
+    """Star when the station nearest the top is at pack angle 180 + d."""
+    return to_pack(_fb["star_turn"](_fb["star"], STAR_TURNS * d))
+
+
+feed_head = to_pack(_fb["feed_head"])
+feed_lip = to_pack(_fb["lip"])
+feed_cup = to_pack(_fb["cup"])
+star0 = star_at(0.0)
+_handoff_err = (to_pack(Part.Vertex(_fb["pocket_center"](180.0))).Point
+                - polar(R_BALL, 180.0, Z_BALL_OPEN)).Length
+
+
+def ball_z(phi):
+    return Z_BALL_CLOSED + cam_dz(phi)
+
+
+def ball_at(phi):
+    return Part.makeSphere(PELLET_D / 2.0, polar(R_BALL, phi, ball_z(phi)))
+
+
+# --- guard: follows the ball on the close ramp, inside the breech clamp's feed notch
+Z_GUARD_MAX = barrel_clamp.BoundBox.ZMax - 10.5
+GUARD_END = 240.0
+while GUARD_END < 330.0 and ball_z(GUARD_END) < z_stop + 2.0:
+    GUARD_END += 0.25
+_w = []
+_p = GUARD_PHI0
+while _p < GUARD_END - 1e-6:
+    _q = min(_p + 2.0, GUARD_END)
+    _zc = ball_z(0.5 * (_p + _q))
+    _z0, _z1 = _zc - GUARD_HZ, min(_zc + GUARD_HZ, Z_GUARD_MAX)
+    if _z1 > _z0 + 1.0:
+        w = Part.makeCylinder(GUARD_R_OUT, _z1 - _z0, V(0, 0, _z0), ZA, _q - _p + 0.05)
+        w = w.cut(Part.makeCylinder(GUARD_R_IN, _z1 - _z0 + 2, V(0, 0, _z0 - 1)))
+        w.rotate(O, ZA, wdeg(_p))
+        _w.append(w)
+    _p = _q
+feed_guard = G.fuse_all(_w)
+guard_ball = 99.0
+_p = GUARD_PHI0
+while _p <= GUARD_END:
+    guard_ball = min(guard_ball, gap(ball_at(_p), feed_guard))
+    _p += 2.0
+
+# ============================================================ star drive: breech rim + fixed train
+GEAR_M, GEAR_FACE, GEAR_BACKLASH = 1.5, 8.0, 0.3
+Z_RIM, Z_A, Z_B, Z_I, Z_S = 120, 40, 18, 18, 27
+R_RIM, R_A, R_B, R_I, R_S = [GEAR_M * z / 2.0 for z in (Z_RIM, Z_A, Z_B, Z_I, Z_S)]
+TRAIN_RATIO = -(R_RIM / R_A) * (R_B / R_S)          # star turns per pack turn (sign: 3 external meshes)
+P1_Z0 = barrel_clamp.BoundBox.ZMax + 0.6
+P1_Z1 = P1_Z0 + GEAR_FACE
+P2_Z0 = P1_Z1 + 2.0
+P2_Z1 = P2_Z0 + GEAR_FACE
+L_ANG = -20.0                     # layshaft toward the crank side; the guard is on +Y
+L_C = V((R_RIM + R_A) * math.cos(math.radians(L_ANG)), (R_RIM + R_A) * math.sin(math.radians(L_ANG)), 0)
+S_C = V(X_STAR, 0, 0)
+_dls = (S_C - L_C).Length
+_a = ((R_B + R_I) ** 2 - (R_I + R_S) ** 2 + _dls ** 2) / (2 * _dls)
+_h = math.sqrt(max(0.0, (R_B + R_I) ** 2 - _a ** 2))
+_u = (S_C - L_C) * (1.0 / _dls)
+_c1 = L_C + _u * _a + V(-_u.y, _u.x, 0) * _h
+_c2 = L_C + _u * _a - V(-_u.y, _u.x, 0) * _h
+I_C = _c1 if _c1.Length > _c2.Length else _c2
+
+
+def spur(z, phase, centre, z0, bore):
+    pts = [V(x, y, 0) for x, y in GR.tooth_outline(z, GEAR_M, 1.0, GEAR_BACKLASH)]
+    pts.append(pts[0])
+    g = Part.Face(Part.makePolygon(pts)).extrude(V(0, 0, GEAR_FACE))
+    g = g.cut(Part.makeCylinder(bore / 2.0, GEAR_FACE + 4, V(0, 0, -2)))
+    g.rotate(O, ZA, phase)
+    g.translate(V(centre.x, centre.y, z0))
+    return g
+
+
+def follow_phase(c_d, z_d, ph_d, c_f, z_f):
+    """Phase of a follower gear so a gap of it meets the driver's nearest tooth."""
+    u = math.degrees(math.atan2(c_f.y - c_d.y, c_f.x - c_d.x))
+    pitch = 360.0 / z_d
+    e = ((u - ph_d + pitch / 2.0) % pitch) - pitch / 2.0
+    return u + 180.0 + 180.0 / z_f + e * z_d / z_f
+
+
+PH_RIM = 0.0
+PH_A = follow_phase(O, Z_RIM, PH_RIM, L_C, Z_A)
+PH_B = 0.0
+PH_I = follow_phase(L_C, Z_B, PH_B, I_C, Z_I)
+PH_S = follow_phase(I_C, Z_I, PH_I, S_C, Z_S)
+rim_gear = spur(Z_RIM, PH_RIM, O, P1_Z0, 2 * 30.0)
+for k in range(N):
+    c = polar(R_PACK, k * 60.0)
+    rim_gear = rim_gear.cut(Part.makeCylinder(BARREL_OD / 2 + 0.35, 20, V(c.x, c.y, P1_Z0 - 5)))
+    for x, y in rail_centers():
+        rc = place(Part.Vertex(V(x, y, 0)), k * 60.0).Point
+        rim_gear = rim_gear.cut(Part.makeCylinder(RAIL_HOLE / 2, 20, V(rc.x, rc.y, P1_Z0 - 5)))
+rim_gear = rim_gear.removeSplitter()
+SHAFT_D = 8.0
+gear_a = spur(Z_A, PH_A, L_C, P1_Z0, SHAFT_D + 0.2)
+gear_b = spur(Z_B, PH_B, L_C, P2_Z0, SHAFT_D + 0.2)
+gear_i = spur(Z_I, PH_I, I_C, P2_Z0, 6.2)
+gear_s = spur(Z_S, PH_S, S_C, P2_Z0, SHAFT_D + 0.2)
+# Gearbox: rear plate behind the rim, front plate ahead of the second plane, outer wall;
+# open toward the rim, which turns inside it.
+BOX_R0, BOX_R1 = 93.0, max(L_C.Length + R_A, I_C.Length + R_I) + GEAR_M + 4.0
+BOX_A0, BOX_A1 = -45.0, 16.0
+BOX_Z0, BOX_Z1 = P1_Z0 - 10.5, P2_Z1 + 5.5
+_sec = Part.makeCylinder(BOX_R1 + 2.5, BOX_Z1 - BOX_Z0, V(0, 0, BOX_Z0), ZA, BOX_A1 - BOX_A0)
+_sec = _sec.cut(Part.makeCylinder(BOX_R0, BOX_Z1 - BOX_Z0 + 2, V(0, 0, BOX_Z0 - 1)))
+_sec.rotate(O, ZA, BOX_A0)
+_cav = Part.makeCylinder(BOX_R1, P2_Z1 + 1.5 - (P1_Z0 - 1.0), V(0, 0, P1_Z0 - 1.0), ZA, BOX_A1 - BOX_A0 - 4.0)
+_cav = _cav.cut(Part.makeCylinder(60.0, 200, V(0, 0, P1_Z0 - 50)))
+_cav.rotate(O, ZA, BOX_A0 + 2.0)
+_cav = _cav.fuse(Part.makeCylinder(BOX_R0 + 1.0, P2_Z1 + 1.5 - (P1_Z0 - 1.0), V(0, 0, P1_Z0 - 1.0)))
+gearbox = _sec.cut(_cav)
+for c, d in ((L_C, SHAFT_D), (I_C, 6.0), (S_C, SHAFT_D)):
+    gearbox = gearbox.cut(Part.makeCylinder(d / 2 + 0.2, 200, V(c.x, c.y, BOX_Z0 - 50)))
+gearbox = gearbox.removeSplitter()
+z_star0 = Z_BALL_OPEN - STAR_T / 2.0
+star_shaft = Part.makeCylinder(SHAFT_D / 2, BOX_Z1 + 1.0 - (z_star0 - 2.0), V(S_C.x, S_C.y, z_star0 - 2.0))
+lay_shaft = Part.makeCylinder(SHAFT_D / 2, BOX_Z1 + 1.0 - (BOX_Z0 - 1.0), V(L_C.x, L_C.y, BOX_Z0 - 1.0))
+idl_shaft = Part.makeCylinder(3.0, BOX_Z1 + 1.0 - (P2_Z0 - 4.0), V(I_C.x, I_C.y, P2_Z0 - 4.0))
+train_parts = [("gear A (meshes the rim)", gear_a), ("gear B", gear_b), ("idler", gear_i),
+               ("star gear", gear_s), ("star shaft", star_shaft), ("layshaft", lay_shaft),
+               ("idler shaft", idl_shaft), ("gearbox", gearbox)]
+
+
+def train_pose(alpha):
+    """Rim turned by alpha (deg, = pack turn); every gear turned by its ratio."""
+    wa = -Z_RIM / float(Z_A)
+    wi = -wa * Z_B / float(Z_I)
+    ws = -wi * Z_I / float(Z_S)
+    return (rot(rim_gear, alpha), rot(gear_a, wa * alpha, L_C), rot(gear_b, wa * alpha, L_C),
+            rot(gear_i, wi * alpha, I_C), rot(gear_s, ws * alpha, S_C))
+
+
+mesh_worst = 0.0
+for _al in (0.0, 0.6, 1.2, 1.8, 2.4):
+    r_, a_, b_, i_, s_ = train_pose(_al)
+    mesh_worst = max(mesh_worst, r_.common(a_).Volume, b_.common(i_).Volume, i_.common(s_).Volume)
+_wa = -Z_RIM / float(Z_A)
+train_star_turns = (-(-_wa * Z_B / float(Z_I)) * Z_I / float(Z_S))
+centre_err = max(abs(L_C.Length - (R_RIM + R_A)), abs((I_C - L_C).Length - (R_B + R_I)),
+                 abs((S_C - I_C).Length - (R_I + R_S)))
+
+# ============================================================ frame: liner + rings + spars
 SPAR_R = 4.0
 RING_T = 6.0
 RING_WALL = 4.0
-# Hopper seat ring at breech Z (around pack) — bin + auger tube sit on it.
-HOP_RING_T = 18.0
-win_z0 = z_stop - BENCH_STROKE - 5.0
-win_z1 = z_stop + 15.0
-z_feed = z_stop - BENCH_STROKE / 2
-z_hop0 = z_feed - HOP_RING_T / 2
-z_hop1 = z_hop0 + HOP_RING_T
+r_case_od = cam_od / 2.0
+r_case_id = r_case_od - RING_WALL
+z_tip_b = z_stop + BARREL_SHOW
+z_front0 = z_tip_b - PLATE_T + PLATE_LIP
+z_front1 = z_tip_b + PLATE_LIP
+Z_FRING0, Z_FRING1 = z_stop - PLATE_T * 0.35, z_stop - PLATE_T * 0.35 + PLATE_T   # front frame ring (breech)
+_fol_zmax = follower.BoundBox.ZMax
+z_spar0 = z_cam1                       # spars start on the liner's front face
+z_case1 = Z_FRING0 + 18.0
+r_plate = R_PACK + BARREL_OD / 2 + PLATE_RIM
 
 
 def barrel_plate(z0, z1, od_r):
     disc = Part.makeCylinder(od_r, z1 - z0, V(0, 0, z0))
     for k in range(N):
-        a = math.radians(k * 60.0)
-        bx, by = R_PACK * math.cos(a), R_PACK * math.sin(a)
-        disc = disc.cut(Part.makeCylinder(
-            BARREL_OD / 2 + 0.35, (z1 - z0) + 4.0, V(bx, by, z0 - 2.0)))
-    disc = disc.cut(Part.makeCylinder(hub_r, (z1 - z0) + 4.0, V(0, 0, z0 - 2.0)))
+        c = polar(R_PACK, k * 60.0)
+        disc = disc.cut(Part.makeCylinder(BARREL_OD / 2 + 0.35, (z1 - z0) + 4.0, V(c.x, c.y, z0 - 2.0)))
+    disc = disc.cut(Part.makeCylinder(max(6.0, R_PACK - BARREL_OD / 2 - 4.0), (z1 - z0) + 4.0, V(0, 0, z0 - 2.0)))
     return disc.removeSplitter()
 
 
-def build_pack_frame(r_od):
-    """Open frame: rings + spars + breech hopper seat ring. No drum shell."""
-    parts = []
-    for z0, z1 in (
-            (z_case0, z_case0 + RING_T),
-            (z_cam0 - 2.0, z_cam0 - 2.0 + RING_T),
-            (z_rear0, z_rear1)):
-        ring = tube(2.0 * r_od, 2.0 * (r_od - RING_WALL), z0, z1)
-        parts.append(ring)
-    # Wide hopper seat ring around pack at breech (LOAD port cut later).
-    hop_ring = tube(2.0 * r_od, 2.0 * (r_od - RING_WALL), z_hop0, z_hop1)
-    # Feed port through ring at φ=180 (−X before flip) — auger mouth.
-    port_w = PELLET_D + 6.0
-    port = Part.makeBox(r_od + 20.0, port_w, HOP_RING_T + 4.0,
-                        V(-(r_od + 20.0), -port_w / 2, z_hop0 - 2.0))
-    hop_ring = hop_ring.cut(port)
-    parts.append(hop_ring)
-    casc = Part.makeCylinder(r_od * 0.45, 5.0, V(0, 0, z_case0 - 5.0))
-    casc = casc.cut(Part.makeCylinder(hub_r + 2.0, 9.0, V(0, 0, z_case0 - 7.0)))
-    parts.append(casc)
-    spar_r0 = r_od - SPAR_R - 1.0
-    for k in range(N):
-        ang = k * 60.0 + 30.0
-        d_feed = abs(((ang - 180.0 + 180.0) % 360.0) - 180.0)
-        if d_feed < 35.0:
-            continue
-        a = math.radians(ang)
-        sx, sy = spar_r0 * math.cos(a), spar_r0 * math.sin(a)
-        parts.append(Part.makeCylinder(
-            SPAR_R, z_case1 - z_case0, V(sx, sy, z_case0)))
-    try:
-        return G.fuse_all(parts).removeSplitter()
-    except Exception:
-        return Part.makeCompound(parts)
-
-
 front_plate = barrel_plate(z_front0, z_front1, r_plate)
-rear_plate = barrel_plate(z_rear0, z_rear1, r_plate)
-pack_frame = build_pack_frame(r_case_od)
-# Keep alias for hose/rebuild paths that still say "casing".
+SPAR_ANGLES = [w for w in (30.0, 90.0, 150.0, 210.0, 270.0, 330.0)
+               if abs(((w + 180.0) % 360.0) - 180.0) > 35.0]       # none under the feed (world 0)
+_fr = [tube(2 * r_case_od, 2 * r_case_id, z_cam0 - RING_T, z_cam0),
+       tube(2 * r_case_od, 2 * r_case_id, Z_FRING0, Z_FRING1)]
+_spar_rc = r_case_od - SPAR_R - 1.0
+for w in SPAR_ANGLES:
+    a = math.radians(w)
+    _fr.append(Part.makeCylinder(SPAR_R, z_case1 - z_spar0,
+                                 V(_spar_rc * math.cos(a), _spar_rc * math.sin(a), z_spar0)))
+pack_frame = G.fuse_all(_fr)
+# The feed head bears on the front ring, the star shaft runs through it.
+pack_frame = pack_frame.cut(feed_head).cut(Part.makeCylinder(SHAFT_D / 2 + 0.3, 400, V(S_C.x, S_C.y, -100)))
+# Struts from the front ring to the gearbox.
+for w in (BOX_A0 + 6.0, BOX_A1 - 3.0):
+    a = math.radians(w)
+    pack_frame = pack_frame.fuse(Part.makeCylinder(SPAR_R, BOX_Z0 + 1.0 - (Z_FRING1 - 1.0),
+                                                   V(_spar_rc * math.cos(a), _spar_rc * math.sin(a), Z_FRING1 - 1.0)))
 breech_casing = pack_frame
-# Full-tube reference volume (for "no full casing" check).
-full_shell_vol = tube(
-    2.0 * r_case_od, 2.0 * r_case_id, z_case0, z_case1).Volume
+full_shell_vol = tube(2.0 * r_case_od, 2.0 * r_case_id, z_cam0 - RING_T, z_case1).Volume
 frame_ok = pack_frame.Volume < 0.55 * full_shell_vol
 
-# --- hopper + ×6 shaft-driven auger on breech seat ring (stage 4) ------------
-# Built at φ=180 (−X). Final FLIP_Z=180 puts hopper on +X (top).
-# A1: single-start + bevel 1:1 + spur ×6 → 6 soft balls / pack rev (mid ~180°).
-feed_ang = 180.0
-FLIP_Z = 180.0
-a180 = math.radians(feed_ang)
-ux_f, uy_f = math.cos(a180), math.sin(a180)
-pd = PELLET_D
-AUGER_PITCH = pd + 1.2
-AUGER_STARTS = 1
-AUGER_RATIO = 6.0              # spur after bevel: 6 auger turns / pack rev
-bin_w, bin_d, bin_h = 60.0, 48.0, 70.0
-GUARD_A, GUARD_B = 170.0, 310.0
-GUARD_CLEAR = 1.5              # mm to trough / pellet
-
-
-def flip_up(shape):
-    """Rotate 180° about Z so −X feed becomes +X (top)."""
-    s = shape.copy()
-    s.rotate(V(0, 0, 0), V(0, 0, 1), FLIP_Z)
-    return s
-
-
-def make_auger_along_z(pitch, length, r_core, r_od):
-    """Single-start screw approx along +Z: core + helical flight bars."""
-    core = Part.makeCylinder(r_core, length, V(0, 0, 0), V(0, 0, 1))
-    n = max(24, int(length * 2.0))
-    bars = [core]
-    chord = max(3.0, pitch * 0.28)
-    for i in range(n):
-        z0 = length * i / float(n)
-        ang = 360.0 * z0 / pitch
-        bar = Part.makeBox(r_od - r_core + 0.5, chord, chord * 0.85,
-                           V(r_core - 0.2, -chord / 2, z0))
-        bar.rotate(V(0, 0, z0 + chord * 0.4), V(0, 0, 1), ang)
-        bars.append(bar)
-    try:
-        return G.fuse_all(bars).removeSplitter()
-    except Exception:
-        return Part.makeCompound(bars)
-
-
-def build_hopper_auger(r_od):
-    """Bin + lid + short auger on seat ring; drive bevel 1:1 then spur ×6."""
-    z_n = z_feed
-    tube_id = pd + 2.5
-    tube_od = tube_id + 6.0
-    r_tube0 = r_od - RING_WALL - 1.0
-    r_tube1 = r_od + 6.0
-    tube_len = r_tube1 - r_tube0
-    tube = Part.makeCylinder(
-        tube_od / 2, tube_len, V(-r_tube0, 0, z_n), V(-1, 0, 0))
-    tube = tube.cut(Part.makeCylinder(
-        tube_id / 2, tube_len + 4.0, V(-r_tube0 + 2.0, 0, z_n), V(-1, 0, 0)))
-    bin_o = Part.makeBox(bin_d, bin_w, bin_h,
-                         V(-(r_od + bin_d), -bin_w / 2, z_n - bin_h / 2))
-    bin_i = Part.makeBox(bin_d - 4.0, bin_w - 6.0, bin_h - 6.0,
-                         V(-(r_od + bin_d - 2.0), -(bin_w - 6.0) / 2,
-                           z_n - (bin_h - 6.0) / 2))
-    mouth = Part.makeCylinder(tube_id / 2 + 1.0, 10.0,
-                              V(-(r_od - 2.0), 0, z_n), V(-1, 0, 0))
-    # Speed-feed style lid on outer (+radial) face of bin.
-    lid = Part.makeBox(3.0, bin_w - 4.0, bin_h - 8.0,
-                       V(-(r_od + bin_d + 3.0), -(bin_w - 4.0) / 2,
-                         z_n - (bin_h - 8.0) / 2))
-    lid_hole = Part.makeCylinder(12.0, 8.0,
-                                 V(-(r_od + bin_d + 4.0), 0, z_n + 8.0),
-                                 V(-1, 0, 0))
-    lid = lid.cut(lid_hole)
-    body = tube.fuse(bin_o).fuse(lid).cut(bin_i).cut(mouth)
-    try:
-        body = body.removeSplitter()
-    except Exception:
-        pass
-    aug_len = max(AUGER_PITCH * 1.1, tube_len - 1.0)
-    r_core, r_od_a = 4.0, tube_id / 2 - 1.0
-    aug = make_auger_along_z(AUGER_PITCH, aug_len, r_core, r_od_a)
-    aug.rotate(V(0, 0, 0), V(0, 1, 0), 90.0)
-    aug.translate(V(-r_tube0 - 1.0, 0, z_n))
-    # Pack shaft → bevel 1:1 → spur ×6 → auger stub.
-    drive = G.cyl(7.0, z_case0 - 25.0, z_n + 20.0)
-    bevel_z = Part.makeCylinder(14.0, 10.0, V(0, 0, z_n - 5.0))
-    stub_r0 = max(R_PACK * 0.35, r_od - RING_WALL - 35.0)
-    bevel_x = Part.makeCylinder(14.0, 8.0, V(-stub_r0, 0, z_n), V(-1, 0, 0))
-    # Spur pair: large on radial shaft, small on auger (ratio 6).
-    spur_lo = Part.makeCylinder(22.0, 8.0, V(-(stub_r0 + 10.0), 0, z_n - 4.0),
-                                V(-1, 0, 0))
-    spur_hi = Part.makeCylinder(8.0, 8.0, V(-(r_tube0 - 6.0), 0, z_n - 4.0),
-                                V(-1, 0, 0))
-    stub = Part.makeCylinder(5.0, r_tube0 - stub_r0 + 4.0,
-                             V(-stub_r0, 0, z_n), V(-1, 0, 0))
-    drive = (drive.fuse(bevel_z).fuse(bevel_x).fuse(spur_lo)
-             .fuse(spur_hi).fuse(stub).removeSplitter())
-    p_aug = Part.makeSphere(pd / 2, V(-(r_tube0 + aug_len * 0.45), 0, z_n))
-    p_bin = Part.makeSphere(
-        pd / 2, V(-(r_od + bin_d * 0.55), 0, z_n + pd * 0.4))
-    p_breech = place_shape(
-        Part.makeSphere(pd / 2, V(0, 0, (z_tip + pd / 2) - BENCH_STROKE)),
-        R_PACK, feed_ang)
-    flush_gap = 0.0
-    on_ring = (tube_len <= RING_WALL + 10.0
-               and r_tube0 >= r_od - RING_WALL - 2.0)
-    return dict(
-        body=body, auger=aug, drive=drive, lid=lid,
-        p_aug=p_aug, p_bin=p_bin, p_breech=p_breech,
-        pitch=AUGER_PITCH, starts=AUGER_STARTS, ratio=AUGER_RATIO,
-        pellets_per_rev=AUGER_STARTS * AUGER_RATIO, tube_id=tube_id,
-        tube_len=tube_len, r_tube0=r_tube0, aug_len=aug_len,
-        flush_gap=flush_gap, on_ring=on_ring)
-
-
-open_carr = place_shape(shifted(qev_closed["Carriage"], -BENCH_STROKE),
-                        R_PACK, feed_ang)
-
-
-def seat_hopper(r_od):
-    h = build_hopper_auger(r_od)
-    return (h["body"], h["auger"], h["drive"],
-            h["p_aug"], h["p_bin"], h["p_breech"], h)
-
-
-hopper, auger, auger_drive, pellet_aug, pellet_bin, pellet, hop_m = seat_hopper(
-    r_case_od)
-auger_ok = (
-    abs(hop_m["pellets_per_rev"] - 6.0) < 1e-9
-    and hop_m["starts"] == 1
-    and abs(hop_m["ratio"] - 6.0) < 1e-9
-    and abs(hop_m["pitch"] - (pd + 1.2)) < 0.05
-    and hop_m["pitch"] >= pd
-    and hop_m["pitch"] < 1.5 * pd)
-hopper_flush_ok = hop_m["flush_gap"] < 1.0 and hop_m["on_ring"]
-feed_clear = hopper.common(open_carr).Volume < 1.0
-feed_ok = feed_clear and auger_ok and hopper_flush_ok
-# Six deliveries / pack rev; midpoint of issue at feed_ang=180° ±10°.
-six_per_rev_ok = (
-    abs(hop_m["pellets_per_rev"] - 6.0) < 1e-9
-    and abs(feed_ang - 180.0) <= 10.0
-    and LOAD_A <= feed_ang <= LOAD_B
-    and auger_ok
-    and feed_clear)
-
-# --- side crank + two triggers (pack clutch, auger stop) on +Y ---------------
-# Pre-flip on +Y (φ=90); after FLIP_Z → −Y. Outside LOAD 120–240°.
-CRANK_ANG = 90.0
-assert not (LOAD_A <= CRANK_ANG <= LOAD_B)
-z_crank = 0.5 * (z_cam0 + z_stop)          # mid-breech, not aft stub
-
-
-def build_crank(r_od):
-    """Side crank: hub on frame OD, arm along +Y (gun_sketch style)."""
-    y0 = r_od - 2.0
-    hub = Part.makeCylinder(12.0, 18.0, V(0, y0, z_crank), V(0, 1, 0))
-    arm_len = 55.0
-    arm = Part.makeBox(10.0, arm_len, 10.0,
-                       V(-5.0, y0 + 16.0, z_crank - 5.0))
-    knob = Part.makeSphere(14.0, V(0.0, y0 + 16.0 + arm_len, z_crank))
-    return hub.fuse(arm).fuse(knob).removeSplitter()
-
-
-def build_triggers(r_od):
-    """Two levers beside the crank on +Y, clear of LOAD.
-    Pack trigger: slides dog clutch on pack shaft (breaks rotation drive).
-    Feed trigger: retracts idler on auger bevel (stops screw only).
-    Clutch/idler shown on the *side* cheek, not through the pack.
-    """
-    y0 = r_od + 2.0
-    cheek = Part.makeBox(32.0, 5.0, 72.0,
-                         V(-16.0, y0, z_crank - 42.0))
-    # Pack-rotation clutch lever (aft).
-    pack_piv = V(9.0, y0 + 5.0, z_crank - 24.0)
-    pack_lev = Part.makeBox(6.0, 40.0, 8.0,
-                            V(pack_piv.x - 3.0, pack_piv.y, pack_piv.z - 4.0))
-    pack_knob = Part.makeSphere(7.0, V(pack_piv.x, pack_piv.y + 40.0, pack_piv.z))
-    # Dog halves as short stubs on the cheek (visual clutch), not on axis.
-    dog_a = Part.makeCylinder(6.0, 10.0, V(9.0, y0 - 2.0, z_crank - 30.0), V(0, 1, 0))
-    dog_b = Part.makeCylinder(6.0, 10.0, V(9.0, y0 - 2.0, z_crank - 16.0), V(0, 1, 0))
-    pack_trig = cheek.fuse(pack_lev).fuse(pack_knob).fuse(dog_a).fuse(dog_b)
-    # Auger-feed stop lever (forward).
-    feed_piv = V(-9.0, y0 + 5.0, z_crank + 20.0)
-    feed_lev = Part.makeBox(6.0, 40.0, 8.0,
-                            V(feed_piv.x - 3.0, feed_piv.y, feed_piv.z - 4.0))
-    feed_knob = Part.makeSphere(7.0, V(feed_piv.x, feed_piv.y + 40.0, feed_piv.z))
-    idler = Part.makeCylinder(7.0, 14.0, V(-9.0, y0 - 2.0, z_crank + 20.0), V(0, 1, 0))
-    feed_trig = feed_lev.fuse(feed_knob).fuse(idler)
-    try:
-        pack_trig = pack_trig.removeSplitter()
-        feed_trig = feed_trig.removeSplitter()
-    except Exception:
-        pass
-    return pack_trig, feed_trig
-
-
-crank = build_crank(r_case_od)
-trig_pack, trig_feed = build_triggers(r_case_od)
-crank_ok = crank.distToShape(pack_frame)[0] >= 0.0  # may seat on frame
-crank_side_ok = abs(CRANK_ANG - 90.0) < 1e-6 and not (
-    LOAD_A <= CRANK_ANG <= LOAD_B)
-# Knob must stick out in ±Y (side), not along ±X (up/down) or far aft-only.
-crank_bb = crank.BoundBox
-crank_side_geom = (crank_bb.YLength > crank_bb.XLength
-                   and abs(crank_bb.Center.y) > abs(crank_bb.Center.x))
-for k in range(N):
-    ang = k * 60.0
-    if LOAD_A <= ang <= LOAD_B:
-        if crank.distToShape(stations[k])[0] < CLEAR - 1e-3:
-            crank_ok = False
-crank_ok = crank_ok and crank_side_ok and crank_side_geom
-# Triggers on same side, clear of LOAD sector stations.
-trig_ok = True
-for tr in (trig_pack, trig_feed):
-    for k in range(N):
-        ang = k * 60.0
-        if LOAD_A <= ang <= LOAD_B:
-            if tr.distToShape(stations[k])[0] < CLEAR - 1e-3:
-                trig_ok = False
-trig_ok = trig_ok and crank_side_ok
-
-# --- feed guard 170–310° (stage 4) + CG carry / strap (stage 7) --------------
-def annular_sector(r_od, r_id, z0, z1, a0, a1, step=4.0):
-    """Keep annular sector [a0,a1] deg (world, pre-flip)."""
-    ring = tube(2.0 * r_od, 2.0 * r_id, z0, z1)
-    wedges = []
-    a = a0
-    while a < a1 - 1e-9:
-        a2 = min(a + step, a1)
-        mid = 0.5 * (a + a2)
-        half = math.radians(0.5 * (a2 - a))
-        w = max(4.0, 2.0 * r_od * math.sin(half) + 2.0)
-        box = Part.makeBox(r_od + 4.0, w, z1 - z0 + 2.0,
-                           V(0.0, -w / 2, z0 - 1.0))
-        box.rotate(V(0, 0, 0), V(0, 0, 1), mid)
-        wedges.append(box)
-        a = a2
-    pie = G.fuse_all(wedges) if len(wedges) > 1 else wedges[0]
-    try:
-        return ring.common(pie).removeSplitter()
-    except Exception:
-        return ring.common(pie)
-
-
-# Trough / open-carriage radial envelope for guard ID.
-trough_r = 0.0
-for p in open_carr.tessellate(1.2)[0]:
-    trough_r = max(trough_r, math.hypot(p.x, p.y))
-r_guard_id = trough_r + GUARD_CLEAR
-r_guard_od = r_guard_id + 3.0
-z_guard0 = z_feed - pd - 8.0
-z_guard1 = z_stop + 8.0
-feed_guard = annular_sector(
-    r_guard_od, r_guard_id, z_guard0, z_guard1, GUARD_A, GUARD_B)
-# Guard must not cut the trough (open carriage at LOAD) or the hopper mouth.
-guard_clear_ok = (
-    feed_guard.distToShape(open_carr)[0] >= GUARD_CLEAR - 0.2
-    and feed_guard.common(open_carr).Volume < 1.0
-    and feed_guard.common(hopper).Volume < 50.0)
-guard_span_ok = abs(GUARD_B - GUARD_A - 140.0) < 1e-6
-
-# Carry handle near estimated CG (mid breech Z, on −X = top after flip).
-z_cg = 0.5 * (z_case0 + z_front1)
-x_handle = -(r_case_od + 22.0)
-carry = Part.makeBox(12.0, 18.0, 90.0,
-                     V(x_handle - 6.0, -9.0, z_cg - 45.0))
-carry_grip = Part.makeCylinder(9.0, 70.0, V(x_handle - 18.0, 0, z_cg - 35.0),
-                               V(0, 0, 1))
-carry_handle = carry.fuse(carry_grip).removeSplitter()
-# Sling strap: thin loops front + aft on −X.
-strap_f = Part.makeTorus(18.0, 3.0)
-strap_f.translate(V(x_handle, 0, z_front0 + 10.0))
-strap_r = Part.makeTorus(18.0, 3.0)
-strap_r.translate(V(x_handle, 0, z_case0 + 10.0))
-strap_bar = Part.makeBox(4.0, 6.0, abs(z_front0 - z_case0),
-                         V(x_handle - 2.0, -3.0, min(z_case0, z_front0) + 10.0))
-sling = strap_f.fuse(strap_r).fuse(strap_bar).removeSplitter()
-carry_ok = (carry_handle.BoundBox.Center.x < 0.0
-            and abs(carry_handle.BoundBox.Center.z - z_cg) < 30.0)
-
-# --- air (stage 5): shaft bearings + soft coupling + MQR + 6×M5 + buffer -----
-# MQR is air-only: pack axle rides its own bearings; soft coupling drives rotor.
-# Six M5 lines → each AirTAC R; route outside cam track & stroke rail.
-# Feed / hopper seat ring unchanged.
-hose_r = 2.5                   # ~M5 PU OD sketch
-PORT_R_SHIFT = 0.0
-stroke_rails_pack = Part.makeCompound(rails_placed)
-r_exit0 = max(rail_r_max, cam_od / 2.0) + CLEAR + 6.0 + hose_r
-z_clear_air = min(z_rail_lo, z_cam0) - 4.0
-
-# MQR6 clone sizes (same as mqr_axis_sketch.py).
-AXLE_OD, AXLE_ID = 16.0, 10.0
-BRG_OD, BRG_ID, BRG_T = 36.0, AXLE_OD + 0.3, 14.0
-ROTOR_OD, ROTOR_L = 46.0, 29.0
-STATOR_OD, STATOR_L = 46.0, 53.0
-MQR_THROUGH = 6.0
-SOFT_OD, SOFT_L, SOFT_GAP = 40.0, 28.0, 4.0   # jaw + spider gap
-BUFFER_OD, BUFFER_L = 80.0, 150.0             # ≈0.75 L free volume
+# ============================================================ air: hollow axle, bearings, MQR
+BRG_OD, BRG_BORE, BRG_T = 52.0, 40.0, 7.0      # 6808, on a 1 mm shim over the Ø38 tube
+BRG_NAME = "6808 (40 x 52 x 7) on a 1 mm shim"
+DISK_T = 10.0
+MQR_D, MQR_ROTOR_L, MQR_STATOR_L, MQR_SPIGOT = 46.0, 15.0, 72.0, 3.0
+MQR_PORT_Z = 7.0                # rotor ports from the rotor face
+SOFT_OD, SOFT_L, SOFT_GAP = 56.0, 24.0, 4.0
+BUFFER_OD, BUFFER_L = 80.0, 150.0
 BUFFER_VOL_L = (math.pi * (BUFFER_OD / 2) ** 2 * BUFFER_L) / 1.0e6
-
-# Aft stack: bearings in frame → soft coupling → MQR rotor → stator (+Z muzzle).
-# Front bearing in aft cascabel/ring; rear bearing in a frame disk tied by spars.
-BRG_NAME = "6202-ish (Ø16 shaft, race OD %.0f × %.0f)" % (BRG_OD, BRG_T)
-z_brg_f1 = z_case0 + 2.0
-z_brg_f0 = z_brg_f1 - BRG_T
-z_brg_r1 = z_case0 - 55.0
-z_brg_r0 = z_brg_r1 - BRG_T
-z_axle0 = z_brg_r0 - 8.0
-z_soft1 = z_brg_r0 - 6.0
+_rot_min = min(Part.makeCompound(list(station(p))).BoundBox.ZMin for p in (0.0, 180.0))
+z_brg_f1 = min(_rot_min, z_cam0 - RING_T) - 1.0
+z_brg_f0 = z_brg_f1 - DISK_T
+BRG_SPACING = 57.0
+z_brg_r1 = z_brg_f1 - BRG_SPACING
+z_brg_r0 = z_brg_r1 - DISK_T
+z_axle1 = Z_AXLE_WIN + 12.0
+z_axle0 = z_brg_r0 - 24.0
+z_axle_exit = z_axle0 + 15.0          # lines leave the axle between the coupling and the rear bearing
+z_soft1 = z_axle0 + 10.0
 z_soft0 = z_soft1 - SOFT_L
 z_rotor1 = z_soft0 - SOFT_GAP
-z_rotor0 = z_rotor1 - ROTOR_L
+z_rotor0 = z_rotor1 - MQR_ROTOR_L
 z_stator1 = z_rotor0
-z_stator0 = z_stator1 - STATOR_L
-z_hose_aft = 0.5 * (z_rotor0 + z_rotor1)
+z_stator0 = z_stator1 - MQR_STATOR_L
+z_mqr_plate1 = z_stator0 - MQR_SPIGOT
+z_mqr_plate0 = z_mqr_plate1 - 6.0
 
 
-def port_world(ang, dz, which="R"):
-    """AirTAC port centre in world after place_shape (local +Y → radial out)."""
-    a = math.radians(ang)
-    ux, uy = math.cos(a), math.sin(a)
-    y_loc = vent_y + AIRTAC["T"] + PORT_R_SHIFT
-    if which == "A":
-        y_loc = vent_y - PORT_R_SHIFT
-    r = R_PACK + y_loc
-    z = z_stem + AIRTAC["ports"][which] + dz
-    return V(r * ux, r * uy, z), ux, uy
-
-
-def build_bearing_in_frame(z_a, z_b, r_frame):
-    """Pack-shaft race seated in a frame disk with spars (MQR not in load path)."""
-    race = tube(BRG_OD, BRG_ID, z_a, z_b)
-    hub = tube(BRG_OD + 10.0, BRG_OD - 0.2, z_a, z_b)
+def bearing_disk(z_a, z_b, r_frame):
+    race = tube(BRG_OD, BRG_BORE + 0.3, z_a + (DISK_T - BRG_T) / 2, z_b - (DISK_T - BRG_T) / 2)
+    hub = tube(BRG_OD + 12.0, BRG_OD - 0.2, z_a, z_b)
     rim = tube(2.0 * r_frame, 2.0 * (r_frame - 5.0), z_a, z_b)
     parts = [race, hub, rim]
-    for ang in (30.0, 150.0, 270.0):   # skip LOAD φ=180
-        a = math.radians(ang)
-        sx0 = (BRG_OD / 2 + 2) * math.cos(a)
-        sy0 = (BRG_OD / 2 + 2) * math.sin(a)
-        L = max(8.0, r_frame - 5.0 - (BRG_OD / 2 + 2))
-        spoke = Part.makeCylinder(
-            4.0, L,
-            V(sx0, sy0, 0.5 * (z_a + z_b)),
-            V(math.cos(a), math.sin(a), 0))
-        parts.append(spoke)
-    try:
-        return G.fuse_all(parts).removeSplitter()
-    except Exception:
-        return Part.makeCompound(parts)
+    for w in SPAR_ANGLES:
+        a = math.radians(w)
+        r0 = BRG_OD / 2 + 4.0
+        parts.append(Part.makeCylinder(4.0, max(8.0, r_frame - 5.0 - r0),
+                                       V(r0 * math.cos(a), r0 * math.sin(a), 0.5 * (z_a + z_b)),
+                                       V(math.cos(a), math.sin(a), 0)))
+    return G.fuse_all(parts)
 
 
-def build_air_stack():
-    """Axle on 2 frame bearings; soft coupling; MQR; buffer; deadman."""
-    axle = tube(AXLE_OD, AXLE_ID, z_axle0, z_case0 + 20.0)
-    brg_f = build_bearing_in_frame(z_brg_f0, z_brg_f1, r_case_od)
-    brg_r = build_bearing_in_frame(z_brg_r0, z_brg_r1, r_case_od * 0.85)
-    # Soft jaw coupling: pack hub / spider / MQR hub — gap so MQR takes no load.
-    hub_pack = tube(SOFT_OD, AXLE_OD + 0.2, z_soft1 - 10.0, z_soft1)
-    hub_mqr = tube(SOFT_OD, MQR_THROUGH + 0.5, z_soft0, z_soft0 + 10.0)
-    spider = Part.makeCylinder(SOFT_OD * 0.45, SOFT_GAP,
-                               V(0, 0, z_soft0 + 10.0))
-    soft = hub_pack.fuse(hub_mqr).fuse(spider).removeSplitter()
-    rotor = tube(ROTOR_OD, MQR_THROUGH, z_rotor0, z_rotor1)
-    for k in range(N):
-        a = math.radians(k * 60.0)
-        # M5 stub on rotor OD (channel to station k).
-        stub = Part.makeCylinder(
-            4.0, 8.0,
-            V((ROTOR_OD / 2 - 1) * math.cos(a),
-              (ROTOR_OD / 2 - 1) * math.sin(a), z_hose_aft),
-            V(math.cos(a), math.sin(a), 0))
-        rotor = rotor.fuse(stub)
-    rotor = rotor.removeSplitter()
-    stator = tube(STATOR_OD, MQR_THROUGH, z_stator0, z_stator1)
-    inlet = Part.makeCylinder(6.0, 14.0, V(0, STATOR_OD / 2 - 2, z_stator0 + 20.0),
-                              V(0, 1, 0))
-    stator = stator.fuse(inlet).removeSplitter()
-    # Buffer 0.5–1 L beside stator (+Y side = crank side pre-flip).
-    buf_y = r_case_od + BUFFER_OD / 2 + 8.0
-    buffer = tube(BUFFER_OD, BUFFER_OD - 4.0, z_stator0, z_stator0 + BUFFER_L,
-                  0.0, buf_y)
-    # Dead-man ball valve on inlet (+Y, near buffer).
-    dm_body = Part.makeCylinder(12.0, 28.0, V(0, buf_y - BUFFER_OD / 2 - 8.0,
-                                             z_stator0 + 18.0), V(0, 1, 0))
-    dm_lever = Part.makeBox(6.0, 8.0, 22.0,
-                            V(-3.0, buf_y - BUFFER_OD / 2 + 6.0,
-                              z_stator0 + 28.0))
-    deadman = dm_body.fuse(dm_lever).removeSplitter()
-    # Supply stub buffer → stator inlet.
-    p_buf = V(0, buf_y - BUFFER_OD / 2, z_stator0 + 20.0)
-    p_in = V(0, STATOR_OD / 2 + 10.0, z_stator0 + 20.0)
-    supply = Part.makeCylinder(4.0, p_buf.distanceToPoint(p_in), p_in,
-                               p_buf.sub(p_in))
-    return dict(
-        axle=axle, brg_f=brg_f, brg_r=brg_r, soft=soft,
-        rotor=rotor, stator=stator, buffer=buffer, deadman=deadman,
-        supply=supply, buf_y=buf_y)
-
-
-def build_m5_lines(r_exit):
-    """Six M5 lines: AirTAC R → out past cam/rail → aft → MQR rotor stub."""
-    segs = []
-    for k in range(N):
-        ang = k * 60.0
-        dz = cam_dz(ang)
-        p_port, ux, uy = port_world(ang, dz, "R")
-        p1 = V((R_PACK + vent_y + AIRTAC["T"] + PORT_R_SHIFT + 8.0) * ux,
-               (R_PACK + vent_y + AIRTAC["T"] + PORT_R_SHIFT + 8.0) * uy,
-               p_port.z)
-        p2 = V(p1.x, p1.y, z_clear_air)
-        p3 = V(r_exit * ux, r_exit * uy, z_clear_air)
-        p4 = V(r_exit * ux, r_exit * uy, z_hose_aft)
-        p5 = V((ROTOR_OD / 2 + 6.0) * ux, (ROTOR_OD / 2 + 6.0) * uy, z_hose_aft)
-        for p0, p1_ in ((p_port, p1), (p1, p2), (p2, p3), (p3, p4), (p4, p5)):
-            vec = p1_.sub(p0)
-            if vec.Length > 1.0:
-                segs.append(Part.makeCylinder(hose_r, vec.Length, p0, vec))
-        # Short pilot A vent stub (not through cam track).
-        pA, _, _ = port_world(ang, dz, "A")
-        pA1 = V(pA.x - 6.0 * ux, pA.y - 6.0 * uy, pA.z)
-        pA2 = V(pA1.x, pA1.y, z_clear_air)
-        for p0, p1_ in ((pA, pA1), (pA1, pA2)):
-            vec = p1_.sub(p0)
-            if vec.Length > 1.0:
-                segs.append(Part.makeCylinder(hose_r * 0.7, vec.Length, p0, vec))
-    return Part.makeCompound(segs)
-
-
-def hose_clear(hs):
-    d_cam = hs.distToShape(cam)[0]
-    d_rail = hs.distToShape(stroke_rails_pack)[0]
-    return d_cam >= CLEAR - 1e-3 and d_rail >= CLEAR - 1e-3, d_cam, d_rail
-
-
-def rebuild_housing_for_od():
-    global pack_frame, breech_casing, crank, trig_pack, trig_feed
-    global hopper, auger, auger_drive, pellet_aug, pellet_bin, pellet, hop_m
-    global feed_ok, auger_ok, six_per_rev_ok, hopper_flush_ok, frame_ok
-    global full_shell_vol
-    pack_frame = build_pack_frame(r_case_od)
-    breech_casing = pack_frame
-    full_shell_vol = tube(
-        2.0 * r_case_od, 2.0 * r_case_id, z_case0, z_case1).Volume
-    frame_ok = pack_frame.Volume < 0.55 * full_shell_vol
-    crank = build_crank(r_case_od)
-    trig_pack, trig_feed = build_triggers(r_case_od)
-    (hopper, auger, auger_drive, pellet_aug, pellet_bin, pellet,
-     hop_m) = seat_hopper(r_case_od)
-    auger_ok = (
-        abs(hop_m["pellets_per_rev"] - 6.0) < 1e-9
-        and hop_m["starts"] == 1
-        and abs(hop_m["ratio"] - 6.0) < 1e-9
-        and abs(hop_m["pitch"] - (pd + 1.2)) < 0.05
-        and hop_m["pitch"] >= pd
-        and hop_m["pitch"] < 1.5 * pd)
-    hopper_flush_ok = hop_m["flush_gap"] < 1.0 and hop_m["on_ring"]
-    feed_clear = hopper.common(open_carr).Volume < 1.0
-    feed_ok = feed_clear and auger_ok and hopper_flush_ok
-    six_per_rev_ok = (
-        abs(hop_m["pellets_per_rev"] - 6.0) < 1e-9
-        and abs(feed_ang - 180.0) <= 10.0
-        and LOAD_A <= feed_ang <= LOAD_B
-        and auger_ok
-        and feed_clear)
-
-
-air = build_air_stack()
-pack_axle = air["axle"]
-brg_f = air["brg_f"]
-brg_r = air["brg_r"]
-soft_coup = air["soft"]
-mqr_rotor = air["rotor"]
-mqr_stator = air["stator"]
-air_buffer = air["buffer"]
-deadman = air["deadman"]
-air_supply = air["supply"]
-
-r_exit = max(r_exit0, r_case_od + 8.0)
-hoses_s = build_m5_lines(r_exit)
-ok_h, d_cam_h, d_rail_h = hose_clear(hoses_s)
-print("hose try exit=%.1f cam=%.2f rail=%.2f" % (r_exit, d_cam_h, d_rail_h),
-      flush=True)
-for _try in range(6):
-    if ok_h:
-        break
-    if d_rail_h < CLEAR:
-        PORT_R_SHIFT += 4.0
-        moved_notes.append("PORT_R_SHIFT→%.1f (hose↔rail=%.2f)" % (
-            PORT_R_SHIFT, d_rail_h))
-    if d_cam_h < CLEAR:
-        r_exit = max(r_exit + 6.0, cam_od / 2 + CLEAR + 12.0)
-        need_od = r_exit - 8.0
-        if need_od > r_case_od:
-            CASE_CLEAR_USE = need_od - CASE_WALL - (R_PACK + CH_OD / 2)
-            r_case_id = R_PACK + CH_OD / 2 + CASE_CLEAR_USE
-            r_case_od = r_case_id + CASE_WALL
-            moved_notes.append(
-                "frame Ø→%.1f (hose past cam)" % (2.0 * r_case_od))
-            rebuild_housing_for_od()
-        moved_notes.append("hose exit r→%.1f (hose↔cam=%.2f)" % (
-            r_exit, d_cam_h))
-    r_exit = max(r_exit, r_case_od + 8.0)
-    hoses_s = build_m5_lines(r_exit)
-    ok_h, d_cam_h, d_rail_h = hose_clear(hoses_s)
-    print("hose try exit=%.1f cam=%.2f rail=%.2f" % (r_exit, d_cam_h, d_rail_h),
-          flush=True)
-
-hoses_ok = ok_h
-# Air-stack checks (geometry, not a freeze).
-mqr_soft_ok = soft_coup.Volume > 1000.0 and SOFT_GAP >= 3.0
-mqr_no_axle = pack_axle.common(
-    G.cyl(MQR_THROUGH + 0.5, min(z_rotor0, z_stator0),
-          max(z_rotor1, z_stator1))).Volume < 1.0
-# Axle clears races; front seat kisses aft frame ring (load in frame, not MQR).
-bearings_ok = (
-    brg_f.Volume > 500.0 and brg_r.Volume > 500.0
-    and pack_axle.distToShape(brg_f)[0] >= 0.05
-    and pack_axle.distToShape(brg_r)[0] >= 0.05
-    and brg_f.distToShape(pack_frame)[0] < 8.0
-    and abs(0.5 * (z_brg_f0 + z_brg_f1) - z_case0) < BRG_T + 4.0
-    and mqr_no_axle)
-buffer_ok = 0.5 <= BUFFER_VOL_L <= 1.0 + 1e-6
-deadman_ok = deadman.Volume > 500.0
-lines_ok = hoses_ok and abs(N - 6) < 1e-9
-air_ok = (mqr_soft_ok and mqr_no_axle and bearings_ok
-          and buffer_ok and deadman_ok and lines_ok)
-# Re-check crank/triggers after possible hose rebuild.
-crank_bb = crank.BoundBox
-crank_side_geom = (crank_bb.YLength > crank_bb.XLength
-                   and abs(crank_bb.Center.y) > abs(crank_bb.Center.x))
-crank_ok = crank_side_ok and crank_side_geom
+brg_f = bearing_disk(z_brg_f0, z_brg_f1, r_case_od)
+brg_r = bearing_disk(z_brg_r0, z_brg_r1, r_case_od)
+# Rear spars: rear frame ring -> both bearing disks (outside the valves' sweep).
+for w in SPAR_ANGLES:
+    a = math.radians(w)
+    brg_r = brg_r.fuse(Part.makeCylinder(SPAR_R, (z_cam0 - RING_T) - z_brg_r0,
+                                         V(_spar_rc * math.cos(a), _spar_rc * math.sin(a), z_brg_r0)))
+pack_axle = tube(AXLE_OD, AXLE_ID, z_axle0, z_axle1)
 for k in range(N):
-    ang = k * 60.0
-    if LOAD_A <= ang <= LOAD_B:
-        if crank.distToShape(stations[k])[0] < CLEAR - 1e-3:
-            crank_ok = False
-trig_ok = crank_side_ok
-for tr in (trig_pack, trig_feed):
-    for k in range(N):
-        ang = k * 60.0
-        if LOAD_A <= ang <= LOAD_B:
-            if tr.distToShape(stations[k])[0] < CLEAR - 1e-3:
-                trig_ok = False
+    for zw in (Z_AXLE_WIN - 5.0, z_axle_exit - 5.0):
+        w = Part.makeCylinder(HOSE_OD / 2 + 0.5, 10.0, polar(AXLE_OD / 2 - 3.0, k * 60.0, zw), polar(1.0, k * 60.0))
+        pack_axle = pack_axle.cut(w)
+rear_disk = Part.makeCylinder(REAR_DISK_R, REAR_DISK_Z1 - REAR_DISK_Z0, V(0, 0, REAR_DISK_Z0))
+rear_disk = rear_disk.cut(Part.makeCylinder(AXLE_OD / 2 + 0.2, 30, V(0, 0, REAR_DISK_Z0 - 5)))
+for k in range(N):
+    for x, y in rail_centers():
+        rc = place(Part.Vertex(V(x, y, 0)), k * 60.0).Point
+        rear_disk = rear_disk.cut(Part.makeCylinder(RAIL_HOLE / 2, 30, V(rc.x, rc.y, REAR_DISK_Z0 - 5)))
+    # slot between the station's rails for its line R (it crosses the disk when open)
+    _sl = Part.makeBox(9.0, 34.0, 30.0, V(-4.5, -R_PACK + 18.0, REAR_DISK_Z0 - 5))
+    rear_disk = rear_disk.cut(place(_sl, k * 60.0))
+rear_disk = rear_disk.removeSplitter()
+soft_coup = tube(SOFT_OD, AXLE_OD + 0.2, z_soft1 - 10.0, z_soft1).fuse(
+    tube(SOFT_OD * 0.7, 6.5, z_soft0, z_soft0 + 10.0)).fuse(
+    Part.makeCylinder(SOFT_OD * 0.35, SOFT_GAP + 0.01, V(0, 0, z_soft0 + 10.0))).removeSplitter()
+mqr_rotor = tube(MQR_D, 6.0, z_rotor0, z_rotor1)
+mqr_stator = tube(MQR_D, 6.0, z_stator0, z_stator1).fuse(Part.makeCylinder(10.0, MQR_SPIGOT, V(0, 0, z_stator0 - MQR_SPIGOT)))
+mqr_plate = Part.makeCylinder(32.0, 6.0, V(0, 0, z_mqr_plate0))
+# Lines inside the axle and out to the rotor ports (all of it turns with the pack).
+_inner = []
+for k in range(N):
+    p_in = polar(R_BUNDLE, k * 60.0, Z_AXLE_WIN - 10.0)
+    p_out = polar(R_BUNDLE, k * 60.0, z_axle_exit + 4.0)
+    p_ex = polar(SOFT_OD / 2 + HOSE_OD / 2 + 1.0, k * 60.0, z_axle_exit)
+    p_port = polar(MQR_D / 2 + 6.0, k * 60.0, z_rotor1 - MQR_PORT_Z)
+    _inner += [tube_path([p_in, p_out, p_ex, V(p_ex.x, p_ex.y, p_port.z + 4.0), p_port], HOSE_OD / 2)]
+lines_inner = Part.makeCompound(_inner)
+BUNDLE_R = R_BUNDLE + HOSE_OD / 2
+buf_y = -(r_case_od + BUFFER_OD / 2 + 8.0)
+air_buffer = tube(BUFFER_OD, BUFFER_OD - 4.0, z_mqr_plate0, z_mqr_plate0 + BUFFER_L, 0.0, buf_y)
+deadman = Part.makeCylinder(12.0, 28.0, V(0, buf_y + BUFFER_OD / 2 + 8.0, z_mqr_plate0 + 18.0), V(0, -1, 0)).fuse(
+    Part.makeBox(6.0, 8.0, 22.0, V(-3.0, buf_y + BUFFER_OD / 2 - 14.0, z_mqr_plate0 + 28.0))).removeSplitter()
+_p_buf = V(0, buf_y + BUFFER_OD / 2, z_stator0 + 20.0)
+_p_in = V(0, -(MQR_D / 2 + 10.0), z_stator0 + 20.0)
+air_supply = Part.makeCylinder(4.0, _p_buf.distanceToPoint(_p_in), _p_in, _p_buf.sub(_p_in))
 
-# --- flip whole gun 180° about Z: hopper −X → +X (top) -----------------------
-stations = [flip_up(s) for s in stations]
-rails_placed = [flip_up(s) for s in rails_placed]
-cam = flip_up(cam)
-front_plate = flip_up(front_plate)
-rear_plate = flip_up(rear_plate)
-pack_frame = flip_up(pack_frame)
-breech_casing = pack_frame
-hopper = flip_up(hopper)
-auger = flip_up(auger)
-auger_drive = flip_up(auger_drive)
-pellet_aug = flip_up(pellet_aug)
-pellet_bin = flip_up(pellet_bin)
-pellet = flip_up(pellet)
-crank = flip_up(crank)
-trig_pack = flip_up(trig_pack)
-trig_feed = flip_up(trig_feed)
-feed_guard = flip_up(feed_guard)
-carry_handle = flip_up(carry_handle)
-sling = flip_up(sling)
-hoses_s = flip_up(hoses_s)
-pack_axle = flip_up(pack_axle)
-brg_f = flip_up(brg_f)
-brg_r = flip_up(brg_r)
-soft_coup = flip_up(soft_coup)
-mqr_rotor = flip_up(mqr_rotor)
-mqr_stator = flip_up(mqr_stator)
-air_buffer = flip_up(air_buffer)
-deadman = flip_up(deadman)
-air_supply = flip_up(air_supply)
-hopper_top_ok = hopper.BoundBox.Center.x > 0.0
-carry_top_ok = carry_handle.BoundBox.Center.x > 0.0
-crank_side_after = abs(crank.BoundBox.Center.y) > abs(crank.BoundBox.Center.x)
-trig_side_after = (abs(trig_pack.BoundBox.Center.y) > abs(trig_pack.BoundBox.Center.x)
-                   and abs(trig_feed.BoundBox.Center.y) > abs(trig_feed.BoundBox.Center.x))
-moved_notes.append("FLIP_Z=%g: hopper/carry → +X; crank/triggers → −Y" % FLIP_Z)
+# ============================================================ crank, carry, strap
+z_crank = 0.5 * (z_cam0 + z_stop)
+_y0 = -(r_case_od - 2.0)
+crank = Part.makeCylinder(12.0, 18.0, V(0, _y0, z_crank), V(0, -1, 0)).fuse(
+    Part.makeBox(10.0, 55.0, 10.0, V(-5.0, _y0 - 16.0 - 55.0, z_crank - 5.0))).fuse(
+    Part.makeSphere(14.0, V(0.0, _y0 - 16.0 - 55.0, z_crank))).removeSplitter()
+z_cg = 0.5 * (z_cam0 + z_front1)
+z_carry = max(z_cg, BOX_Z1 + 50.0)
+x_handle = r_case_od + 22.0
+carry_handle = Part.makeBox(12.0, 18.0, 90.0, V(x_handle - 6.0, -9.0, z_carry - 45.0)).fuse(
+    Part.makeCylinder(9.0, 70.0, V(x_handle + 18.0, 0, z_carry - 35.0))).removeSplitter()
+_sf = Part.makeTorus(18.0, 3.0)
+_sf.translate(V(x_handle, 0, z_front0 + 10.0))
+_sr = Part.makeTorus(18.0, 3.0)
+_sr.translate(V(x_handle, 0, z_cam0 - RING_T - 12.0))
+sling = _sf.fuse(_sr)
 
-# --- assembly / checks / report ----------------------------------------------
+# ============================================================ fast checks (the full turn: breech_mechanism_sweep.py)
+# Fingers vs frame: only the finger tip reaches past the spars' inner radius,
+# and it stays behind the liner's front face, where the spars start.
+_fp = follower.tessellate(0.3)[0]
+_fol_r = [(math.hypot(q.x, R_PACK + q.y), q.z) for q in _fp]
+_fol_z_out = max([z for r, z in _fol_r if r > _spar_rc - SPAR_R - CLEAR] or [-1e9])
+fingers_vs_spars = z_spar0 - _fol_z_out
+# Rear disk vs the parts that slide past it, every 5 deg of phase. The disk turns
+# with the pack, so a station keeps its angle to it (station 0 at 0) and only
+# its stroke changes with the phase.
+rear_disk_gap = 99.0
+for _i in range(72):
+    p = _i * 5.0
+    rear_disk_gap = min(rear_disk_gap, gap(place(Part.makeCompound(qev_slide + [valve_group]), 0.0, cam_dz(p)), rear_disk),
+                        gap(place(line_r(cam_dz(p)), 0.0), rear_disk))
+rot_all = Part.makeCompound([s for k in range(N) for s in station(k * 60.0)])
+r_rot_max = r_max(Part.makeCompound([place(Part.makeCompound(qev_slide + [valve_group]), k * 60.0, cam_dz(k * 60.0))
+                                     for k in range(N)] + [place(fixed0, k * 60.0) for k in range(N)]
+                                    + [place(line_r(cam_dz(k * 60.0)), k * 60.0) for k in range(N)]))
+liner_clear = cam_id / 2.0 - r_rot_max
+spar_clear = (_spar_rc - SPAR_R) - r_rot_max
+aft_clear = brg_f.BoundBox.ZMax - _rot_min          # >0 would be overlap; we want negative
+aft_gap = _rot_min - brg_f.BoundBox.ZMax
+lines_fixed = min(gap(lines_inner, s) for s in (brg_f, brg_r, mqr_stator, air_buffer, deadman, air_supply, mqr_plate))
+bundle_fit = (AXLE_ID / 2.0) - BUNDLE_R
+bearings_on_axle = (gap(pack_axle, brg_f) < 1.5 and gap(pack_axle, brg_r) < 1.5
+                    and brg_f.BoundBox.ZMin > z_axle0 and brg_r.BoundBox.ZMin > z_axle0)
+mqr_free = gap(pack_axle, mqr_rotor) > 1.0 and gap(pack_axle, mqr_stator) > 1.0
+rim_vs_closed = min(gap(rim_gear, place(Part.makeCompound(qev_slide), k * 60.0)) for k in range(N))
+star_top = star_vs_stations = min(gap(star0, s) for s in stations)
+print("fast checks done", flush=True)
+
+# ============================================================ assembly / checks / report
 pack = Part.makeCompound(stations)
-pellets = Part.makeCompound([pellet_aug, pellet_bin, pellet])
 assembly = Part.makeCompound([
-    pack, cam, front_plate, rear_plate, pack_frame,
-    hopper, auger, auger_drive, pellets, feed_guard,
-    crank, trig_pack, trig_feed, carry_handle, sling,
-    pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
-    air_buffer, deadman, air_supply, hoses_s,
+    pack, cam, front_plate, pack_frame, rear_disk, rim_gear, gear_a, gear_b, gear_i, gear_s,
+    star_shaft, lay_shaft, idl_shaft, gearbox, star0, feed_head, feed_lip, feed_cup, feed_guard,
+    ramp_fire, crank, carry_handle, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
+    mqr_plate, lines_inner, air_buffer, deadman, air_supply,
 ])
 bb = assembly.BoundBox
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
 case_od = 2.0 * r_case_od
 closed_L = (z_stop + BARREL_SHOW) - Z_AFT_CLIP
-pack_moved = (abs(R_PACK - R_PACK_START) > 0.05
-              or abs(case_od - CASE_OD_START) > 0.6
-              or abs(PORT_R_SHIFT) > 0.05)
+fb_n_ok = sum(1 for _, ok in FB_CHECKS if ok)
 
 checks = [
     ("bench stroke %.1f mm" % BENCH_STROKE, abs(BENCH_STROKE - 65.8) < 0.05),
-    ("stroke rail L %.1f > stroke+pads" % stroke_rail_L,
-     stroke_rail_L >= BENCH_STROKE + 2 * RAIL_CAGE_PAD - 0.1),
-    ("finger on rail at dz=0",
-     follower_on_track(follower, CAM_R, 0.0, R_PACK, 0.0)),
-    ("finger on rail at dz=−stroke",
-     follower_on_track(follower, CAM_R, -BENCH_STROKE, R_PACK, 180.0)),
-    ("stroke-rail neighbour gap %.2f >= %.2f" % (gap_rails, CLEAR),
-     gap_rails >= CLEAR - 1e-6),
-    ("core neighbour gap %.2f >= %.2f" % (gap_core, CLEAR),
-     gap_core >= CLEAR - 1e-6),
-    ("station/core neighbour gap %.2f >= %.2f" % (gap_stations, CLEAR),
-     gap_stations >= CLEAR - 1e-6),
-    ("body/rails clear of cam", rail_cam_ok),
-    ("open carriage inside frame envelope", case_ok),
-    ("frame envelope clears cam OD", r_case_id + 1e-6 >= cam_od / 2),
+    ("finger on the groove closed and open", follower_on_track(0.0) and follower_on_track(180.0)),
+    ("liner groove blind: %.1f mm behind its bottom, liner Ø%.0f" % (GROOVE_FLOOR, cam_od),
+     cam_od / 2.0 - (CAM_R + groove_r) >= GROOVE_FLOOR - 1e-6),
+    ("rotating parts inside the liner (all but fingers) %.2f >= %.2f" % (liner_clear, CLEAR), liner_clear >= CLEAR),
+    ("frame spars clear of fingers (start %.2f ahead of them) and stations (%.2f)" % (fingers_vs_spars, spar_clear),
+     fingers_vs_spars >= CLEAR and spar_clear >= CLEAR),
+    ("moving-part neighbour gap %.2f >= %.2f (QEV + guides, six phases)" % (gap_core, CLEAR), gap_core >= CLEAR - 1e-6),
+    ("hub: whole stations incl. AirTAC and lines, six phases %.2f >= %.2f" % (gap_nbr, CLEAR), gap_nbr >= CLEAR - 1e-6),
+    ("AirTAC group and line R clear of own station (%.2f)" % gap_own, gap_own >= CLEAR - 1e-6),
+    ("rails: carriage and nose ride the Al tubes (plain bores, %.2f mm3)" % (
+        rails_pack.common(qev_closed["Carriage"]).Volume + rails_pack.common(qev_closed["Nose_clamp"]).Volume),
+     rails_pack.common(qev_closed["Carriage"]).Volume + rails_pack.common(qev_closed["Nose_clamp"]).Volume < 0.01),
+    ("rails end in the rear disk; disk clear of moving parts and lines (%.2f)" % rear_disk_gap,
+     abs(rails_pack.BoundBox.ZMin - REAR_DISK_Z0) < 0.05 and rear_disk_gap >= CLEAR),
+    ("ramp presses only on 330..30 (outside %.3f mm)" % press_out, press_out < 0.01),
+    ("ramp touches %.1f..%.1f, switch (>= %.1f) %.1f..%.1f deg" % (
+        first_touch % 360.0, last_touch, SWITCH, sw_on % 360.0, sw_off),
+     first_touch >= -30.0 and last_touch <= 30.0 and sw_on is not None),
+    ("plunger stroke: full press %.2f, max %.2f (%.1f + %.1f gap)" % (press_flat, press_max, RAMP_PRESS, RAMP_GAP),
+     abs(press_flat - RAMP_PRESS) < 0.05 and press_max <= RAMP_PRESS + 0.05),
+    ("valve body clear of the ramp at FIRE (%.2f: plunger sticks out %.1f, press %.1f)" % (body_ramp, PL_L, RAMP_PRESS),
+     body_ramp >= PL_L - RAMP_PRESS - 0.05),
+    ("trigger released: plungers and bodies clear by %.2f" % safe_gap, safe_gap >= 1.0),
+    ("trigger arm slot clear of the groove (%.1f mm)" % slot_vs_groove, slot_vs_groove >= 2.0),
+    ("feed bench as library: %d of %d [OK]" % (fb_n_ok, len(FB_CHECKS)), _fb_ok and fb_n_ok == len(FB_CHECKS)),
+    ("handoff at 180 (LOAD): pocket on the ball seat %.2f mm, speed %.3f" % (_handoff_err, SPEED_RATIO),
+     _handoff_err < 0.3 and LOAD_A <= 180.0 <= LOAD_B and abs(SPEED_RATIO - 1.0) <= 0.02),
+    ("star vs whole stations, six phases (%.2f)" % star_top, star_top >= CLEAR),
+    ("guard %.1f..%.1f deg: ball gap %.2f (1..2)" % (GUARD_PHI0, GUARD_END, guard_ball), 1.0 <= guard_ball <= 2.0),
+    ("star drive %d -> %d | %d -> %d -> %d (m%.1f): star %.3f turns per pack turn"
+     % (Z_RIM, Z_A, Z_B, Z_I, Z_S, GEAR_M, train_star_turns), abs(train_star_turns + STAR_TURNS) < 1e-9),
+    ("train centres on pitch sums (%.3f) and meshes without overlap (%.2f mm3)" % (centre_err, mesh_worst),
+     centre_err < 1e-6 and mesh_worst < 1.0),
+    ("rim (rear barrel-plate) clear of the closed QEVs (%.2f)" % rim_vs_closed, rim_vs_closed >= CLEAR),
+    ("air: lines inside the axle, ID %.1f vs bundle Ø%.0f; no line crosses a fixed part (%.2f)"
+     % (AXLE_ID, 2 * BUNDLE_R, lines_fixed), bundle_fit >= 1.0 and lines_fixed >= CLEAR),
+    ("air: axle Ø%.0f on two %s, MQR off the axle" % (AXLE_OD, BRG_NAME.split(" ")[0]), bearings_on_axle and mqr_free),
+    ("valves' sweep ahead of the front bearing disk (%.2f)" % aft_gap, aft_gap >= CLEAR),
+    ("buffer %.2f L in 0.5–1 L" % BUFFER_VOL_L, 0.5 <= BUFFER_VOL_L <= 1.0 + 1e-6),
+    ("carry handle on top, crank on the side", carry_handle.BoundBox.Center.x > 0.0
+     and abs(crank.BoundBox.Center.y) > abs(crank.BoundBox.Center.x)),
     ("open frame (not full casing)", frame_ok),
-    ("crank sideways / not in LOAD", crank_ok and crank_side_after),
-    ("triggers on side / not in LOAD", trig_ok and trig_side_after),
-    ("M5 lines clear of cam track & stroke rail", hoses_ok),
-    ("air: MQR soft-coupled + bearings + buffer + deadman", air_ok),
-    ("pack shaft bearings seated in frame", bearings_ok),
-    ("buffer %.2f L in 0.5–1 L" % BUFFER_VOL_L, buffer_ok),
-    ("hopper on seat ring + clear of open carriage", feed_ok),
-    ("auger ×6 single-start (6 pellets/rev)", auger_ok),
-    ("six soft pellets per pack rev (mid ~180°)", six_per_rev_ok),
-    ("feed guard 170–310° clear of trough", guard_clear_ok and guard_span_ok),
-    ("carry handle at CG (top after flip)", carry_ok and carry_top_ok),
-    ("hopper on top (+X) after flip", hopper_top_ok),
-    ("LOAD window (pre-flip φ=180°)", abs(feed_ang - 180.0) < 1e-6),
     ("six phases", len(stations) == 6),
     ("closed station L %.1f ≈ 750" % closed_L, abs(closed_L - TARGET_L) <= 0.6),
     ("no full-length tube", z_case1 < z_tip_b - 200.0),
 ]
 report = [
     NAME,
-    "  sketch                 : full mechanism sketch (stages 4+5+7; NOT frozen)",
-    "  stroke (bench)         : %.1f mm; rail L=%.1f" % (BENCH_STROKE, stroke_rail_L),
+    "  sketch                 : full mechanism sketch (stages 4+5+6+7; NOT frozen)",
+    "  stroke (bench)         : %.1f mm" % BENCH_STROKE,
     "  law                    : FIRE 330–30; OPEN 30–120; LOAD 120–240; CLOSE 240–330",
-    "  cam                    : outboard liner Ø%.1f R=%.1f" % (cam_od, CAM_R),
-    "  stroke rail            : printed cage; neighbour gap %.2f mm" % gap_rails,
-    "  pack R                 : %.2f (start %.2f)%s"
-    % (R_PACK, R_PACK_START,
-       " — MOVED" if abs(R_PACK - R_PACK_START) > 0.05 else ""),
-    "  frame envelope Ø       : %.1f (CLEAR %.2f; was casing %.0f)%s"
-    % (case_od, CASE_CLEAR_USE, CASE_OD_START,
-       " — MOVED" if abs(case_od - CASE_OD_START) > 0.6 else ""),
-    "  port shift             : %.1f mm radial" % PORT_R_SHIFT,
-    "  flip                   : Z %.0f° — hopper on +X (top)" % FLIP_Z,
+    "  pack R                 : %.2f (pinned = breech_pack; rail feet floor 66.3)" % R_PACK,
+    "  cam                    : liner Ø%.0f (groove R %.0f, blind, %.0f mm floor); it is the frame here"
+    % (cam_od, CAM_R, GROOVE_FLOOR),
+    "  rails                  : carriage + nose ride the Al tubes; rear disk R %.0f at z %.0f..%.0f"
+    % (REAR_DISK_R, REAR_DISK_Z0, REAR_DISK_Z1),
+    "  hub                    : closed — AirTAC on each carriage (bracket on the 30° ear), body r %.1f..%.1f;"
+    " station gap with valves %.2f mm" % (R_PACK + VALVE_Y - A_W / 2, R_PACK + VALVE_Y + A_W / 2, gap_nbr),
+    "  line A                 : rigid, %.0f mm of 6x4 tube (%.2f cm3; pilot pocket %.2f cm3)"
+    % (LINE_A_L, LINE_A_V, pocket_v),
+    "  line R                 : flexes %.1f with the carriage, into the hollow axle at z %.0f"
+    % (BENCH_STROKE, Z_AXLE_WIN),
+    "  firing ramp            : r %.1f, low z %.1f; touch %.1f..%.1f, switch %.1f..%.1f, full %.0f..%.0f deg;"
+    " press %.2f" % (R_TIP, z_ramp_low, first_touch % 360, last_touch, sw_on % 360, sw_off,
+                     (-(30 - RAMP_RISE)) % 360, 30 - RAMP_RISE, press_flat),
+    "  trigger                : finger under the pack pulls the ramp forward; spring back %.0f mm = safe"
+    % RAMP_RETRACT,
+    "  feed                   : feed_bench star (3 pockets, 2:1) at the top; handoff 180°;"
+    " guard %.0f–%.0f° following the close" % (GUARD_PHI0, GUARD_END),
+    "  star drive             : rim %d on the breech clamps (z %.1f..%.1f) -> %d | %d -> %d -> %d;"
+    " layshaft R %.0f at %.0f°" % (Z_RIM, P1_Z0, P1_Z1, Z_A, Z_B, Z_I, Z_S, L_C.Length, L_ANG),
+    "  frame envelope Ø       : %.0f (liner); was %.0f" % (case_od, CASE_OD_START),
+    "  air                    : axle Al %.0f x %.1f, %s; 6 lines 1/8\" inside; MQR rotor z %.0f..%.0f"
+    % (AXLE_OD, (AXLE_OD - AXLE_ID) / 2.0, BRG_NAME, z_rotor0, z_rotor1),
+    "  air buffer             : Ø%.0f×%.0f ≈ %.2f L; dead-man on inlet" % (BUFFER_OD, BUFFER_L, BUFFER_VOL_L),
+    "  crank                  : side hub on the frame (−Y)",
+    "  carry                  : handle on top ahead of the gearbox; strap loops front/aft",
 ]
-for n in probe_notes:
-    report.append("  probe                 : " + n)
 report.append("  phases:")
 for n, ang, u, dz, tag in phases:
     report.append("    %d @ %3.0f°  u=%.2f  dz=%6.1f  %s" % (n, ang, u, dz, tag))
 report += [
-    "  skin                  : open frame (rings+spars); no full breech casing",
-    "  feed                  : lid+bin on seat ring; auger ×6 → LOAD mid 180°",
-    "  auger                 : single-start pitch %.1f; spur ×%.0f → 6×Ø%.1f / rev"
-    % (hop_m["pitch"], hop_m["ratio"], pd),
-    "  feed guard            : %.0f–%.0f°; clear ≥%.1f mm to trough"
-    % (GUARD_A, GUARD_B, GUARD_CLEAR),
-    "  crank                 : side hub on frame (−Y after flip); not in LOAD",
-    "  trigger pack          : dog clutch on pack shaft — breaks rotation drive",
-    "  trigger feed          : sliding idler on auger bevel — stops screw only",
-    "  carry                 : handle near CG on top; sling loops front/aft",
-    "  air MQR               : rotor on soft coupling; axle on 2 bearings (not MQR)",
-    "  bearings              : 2× %s in frame disks" % BRG_NAME,
-    "  air lines             : 6×M5 rotor→AirTAC R; outside cam & stroke rail",
-    "  air buffer            : Ø%.0f×%.0f ≈ %.2f L; dead-man on inlet"
-    % (BUFFER_OD, BUFFER_L, BUFFER_VOL_L),
-    "  overall LxWxH         : %.0f x %.0f x %.0f mm" % (gun_L, gun_W, gun_H),
-    "  not drawn             : wheeled carriage, backpack tank, freeze",
+    "  overall LxWxH         : %.0f x %.0f x %.0f mm (was %.0f long)" % (gun_L, gun_W, gun_H, L_START),
+    "  not drawn             : ramp guide pins + spring + trigger pivot, valve bracket bolts,"
+    " 1→6 manifold on the stator, crank drive to the pack, wheeled carriage, freeze",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
+report.append("  full turn             : breech_mechanism_sweep.py (separate run)")
 print("\n".join(report))
 
 FV.STYLES["ph0"] = ((0.92, 0.40, 0.16), 32)
@@ -1150,156 +936,69 @@ FV.STYLES["ph4"] = ((0.60, 0.58, 0.50), 45)
 FV.STYLES["ph5"] = ((0.88, 0.48, 0.28), 40)
 FV.STYLES["plate"] = ((0.42, 0.44, 0.48), 8)
 FV.STYLES["frame"] = ((0.72, 0.68, 0.55), 40)
-FV.STYLES["cam"] = ((0.35, 0.38, 0.42), 15)
+FV.STYLES["cam"] = ((0.35, 0.38, 0.42), 60)
 FV.STYLES["rail"] = ((0.55, 0.58, 0.62), 20)
 FV.STYLES["feed"] = ((0.55, 0.50, 0.40), 50)
-FV.STYLES["auger"] = ((0.40, 0.42, 0.48), 20)
+FV.STYLES["star"] = ((0.95, 0.80, 0.10), 0)
+FV.STYLES["gear"] = ((0.20, 0.62, 0.35), 0)
+FV.STYLES["ramp"] = ((0.85, 0.12, 0.12), 0)
 FV.STYLES["drive"] = ((0.30, 0.32, 0.36), 15)
 FV.STYLES["pellet"] = ((0.88, 0.88, 0.92), 15)
 FV.STYLES["crank"] = ((0.25, 0.25, 0.28), 10)
-FV.STYLES["trig"] = ((0.55, 0.22, 0.18), 15)
 FV.STYLES["hose"] = ((0.20, 0.55, 0.45), 35)
 FV.STYLES["mqr"] = ((0.45, 0.70, 0.95), 25)
 FV.STYLES["brg"] = ((0.35, 0.55, 0.85), 20)
 FV.STYLES["buffer"] = ((0.55, 0.60, 0.65), 40)
 FV.STYLES["deadman"] = ((0.75, 0.25, 0.20), 15)
-FV.STYLES["guard"] = ((0.60, 0.62, 0.70), 70)
+FV.STYLES["guard"] = ((0.60, 0.30, 0.75), 40)
 FV.STYLES["carry"] = ((0.28, 0.28, 0.30), 15)
-FV.STYLES["callout"] = ((0.15, 0.15, 0.15), 0)
+
+if BREECH_MECH_LIBRARY:
+    raise SystemExit(0 if all(ok for _, ok in checks) else 1)
 
 os.makedirs(OUT_DIR, exist_ok=True)
 sc = FV.Scene(NAME)
 for i, st in enumerate(stations):
     sc.add("Phases", "Station_%d_%d" % (i + 1, int(phases[i][1])), st, "ph%d" % i)
-sc.add("Cam", "Cam_drum", cam, "cam")
-for i, rr in enumerate(rails_placed):
-    sc.add("Rails", "Stroke_rail_%d" % (i + 1), rr, "rail")
+sc.add("Cam", "Cam_liner", cam, "cam")
+sc.add("Fire", "Firing_ramp_and_trigger", ramp_fire, "ramp")
 sc.add("Skin", "Front_barrel_plate", front_plate, "plate")
-sc.add("Skin", "Rear_barrel_plate", rear_plate, "plate")
 sc.add("Skin", "Pack_frame", pack_frame, "frame")
-sc.add("Feed", "Hopper_bin", hopper, "feed")
-sc.add("Feed", "Auger", auger, "auger")
-sc.add("Feed", "Auger_drive", auger_drive, "drive")
+sc.add("Skin", "Rear_rail_disk", rear_disk, "plate")
+sc.add("Feed", "Star", star0, "star")
+sc.add("Feed", "Feed_head", feed_head, "feed")
+sc.add("Feed", "Lip_TPU", feed_lip, "deadman")
+sc.add("Feed", "Cup", feed_cup, "feed")
 sc.add("Feed", "Feed_guard", feed_guard, "guard")
-sc.add("Feed", "Pellet_auger", pellet_aug, "pellet")
-sc.add("Feed", "Pellet_bin", pellet_bin, "pellet")
-sc.add("Feed", "Pellet_load", pellet, "pellet")
+sc.add("Feed", "Ball_handoff", ball_at(180.0), "pellet")
+sc.add("Feed", "Ball_closing", ball_at(260.0), "pellet")
+sc.add("Star_drive", "Rim_gear", rim_gear, "gear")
+sc.add("Star_drive", "Gear_A", gear_a, "gear")
+sc.add("Star_drive", "Gear_B", gear_b, "gear")
+sc.add("Star_drive", "Idler", gear_i, "gear")
+sc.add("Star_drive", "Star_gear", gear_s, "gear")
+sc.add("Star_drive", "Star_shaft", star_shaft, "drive")
+sc.add("Star_drive", "Layshaft", lay_shaft, "drive")
+sc.add("Star_drive", "Idler_shaft", idl_shaft, "drive")
+sc.add("Star_drive", "Gearbox", gearbox, "frame")
 sc.add("Drive", "Crank", crank, "crank")
-sc.add("Drive", "Trigger_pack_clutch", trig_pack, "trig")
-sc.add("Drive", "Trigger_auger_stop", trig_feed, "trig")
 sc.add("Carry", "Carry_handle", carry_handle, "carry")
-sc.add("Carry", "Sling_strap", sling, "carry")
+sc.add("Carry", "Sling_loops", sling, "carry")
 sc.add("Air", "Pack_axle", pack_axle, "drive")
 sc.add("Air", "Bearing_front", brg_f, "brg")
 sc.add("Air", "Bearing_rear", brg_r, "brg")
 sc.add("Air", "Soft_coupling", soft_coup, "drive")
 sc.add("Air", "MQR_rotor", mqr_rotor, "mqr")
 sc.add("Air", "MQR_stator", mqr_stator, "mqr")
+sc.add("Air", "MQR_plate", mqr_plate, "frame")
+sc.add("Air", "Lines_in_axle", lines_inner, "hose")
 sc.add("Air", "Buffer_tank", air_buffer, "buffer")
 sc.add("Air", "Deadman_valve", deadman, "deadman")
 sc.add("Air", "Supply_stub", air_supply, "hose")
-sc.add("Air", "M5_lines_to_R", hoses_s, "hose")
-
-
-def _arrow(p0, p1, r=1.4):
-    """Shaft + cone tip from p0 (label) to p1 (on the named part)."""
-    vec = p1.sub(p0)
-    L = vec.Length
-    if L < 12.0:
-        return Part.makeSphere(r * 2, p0)
-    tip_L = min(12.0, L * 0.18)
-    direction = App.Vector(vec)
-    shaft = Part.makeCylinder(r, L - tip_L, p0, direction)
-    tip_base = p0.add(App.Vector(vec.x, vec.y, vec.z).multiply((L - tip_L) / L))
-    tip = Part.makeCone(r * 2.8, 0.3, tip_L, tip_base, direction)
-    try:
-        return shaft.fuse(tip).removeSplitter()
-    except Exception:
-        return Part.makeCompound([shaft, tip])
-
-
-def _c(shape):
-    b = shape.BoundBox.Center
-    return App.Vector(b.x, b.y, b.z)
-
-
-def _on(shape, guess):
-    """Snap guess onto the target solid (mm)."""
-    _d, pts, _info = shape.distToShape(Part.Vertex(guess))
-    p = pts[0][0]
-    return App.Vector(p.x, p.y, p.z)
-
-
-def _lab_xy(tip, dy, dz):
-    """Label offset in machine Y/Z — after VIEW_ROT that is screen X/Y.
-
-    Radial +X offsets look like depth arrows and land on the wrong part in iso.
-    """
-    return App.Vector(tip.x, tip.y + dy, tip.z + dz)
-
-
-# Tips snapped onto each solid (after flip: +X top, −Y crank).
-_hb = hopper.BoundBox
-_tip_hopper = _on(hopper, App.Vector(_hb.XMax, 0.0, _hb.Center.z + 8.0))
-# Feed tube at seat ring (hopper body cheek), not a barrel and not the bin.
-_tip_auger = _on(hopper, App.Vector(r_case_od + 2.0, -22.0, z_feed))
-# Guard arc apex on +Y — side clear of the barrel cluster in iso.
-_tip_guard = _on(feed_guard, App.Vector(
-    0.0, r_guard_od, 0.5 * (z_guard0 + z_guard1)))
-# Blue frame-disk rim on +X (top) — spoked bearing seat; labels fan away from cam.
-_tip_brg = _on(brg_f, App.Vector(r_case_od - 2.5, 0.0, _c(brg_f).z))
-# MQR rotor OD on −Y, aft of soft coupling — not buffer / not station.
-_tip_mqr = _on(mqr_rotor, App.Vector(0.0, -ROTOR_OD / 2.0, _c(mqr_rotor).z))
-_tip_soft = _on(soft_coup, App.Vector(SOFT_OD / 2.0, 0.0, _c(soft_coup).z))
-_st = stations[3]
-_tip_station = _on(_st, _c(_st))
-_tip_pack = _on(front_plate, App.Vector(R_PACK, 0.0, 0.5 * (z_front0 + z_rear0)))
-# Cam liner track toward −Y (crank side) — clear of +X bearings and hopper/шнек.
-_a_cam = math.radians(-45.0)
-_tip_cam = _on(cam, App.Vector(
-    (cam_od / 2.0) * math.cos(_a_cam),
-    (cam_od / 2.0) * math.sin(_a_cam),
-    _c(cam).z))
-# Black strap bar well aft of the carry handle (distinct from ручка / hopper).
-_tip_sling = _on(sling, App.Vector(sling.BoundBox.XMax - 1.0, 0.0, z_cg - 90.0))
-
-_show_labels = os.environ.get("SHOW_LABELS", "").strip().lower() in (
-    "1", "true", "yes")
-# (text, tip on part, label dy, label dz) — dy/dz in machine frame → screen.
-_callouts = [
-    ("Станция", _tip_station, 110.0, 40.0),
-    ("Пакет", _tip_pack, 40.0, 130.0),
-    ("Кулачок", _tip_cam, -120.0, 80.0),
-    ("Рукоять", _on(crank, _c(crank)), -90.0, 50.0),
-    ("Муфта", _tip_soft, 120.0, -20.0),
-    ("Стоп подачи", _on(trig_feed, _c(trig_feed)), -110.0, 70.0),
-    ("Бункер", _tip_hopper, -140.0, -30.0),
-    ("Шнек ×6", _tip_auger, -150.0, 40.0),
-    ("Обойма", _tip_guard, 40.0, -140.0),
-    ("MQR", _tip_mqr, -140.0, 60.0),
-    ("Буфер", _on(air_buffer, _c(air_buffer)), -90.0, -50.0),
-    ("Дедмен", _on(deadman, _c(deadman)), -110.0, 70.0),
-    ("Подшипники", _tip_brg, 160.0, -80.0),
-    ("Ремень", _tip_sling, 40.0, 140.0),
-    ("Ручка", _on(carry_handle, _c(carry_handle)), 50.0, 100.0),
-]
-for _i, (_txt, _tip, _dy, _dz) in enumerate(_callouts):
-    _lab = _lab_xy(_tip, _dy, _dz)
-    if _show_labels:
-        sc.add("Callouts", "Arrow_%d" % _i, _arrow(_lab, _tip), "callout")
-        sc.label("Labels", _txt, (_lab.x, _lab.y, _lab.z))
-
-if not _show_labels:
-    for n, ang, u, dz, tag in phases:
-        aw = math.radians(ang + FLIP_Z)
-        sc.label("Labels", "%d° %s" % (ang, tag),
-                 ((R_PACK + 70) * math.cos(aw), (R_PACK + 70) * math.sin(aw),
-                  z_stop + cam_dz(ang)))
-    sc.label("Labels", "×6 feed · guard · bearings · MQR · Ø%.0f" % case_od,
-             (0, bb.YMax + 40, (bb.ZMin + bb.ZMax) / 2))
-
-_hide = () if _show_labels else ("Labels",)
-sc.finish(hidden_groups=_hide, opaque_groups=("Callouts",))
+for n, ang, u, dz, tag in phases:
+    p = polar(R_PACK + 70, ang, z_stop + dz)
+    sc.label("Labels", "%d° %s" % (ang, tag), (p.x, p.y, p.z))
+sc.finish(hidden_groups=("Labels",), opaque_groups=())
 doc = sc.doc
 doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
@@ -1310,8 +1009,6 @@ mesh_shape.exportStep(os.path.join(OUT_DIR, "breech_mechanism.step"))
 MeshPart.meshFromShape(
     Shape=mesh_shape, LinearDeflection=0.4, AngularDeflection=0.5).write(
     os.path.join(OUT_DIR, "breech_mechanism.stl"))
-# Also export the stroke rail alone for print.
-stroke_rail0.copy().exportStep(os.path.join(OUT_DIR, "stroke_rail.step"))
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
     f.write("\n".join(report) + "\n")
 

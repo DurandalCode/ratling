@@ -67,7 +67,10 @@
   - `pistol/hammer_assembly.py` → `hammer_layout.py` → `mech_layout.py` → `module/stage3_qev.py`;
   - `module/stage3_v13.py` → `stage3_qev.py` с `OVERRIDE = {...}`;
   - `gatling/linear_breech.py` → `fat_coax_qev.py` с библиотечным флагом;
-  - `gatling/linear_breech_bench.py` → `linear_breech.py` как библиотека.
+  - `gatling/linear_breech_bench.py` → `linear_breech.py` как библиотека;
+  - `gatling/breech_mechanism.py` → `linear_breech.py` (`PACK_STATION`) и `feed_bench.py`
+    (`FEED_BENCH_LIBRARY`, звёздочка); `breech_mechanism_sweep.py` → `breech_mechanism.py`
+    с `BREECH_MECH_LIBRARY = True` (полный оборот отдельно от сборки).
   Папку `mitrailleuse/` не трогать без прямой просьбы.
 - Параметры — константы в начале каждого генератора, а не в `ratling/params.py` (тот только для
   селектора). Некоторые переменные можно задать до `exec` (`VALVE`, `BARREL_TUBE`, `LAYERS`,

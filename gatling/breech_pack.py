@@ -2,13 +2,22 @@
 """
 Dense pack of the real gatling linear-breech station (not a block silhouette).
 
-Loads gatling/linear_breech.py as a library (closed pose) and places six copies
-on a ring. Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end
-transverse shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198).
-Carriage / rails / AirTAC / barrel-clamp rail-feet may duplicate near the hub —
-only the pneumatic core (chamber + plugs + yoke + tube) must clear CLEAR
-between neighbours. Barrel-clamp rings stay inside CLAMP_OD (flush M3, no
-external bolt lugs).
+Loads gatling/linear_breech.py as a library (closed pose, PACK_STATION: guides
+on round rail feet, rails end at the muzzle) and places six copies on a ring.
+Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end transverse
+shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198). Every station
+part clears its neighbours by CLEAR. Barrel-clamp rings stay inside CLAMP_OD
+(flush M3, no external bolt lugs).
+
+2026-11-19: re-laid for the 200 mm chamber station. R 58.5 (pneumatic core
+alone) let the guide plates, rails and clamp feet of neighbours overlap; the
+rail feet now set the floor (~66.3) and R is pinned to breech_mechanism's 67.
+
+2026-11-20: the AirTAC rides its carriage behind the rear plug (breech_mechanism,
+plan question 3), so it is cut off with everything aft of the plug face; the
+station's under-rail cradle is no longer drawn. The rear barrel-plate moves
+ahead of the breech clamps (it overlapped the closed QEVs by ~22 cm3); in the
+mechanism it carries the rim gear of the star drive.
 
 Overall station length is pinned to TARGET_L: clip everything aft of the
 rear-plug face (open-stroke rail stubs, carriage thumb, AirTAC overhang) and
@@ -53,6 +62,7 @@ BARREL_SHOW_L500 = 328.1      # previous pack at TARGET_L=500 (aft-clipped)
 V = App.Vector
 
 GATLING_LINEAR_BREECH_LIBRARY = True
+PACK_STATION = True
 SHOW_OPEN = False
 # Probe once for z_stop / rear-plug face, then set BARREL_SHOW for TARGET_L.
 BARREL_SHOW = BARREL_SHOW_DEFAULT
@@ -73,11 +83,9 @@ MITRA_J_OD = 192.5
 MITRA_G_OD = 198.0
 PREV_R = 61.51
 PREV_BARREL_OD = 199.6
-# Barrel-zone Ø at yoke-limited R≈58.5 (rails-in); was 171.6 at clamp-foot R66.3.
-RAILS_IN_BARREL_OD = 156.0
 BARREL_OD_SLACK = 2.0
 L_SLACK = 0.6                 # BoundBox / clip tolerance around TARGET_L
-PREV_SKIN_W = 193.0           # authentic-skin transverse before this tighten
+PREV_SKIN_W = 172.0           # skin W at R 58.5 (2026-11-16, hub parts overlapping)
 
 
 def clip_aft(shape, z_min):
@@ -104,25 +112,18 @@ def clip_list(parts, z_min):
     return out
 
 
-# Core must clear; rails / carriage / AirTAC / clamp feet may overlap at hub.
-# Clamps stay in the station draw but out of the neighbour-gap core: their
-# rail feet set R≈66.3, while yoke/plug ears alone allow R≈58.5.
-CORE_KEYS = [k for k in qev_closed if k != "Carriage"]
-_core_raw = [qev_closed[k] for k in CORE_KEYS] + [fixed_barrel]
-_rail_raw = [
-    qev_closed["Carriage"], rails_s, cradle,
-    vent_body, vent_fittings, vent_plunger,
-    barrel_clamp, barrel_collar,
-]
+# Every station part must clear the neighbours (CLEAR). The AirTAC sits on the
+# carriage behind the rear plug (breech_mechanism) and is cut off here.
+_core_raw = [qev_closed[k] for k in qev_closed] + [
+    fixed_barrel, rails_s, barrel_clamp, barrel_collar]
 _core_parts = clip_list(_core_raw, Z_AFT_CLIP)
-_rail_parts = clip_list(_rail_raw, Z_AFT_CLIP)
-_station_parts = _core_parts + _rail_parts
+_station_parts = list(_core_parts)
 core0 = Part.makeCompound([p.copy() for p in _core_parts])
 station0 = Part.makeCompound([p.copy() for p in _station_parts])
 barrel0 = Part.makeCompound(clip_list(
     [barrel_clamp, barrel_collar, fixed_barrel], Z_AFT_CLIP))
 st0_bb = station0.BoundBox
-aft_trim = abs(min(p.BoundBox.ZMin for p in _core_raw + _rail_raw) - Z_AFT_CLIP)
+aft_trim = abs(min(p.BoundBox.ZMin for p in _core_raw) - Z_AFT_CLIP)
 
 
 def place_shape(shape, R, ang_deg):
@@ -172,8 +173,11 @@ def zone_max_r(shapes, z0, z1, defl=1.0):
 try:
     SEARCH_R
 except NameError:
-    SEARCH_R = False         # set True to re-binsearch; pin is yoke/plug-ear floor
-PINNED_R = 58.50             # yoke / rear-plug ears r≈33; N=6 CLEAR=0.5 → R=58.50
+    SEARCH_R = False         # set True to re-binsearch the floor over core0
+# Floor 66.3: the Ø15 rail feet of the guides and barrel clamps (core alone: 58.5).
+# Pinned to breech_mechanism's R (its 1 mm steps from 66 land on 67), so the cam
+# liner and this view describe one pack.
+PINNED_R = 67.00
 if SEARCH_R:
     r_lo, r_hi = 50.0, DESIGN_R + 10.0
     assert min_neighbour_gap(pack_of(core0, r_hi)) >= CLEAR, "hi R not clear for core"
@@ -223,11 +227,14 @@ z_stroke_end = qev_closed["Carriage"].BoundBox.ZMin - STROKE
 # Front barrel-plate (muzzle clamp / front disk).
 z_front0 = z_tip - PLATE_T + PLATE_LIP
 z_front1 = z_tip + PLATE_LIP
-# Rear barrel-plate at the breech faces (classic rear disk).
-z_rear0 = z_stop - PLATE_T * 0.35
-z_rear1 = z_rear0 + PLATE_T
+# Rear barrel-plate just ahead of the breech clamps (on the barrels and rails);
+# in breech_mechanism it is the rim gear of the star drive (R 90 pitch, m 1.5).
+REAR_PLATE_T = 8.0
+REAR_PLATE_R = 91.5
+z_rear0 = barrel_clamp.BoundBox.ZMax + 0.6
+z_rear1 = z_rear0 + REAR_PLATE_T
 # Breech casing: only over QEV / open-stroke, not along the barrels.
-z_case1 = z_rear0 + CASE_OVERLAP
+z_case1 = z_stop - PLATE_T * 0.35 + CASE_OVERLAP
 z_case0 = z_stroke_end
 
 r_plate = R_PACK + BARREL_OD / 2 + PLATE_RIM
@@ -250,7 +257,15 @@ def barrel_plate(z0, z1, od_r):
 
 
 front_plate = barrel_plate(z_front0, z_front1, r_plate)
-rear_plate = barrel_plate(z_rear0, z_rear1, r_plate)
+rear_plate = barrel_plate(z_rear0, z_rear1, REAR_PLATE_R)
+for _k in range(N):
+    for _x, _y in rail_centers():
+        _rc = place_shape(Part.Vertex(V(_x, _y, 0)), R_PACK, _k * 60.0).Point
+        rear_plate = rear_plate.cut(Part.makeCylinder(RAIL_HOLE / 2, 30, V(_rc.x, _rc.y, z_rear0 - 5)))
+rear_plate = rear_plate.removeSplitter()
+# The plate holds the barrels and rails in its bores; clearance is to the rest.
+_qev_clamps = Part.makeCompound(clip_list([qev_closed[k] for k in qev_closed] + [barrel_clamp, barrel_collar], Z_AFT_CLIP))
+rear_plate_gap = min(rear_plate.distToShape(s)[0] for s in pack_of(_qev_clamps, R_PACK))
 # Translucent breech casing + cascabel disk (1878 breech-casing cue).
 breech_casing = tube(2.0 * r_case_od, 2.0 * r_case_id, z_case0, z_case1)
 cascabel = Part.makeCylinder(r_case_od, 6.0, V(0, 0, z_case0 - 6.0))
@@ -265,20 +280,23 @@ case_od = 2.0 * r_case_od
 station_L = bb_stations.ZLength
 bare_barrel_L = z_front0 - z_rear1
 
+clamp_ring_od = 2.0 * (R_PACK + CLAMP_OD / 2)
 checks = [
     ("six stations", len(stations) == 6),
-    ("core neighbour gap %.2f mm >= %.2f" % (gap_core, CLEAR),
+    ("station neighbour gap %.2f mm >= %.2f (all parts)" % (gap_core, CLEAR),
      gap_core >= CLEAR - 1e-6),
     ("pack volume", pack.Volume > 1e5),
     ("station L %.1f ≈ %.0f (±%.1f)" % (station_L, TARGET_L, L_SLACK),
      abs(station_L - TARGET_L) <= L_SLACK),
     ("aft clipped at rear plug (ZMin≈%.1f)" % Z_AFT_CLIP,
      abs(st0_bb.ZMin - Z_AFT_CLIP) <= 0.6),
-    ("barrel Ø %.1f ≈ rails-in Ø%.1f (≤ +%.1f)"
-     % (barrel_od, RAILS_IN_BARREL_OD, BARREL_OD_SLACK),
-     barrel_od <= RAILS_IN_BARREL_OD + BARREL_OD_SLACK + 1e-6),
+    ("barrel Ø %.1f within clamp rings Ø%.1f (≤ +%.1f)"
+     % (barrel_od, clamp_ring_od, BARREL_OD_SLACK),
+     barrel_od <= clamp_ring_od + BARREL_OD_SLACK + 1e-6),
     ("front barrel-plate solid", front_plate.Volume > 500),
     ("rear barrel-plate solid", rear_plate.Volume > 500),
+    ("rear barrel-plate ahead of the breech clamps, clear of QEVs and clamps (%.2f)" % rear_plate_gap,
+     rear_plate_gap >= CLEAR - 1e-6),
     ("breech casing solid", breech_casing.Volume > 1e3),
     ("barrels bare between plates (%.0f mm > 200)" % bare_barrel_L,
      bare_barrel_L > 200.0),
@@ -293,8 +311,7 @@ report = [
     "  sketch                 : dense pack of REAL linear_breech stations (closed)",
     "  source                 : gatling/linear_breech.py + fat_coax_qev.py",
     "  stations               : %d closed; no bench feet / no wheeled carriage" % N,
-    "  orientation            : rails/AirTAC radial IN, feed OUT "
-    "(barrel end narrower; rail duplicates at QEV OK)",
+    "  orientation            : rails radial IN, feed OUT (barrel end narrower; guides on rail feet)",
     "  aft trim               : clip Z < rear-plug face (%.1f); cut ≈%.0f mm "
     "(open-stroke rails / thumb / AirTAC overhang)"
     % (Z_AFT_CLIP, aft_trim),
@@ -302,18 +319,21 @@ report = [
     "bare barrels, breech casing only) — not full-length tube; not M134 mid-clamps",
     "  refs                   : US36836 / 1878 Ordnance Gatling description",
     "  design PACK_PITCH      : %.1f mm" % DESIGN_R,
-    "  dense pack R           : %.2f mm (core gap %.2f mm; rail/clamp-foot gap %.2f mm)"
-    % (R_PACK, gap_core, gap_rails),
-    "  R floor                : yoke/rear-plug ears (r≈33); clamp rail-feet would want R≈66.3 "
-    "(allowed to hub-overlap like rails)",
-    "  was skin WxH           : %.0f x %.0f → now %.0f x %.0f"
-    % (PREV_SKIN_W, PREV_SKIN_W, gun_W, gun_H),
+    "  pack R                 : %.2f mm (%s; station gap %.2f mm; rail gap %.2f mm)"
+    % (R_PACK, "searched floor" if SEARCH_R else "pinned = breech_mechanism",
+       gap_core, gap_rails),
+    "  R floor                : rail feet Ø%.0f of guides + barrel clamps ≈66.3; "
+    "pneumatic core alone 58.5 (yoke/plug ears r≈33)" % BUSH_OD,
+    "  hub                    : AirTAC rides the carriage behind the rear plug (breech_mechanism);"
+    " cut off here",
+    "  was skin W (R 58.5)    : %.0f → now %.0f x %.0f"
+    % (PREV_SKIN_W, gun_W, gun_H),
     "  barrel length (show)   : %.1f mm (station L=%.0f)"
     % (barrel_len, TARGET_L),
     "  front barrel-plate     : Z %.1f…%.1f; Ø%.1f (muzzle)"
     % (z_front0, z_front1, plate_od),
-    "  rear barrel-plate      : Z %.1f…%.1f; Ø%.1f (breech faces)"
-    % (z_rear0, z_rear1, plate_od),
+    "  rear barrel-plate      : Z %.1f…%.1f; Ø%.1f (ahead of the breech clamps; rim gear in the mechanism)"
+    % (z_rear0, z_rear1, 2 * REAR_PLATE_R),
     "  bare barrels           : %.0f mm between plates" % bare_barrel_L,
     "  breech casing          : Z %.1f…%.1f; Ø%.1f wall %.1f; translucent "
     "(open QEV stroke → rear plate)"
