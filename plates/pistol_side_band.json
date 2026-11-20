@@ -1,0 +1,10 @@
+{
+  "id": "pistol_side_band",
+  "title": "Pistol frame side band alone, 0.8 nozzle, regenerated 2026-11-19",
+  "generator": "pistol/build/export_parts.py",
+  "export": "exports/pistol_build/stl",
+  "parts": [
+    {"file": "frame_side_band.stl", "group": "supports", "nozzle": "0.8", "brim": 5, "project": "pistol_side_band_08"},
+    {"file": "top_strap.stl", "group": "strong", "nozzle": "0.8", "brim": 5, "project": "pistol_top_strap_08"}
+  ]
+}

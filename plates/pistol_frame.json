@@ -1,0 +1,11 @@
+{
+  "id": "pistol_frame",
+  "title": "Pistol frame halves and side band: one 0.8 bed, reprint 2026-11-19",
+  "generator": "pistol/build/export_parts.py",
+  "export": "exports/pistol_build/stl",
+  "parts": [
+    {"file": "frame_upper.stl", "group": "supports", "nozzle": "0.8", "brim": 5, "project": "pistol_frame_reprint_08"},
+    {"file": "frame_lower.stl", "group": "supports", "nozzle": "0.8", "brim": 5, "project": "pistol_frame_reprint_08"},
+    {"file": "frame_side_band.stl", "group": "supports", "nozzle": "0.8", "brim": 5, "project": "pistol_frame_reprint_08"}
+  ]
+}
