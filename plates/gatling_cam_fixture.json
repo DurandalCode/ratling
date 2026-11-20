@@ -1,0 +1,13 @@
+{
+  "id": "gatling_cam_fixture",
+  "title": "Gatling cam fixture: unrolled stroke cam over the one-station bench (stage 3)",
+  "generator": "gatling/cam_fixture.py",
+  "export": "exports/gatling_cam_fixture",
+  "parts": [
+    {"file": "cam_plate.stl", "group": "mockup", "nozzle": "0.8", "infill": "15%", "walls": 4, "pattern": "gyroid", "support": false, "brim": 5, "project": "gatling_cam_fixture_08"},
+    {"file": "portal_top.stl", "group": "mockup", "nozzle": "0.8", "infill": "15%", "walls": 4, "pattern": "gyroid", "support": false, "brim": 5, "project": "gatling_cam_fixture_08"},
+    {"file": "side_frame_right.stl", "group": "mockup", "nozzle": "0.8", "infill": "15%", "walls": 4, "pattern": "gyroid", "support": false, "brim": 5, "project": "gatling_cam_fixture_08"},
+    {"file": "side_frame_left.stl", "group": "mockup", "nozzle": "0.8", "infill": "15%", "walls": 4, "pattern": "gyroid", "support": false, "brim": 5, "project": "gatling_cam_fixture_08"},
+    {"file": "finger_bracket.stl", "group": "strong", "infill": "60%", "walls": 5, "pattern": "gyroid", "support": false, "brim": 5, "project": "gatling_cam_finger_04"}
+  ]
+}

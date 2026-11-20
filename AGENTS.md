@@ -68,6 +68,8 @@
   - `module/stage3_v13.py` → `stage3_qev.py` с `OVERRIDE = {...}`;
   - `gatling/linear_breech.py` → `fat_coax_qev.py` с библиотечным флагом;
   - `gatling/linear_breech_bench.py` → `linear_breech.py` как библиотека;
+  - `gatling/cam_fixture.py` → `linear_breech_bench.py` (`LINEAR_BREECH_BENCH_LIBRARY`); закон
+    хода в нём — копия `breech_mechanism.py`, менять вместе;
   - `gatling/breech_mechanism.py` → `linear_breech.py` (`PACK_STATION`) и `feed_bench.py`
     (`FEED_BENCH_LIBRARY`, звёздочка); `breech_mechanism_sweep.py` → `breech_mechanism.py`
     с `BREECH_MECH_LIBRARY = True` (полный оборот отдельно от сборки).
