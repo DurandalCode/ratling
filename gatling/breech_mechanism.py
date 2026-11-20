@@ -5,7 +5,8 @@ Gatling breech mechanism (not a freeze).
 Stroke from linear_breech (65.8 mm) -> angle->stroke law -> outboard cam liner ->
 six phases -> AirTAC on each carriage, fixed firing ramp and trigger -> star
 feed geared to the pack (rim on the breech clamps + fixed train) -> helical
-guard -> side crank, carry, strap -> air: hollow axle, bearings, MQR, buffer.
+guard -> side crank, carry, strap -> air: hollow axle, bearings, MQR, hose
+from the receiver through a dead-man.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism.py').read())"
 
@@ -49,6 +50,11 @@ questions 2-4):
   1/8" (6 mm) supply lines run inside it to the MQR rotor, so no rotating
   line crosses a fixed part (the old lines cut the bearing disk, buffer and
   frame).
+- No buffer tank. The Ø80 x 150 tank (0.75 L) gave ~0.15 L at a 0.2 bar
+  droop, under one shot (two chamber volumes of free air, 0.2..0.4 L), so the
+  burst was held by the source and hose anyway. A thick hose from the
+  receiver comes in on -Y, through the dead-man inline on the supply stub,
+  into the MQR stator.
 """
 import importlib
 import math
@@ -692,8 +698,8 @@ DISK_T = 10.0
 MQR_D, MQR_ROTOR_L, MQR_STATOR_L, MQR_SPIGOT = 46.0, 15.0, 72.0, 3.0
 MQR_PORT_Z = 7.0                # rotor ports from the rotor face
 SOFT_OD, SOFT_L, SOFT_GAP = 56.0, 24.0, 4.0
-BUFFER_OD, BUFFER_L = 80.0, 150.0
-BUFFER_VOL_L = (math.pi * (BUFFER_OD / 2) ** 2 * BUFFER_L) / 1.0e6
+SUPPLY_HOSE_OD, SUPPLY_HOSE_L = 14.0, 60.0     # end of the thick hose from the receiver (3/8")
+DEADMAN_R, DEADMAN_L = 12.0, 28.0
 _rot_min = min(Part.makeCompound(list(station(p))).BoundBox.ZMin for p in (0.0, 180.0))
 z_brg_f1 = min(_rot_min, z_cam0 - RING_T) - 1.0
 z_brg_f0 = z_brg_f1 - DISK_T
@@ -765,13 +771,16 @@ for k in range(N):
     _inner += [tube_path([p_in, p_out, p_ex, V(p_ex.x, p_ex.y, p_port.z + 4.0), p_port], HOSE_OD / 2)]
 lines_inner = Part.makeCompound(_inner)
 BUNDLE_R = R_BUNDLE + HOSE_OD / 2
-buf_y = -(r_case_od + BUFFER_OD / 2 + 8.0)
-air_buffer = tube(BUFFER_OD, BUFFER_OD - 4.0, z_mqr_plate0, z_mqr_plate0 + BUFFER_L, 0.0, buf_y)
-deadman = Part.makeCylinder(12.0, 28.0, V(0, buf_y + BUFFER_OD / 2 + 8.0, z_mqr_plate0 + 18.0), V(0, -1, 0)).fuse(
-    Part.makeBox(6.0, 8.0, 22.0, V(-3.0, buf_y + BUFFER_OD / 2 - 14.0, z_mqr_plate0 + 28.0))).removeSplitter()
-_p_buf = V(0, buf_y + BUFFER_OD / 2, z_stator0 + 20.0)
-_p_in = V(0, -(MQR_D / 2 + 10.0), z_stator0 + 20.0)
-air_supply = Part.makeCylinder(4.0, _p_buf.distanceToPoint(_p_in), _p_in, _p_buf.sub(_p_in))
+# Supply: stator inlet -> stub out to the frame's side (-Y) -> dead-man inline ->
+# thick hose from the receiver. No buffer tank.
+z_supply = z_stator0 + 20.0
+_p_in = V(0, -(MQR_D / 2 + 10.0), z_supply)
+_p_dm = V(0, -(r_case_od + 8.0), z_supply)
+air_supply = Part.makeCylinder(4.0, _p_dm.distanceToPoint(_p_in), _p_in, _p_dm.sub(_p_in))
+deadman = Part.makeCylinder(DEADMAN_R, DEADMAN_L, _p_dm, V(0, -1, 0)).fuse(
+    Part.makeBox(6.0, 8.0, 22.0, V(-3.0, _p_dm.y - DEADMAN_L / 2 - 4.0, z_supply + DEADMAN_R - 2.0))).removeSplitter()
+_p_hose = V(0, _p_dm.y - DEADMAN_L, z_supply)
+supply_hose = Part.makeCylinder(SUPPLY_HOSE_OD / 2, SUPPLY_HOSE_L, _p_hose, V(0, -1, 0))
 
 # ============================================================ crank, carry, strap
 z_crank = 0.5 * (z_cam0 + z_stop)
@@ -813,7 +822,7 @@ liner_clear = cam_id / 2.0 - r_rot_max
 spar_clear = (_spar_rc - SPAR_R) - r_rot_max
 aft_clear = brg_f.BoundBox.ZMax - _rot_min          # >0 would be overlap; we want negative
 aft_gap = _rot_min - brg_f.BoundBox.ZMax
-lines_fixed = min(gap(lines_inner, s) for s in (brg_f, brg_r, mqr_stator, air_buffer, deadman, air_supply, mqr_plate))
+lines_fixed = min(gap(lines_inner, s) for s in (brg_f, brg_r, mqr_stator, deadman, air_supply, supply_hose, mqr_plate))
 bundle_fit = (AXLE_ID / 2.0) - BUNDLE_R
 bearings_on_axle = (gap(pack_axle, brg_f) < 1.5 and gap(pack_axle, brg_r) < 1.5
                     and brg_f.BoundBox.ZMin > z_axle0 and brg_r.BoundBox.ZMin > z_axle0)
@@ -828,7 +837,7 @@ assembly = Part.makeCompound([
     pack, cam, front_plate, pack_frame, rear_disk, rim_gear, gear_a, gear_b, gear_i, gear_s,
     star_shaft, lay_shaft, idl_shaft, gearbox, star0, feed_head, feed_lip, feed_cup, feed_guard,
     ramp_fire, crank, carry_handle, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
-    mqr_plate, lines_inner, air_buffer, deadman, air_supply,
+    mqr_plate, lines_inner, deadman, air_supply, supply_hose,
 ])
 bb = assembly.BoundBox
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
@@ -876,7 +885,6 @@ checks = [
      % (AXLE_ID, 2 * BUNDLE_R, lines_fixed), bundle_fit >= 1.0 and lines_fixed >= CLEAR),
     ("air: axle Ø%.0f on two %s, MQR off the axle" % (AXLE_OD, BRG_NAME.split(" ")[0]), bearings_on_axle and mqr_free),
     ("valves' sweep ahead of the front bearing disk (%.2f)" % aft_gap, aft_gap >= CLEAR),
-    ("buffer %.2f L in 0.5–1 L" % BUFFER_VOL_L, 0.5 <= BUFFER_VOL_L <= 1.0 + 1e-6),
     ("carry handle on top, crank on the side", carry_handle.BoundBox.Center.x > 0.0
      and abs(crank.BoundBox.Center.y) > abs(crank.BoundBox.Center.x)),
     ("open frame (not full casing)", frame_ok),
@@ -912,7 +920,8 @@ report = [
     "  frame envelope Ø       : %.0f (liner); was %.0f" % (case_od, CASE_OD_START),
     "  air                    : axle Al %.0f x %.1f, %s; 6 lines 1/8\" inside; MQR rotor z %.0f..%.0f"
     % (AXLE_OD, (AXLE_OD - AXLE_ID) / 2.0, BRG_NAME, z_rotor0, z_rotor1),
-    "  air buffer             : Ø%.0f×%.0f ≈ %.2f L; dead-man on inlet" % (BUFFER_OD, BUFFER_L, BUFFER_VOL_L),
+    "  air supply             : no buffer; Ø%.0f hose from the receiver -> dead-man -> stator (z %.0f)"
+    % (SUPPLY_HOSE_OD, z_supply),
     "  crank                  : side hub on the frame (−Y)",
     "  carry                  : handle on top ahead of the gearbox; strap loops front/aft",
 ]
@@ -948,7 +957,6 @@ FV.STYLES["crank"] = ((0.25, 0.25, 0.28), 10)
 FV.STYLES["hose"] = ((0.20, 0.55, 0.45), 35)
 FV.STYLES["mqr"] = ((0.45, 0.70, 0.95), 25)
 FV.STYLES["brg"] = ((0.35, 0.55, 0.85), 20)
-FV.STYLES["buffer"] = ((0.55, 0.60, 0.65), 40)
 FV.STYLES["deadman"] = ((0.75, 0.25, 0.20), 15)
 FV.STYLES["guard"] = ((0.60, 0.30, 0.75), 40)
 FV.STYLES["carry"] = ((0.28, 0.28, 0.30), 15)
@@ -992,9 +1000,9 @@ sc.add("Air", "MQR_rotor", mqr_rotor, "mqr")
 sc.add("Air", "MQR_stator", mqr_stator, "mqr")
 sc.add("Air", "MQR_plate", mqr_plate, "frame")
 sc.add("Air", "Lines_in_axle", lines_inner, "hose")
-sc.add("Air", "Buffer_tank", air_buffer, "buffer")
 sc.add("Air", "Deadman_valve", deadman, "deadman")
 sc.add("Air", "Supply_stub", air_supply, "hose")
+sc.add("Air", "Supply_hose_end", supply_hose, "hose")
 for n, ang, u, dz, tag in phases:
     p = polar(R_PACK + 70, ang, z_stop + dz)
     sc.label("Labels", "%d° %s" % (ang, tag), (p.x, p.y, p.z))
