@@ -6,14 +6,18 @@ Loads gatling/linear_breech.py as a library (closed pose, PACK_STATION: guides
 on round rail feet, rails end at the muzzle) and places six copies on a ring.
 Rails / AirTAC point radial **in** (feed +Y out) so the barrel-end transverse
 shrinks below the mitrailleuse pack circles (J Ø192.5 / G Ø198). Every station
-part clears its neighbours by CLEAR except the six AirTAC valves and their
-cradles: they sit ~10 mm off the axis and overlap at any R. That is an open
-layout task (docs/gatling.md), reported with its volume, not hidden. Barrel-clamp
-rings stay inside CLAMP_OD (flush M3, no external bolt lugs).
+part clears its neighbours by CLEAR. Barrel-clamp rings stay inside CLAMP_OD
+(flush M3, no external bolt lugs).
 
 2026-11-19: re-laid for the 200 mm chamber station. R 58.5 (pneumatic core
 alone) let the guide plates, rails and clamp feet of neighbours overlap; the
 rail feet now set the floor (~66.3) and R is pinned to breech_mechanism's 67.
+
+2026-11-20: the AirTAC rides its carriage behind the rear plug (breech_mechanism,
+plan question 3), so it is cut off with everything aft of the plug face; the
+station's under-rail cradle is no longer drawn. The rear barrel-plate moves
+ahead of the breech clamps (it overlapped the closed QEVs by ~22 cm3); in the
+mechanism it carries the rim gear of the star drive.
 
 Overall station length is pinned to TARGET_L: clip everything aft of the
 rear-plug face (open-stroke rail stubs, carriage thumb, AirTAC overhang) and
@@ -108,22 +112,18 @@ def clip_list(parts, z_min):
     return out
 
 
-# Everything but the AirTAC group must clear the neighbours (CLEAR). The six
-# AirTAC bodies and cradles reach ~10 mm from the axis and overlap at any R:
-# kept in the draw, measured separately as the open hub issue.
+# Every station part must clear the neighbours (CLEAR). The AirTAC sits on the
+# carriage behind the rear plug (breech_mechanism) and is cut off here.
 _core_raw = [qev_closed[k] for k in qev_closed] + [
     fixed_barrel, rails_s, barrel_clamp, barrel_collar]
-_hub_raw = [cradle, vent_body, vent_fittings, vent_plunger]
 _core_parts = clip_list(_core_raw, Z_AFT_CLIP)
-_hub_parts = clip_list(_hub_raw, Z_AFT_CLIP)
-_station_parts = _core_parts + _hub_parts
+_station_parts = list(_core_parts)
 core0 = Part.makeCompound([p.copy() for p in _core_parts])
-hub0 = Part.makeCompound([p.copy() for p in _hub_parts])
 station0 = Part.makeCompound([p.copy() for p in _station_parts])
 barrel0 = Part.makeCompound(clip_list(
     [barrel_clamp, barrel_collar, fixed_barrel], Z_AFT_CLIP))
 st0_bb = station0.BoundBox
-aft_trim = abs(min(p.BoundBox.ZMin for p in _core_raw + _hub_raw) - Z_AFT_CLIP)
+aft_trim = abs(min(p.BoundBox.ZMin for p in _core_raw) - Z_AFT_CLIP)
 
 
 def place_shape(shape, R, ang_deg):
@@ -195,10 +195,6 @@ cores = pack_of(core0, R_PACK)
 stations = pack_of(station0, R_PACK)
 barrels = pack_of(barrel0, R_PACK)
 gap_core = min_neighbour_gap(cores)
-# Open hub issue: AirTAC group of one station against its neighbour.
-_hub_a, _hub_b = place_shape(hub0, R_PACK, 0.0), place_shape(hub0, R_PACK, 60.0)
-hub_overlap = _hub_a.common(_hub_b).Volume
-hub_r_min = min(math.hypot(p.x, p.y) for p in _hub_a.tessellate(0.5)[0])
 # Rails may be clipped to stubs; still report neighbour gap of clipped rails.
 _rails_clipped = clip_aft(rails_s.copy(), Z_AFT_CLIP)
 gap_rails = (min_neighbour_gap(pack_of(_rails_clipped, R_PACK))
@@ -231,11 +227,14 @@ z_stroke_end = qev_closed["Carriage"].BoundBox.ZMin - STROKE
 # Front barrel-plate (muzzle clamp / front disk).
 z_front0 = z_tip - PLATE_T + PLATE_LIP
 z_front1 = z_tip + PLATE_LIP
-# Rear barrel-plate at the breech faces (classic rear disk).
-z_rear0 = z_stop - PLATE_T * 0.35
-z_rear1 = z_rear0 + PLATE_T
+# Rear barrel-plate just ahead of the breech clamps (on the barrels and rails);
+# in breech_mechanism it is the rim gear of the star drive (R 90 pitch, m 1.5).
+REAR_PLATE_T = 8.0
+REAR_PLATE_R = 91.5
+z_rear0 = barrel_clamp.BoundBox.ZMax + 0.6
+z_rear1 = z_rear0 + REAR_PLATE_T
 # Breech casing: only over QEV / open-stroke, not along the barrels.
-z_case1 = z_rear0 + CASE_OVERLAP
+z_case1 = z_stop - PLATE_T * 0.35 + CASE_OVERLAP
 z_case0 = z_stroke_end
 
 r_plate = R_PACK + BARREL_OD / 2 + PLATE_RIM
@@ -258,7 +257,15 @@ def barrel_plate(z0, z1, od_r):
 
 
 front_plate = barrel_plate(z_front0, z_front1, r_plate)
-rear_plate = barrel_plate(z_rear0, z_rear1, r_plate)
+rear_plate = barrel_plate(z_rear0, z_rear1, REAR_PLATE_R)
+for _k in range(N):
+    for _x, _y in rail_centers():
+        _rc = place_shape(Part.Vertex(V(_x, _y, 0)), R_PACK, _k * 60.0).Point
+        rear_plate = rear_plate.cut(Part.makeCylinder(RAIL_HOLE / 2, 30, V(_rc.x, _rc.y, z_rear0 - 5)))
+rear_plate = rear_plate.removeSplitter()
+# The plate holds the barrels and rails in its bores; clearance is to the rest.
+_qev_clamps = Part.makeCompound(clip_list([qev_closed[k] for k in qev_closed] + [barrel_clamp, barrel_collar], Z_AFT_CLIP))
+rear_plate_gap = min(rear_plate.distToShape(s)[0] for s in pack_of(_qev_clamps, R_PACK))
 # Translucent breech casing + cascabel disk (1878 breech-casing cue).
 breech_casing = tube(2.0 * r_case_od, 2.0 * r_case_id, z_case0, z_case1)
 cascabel = Part.makeCylinder(r_case_od, 6.0, V(0, 0, z_case0 - 6.0))
@@ -276,7 +283,7 @@ bare_barrel_L = z_front0 - z_rear1
 clamp_ring_od = 2.0 * (R_PACK + CLAMP_OD / 2)
 checks = [
     ("six stations", len(stations) == 6),
-    ("station neighbour gap %.2f mm >= %.2f (all but AirTAC group)" % (gap_core, CLEAR),
+    ("station neighbour gap %.2f mm >= %.2f (all parts)" % (gap_core, CLEAR),
      gap_core >= CLEAR - 1e-6),
     ("pack volume", pack.Volume > 1e5),
     ("station L %.1f ≈ %.0f (±%.1f)" % (station_L, TARGET_L, L_SLACK),
@@ -288,6 +295,8 @@ checks = [
      barrel_od <= clamp_ring_od + BARREL_OD_SLACK + 1e-6),
     ("front barrel-plate solid", front_plate.Volume > 500),
     ("rear barrel-plate solid", rear_plate.Volume > 500),
+    ("rear barrel-plate ahead of the breech clamps, clear of QEVs and clamps (%.2f)" % rear_plate_gap,
+     rear_plate_gap >= CLEAR - 1e-6),
     ("breech casing solid", breech_casing.Volume > 1e3),
     ("barrels bare between plates (%.0f mm > 200)" % bare_barrel_L,
      bare_barrel_L > 200.0),
@@ -302,8 +311,7 @@ report = [
     "  sketch                 : dense pack of REAL linear_breech stations (closed)",
     "  source                 : gatling/linear_breech.py + fat_coax_qev.py",
     "  stations               : %d closed; no bench feet / no wheeled carriage" % N,
-    "  orientation            : rails/AirTAC radial IN, feed OUT "
-    "(barrel end narrower; guides on rail feet clear, AirTAC group does not)",
+    "  orientation            : rails radial IN, feed OUT (barrel end narrower; guides on rail feet)",
     "  aft trim               : clip Z < rear-plug face (%.1f); cut ≈%.0f mm "
     "(open-stroke rails / thumb / AirTAC overhang)"
     % (Z_AFT_CLIP, aft_trim),
@@ -316,17 +324,16 @@ report = [
        gap_core, gap_rails),
     "  R floor                : rail feet Ø%.0f of guides + barrel clamps ≈66.3; "
     "pneumatic core alone 58.5 (yoke/plug ears r≈33)" % BUSH_OD,
-    "  hub (OPEN ISSUE)       : 6 AirTAC + cradles overlap at the axis: %.0f mm3 per "
-    "neighbour pair, r_min %.1f mm — not solved by R; move them out (docs/gatling.md)"
-    % (hub_overlap, hub_r_min),
+    "  hub                    : AirTAC rides the carriage behind the rear plug (breech_mechanism);"
+    " cut off here",
     "  was skin W (R 58.5)    : %.0f → now %.0f x %.0f"
     % (PREV_SKIN_W, gun_W, gun_H),
     "  barrel length (show)   : %.1f mm (station L=%.0f)"
     % (barrel_len, TARGET_L),
     "  front barrel-plate     : Z %.1f…%.1f; Ø%.1f (muzzle)"
     % (z_front0, z_front1, plate_od),
-    "  rear barrel-plate      : Z %.1f…%.1f; Ø%.1f (breech faces)"
-    % (z_rear0, z_rear1, plate_od),
+    "  rear barrel-plate      : Z %.1f…%.1f; Ø%.1f (ahead of the breech clamps; rim gear in the mechanism)"
+    % (z_rear0, z_rear1, 2 * REAR_PLATE_R),
     "  bare barrels           : %.0f mm between plates" % bare_barrel_L,
     "  breech casing          : Z %.1f…%.1f; Ø%.1f wall %.1f; translucent "
     "(open QEV stroke → rear plate)"
