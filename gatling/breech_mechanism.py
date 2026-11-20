@@ -3,10 +3,11 @@
 Gatling breech mechanism (not a freeze).
 
 Stroke from linear_breech (65.8 mm) -> angle->stroke law -> outboard cam liner ->
-six phases -> AirTAC on each carriage, fixed firing ramp and trigger -> star
-feed geared to the pack (rim on the breech clamps + fixed train) -> helical
-guard -> side crank, carry, strap -> air: hollow axle, bearings, MQR, hose
-from the receiver through a dead-man.
+six phases -> AirTAC on each carriage, fixed firing ramp -> star feed geared
+to the pack (rim on the breech clamps + fixed train) with a gate in the neck ->
+helical guard -> side crank, carry, strap -> air: hollow axle, bearings, MQR,
+hose from the receiver through a dead-man -> flintlock grip with one
+two-stage lever (air, then balls) for the left hand.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism.py').read())"
 
@@ -31,9 +32,10 @@ questions 2-4):
   bench); the supply line R flexes with the stroke. The six valves no longer
   meet at the axis (the old hub overlap was 11.3 cm3 per pair at any R).
 - A fixed ramp on the firing sector presses the plungers at the closed
-  position: touch 331.6 -> 28.4 deg, 2.5 mm full press on 338..22. The
+  position: touch 332 -> 28 deg, 2.5 mm full press on 340..20. The
   trigger pulls the ramp forward into reach; let go, a spring takes it 4 mm
   aft and no plunger is pressed. The press pushes the QEV onto its stop.
+  (Since the controls moved to the rear grip the ramp is fixed: below.)
 - The star of feed_bench.py replaces the auger. A geared rim on the breech
   clamps (it is the rear barrel-plate, ahead of the clamps; the old plate
   overlapped the closed QEVs by 22 cm3) drives it through a fixed train
@@ -74,6 +76,28 @@ True) (full-height teeth; the planar form is half height at 45 deg and gave a
 16:48 pair 0.2 mm teeth). Tooth counts are a draft until the bench measures
 the torque. The crank arm and knob are not drawn; a reference body (knob
 orbit R 80, fist R 45 x 100) keeps room for the hand.
+
+2026-11-20, controls at the rear (stage 6; owner: balls and air from one
+hand, behind, an old flintlock look). The firing ramp stays in the press
+position on a block inside the liner (2 x M3 into heat-set inserts, blind
+holes): every station on 330..30 fires while the air is on. A wooden grip
+curls down behind a rear plate like a flintlock pistol's, with a brass pommel;
+the plate (R 50) also carries the MQR stator, four struts tie it to the rear
+bearing disk's rim (the plate used to float). One big lever (a 14 x 24 blade,
+91 mm) follows the grip's front like a fire extinguisher's, pivoted at the top
+behind the plate, 15 deg to the grip (22 mm at its free end by the pommel).
+Stage 1, 0..5 deg: the lever presses the dead-man in the grip through a pusher
+with an over-travel spring (3 mm valve stroke at 5 deg, 8 mm over-travel by
+15); the pusher is placed by the real contact (its end meets the tilted blade
+at its edge first). Stage 2, 5..15 deg: the lever's short tail inside the
+grip's root takes up 3 mm of cable slack and then draws the gate pin 6 mm out
+of the feed neck (Bowden 654 mm, along the top on the left, through the
+plate); let go and a spring puts the pin 5 mm across the Ø25.4 neck. The
+receiver's hose comes into the pommel, the valve's outlet runs up the grip and
+through the plate into the stator's rear port. The trigger under the liner,
+the D-grip with bails and the musket stock drawn earlier the same day are
+gone. The gun is 1222 x 330 x 418 (the hose hanging from the pommel sets the
+height).
 """
 import importlib
 import math
@@ -413,8 +437,10 @@ for k in range(N):
                   gap(place(line_r(cam_dz(p)), p), place(Part.makeCompound(qev_slide), p, cam_dz(p))))
 print("core gap %.2f, station gap (with valves) %.2f, valve/line to own %.2f" % (gap_core, gap_nbr, gap_own), flush=True)
 
-# ============================================================ firing ramp + trigger
-RAMP_GAP, RAMP_PRESS, RAMP_RISE, RAMP_RETRACT = 1.0, 2.5, 10.0, 4.0
+# ============================================================ firing ramp (fixed)
+# The ramp stays in the press position: the air is switched by the dead-man on the
+# grip (left hand, lever stage 1), so every station on 330..30 fires while it is held.
+RAMP_GAP, RAMP_PRESS, RAMP_RISE = 1.0, 2.5, 10.0
 SWITCH = 2.0                    # AirTAC switches at ~2.0 of plunger travel (pistol bench)
 RAMP_HW, RAMP_DEPTH = 4.0, 6.0
 R_TIP = R_PACK + VALVE_Y
@@ -441,24 +467,55 @@ def _ramp_curve(r):
 
 _rf = Part.makeRuledSurface(_ramp_curve(R_TIP - RAMP_HW), _ramp_curve(R_TIP + RAMP_HW))
 _rf = _rf.Faces[0] if hasattr(_rf, "Faces") else _rf
-ramp = _rf.extrude(V(0, 0, -RAMP_DEPTH))
-# Arm through a slot in the liner's aft part to the trigger under the pack.
-_arm_z0, _arm_z1 = z_ramp_low - RAMP_DEPTH, z_ramp_low - 1.0
-TRIG_R1 = cam_od / 2 + 32.0
-_arm = Part.makeBox(TRIG_R1 - (R_TIP + RAMP_HW - 1.0), 8.0, _arm_z1 - _arm_z0,
-                    V(R_TIP + RAMP_HW - 1.0, -4.0, _arm_z0))
-_finger = Part.makeBox(10.0, 14.0, 40.0, V(TRIG_R1 - 10.0, -7.0, _arm_z0 + 5.0))
-trigger = _arm.fuse(_finger).removeSplitter()
-trigger.rotate(O, ZA, wdeg(0.0))
-ramp_fire = ramp.fuse(trigger)
-ramp_safe = shifted(ramp_fire, -RAMP_RETRACT)
-# Slot in the liner for the arm (clear of the groove: at FIRE it is at z_tip0).
-_slot = Part.makeBox(cam_od / 2 + 4.0 - (cam_id / 2 - 2.0), 10.0,
-                     (_arm_z1 + 1.0) - (_arm_z0 - RAMP_RETRACT - 1.0),
-                     V(cam_id / 2 - 2.0, -5.0, _arm_z0 - RAMP_RETRACT - 1.0))
-_slot.rotate(O, ZA, wdeg(0.0))
-cam = cam.cut(_slot)
-slot_vs_groove = (z_tip0 - groove_r) - (_arm_z1 + 1.0)
+# Flat back on the mount block: 6 thick at the ends, 9.5 on the flat.
+z_ramp_back = z_ramp_low - RAMP_DEPTH
+_lift = RAMP_GAP + RAMP_PRESS
+ramp = _rf.extrude(V(0, 0, -(_lift + RAMP_DEPTH + 1.0))).common(
+    Part.makeBox(400, 400, _lift + RAMP_DEPTH + 2.0, V(-200, -200, z_ramp_back)))
+ramp_body = ramp.removeSplitter()
+
+# --- mount: a block on the liner's inner wall behind the ramp (2 x M3 into heat-set
+# inserts, blind holes); 2 x M3 from its aft face into inserts in the ramp at psi +/-20.
+# Only stations closed at FIRE pass it (|psi| <= 30).
+MOUNT_PSI, BLK_L = 20.0, 10.0
+z_blk1 = z_ramp_back
+z_blk0 = z_blk1 - BLK_L
+BLK_R0, BLK_HALF = R_TIP - 7.5, MOUNT_PSI + 4.0
+BLK_SCREW_PSI = 8.0
+INSERT_D, INSERT_DEPTH = 4.0, 5.0                 # M3 heat-set insert holes in the liner wall
+_wedge = Part.makeCylinder(cam_id / 2 + 1.0, BLK_L, V(0, 0, z_blk0), ZA, 2.0 * BLK_HALF)
+_wedge.rotate(O, ZA, wdeg(-BLK_HALF))
+guide_block = tube(cam_id, 2.0 * BLK_R0, z_blk0, z_blk1).common(_wedge)
+for _s in (-1, 1):
+    _p = polar(R_TIP, _s * MOUNT_PSI)
+    guide_block = guide_block.cut(Part.makeCylinder(1.7, BLK_L + 2.0, V(_p.x, _p.y, z_blk0 - 1.0)))
+    guide_block = guide_block.cut(Part.makeCylinder(3.0, 3.0, V(_p.x, _p.y, z_blk0 - 1.0)))   # head
+_z_blk_mid = 0.5 * (z_blk0 + z_blk1)
+insert_holes = []
+for _s in (-1, 1):
+    _d = polar(1.0, _s * BLK_SCREW_PSI)
+    _p0 = polar(BLK_R0 - 0.5, _s * BLK_SCREW_PSI, _z_blk_mid)
+    guide_block = guide_block.cut(Part.makeCylinder(1.7, cam_id / 2 - BLK_R0 + 1.0, _p0, _d))
+    guide_block = guide_block.cut(Part.makeCylinder(3.0, 3.5, _p0, _d))
+    insert_holes.append(Part.makeCylinder(INSERT_D / 2, INSERT_DEPTH + 0.5,
+                                          polar(cam_id / 2 - 0.5, _s * BLK_SCREW_PSI, _z_blk_mid), _d))
+guide_block = guide_block.removeSplitter()
+for _h in insert_holes:
+    cam = cam.cut(_h)
+ramp_fire = ramp_body
+ramp_seated = gap(ramp_body, guide_block)
+# Not through the liner: a probe from each insert hole's bottom to the outer face stays in it.
+_wall_left = (cam_od - cam_id) / 2.0 - INSERT_DEPTH
+insert_blind = True
+for _h in insert_holes:
+    _ax = _h.BoundBox.Center
+    _dir = V(_ax.x, _ax.y, 0)
+    _dir.normalize()
+    _a, _b = cam_id / 2 + INSERT_DEPTH, cam_od / 2
+    _pr = Part.makeCylinder(0.5, _b - _a - 0.1, V(_dir.x * (_a + 0.05), _dir.y * (_a + 0.05), _ax.z), _dir)
+    insert_blind = insert_blind and _pr.common(cam).Volume > 0.99 * _pr.Volume
+liner_one = len(cam.Solids) == 1
+groove_vs_mount = gap(Part.makeCompound(_balls), Part.makeCompound([guide_block] + insert_holes), pad=5.0)
 
 
 def press_at(psi, ramp_shape, plunger_local=None):
@@ -471,7 +528,7 @@ def press_at(psi, ramp_shape, plunger_local=None):
 
 
 print("ramp sweep…", flush=True)
-press_rows, press_out, body_ramp, safe_gap = [], 0.0, 99.0, 99.0
+press_rows, press_out, body_ramp = [], 0.0, 99.0
 first_touch, last_touch, sw_on, sw_off = None, None, None, None
 for _i in range(0, 241):
     psi = -60.0 + 0.5 * _i
@@ -488,7 +545,6 @@ for _i in range(0, 241):
         press_rows.append((psi, d))
         mvb = place(Part.makeCompound([valve_body, valve_fit, valve_bracket]), psi, cam_dz(psi))
         body_ramp = min(body_ramp, gap(mvb, ramp_fire))
-        safe_gap = min(safe_gap, gap(Part.makeCompound([mvb, place(valve_plunger, psi, cam_dz(psi))]), ramp_safe))
 press_max = max(d for _, d in press_rows)
 press_flat = min(d for p, d in press_rows if abs(p) <= 30.0 - RAMP_RISE)
 print("press max %.2f flat %.2f outside %.3f" % (press_max, press_flat, press_out), flush=True)
@@ -790,16 +846,9 @@ for k in range(N):
     _inner += [tube_path([p_in, p_out, p_ex, V(p_ex.x, p_ex.y, p_port.z + 4.0), p_port], HOSE_OD / 2)]
 lines_inner = Part.makeCompound(_inner)
 BUNDLE_R = R_BUNDLE + HOSE_OD / 2
-# Supply: stator inlet -> stub out to the frame's side (-Y) -> dead-man inline ->
-# thick hose from the receiver. No buffer tank.
+# Supply: thick hose from the receiver -> pommel -> dead-man in the grip -> stator's rear port
+# (drawn in "controls" below). No buffer tank.
 z_supply = z_stator0 + 20.0
-_p_in = V(0, -(MQR_D / 2 + 10.0), z_supply)
-_p_dm = V(0, -(r_case_od + 8.0), z_supply)
-air_supply = Part.makeCylinder(4.0, _p_dm.distanceToPoint(_p_in), _p_in, _p_dm.sub(_p_in))
-deadman = Part.makeCylinder(DEADMAN_R, DEADMAN_L, _p_dm, V(0, -1, 0)).fuse(
-    Part.makeBox(6.0, 8.0, 22.0, V(-3.0, _p_dm.y - DEADMAN_L / 2 - 4.0, z_supply + DEADMAN_R - 2.0))).removeSplitter()
-_p_hose = V(0, _p_dm.y - DEADMAN_L, z_supply)
-supply_hose = Part.makeCylinder(SUPPLY_HOSE_OD / 2, SUPPLY_HOSE_L, _p_hose, V(0, -1, 0))
 
 # ============================================================ pack drive from the crank
 # Crank shaft across the barrels (Y), drawn on -Y and mirrored to CRANK_SIDE, at the middle of the closed QEVs ->
@@ -960,6 +1009,418 @@ _sr = Part.makeTorus(18.0, 3.0)
 _sr.translate(V(x_handle, 0, z_cam0 - RING_T - 12.0))
 sling = _sf.fuse(_sr)
 
+# ============================================================ controls: flintlock grip, one two-stage lever, feed gate
+# The left hand holds a grip that curls down behind the rear plate like a flintlock
+# pistol's, with a brass pommel. One big lever runs along its front following its
+# curve, as on a fire extinguisher, pivoted at the top behind the plate; the hand
+# squeezes it to the grip.
+# Stage 1 (0..5 deg) = air: the lever presses the dead-man valve in the grip through
+# a pusher with an over-travel spring; the valve is fully open at 5 deg. Stage 2
+# (5..15 deg) = balls: the lever's short tail, inside the grip's root, takes up the
+# cable's slack by 5 deg and then draws the gate pin 6 mm out of the feed neck. Let go: the
+# gate pin's spring shuts the neck, the valve's spring shuts the air, a torsion spring
+# on the pivot opens the lever. The rear plate carries the MQR stator and the grip;
+# four struts tie it to the rear bearing disk's rim. The valve's outlet runs inside
+# the grip, through the plate, into the stator's rear port.
+RP_R = 50.0
+STRUT_ANGLES = (45.0, 135.0, 225.0, 315.0)
+# Grip centreline (x, z) from the plate's aft face (x 0): aft, then curling down.
+GRIP_PTS = [(0.0, 0.0), (-2.0, -14.0), (-10.0, -36.0), (-30.0, -64.0), (-62.0, -88.0), (-100.0, -102.0),
+            (-128.0, -106.0)]
+GRIP_KEYS = [(0.0, 32.0, 24.0), (0.17, 19.0, 15.5), (0.45, 21.0, 16.0), (0.75, 24.0, 18.0), (1.0, 27.0, 20.0)]
+POMMEL = (16.0, 31.0, 23.0)                      # brass cap: along the end, in the plane, across
+LEV_W, LEV_T, LEV_HUB_R = 14.0, 24.0, 6.0      # a broad blade, like an extinguisher's lever
+LEV_ANG, STAGE1 = 15.0, 5.0
+S_PIV, S_END, PIV_OFF = 0.12, 0.86, 13.0           # pivot at the top (behind the plate), free end by the pommel
+LEV_GAP_PIV = 7.0                                # blade off the grip by the pivot
+LEV_GAP_TOP = 26.0                               # ... and at its free end
+LUG_T, LUG_GAP, LEV_PIN_D = 4.0, 0.3, 5.0
+TAIL_W, TAIL_T = 6.0, 5.0
+PUSH_D, PUSH_GAP, OVERTRAVEL_MAX = 5.0, 0.5, 9.0
+DM_D, DM_L, DM_STROKE = 14.0, 18.0, 3.0           # dead-man valve body in the grip
+GATE_PIN_D, GATE_IN, GATE_CLEAR = 6.0, 5.0, 1.0
+GATE_TRAVEL = GATE_IN + GATE_CLEAR
+CABLE_OD = 5.0
+HOSE_OUT_OD = 8.0                                # dead-man -> stator
+SUP_IN_D = 8.0                                   # the receiver hose's fitting, inside the pommel
+WIRE_FREE = 14.0                                 # wire from its stop to the tail at rest
+CABLE_HOLE = (28.0, -5.0)                        # cable through the plate (outside the stator, inside the grip root)
+YA = V(0, 1, 0)
+
+
+def bar_y(a, b, w, t):
+    """Flat bar in the XZ plane from a to b ((x, z)), width w, thickness t along Y, round ends."""
+    dx, dz = b[0] - a[0], b[1] - a[1]
+    ln = math.hypot(dx, dz)
+    nx, nz = -dz / ln * w / 2, dx / ln * w / 2
+    pts = [V(a[0] + nx, -t / 2, a[1] + nz), V(b[0] + nx, -t / 2, b[1] + nz),
+           V(b[0] - nx, -t / 2, b[1] - nz), V(a[0] - nx, -t / 2, a[1] - nz)]
+    s_ = Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(0, t, 0))
+    for q in (a, b):
+        s_ = s_.fuse(Part.makeCylinder(w / 2, t, V(q[0], -t / 2, q[1]), V(0, 1, 0)))
+    return s_.removeSplitter()
+
+
+def cyl_y(x, z, r, t, y0=None):
+    return Part.makeCylinder(r, t, V(x, -t / 2 if y0 is None else y0, z), YA)
+
+
+def turn_y(shape, c, deg):
+    s_ = shape.copy()
+    s_.rotate(V(c.x, 0, c.z), YA, deg)
+    return s_
+
+
+def turn_pt(pt, c, deg):
+    v_ = Part.Vertex(pt)
+    v_.rotate(V(c.x, 0, c.z), YA, deg)
+    return v_.Point
+
+
+# --- rear plate (carries the MQR stator and the grip) + struts to the rear bearing disk
+mqr_plate = Part.makeCylinder(RP_R, z_mqr_plate1 - z_mqr_plate0, V(0, 0, z_mqr_plate0))
+_st = []
+for w in STRUT_ANGLES:
+    a = math.radians(w)
+    p0 = V(106.5 * math.cos(a), 106.5 * math.sin(a), z_brg_r0 + 4.0)
+    p1 = V((RP_R - 5.0) * math.cos(a), (RP_R - 5.0) * math.sin(a), z_mqr_plate0 + 3.0)
+    _st.append(Part.makeCylinder(SPAR_R, (p1 - p0).Length, p0, p1 - p0))
+rear_struts = Part.makeCompound(_st)
+
+# --- grip: a loft through ellipses square to a curved centreline (30 sections)
+_gc = Part.BSplineCurve()
+_gc.interpolate([V(x_, 0, z_mqr_plate0 + z_) for x_, z_ in GRIP_PTS])
+GRIP_LEN = _gc.length()
+
+
+def grip_frame(f):
+    """(centre, tangent, front normal, half height, half width) at fraction f of the grip's length."""
+    u_ = _gc.parameterAtDistance(f * GRIP_LEN, _gc.FirstParameter)
+    c_ = _gc.value(u_)
+    t_ = _gc.tangent(u_)[0]
+    t_.normalize()
+    n_ = V(t_.z, 0, -t_.x)                       # in the plane, the finger side (down at the root)
+    for (f0, h0, w0), (f1, h1, w1) in zip(GRIP_KEYS[:-1], GRIP_KEYS[1:]):
+        if f0 <= f <= f1:
+            k_ = (f - f0) / (f1 - f0)
+            k_ = k_ * k_ * (3.0 - 2.0 * k_)
+            return c_, t_, n_, h0 + k_ * (h1 - h0), w0 + k_ * (w1 - w0)
+    return c_, t_, n_, GRIP_KEYS[-1][1], GRIP_KEYS[-1][2]
+
+
+def _gsec(f):
+    c_, t_, n_, h_, w_ = grip_frame(f)
+    return Part.Wire(Part.Ellipse(c_ + n_ * h_, c_ + YA * w_, c_).toShape())
+
+
+grip_full = Part.makeLoft([_gsec(i / 29.0) for i in range(30)], True, False)
+_ce, _te, _ne, _he, _we = grip_frame(1.0)
+_sph = Part.makeSphere(1.0)
+_m = App.Matrix(_te.x * POMMEL[0], _ne.x * POMMEL[1], 0, _ce.x + _te.x * 2.0,
+                _te.y * POMMEL[0], _ne.y * POMMEL[1], POMMEL[2], 0,
+                _te.z * POMMEL[0], _ne.z * POMMEL[1], 0, _ce.z + _te.z * 2.0,
+                0, 0, 0, 1)
+pommel_full = _sph.transformGeometry(_m)
+
+# --- the lever: pivot low at the front, free end at the top 28 off the grip
+_cp, _tp_, _np, _hp, _wp = grip_frame(S_PIV)
+P_LEV = _cp + _np * (_hp + PIV_OFF)
+# Blade: follows the grip's front down to the pommel, its gap growing towards the free end.
+LEV_PTS = [P_LEV]
+for _i in range(1, 9):
+    _f = S_PIV + (S_END - S_PIV) * _i / 8.0
+    _c, _t, _n, _h, _w = grip_frame(_f)
+    _g = LEV_GAP_PIV + (LEV_GAP_TOP - LEV_GAP_PIV) * (_i / 8.0)
+    LEV_PTS.append(_c + _n * (_h + _g + LEV_W / 2))
+E_LEV = LEV_PTS[-1]
+LEV_L = sum((b_ - a_).Length for a_, b_ in zip(LEV_PTS[:-1], LEV_PTS[1:]))
+_ne_end = grip_frame(S_END)[2]
+_v = Part.Vertex(E_LEV)
+_v.rotate(V(P_LEV.x, 0, P_LEV.z), YA, 5.0)
+SQ = 1.0 if (_v.Point - E_LEV).dot(_ne_end) < 0 else -1.0     # squeeze: the free end goes to the grip
+
+
+def lever_pt(pt, deg):
+    return turn_pt(pt, P_LEV, SQ * deg)
+
+
+# Tail: from the pivot into the grip's root; solve its length so the wire draws
+# GATE_TRAVEL between the stages (the wire's stop sits behind the tip's motion).
+TAIL_DIR = _np * -1.0
+_mdir = lever_pt(P_LEV + TAIL_DIR * 30.0, 1.0) - (P_LEV + TAIL_DIR * 30.0)
+_mdir.normalize()                                # tail tip's motion on squeezing
+
+
+def _wire(L_):
+    tip0 = P_LEV + TAIL_DIR * L_
+    stop_ = tip0 - _mdir * WIRE_FREE
+    d_ = [(lever_pt(tip0, a_) - stop_).Length - WIRE_FREE for a_ in (STAGE1, LEV_ANG)]
+    return d_[0], d_[1] - d_[0], stop_
+
+
+_L0, _L1 = 20.0, 40.0
+for _i in range(30):
+    _p0, _p1 = _wire(_L0)[1] - GATE_TRAVEL, _wire(_L1)[1] - GATE_TRAVEL
+    if abs(_p1 - _p0) < 1e-12:
+        break
+    _L0, _L1 = _L1, _L1 - _p1 * (_L1 - _L0) / (_p1 - _p0)
+TAIL_L = _L1
+WIRE_SLACK, wire_travel, P_STOP = _wire(TAIL_L)
+TAIL_TIP = P_LEV + TAIL_DIR * TAIL_L
+# One smooth outline (a spline through the blade's centre points, offset either side).
+_bc = Part.BSplineCurve()
+_bc.interpolate(LEV_PTS)
+_side_a, _side_b = [], []
+for _i in range(41):
+    _u = _bc.FirstParameter + (_bc.LastParameter - _bc.FirstParameter) * _i / 40.0
+    _p = _bc.value(_u)
+    _tg = _bc.tangent(_u)[0]
+    _nn = V(_tg.z, 0, -_tg.x)
+    _nn.normalize()
+    _side_a.append(_p + _nn * (LEV_W / 2) + V(0, -LEV_T / 2, 0))
+    _side_b.append(_p - _nn * (LEV_W / 2) + V(0, -LEV_T / 2, 0))
+_outline = _side_a + list(reversed(_side_b))
+lever_blade = Part.Face(Part.makePolygon(_outline + [_outline[0]])).extrude(V(0, LEV_T, 0))
+lever_blade = lever_blade.fuse(cyl_y(E_LEV.x, E_LEV.z, LEV_W / 2, LEV_T)).removeSplitter()
+lever_0 = G.fuse_all([lever_blade, cyl_y(P_LEV.x, P_LEV.z, LEV_HUB_R, LEV_T),
+                      bar_y((P_LEV.x, P_LEV.z), (TAIL_TIP.x, TAIL_TIP.z), TAIL_W, TAIL_T)])
+lever_0 = lever_0.cut(cyl_y(P_LEV.x, P_LEV.z, LEV_PIN_D / 2 + 0.1, LEV_T + 2))
+
+
+def lever_at(deg):
+    return turn_y(lever_0, P_LEV, SQ * deg)
+
+
+finger_travel = (lever_pt(E_LEV, LEV_ANG) - E_LEV).Length
+stage1_travel = (lever_pt(E_LEV, STAGE1) - E_LEV).Length
+# Lugs on the grip each side of the lever, pin through them.
+_lugs = []
+for _sy in (-1, 1):
+    _y0 = LEV_T / 2 + LUG_GAP if _sy > 0 else -(LEV_T / 2 + LUG_GAP + LUG_T)
+    _lug = bar_y((P_LEV.x, P_LEV.z), (_cp.x, _cp.z), 2 * LEV_HUB_R + 2.0, LUG_T)
+    _lug.translate(V(0, _y0 + LUG_T / 2, 0))
+    _lugs.append(_lug)
+_pin_l = LEV_T + 2 * (LUG_GAP + LUG_T + 0.7)
+lever_pin = cyl_y(P_LEV.x, P_LEV.z, LEV_PIN_D / 2, _pin_l)
+
+# --- dead-man: a pusher on the blade's grip side, along its motion, where 5 deg of squeeze
+# makes 3 mm + 0.5 gap; checked with a probe line through the real (curved) blade.
+def _blade_face(r_):
+    """Point on the blade's grip-side face about r_ from the pivot, and the motion direction there."""
+    best = None
+    for a_, b_ in zip(LEV_PTS[:-1], LEV_PTS[1:]):
+        for k_ in range(21):
+            q_ = a_ + (b_ - a_) * (k_ / 20.0)
+            if best is None or abs((q_ - P_LEV).Length - r_) < abs((best - P_LEV).Length - r_):
+                best = q_
+    d_ = lever_pt(best, 1.0) - best              # its motion on squeezing: towards the grip
+    d_.normalize()
+    return best + d_ * (LEV_W / 2), d_
+
+
+def _probe_face(org, d_, deg):
+    """Distance along d_ from org to the rotated blade's grip-side face (probe line)."""
+    seg = Part.LineSegment(org - d_ * 30.0, org + d_ * 30.0).toShape().common(lever_at(deg))
+    return max((v_.Point - org).dot(d_) for v_ in seg.Vertexes)
+
+
+def _press(r_, deg):
+    """(axis point on the blade's centre line, direction, rest face, press at deg) for a pusher at r_."""
+    q_, d_ = _blade_face(r_)
+    q_ = q_ - d_ * (LEV_W / 2)
+    t0_ = _probe_face(q_, d_, 0.0)
+    return q_, d_, t0_, _probe_face(q_, d_, deg) - t0_ - PUSH_GAP
+
+
+_ra, _rb = 30.0, 50.0
+for _i in range(12):
+    _pa, _pb = _press(_ra, STAGE1)[3] - DM_STROKE, _press(_rb, STAGE1)[3] - DM_STROKE
+    if abs(_pb - _pa) < 1e-9:
+        break
+    _ra, _rb = _rb, _rb - _pb * (_rb - _ra) / (_pb - _pa)
+R_PUSH = _rb
+Q_PUSH, _face_n0, _push_t0, _ = _press(R_PUSH, STAGE1)
+_tip = Q_PUSH + _face_n0 * (_push_t0 + PUSH_GAP)
+
+
+def _pusher_at(tip_, len_=12.0):
+    return Part.makeCylinder(PUSH_D / 2, len_, tip_, _face_n0)
+
+
+def push_depth(tip_, deg):
+    """How far the blade at deg pushes a free pusher whose tip is at tip_ (shift it until clear)."""
+    lv_ = lever_at(deg)
+    if lv_.common(_pusher_at(tip_)).Volume < 1e-6:
+        return -gap(lv_, _pusher_at(tip_), pad=5.0)
+    lo_, hi_ = 0.0, 20.0
+    for _k in range(20):
+        mid_ = 0.5 * (lo_ + hi_)
+        if lv_.common(_pusher_at(tip_ + _face_n0 * mid_)).Volume > 1e-6:
+            lo_ = mid_
+        else:
+            hi_ = mid_
+    return hi_
+
+
+# The pusher's end meets the tilted blade at its edge first: set the real gap, then
+# correct the radius until 5 deg pushes the valve exactly its stroke.
+for _it in range(12):
+    _tip = Q_PUSH + _face_n0 * (_push_t0 + PUSH_GAP)
+    _tip = _tip + _face_n0 * (PUSH_GAP + push_depth(_tip, 0.0))
+    _p1 = push_depth(_tip, STAGE1) - PUSH_GAP
+    if abs(_p1 - DM_STROKE) < 0.03:
+        break
+    R_PUSH *= (DM_STROKE / _p1) ** 0.5
+    Q_PUSH, _face_n0, _push_t0, _ = _press(R_PUSH, STAGE1)
+_ray = Part.LineSegment(_tip, _tip + _face_n0 * 80.0).toShape().common(grip_full)
+_entry = min((v_.Point for v_ in _ray.Vertexes), key=lambda p_: (p_ - _tip).Length)
+_body0 = _entry + _face_n0 * 8.0                 # the over-travel sleeve, then the valve body
+dm_pusher = Part.makeCylinder(PUSH_D / 2, (_body0 - _tip).Length, _tip, _face_n0)
+deadman = Part.makeCylinder(DM_D / 2, DM_L, _body0, _face_n0).fuse(
+    Part.makeCylinder(4.0, 8.0, _entry, _face_n0)).removeSplitter()
+press_s1 = push_depth(_tip, STAGE1) - PUSH_GAP
+overtravel = push_depth(_tip, LEV_ANG) - PUSH_GAP - DM_STROKE
+_dm_end = _body0 + _face_n0 * DM_L
+
+# --- channels in the grip: cable (plate -> stop in the pommel, along the back), outlet
+# (valve -> along the back -> the stator's rear port), supply (pommel tip -> valve).
+_back = []
+for f_ in (0.08, 0.3, 0.55):
+    c_, t_, n_, h_, w_ = grip_frame(f_)
+    _back.append((c_, n_, h_))
+_cab_in = [V(CABLE_HOLE[0], CABLE_HOLE[1], z_mqr_plate0 + 3.0), V(CABLE_HOLE[0] - 6.0, -8.0, z_mqr_plate0 - 10.0),
+           P_STOP - _mdir * 12.0 + V(0, -4.0, 0), P_STOP]
+_out_in = [_dm_end + V(0, 5.0, 0)] + [c_ - n_ * (0.2 * h_) + V(0, 8.0, 0) for c_, n_, h_ in reversed(_back)] + \
+          [V(0, 8.0, z_mqr_plate0 - 4.0), V(0, 8.0, z_mqr_plate0 + 2.0)]
+_tip_p = _ce + _te * (POMMEL[0] + 2.0)
+_c85, _t85, _n85, _h85, _w85 = grip_frame(0.88)
+_c70, _t70, _n70, _h70, _w70 = grip_frame(0.70)
+_sup_in = [_tip_p, _ce - _ne * 10.0, _c85 - _n85 * (0.5 * _h85), _c70 - _n70 * (0.3 * _h70) + V(0, -5.0, 0),
+           _dm_end + V(0, -5.0, 0)]
+cable_in = tube_path(_cab_in, CABLE_OD / 2)
+air_supply = tube_path(_out_in, HOSE_OUT_OD / 2)
+supply_hose = Part.makeCompound([tube_path(_sup_in, SUP_IN_D / 2),
+                                 Part.makeCylinder(SUPPLY_HOSE_OD / 2, 50.0, _tip_p - _te * 2.0, _te)])
+gate_wire = Part.makeCylinder(0.6, (TAIL_TIP - P_STOP).Length, P_STOP, TAIL_TIP - P_STOP)
+_channels = [tube_path(_cab_in, CABLE_OD / 2 + 0.3), tube_path(_out_in, HOSE_OUT_OD / 2 + 0.3),
+             tube_path(_sup_in, SUP_IN_D / 2 + 0.3),
+             Part.makeCylinder(1.5, (TAIL_TIP - P_STOP).Length + 2.0, P_STOP, TAIL_TIP - P_STOP)]
+# Slot for the tail (its swept volume + 0.5 all round).
+_tail_sw = G.fuse_all([bar_y((P_LEV.x, P_LEV.z), (lever_pt(TAIL_TIP, a_).x, lever_pt(TAIL_TIP, a_).z),
+                             TAIL_W + 1.0, TAIL_T + 1.0) for a_ in [LEV_ANG * i / 6.0 for i in range(7)]])
+grip = grip_full.fuse(_lugs)
+pommel = pommel_full.cut(grip_full)
+for _c in _channels + [_tail_sw, lever_pin]:
+    grip = grip.cut(_c)
+    pommel = pommel.cut(_c)
+grip = grip.cut(Part.makeCylinder(DM_D / 2 + 0.3, DM_L + 0.3, _body0, _face_n0))
+grip = grip.cut(Part.makeCylinder(4.3, 8.3, _entry - _face_n0 * 0.3, _face_n0))
+grip = grip.cut(Part.makeCylinder(PUSH_D / 2 + 0.3, 30.0, _entry - _face_n0 * 10.0, _face_n0))
+grip = grip.removeSplitter()
+pommel = pommel.removeSplitter()
+mqr_plate = mqr_plate.cut(Part.makeCylinder(CABLE_OD / 2 + 0.5, 20.0, V(CABLE_HOLE[0], CABLE_HOLE[1], z_mqr_plate0 - 5.0)))
+mqr_plate = mqr_plate.cut(Part.makeCylinder(HOSE_OUT_OD / 2 + 0.3, 20.0, V(0, 8.0, z_mqr_plate0 - 5.0)))   # into the stator's rear port
+lever = lever_at(0.0)
+hand_left = tube_path([grip_frame(f_)[0] for f_ in (0.32, 0.5, 0.66, 0.78)], 36.0)
+
+# --- feed gate: a pin across the neck from aft, spring-closed, pulled out by the cable
+Z_NECK = Z_BALL_OPEN
+NECK_R = _fb["NECK_ID"] / 2.0
+NECK_OR = NECK_R + _fb["NECK_WALL"]
+x_gate = X_STAR + STAR_R + 0.5 + GATE_PIN_D / 2 + 1.0
+z_neck_aft = Z_NECK - NECK_OR                      # neck's outer face, aft side, at y 0
+z_pin_tip = Z_NECK - NECK_R + GATE_IN              # closed
+GATE_HW, GATE_L = 8.0, 26.0
+z_gh0 = z_neck_aft - GATE_L
+gate_housing = Part.makeBox(2 * GATE_HW, 2 * GATE_HW, GATE_L + 10.0, V(x_gate - GATE_HW, -GATE_HW, z_gh0)).cut(
+    Part.makeCylinder(NECK_OR, 60.0, V(x_gate - 30.0, 0, Z_NECK), V(1, 0, 0)))
+_cav0, _cav1 = z_gh0 + 3.0, z_neck_aft - 2.0
+gate_housing = gate_housing.cut(Part.makeCylinder(5.0, _cav1 - _cav0, V(x_gate, 0, _cav0)))
+gate_housing = gate_housing.cut(Part.makeCylinder(GATE_PIN_D / 2 + 0.15, 10.0, V(x_gate, 0, _cav1 - 1.0)))
+gate_housing = gate_housing.cut(Part.makeCylinder(1.0, 5.0, V(x_gate, 0, z_gh0 - 1.0))).removeSplitter()
+feed_head = feed_head.cut(Part.makeCylinder(GATE_PIN_D / 2 + 0.15, NECK_OR - NECK_R + 2.0,
+                                            V(x_gate, 0, z_neck_aft - 1.0)))
+# The housing is glued onto the neck and the shroud's side wall below it: it takes
+# their shape (the side wall runs down past the neck on the aft side).
+gate_housing = gate_housing.cut(feed_head).removeSplitter()
+gate_housing = Part.makeCompound([s_ for s_ in gate_housing.Solids if s_.Volume > 50.0]) \
+    if len(gate_housing.Solids) > 1 else gate_housing
+
+
+def gate_at(open_):
+    """(pin with collar, spring) closed (False) or pulled open (True)."""
+    dz_ = -GATE_TRAVEL if open_ else 0.0
+    c0 = _cav1 - 2.0 + dz_
+    pin = Part.makeCylinder(GATE_PIN_D / 2, z_pin_tip + dz_ - c0, V(x_gate, 0, c0)).fuse(
+        Part.makeCylinder(4.5, 2.0, V(x_gate, 0, c0))).removeSplitter()
+    spring = tube(8.0, 6.8, _cav0, c0, x_gate, 0.0)
+    return pin, spring, c0 - _cav0
+
+
+gate_pin, gate_spring, gate_spring_closed = gate_at(False)
+gate_pin_open, gate_spring_open, gate_spring_opened = gate_at(True)
+# Cable: housing from the gate along the top, left of the strap loop, round the rear
+# bearing disk, through the rear plate (outside the stator) into the grip, down its
+# back to the stop in the pommel; the wire runs to the lever's tail.
+_cab_ex = [V(x_gate, 0, z_gh0), V(x_gate, 0, z_gh0 - 15.0), V(128.0, -30.0, z_gh0 - 70.0),
+           V(122.0, -30.0, -120.0), V(122.0, -30.0, z_brg_r0 - 20.0), V(92.0, -18.0, z_mqr_plate1 + 25.0),
+           V(CABLE_HOLE[0], CABLE_HOLE[1], z_mqr_plate1 + 10.0), _cab_in[0]]
+cable_ex = tube_path(_cab_ex, CABLE_OD / 2)
+gate_cable = Part.makeCompound([cable_ex, cable_in])
+CABLE_LEN = path_len(_cab_ex) + path_len(_cab_in)
+gate_parts = Part.makeCompound([gate_housing, gate_pin, gate_spring])
+
+# --- control checks
+print("controls…", flush=True)
+_lev_hit, _lev_worst = 0.0, "-"
+for _i in range(7):
+    _a = LEV_ANG * _i / 6.0
+    _l = lever_at(_a)
+    for _fn, _fx in (("grip", grip), ("pommel", pommel), ("pin", lever_pin), ("plate", mqr_plate),
+                     ("cable", cable_in), ("hoses", Part.makeCompound([air_supply, supply_hose])),
+                     ("valve", deadman)):
+        if not _near(_l.BoundBox, _fx.BoundBox, 0.1):
+            continue
+        _v = _l.common(_fx).Volume
+        if _v > _lev_hit:
+            _lev_hit, _lev_worst = _v, "%s at %.1f deg" % (_fn, _a)
+lever_closed = gap(turn_y(lever_blade, P_LEV, SQ * LEV_ANG), grip_full)   # the blade; the tail lives in its slot
+push_released = gap(lever_at(0.0), dm_pusher)
+grip_on_plate = gap(grip, mqr_plate)
+grip_one = len(grip.Solids) == 1
+_skin = Part.makeCompound([f_ for f_ in grip_full.Faces if f_.Surface.__class__.__name__ != "Plane"])
+_walls = [(n_, tube_path(pts_, r_).distToShape(_skin)[0])
+          for n_, pts_, r_ in (("cable", _cab_in[1:], CABLE_OD / 2 + 0.3), ("outlet", _out_in[1:-2], HOSE_OUT_OD / 2 + 0.3),
+                               ("valve", [_body0, _dm_end], DM_D / 2 + 0.3))]
+chan_wall = min(w_ for _, w_ in _walls)
+_wall_worst = min(_walls, key=lambda x_: x_[1])[0]
+stop_in_pommel = Part.makeSphere(CABLE_OD / 2, P_STOP).common(Part.makeCompound([pommel_full, grip_full])).Volume \
+    > 0.99 * (4.0 / 3.0 * math.pi * (CABLE_OD / 2) ** 3)
+# Gate: a ball in the neck at the pin, on the axis and pushed to either wall.
+_gate_block, _gate_free = 99.0, 99.0
+for _off in (-(NECK_R - PELLET_D / 2), 0.0, NECK_R - PELLET_D / 2):
+    _b = Part.makeSphere(PELLET_D / 2, V(x_gate, 0, Z_NECK + _off))
+    _gate_block = min(_gate_block, _b.common(gate_pin).Volume)
+    _gate_free = min(_gate_free, gap(_b, gate_pin_open))
+gate_head = max(gate_housing.common(feed_head).Volume, gate_pin.common(feed_head).Volume,
+                gate_pin_open.common(feed_head).Volume)
+gate_star = min(gap(Part.makeCompound([gate_housing, gate_pin, gate_pin_open]), star_at(d_))
+                for d_ in [-30.0 + 5.0 * i for i in range(13)])
+gate_lip = gap(gate_parts, feed_lip)
+# Struts against what turns behind the pack (the lines, coupling and rotor are 6-fold).
+strut_turn = 99.0
+for _a in range(0, 60, 5):
+    for _r in (lines_inner, soft_coup, mqr_rotor):
+        strut_turn = min(strut_turn, gap(rot(_r, float(_a)), rear_struts, pad=5.0))
+strut_on = min(gap(rear_struts, brg_r), gap(rear_struts, mqr_plate))
+_cable_fixed = [("liner", cam), ("frame", pack_frame), ("bearing disks", Part.makeCompound([brg_f, brg_r])),
+                ("strap", sling), ("struts", rear_struts), ("stator", mqr_stator), ("star train box", gearbox),
+                ("feed cup", feed_cup), ("star", star0)]
+cable_gap, cable_near = min((gap(cable_ex, s_, pad=5.0), n_) for n_, s_ in _cable_fixed)
+_hand_l_gun = [("plate", mqr_plate), ("struts", rear_struts), ("stator", mqr_stator), ("cable", cable_ex),
+               ("bearing disk", brg_r), ("receiver hose", supply_hose.Solids[-1])]
+hand_l_gap, hand_l_near = min((gap(hand_left, s_, pad=5.0), n_) for n_, s_ in _hand_l_gun)
+
 # ============================================================ fast checks (the full turn: breech_mechanism_sweep.py)
 # Fingers vs frame: only the finger tip reaches past the spars' inner radius,
 # and it stays behind the liner's front face, where the spars start.
@@ -983,7 +1444,7 @@ liner_clear = cam_id / 2.0 - r_rot_max
 spar_clear = (_spar_rc - SPAR_R) - r_rot_max
 aft_clear = brg_f.BoundBox.ZMax - _rot_min          # >0 would be overlap; we want negative
 aft_gap = _rot_min - brg_f.BoundBox.ZMax
-lines_fixed = min(gap(lines_inner, s) for s in (brg_f, brg_r, mqr_stator, deadman, air_supply, supply_hose, mqr_plate))
+lines_fixed = min(gap(lines_inner, s) for s in (brg_f, brg_r, mqr_stator, air_supply, mqr_plate, rear_struts))
 bundle_fit = (AXLE_ID / 2.0) - BUNDLE_R
 bearings_on_axle = (gap(pack_axle, brg_f) < 1.5 and gap(pack_axle, brg_r) < 1.5
                     and brg_f.BoundBox.ZMin > z_axle0 and brg_r.BoundBox.ZMin > z_axle0)
@@ -1011,11 +1472,14 @@ bevels_apart = gap(bevel_small, crank_gear)
 _hand_gun = [("star-drive box", gearbox), ("star train", Part.makeCompound([gear_a, gear_b, gear_i, gear_s])),
              ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("carry handle", carry_handle),
              ("strap loops", sling), ("frame", pack_frame), ("liner", cam), ("front plate", front_plate),
-             ("ramp and trigger", ramp_fire), ("bearing disks", Part.makeCompound([brg_f, brg_r])),
+             ("ramp", ramp_fire),
+             ("bearing disks", Part.makeCompound([brg_f, brg_r])),
              ("dead-man and hose", Part.makeCompound([deadman, air_supply, supply_hose])),
              ("pack (six phases)", Part.makeCompound(stations)), ("rim", rim_gear)]
 hand_gap, hand_near = min((gap(hand_space, s_, pad=150.0), n_) for n_, s_ in _hand_gun)
 hand_own = min(gap(hand_space, s_, pad=20.0) for n_, s_ in drive_parts if n_ != "crank shaft")
+# Ramp mount block vs the stations, six phases (full turn in the sweep).
+mount_vs_stations = min(gap(guide_block, st) for st in stations)
 print("fast checks done", flush=True)
 
 # ============================================================ assembly / checks / report
@@ -1023,11 +1487,12 @@ pack = Part.makeCompound(stations)
 assembly = Part.makeCompound([
     pack, cam, front_plate, pack_frame, rear_disk, rim_gear, gear_a, gear_b, gear_i, gear_s,
     star_shaft, lay_shaft, idl_shaft, gearbox, star0, feed_head, feed_lip, feed_cup, feed_guard,
-    ramp_fire, crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings,
+    ramp_fire, guide_block, rear_struts, grip, pommel, lever, lever_pin, dm_pusher, gate_wire, gate_cable,
+    gate_housing, gate_pin, gate_spring, crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings,
     carry_handle, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
     mqr_plate, lines_inner, deadman, air_supply, supply_hose,
 ])
-bb = assembly.BoundBox
+bb = assembly.optimalBoundingBox()
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
 case_od = 2.0 * r_case_od
 closed_L = (z_stop + BARREL_SHOW) - Z_AFT_CLIP
@@ -1057,8 +1522,33 @@ checks = [
      abs(press_flat - RAMP_PRESS) < 0.05 and press_max <= RAMP_PRESS + 0.05),
     ("valve body clear of the ramp at FIRE (%.2f: plunger sticks out %.1f, press %.1f)" % (body_ramp, PL_L, RAMP_PRESS),
      body_ramp >= PL_L - RAMP_PRESS - 0.05),
-    ("trigger released: plungers and bodies clear by %.2f" % safe_gap, safe_gap >= 1.0),
-    ("trigger arm slot clear of the groove (%.1f mm)" % slot_vs_groove, slot_vs_groove >= 2.0),
+    ("ramp fixed in the press position, seated on its mount block (%.2f)" % ramp_seated, ramp_seated < 0.01),
+    ("liner not cut through: insert holes blind (%.1f wall left), one solid" % _wall_left, insert_blind and liner_one),
+    ("ramp mount block and insert holes clear of the groove (%s), stations six phases (%s)"
+     % (far(groove_vs_mount), far(mount_vs_stations, 2.0)), groove_vs_mount >= 2.0 and mount_vs_stations >= CLEAR),
+    ("rear plate on %d struts from the rear bearing disk (%.2f), grip on the plate (%.2f); struts vs lines,"
+     " coupling, rotor over a turn %s" % (len(STRUT_ANGLES), strut_on, grip_on_plate, far(strut_turn)),
+     strut_on < 0.05 and grip_on_plate < 0.05 and strut_turn >= 2.0),
+    ("grip one solid; cable, outlet and valve inside it (wall %.1f at the %s); cable stop inside the grip"
+     % (chan_wall, _wall_worst), grip_one and chan_wall >= 1.5 and stop_in_pommel),
+    ("lever 0..%.0f deg in 6 steps: no overlap with the grip, pommel, pin, plate, cable, hoses, valve (%.3f mm3 %s);"
+     " closed %.2f off the grip" % (LEV_ANG, _lev_hit, _lev_worst, lever_closed), _lev_hit < 0.01 and lever_closed >= 1.0),
+    ("stage 1 (0..%.0f deg, free end %.1f mm): dead-man pressed %.2f of %.1f, pusher %.2f off released;"
+     " over-travel %.1f by %.0f deg (<= %.0f)" % (STAGE1, stage1_travel, press_s1, DM_STROKE, push_released, overtravel,
+                                                 LEV_ANG, OVERTRAVEL_MAX),
+     abs(press_s1 - DM_STROKE) < 0.05 and push_released >= PUSH_GAP - 0.05 and 0.0 < overtravel <= OVERTRAVEL_MAX),
+    ("stage 2 (%.0f..%.0f deg): the tail takes up %.1f mm of slack, then pulls the wire %.2f = gate travel %.1f"
+     % (STAGE1, LEV_ANG, WIRE_SLACK, wire_travel, GATE_TRAVEL), abs(wire_travel - GATE_TRAVEL) < 0.05 and WIRE_SLACK > 0.5),
+    ("gate closed stops a ball anywhere across the neck (%.0f mm3), open lets it by (%.2f)"
+     % (_gate_block, _gate_free), _gate_block > 1.0 and _gate_free >= 0.5),
+    ("gate housing glued on the neck (%d solid), pin through its own hole (%.3f mm3 into the feed head);"
+     " clear of the star over its turn (%.2f) and the lip (%s)"
+     % (len(gate_housing.Solids), gate_head, gate_star, far(gate_lip)),
+     len(gate_housing.Solids) == 1 and gate_head < 0.01 and gate_star >= CLEAR and gate_lip >= CLEAR),
+    ("gate cable %.0f mm (through the rear plate into the grip) clear of the liner, frame, disks, strap,"
+     " struts, stator, box, cup, star (%.2f, %s)"
+     % (CABLE_LEN, cable_gap, cable_near), cable_gap >= 2.0),
+    ("left hand round the grip (R 36) %s to the gun (%s)" % (far(hand_l_gap), hand_l_near), hand_l_gap >= 5.0),
     ("feed bench as library: %d of %d [OK]" % (fb_n_ok, len(FB_CHECKS)), _fb_ok and fb_n_ok == len(FB_CHECKS)),
     ("handoff at 180 (LOAD): pocket on the ball seat %.2f mm, speed %.3f" % (_handoff_err, SPEED_RATIO),
      _handoff_err < 0.3 and LOAD_A <= 180.0 <= LOAD_B and abs(SPEED_RATIO - 1.0) <= 0.02),
@@ -1115,8 +1605,14 @@ report = [
     "  firing ramp            : r %.1f, low z %.1f; touch %.1f..%.1f, switch %.1f..%.1f, full %.0f..%.0f deg;"
     " press %.2f" % (R_TIP, z_ramp_low, first_touch % 360, last_touch, sw_on % 360, sw_off,
                      (-(30 - RAMP_RISE)) % 360, 30 - RAMP_RISE, press_flat),
-    "  trigger                : finger under the pack pulls the ramp forward; spring back %.0f mm = safe"
-    % RAMP_RETRACT,
+    "  ramp                   : fixed in the press position on a block in the liner (z %.1f..%.1f, 2 x M3 inserts);"
+    " air is switched by the dead-man" % (z_blk0, z_blk1),
+    "  controls               : flintlock grip behind the rear plate (%.0f long, brass pommel); one lever along its"
+    " front, %.0f long, pivot at the top behind the plate, %.0f deg; stage 1 to %.0f deg = air (dead-man, %.1f mm at the free end),"
+    " stage 2 = balls (Bowden %.0f mm, slack %.1f, gate pin %.1f); free end %.1f mm"
+    % (GRIP_LEN, LEV_L, LEV_ANG, STAGE1, stage1_travel, CABLE_LEN, WIRE_SLACK, GATE_TRAVEL, finger_travel),
+    "  rear frame             : plate R %.0f carries the MQR stator and the grip; %d struts Ø%.0f to the rear bearing"
+    " disk" % (RP_R, len(STRUT_ANGLES), 2 * SPAR_R),
     "  feed                   : feed_bench star (3 pockets, 2:1) at the top; handoff 180°;"
     " guard %.0f–%.0f° following the close" % (GUARD_PHI0, GUARD_END),
     "  star drive             : rim %d on the breech clamps (z %.1f..%.1f) -> %d | %d -> %d -> %d;"
@@ -1124,7 +1620,7 @@ report = [
     "  frame envelope Ø       : %.0f (liner); was %.0f" % (case_od, CASE_OD_START),
     "  air                    : axle Al %.0f x %.1f, %s; 6 lines 1/8\" inside; MQR rotor z %.0f..%.0f"
     % (AXLE_OD, (AXLE_OD - AXLE_ID) / 2.0, BRG_NAME, z_rotor0, z_rotor1),
-    "  air supply             : no buffer; Ø%.0f hose from the receiver -> dead-man -> stator (z %.0f)"
+    "  air supply             : no buffer; Ø%.0f hose from the receiver -> pommel -> dead-man in the grip -> stator's rear port (z %.0f)"
     % (SUPPLY_HOSE_OD, z_supply),
     "  pack drive             : crank axis across the barrels (%s) at z %.0f (middle of the closed QEV);"
     " bevel %d:%d m%.0f -> lay shaft at r %.0f -> gear %d in rim %d; %.2f pack turn per crank turn"
@@ -1143,7 +1639,7 @@ for n, ang, u, dz, tag in phases:
     report.append("    %d @ %3.0f°  u=%.2f  dz=%6.1f  %s" % (n, ang, u, dz, tag))
 report += [
     "  overall LxWxH         : %.0f x %.0f x %.0f mm (was %.0f long)" % (gun_L, gun_W, gun_H, L_START),
-    "  not drawn             : ramp guide pins + spring + trigger pivot, valve bracket bolts,"
+    "  not drawn             : valve bracket bolts,"
     " 1→6 manifold on the stator, crank arm and knob, wheeled carriage, freeze",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
@@ -1174,6 +1670,8 @@ FV.STYLES["deadman"] = ((0.75, 0.25, 0.20), 15)
 FV.STYLES["guard"] = ((0.60, 0.30, 0.75), 40)
 FV.STYLES["carry"] = ((0.28, 0.28, 0.30), 15)
 FV.STYLES["hand"] = ((0.95, 0.75, 0.60), 80)
+FV.STYLES["wood"] = ((0.45, 0.27, 0.13), 0)
+FV.STYLES["brass"] = ((0.80, 0.63, 0.28), 0)
 
 if BREECH_MECH_LIBRARY:
     raise SystemExit(0 if all(ok for _, ok in checks) else 1)
@@ -1183,7 +1681,20 @@ sc = FV.Scene(NAME)
 for i, st in enumerate(stations):
     sc.add("Phases", "Station_%d_%d" % (i + 1, int(phases[i][1])), st, "ph%d" % i)
 sc.add("Cam", "Cam_liner", cam, "cam")
-sc.add("Fire", "Firing_ramp_and_trigger", ramp_fire, "ramp")
+sc.add("Fire", "Firing_ramp", ramp_body, "ramp")
+sc.add("Fire", "Ramp_mount_block", guide_block, "frame")
+sc.add("Controls", "Grip", grip, "wood")
+sc.add("Controls", "Pommel", pommel, "brass")
+sc.add("Controls", "Lever", lever, "ramp")
+sc.add("Controls", "Lever_pin", lever_pin, "drive")
+sc.add("Controls", "Deadman_pusher", dm_pusher, "drive")
+sc.add("Controls", "Gate_cable", gate_cable, "drive")
+sc.add("Controls", "Gate_wire", gate_wire, "drive")
+sc.add("Controls", "Gate_housing", gate_housing, "feed")
+sc.add("Controls", "Gate_pin", gate_pin, "ramp")
+sc.add("Controls", "Gate_spring", gate_spring, "brg")
+sc.add("Reference", "Left_hand_on_grip", hand_left, "hand")
+sc.add("Air", "Rear_struts", rear_struts, "frame")
 sc.add("Skin", "Front_barrel_plate", front_plate, "plate")
 sc.add("Skin", "Pack_frame", pack_frame, "frame")
 sc.add("Skin", "Rear_rail_disk", rear_disk, "plate")
@@ -1219,7 +1730,7 @@ sc.add("Air", "Bearing_rear", brg_r, "brg")
 sc.add("Air", "Soft_coupling", soft_coup, "drive")
 sc.add("Air", "MQR_rotor", mqr_rotor, "mqr")
 sc.add("Air", "MQR_stator", mqr_stator, "mqr")
-sc.add("Air", "MQR_plate", mqr_plate, "frame")
+sc.add("Air", "Rear_plate", mqr_plate, "frame")
 sc.add("Air", "Lines_in_axle", lines_inner, "hose")
 sc.add("Air", "Deadman_valve", deadman, "deadman")
 sc.add("Air", "Supply_stub", air_supply, "hose")

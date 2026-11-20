@@ -10,8 +10,10 @@ independent):
 - every 3 deg of pack turn over a station pitch (the stations are identical):
   each station's moving parts, fixed parts, plunger and line R against every
   fixed part - star in its pose, guard, feed head, TPU lip, cup, the star train
-  and its box, the released ramp, the pressed ramp (bodies and lines only: the
-  plungers are meant to touch it), the front bearing disk, the pack drive
+  and its box, the ramp's mount block, the fixed ramp (it stays in the press
+  position; bodies and lines only: the plungers are meant to touch it), the
+  front bearing disk, the rear plate and its struts, the feed gate and its
+  cable, the pack drive
   (crank bracket, bevel pair, shafts, bearings; the room for the hand), carry
   handle, strap; the gears that mesh the rim (star train gear A, crank gear 60)
   against the stations; the rim against the fixed parts;
@@ -88,7 +90,7 @@ if _WORKER:
             low("gear A (meshes the rim)", min(_gap(fx, gear_a), _gap(mv, gear_a)))
             low("crank gear (meshes the rim)", min(_gap(fx, pinion), _gap(mv, pinion)))
             if near_fire:
-                low("ramp, trigger pulled (bodies and lines, not plungers)", min(_gap(mv, ramp_fire), _gap(lr, ramp_fire)))
+                low("fixed ramp (bodies and lines, not plungers)", min(_gap(mv, ramp_fire), _gap(lr, ramp_fire)))
         for f in fixed:
             low("rim vs fixed parts", _gap(rim, f))
     for ph in task["phase"]:
@@ -121,7 +123,9 @@ SWEEP_STEP = 3.0
 PHASE_STEP = 5.0
 WORK = tempfile.mkdtemp(prefix="breech_sweep_")
 fixed_list = ([("guard", feed_guard), ("feed head", feed_head), ("TPU lip", feed_lip), ("cup", feed_cup),
-               ("ramp, trigger released", ramp_safe), ("front bearing disk", brg_f),
+               ("ramp mount block", guide_block), ("front bearing disk", brg_f),
+               ("rear plate and struts", Part.makeCompound([mqr_plate, rear_struts])),
+               ("feed gate and its cable", Part.makeCompound([gate_housing, gate_pin, gate_pin_open, gate_cable])),
                ("carry handle", carry_handle), ("strap", sling), ("room for the hand", hand_space)]
               + [(n, s) for n, s in train_parts if not n.startswith("gear A")]
               + [(n, s) for n, s in drive_parts if not n.startswith("crank gear")])
@@ -187,10 +191,10 @@ sweep_checks = [("mechanism build and fast checks", _mech_ok),
                 ("all %d workers finished%s" % (len(procs), (" (failed: %s, logs in %s)" % (failed, WORK)) if failed else ""),
                  not failed)]
 for n in [n for n, _ in fixed_list] + ["star", "gear A (meshes the rim)", "crank gear (meshes the rim)",
-                                        "ramp, trigger pulled (bodies and lines, not plungers)", "rim vs fixed parts"]:
+                                        "fixed ramp (bodies and lines, not plungers)", "rim vs fixed parts"]:
     v = results.get(n, 99.0)
     # The pressed ramp sits PL_L - RAMP_PRESS (0.5) off the valve bodies by design.
-    lim = (PL_L - RAMP_PRESS - 0.05) if n.startswith("ramp, trigger pulled") else CLEAR - 1e-3
+    lim = (PL_L - RAMP_PRESS - 0.05) if n.startswith("fixed ramp") else CLEAR - 1e-3
     sweep_checks.append(("full turn: stations vs %s %.2f >= %.2f" % (n, v, lim), v >= lim))
 sweep_checks += [
     ("every %.0f deg of phase: whole stations vs neighbours %.2f" % (PHASE_STEP, results.get("neighbours", -1)),
