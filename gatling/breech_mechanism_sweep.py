@@ -11,8 +11,10 @@ independent):
   each station's moving parts, fixed parts, plunger and line R against every
   fixed part - star in its pose, guard, feed head, TPU lip, cup, the star train
   and its box, the released ramp, the pressed ramp (bodies and lines only: the
-  plungers are meant to touch it), the front bearing disk, crank, carry
-  handle, strap; the rim against the fixed parts;
+  plungers are meant to touch it), the front bearing disk, the pack drive
+  (crank bracket, bevel pair, shafts, bearings; the room for the hand), carry
+  handle, strap; the gears that mesh the rim (star train gear A, crank gear 60)
+  against the stations; the rim against the fixed parts;
 - every 5 deg of phase: whole stations (valve group and lines included)
   against their neighbours, and the valve group and line R against their own
   station.
@@ -74,8 +76,8 @@ if _WORKER:
 
     for pose in task["turn"]:
         sh = _read(pose["brep"]).childShapes()
-        star, rim, gear_a, ramp_fire = sh[0], sh[1], sh[2], sh[3]
-        st = sh[4:]
+        star, rim, gear_a, ramp_fire, pinion = sh[0], sh[1], sh[2], sh[3], sh[4]
+        st = sh[5:]
         for k, near_fire in enumerate(pose["near_fire"]):
             mv, fx, pl, lr = st[4 * k:4 * k + 4]
             for n, f in zip(names, fixed):
@@ -84,6 +86,7 @@ if _WORKER:
             for g_ in (mv, fx, pl, lr):
                 low("star", _gap(g_, star))
             low("gear A (meshes the rim)", min(_gap(fx, gear_a), _gap(mv, gear_a)))
+            low("crank gear (meshes the rim)", min(_gap(fx, pinion), _gap(mv, pinion)))
             if near_fire:
                 low("ramp, trigger pulled (bodies and lines, not plungers)", min(_gap(mv, ramp_fire), _gap(lr, ramp_fire)))
         for f in fixed:
@@ -118,9 +121,10 @@ SWEEP_STEP = 3.0
 PHASE_STEP = 5.0
 WORK = tempfile.mkdtemp(prefix="breech_sweep_")
 fixed_list = ([("guard", feed_guard), ("feed head", feed_head), ("TPU lip", feed_lip), ("cup", feed_cup),
-               ("ramp, trigger released", ramp_safe), ("front bearing disk", brg_f), ("crank", crank),
-               ("carry handle", carry_handle), ("strap", sling)]
-              + [(n, s) for n, s in train_parts if not n.startswith("gear A")])
+               ("ramp, trigger released", ramp_safe), ("front bearing disk", brg_f),
+               ("carry handle", carry_handle), ("strap", sling), ("room for the hand", hand_space)]
+              + [(n, s) for n, s in train_parts if not n.startswith("gear A")]
+              + [(n, s) for n, s in drive_parts if not n.startswith("crank gear")])
 fixed_path = os.path.join(WORK, "fixed.brep")
 Part.makeCompound([s for _, s in fixed_list]).exportBrep(fixed_path)
 
@@ -128,7 +132,7 @@ turn_poses = []
 for _i in range(int(round(60.0 / SWEEP_STEP))):
     th = _i * SWEEP_STEP
     d = ((th + 30.0) % 60.0) - 30.0
-    parts = [star_at(d), rot(rim_gear, th), gear_a, ramp_fire]
+    parts = [star_at(d), rot(rim_gear, th), gear_a, ramp_fire, crank_gear]
     near_fire = []
     for k in range(N):
         phi = k * 60.0 + th
@@ -182,7 +186,7 @@ print("sweep: workers done in %.0f s total" % (time.time() - _t0), flush=True)
 sweep_checks = [("mechanism build and fast checks", _mech_ok),
                 ("all %d workers finished%s" % (len(procs), (" (failed: %s, logs in %s)" % (failed, WORK)) if failed else ""),
                  not failed)]
-for n in [n for n, _ in fixed_list] + ["star", "gear A (meshes the rim)",
+for n in [n for n, _ in fixed_list] + ["star", "gear A (meshes the rim)", "crank gear (meshes the rim)",
                                         "ramp, trigger pulled (bodies and lines, not plungers)", "rim vs fixed parts"]:
     v = results.get(n, 99.0)
     # The pressed ramp sits PL_L - RAMP_PRESS (0.5) off the valve bodies by design.

@@ -20,7 +20,8 @@ Pack R / casing may move if parts will not seat. No wheeled carriage; no
 full-length tube. Exports: exports/gatling_breech_mechanism/
 
 The model is built in its final pose: hopper and star on +X (top), firing
-sector at the bottom (-X), crank on -Y. Pack angle phi (0 = FIRE) sits at
+sector at the bottom (-X), crank on +Y (the shooter's right; it was on -Y
+until 2026-11-20). Pack angle phi (0 = FIRE) sits at
 world angle phi + 180.
 
 2026-11-20 (owner's choice of the three layouts in docs/gatling.md, plan
@@ -55,6 +56,24 @@ questions 2-4):
   burst was held by the source and hose anyway. A thick hose from the
   receiver comes in on -Y, through the dead-man inline on the supply stub,
   into the MQR stator.
+
+2026-11-20, pack drive from the crank: the crank shaft runs across the
+barrels on +Y (the shooter's right) at the middle of the closed QEVs (x 0,
+z 75). It is drawn on -Y and mirrored (CRANK_SIDE): the frame is symmetric
+and the rim maps onto itself, so the meshes hold. A bevel pair
+20:20 m 2 turns it onto a lay shaft parallel to the axle at r 135, outside
+the frame (the stations sweep r <= 96.3 there and the frame spar on that side takes
+r 100..108); a gear 60 (m 1.5) on that shaft meshes the star-drive rim 120.
+One crank turn = 60 / 120 = 0.5 pack turn, so 60 rpm gives 3 shots/s; the
+top of the crank goes aft, towards the shooter. The first draft (crank at
+z 302 ahead of the clamps, bevel 48:16, pinion 20 at r 105) moved here at the
+owner's request; at r 105 the long shaft would cut the spar and front ring.
+Shafts Ø8 on 608s: the pair's bracket (two plates) sits on the spar, the
+rim-gear boss on the front ring. The bevels use gears.bevel_gear(back_cone=
+True) (full-height teeth; the planar form is half height at 45 deg and gave a
+16:48 pair 0.2 mm teeth). Tooth counts are a draft until the bench measures
+the torque. The crank arm and knob are not drawn; a reference body (knob
+orbit R 80, fist R 45 x 100) keeps room for the hand.
 """
 import importlib
 import math
@@ -782,12 +801,154 @@ deadman = Part.makeCylinder(DEADMAN_R, DEADMAN_L, _p_dm, V(0, -1, 0)).fuse(
 _p_hose = V(0, _p_dm.y - DEADMAN_L, z_supply)
 supply_hose = Part.makeCylinder(SUPPLY_HOSE_OD / 2, SUPPLY_HOSE_L, _p_hose, V(0, -1, 0))
 
-# ============================================================ crank, carry, strap
-z_crank = 0.5 * (z_cam0 + z_stop)
-_y0 = -(r_case_od - 2.0)
-crank = Part.makeCylinder(12.0, 18.0, V(0, _y0, z_crank), V(0, -1, 0)).fuse(
-    Part.makeBox(10.0, 55.0, 10.0, V(-5.0, _y0 - 16.0 - 55.0, z_crank - 5.0))).fuse(
-    Part.makeSphere(14.0, V(0.0, _y0 - 16.0 - 55.0, z_crank))).removeSplitter()
+# ============================================================ pack drive from the crank
+# Crank shaft across the barrels (Y), drawn on -Y and mirrored to CRANK_SIDE, at the middle of the closed QEVs ->
+# bevel pair 20:20 m 2 -> lay shaft parallel to the axle, outside the frame (r 135)
+# -> gear 60 in the star-drive rim 120 (plane 1). One crank turn = 60 / 120 = 0.5
+# pack turn. Along the QEVs the stations sweep r <= 96.3 and the frame spar on
+# -Y takes r 100..108, so the shaft runs at r 135: its rim gear is then 60 (not
+# a pinion 20, whose shaft at r 105 would cut the spar and the front ring) and
+# the pair is 1:1. Tooth counts are a draft; the bench measures the torque.
+CP_Z = 60                         # gear in the rim (m GEAR_M)
+CB_M, CB_ZS, CB_ZB = 2.0, 20, 20  # bevel pair: lay shaft, crank shaft
+CB_FACE, CB_BACKLASH = 9.0, 0.2
+CRANK_ANG = -90.0                 # lay shaft as drawn (-Y); the crank axis is world Y
+CRANK_SIDE = +1                   # +1: mirrored onto +Y (the shooter's right), -1: as drawn
+CBRG_OD, CBRG_W = 22.0, 7.0       # 608
+CBOSS_OD = CBRG_OD + 8.0
+R_CP = GEAR_M * CP_Z / 2.0
+CP_C = V((R_RIM + R_CP) * math.cos(math.radians(CRANK_ANG)),
+         (R_RIM + R_CP) * math.sin(math.radians(CRANK_ANG)), 0)
+CB_DS = math.degrees(math.atan2(CB_ZS, CB_ZB))             # pitch cone angles, shafts at 90 deg
+CB_DB = 90.0 - CB_DS
+CB_RS = CB_M * CB_ZS / 2.0
+_chamber = qev_closed["Chamber_tube"].BoundBox
+Z_CRANK = 0.5 * (_chamber.ZMin + _chamber.ZMax)           # crank axis = cone apex: middle of the closed QEV
+APEX = V(CP_C.x, CP_C.y, Z_CRANK)
+crank_gear = spur(CP_Z, follow_phase(O, Z_RIM, PH_RIM, CP_C, CP_Z), CP_C, P1_Z0, SHAFT_D + 0.2)
+
+# Local frame: apex at the origin, axes as the world (+Z muzzle, -Y out); the lay
+# shaft is the local Z axis, the crank shaft the local Y axis.
+# Lay-shaft bevel: body ahead of the apex (+Z), a tooth at local -Y (the mesh side).
+# back_cone: full-height teeth (the plain planar form makes them half height at 45 deg).
+bevel_small, CB_INFO_S = GR.bevel_gear(CB_M, CB_ZS, CB_FACE, 16.0, 3.0, SHAFT_D + 0.2, CB_BACKLASH,
+                                       delta_deg=CB_DS, phase_deg=-90.0, back_cone=True)
+# Crank bevel: local +Z -> world -Y (90 deg about X); its gap at local +Y -> world +Z.
+bevel_big, CB_INFO_B = GR.bevel_gear(CB_M, CB_ZB, CB_FACE, 24.0, 10.0, SHAFT_D + 0.2, CB_BACKLASH,
+                                     delta_deg=CB_DB, phase_deg=90.0 + 180.0 / CB_ZB, back_cone=True)
+bevel_big.rotate(O, V(1, 0, 0), 90.0)
+bevel_small.translate(APEX)
+bevel_big.translate(APEX)
+
+
+def to_drive(s):
+    m = s.copy()
+    m.translate(APEX)
+    return m
+
+
+def _rz(zw):
+    return zw - Z_CRANK                                   # world z -> local
+
+
+# Lay shaft: from the bevel's small end to ahead of the rim gear.
+_ls0 = CB_INFO_S["small_end_z"] - 1.0
+_ls1 = _rz(P1_Z1 + 2.0)
+pin_shaft = to_drive(Part.makeCylinder(SHAFT_D / 2, _ls1 - _ls0, V(0, 0, _ls0)))
+# Crank shaft on two 608 in a boss outboard of the crank bevel; the outer end is
+# left for the crank arm (drawn later).
+CRANK_STUB = 22.0
+y_cb0 = CB_INFO_B["mount"] + 3.0                          # boss, from the apex outward
+y_cb1 = y_cb0 + 2 * CBRG_W + 14.0
+crank_shaft = to_drive(Part.makeCylinder(SHAFT_D / 2, y_cb1 + CRANK_STUB - CB_INFO_B["small_end_z"] + 1.0,
+                                         V(0, -(CB_INFO_B["small_end_z"] - 1.0), 0), V(0, -1, 0)))
+# Bracket 1 (at the pair): plate A across the lay shaft ahead of its bevel (608),
+# plate B outboard of the crank bevel with the crank boss (2 x 608); plate A
+# reaches in onto the frame spar (at 270, mirrored 90). Bracket 2: a boss behind the rim gear
+# (608) on a foot on the front frame ring.
+_tip = CB_RS + CB_M + 1.0                                 # bevel tip radius + 1
+PL_T = CBRG_W + 2.0
+z_pa0 = CB_INFO_S["mount"] + 1.0
+_pa_in = -APEX.y - (_spar_rc + 1.0)                       # plate A inner edge: 1 mm past the spar axis
+y_pb0 = CB_INFO_B["mount"] + 3.0
+_br = [Part.makeBox(2 * _tip, _pa_in + y_pb0 + PL_T, PL_T, V(-_tip, -(y_pb0 + PL_T), z_pa0)),
+       Part.makeBox(2 * _tip, PL_T, z_pa0 + PL_T + _tip + 4.0, V(-_tip, -(y_pb0 + PL_T), -_tip - 4.0)),
+       Part.makeCylinder(CBOSS_OD / 2, y_cb1 - y_cb0, V(0, -y_cb0, 0), V(0, -1, 0))]
+bracket_pair = G.fuse_all(_br)
+bracket_pair = bracket_pair.cut(Part.makeCylinder(CBRG_OD / 2 + 0.1, CBRG_W, V(0, 0, z_pa0 + 1.0)))
+bracket_pair = bracket_pair.cut(Part.makeCylinder(SHAFT_D / 2 + 1.0, 60, V(0, 0, z_pa0 - 20)))
+for yb in (y_cb0 + 1.0, y_cb1 - 1.0 - CBRG_W):
+    bracket_pair = bracket_pair.cut(Part.makeCylinder(CBRG_OD / 2 + 0.1, CBRG_W, V(0, -yb, 0), V(0, -1, 0)))
+bracket_pair = bracket_pair.cut(Part.makeCylinder(SHAFT_D / 2 + 1.0, 300, V(0, 50, 0), V(0, -1, 0)))
+z_cboss_r0, z_cboss_r1 = P1_Z0 - 1.0 - PL_T, P1_Z0 - 1.0
+_ring_in = -APEX.y - (r_case_od - 2.0)                    # local y 2 mm into the front ring
+_b2 = [Part.makeCylinder(CBOSS_OD / 2, PL_T, V(0, 0, _rz(z_cboss_r0))),
+       Part.makeBox(16.0, _ring_in, z_cboss_r1 - (Z_FRING1 - 1.0), V(-8.0, 0.0, _rz(Z_FRING1 - 1.0)))]
+bracket_rim = G.fuse_all(_b2)
+bracket_rim = bracket_rim.cut(Part.makeCylinder(CBRG_OD / 2 + 0.1, CBRG_W, V(0, 0, _rz(z_cboss_r0) + 1.0)))
+bracket_rim = bracket_rim.cut(Part.makeCylinder(SHAFT_D / 2 + 1.0, 60, V(0, 0, _rz(z_cboss_r0) - 20)))
+crank_bracket = to_drive(Part.makeCompound([bracket_pair.removeSplitter(), bracket_rim.removeSplitter()]))
+crank_bearings = to_drive(Part.makeCompound(
+    [tube(CBRG_OD, SHAFT_D, z_pa0 + 1.0, z_pa0 + 1.0 + CBRG_W),
+     tube(CBRG_OD, SHAFT_D, _rz(z_cboss_r0) + 1.0, _rz(z_cboss_r0) + 1.0 + CBRG_W)]
+    + [Part.makeCylinder(CBRG_OD / 2, CBRG_W, V(0, -yb, 0), V(0, -1, 0)).cut(
+        Part.makeCylinder(SHAFT_D / 2, CBRG_W, V(0, -yb, 0), V(0, -1, 0)))
+       for yb in (y_cb0 + 1.0, y_cb1 - 1.0 - CBRG_W)]))
+# Room for the hand (reference, not a part): knob orbit CRANK_ARM_R, fist
+# HAND_R round the knob, HAND_W wide, outboard of the arm.
+CRANK_ARM_R, HAND_R, HAND_W, ARM_T = 80.0, 45.0, 100.0, 10.0
+y_arm0 = y_cb1 + CRANK_STUB - ARM_T - 2.0                 # arm on the shaft end
+hand_space = to_drive(Part.makeCylinder(CRANK_ARM_R + HAND_R, ARM_T + 2.0 + HAND_W,
+                                        V(0, -y_arm0, 0), V(0, -1, 0)))
+drive_parts = [("crank gear (meshes the rim)", crank_gear), ("lay shaft", pin_shaft),
+               ("lay bevel", bevel_small), ("crank bevel", bevel_big), ("crank shaft", crank_shaft),
+               ("crank brackets", crank_bracket), ("crank bearings", crank_bearings)]
+
+
+def _rot_axis(s, deg, c, ax):
+    m = s.copy()
+    m.rotate(c, ax, deg)
+    return m
+
+
+def to_side(s):
+    """Drawn (-Y) -> the crank side: mirror y if CRANK_SIDE is +1."""
+    return s.mirror(O, V(0, 1, 0)) if CRANK_SIDE > 0 else s.copy()
+
+
+_drawn = {"gear": crank_gear, "lay": bevel_small, "crank": bevel_big}
+crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings, hand_space = [
+    to_side(x_) for x_ in (crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket,
+                           crank_bearings, hand_space)]
+drive_parts = [(n_, to_side(s_)) for n_, s_ in drive_parts]
+
+
+def drive_pose(alpha):
+    """Pack turned by alpha: rim; rim gear and lay bevel (-Z_RIM/CP_Z); crank bevel.
+
+    As drawn (-Y) the mesh is at local (0, -RS, +RS): v = 20 w_lay x = 20 w_crank x,
+    so the crank bevel turns as the lay shaft, about +Y. Mirrored, pack +alpha is
+    the drawn drive at -alpha (the rim maps onto itself).
+    """
+    a = alpha if CRANK_SIDE < 0 else -alpha
+    wl = -Z_RIM / float(CP_Z)
+    wc = wl * CB_ZS / float(CB_ZB)
+    return (rot(rim_gear, alpha), to_side(rot(_drawn["gear"], wl * a, CP_C)),
+            to_side(rot(_drawn["lay"], wl * a, CP_C)), to_side(_rot_axis(_drawn["crank"], wc * a, APEX, V(0, 1, 0))))
+
+
+crank_mesh_worst = 0.0
+for _al in (0.0, 0.6, 1.2, 1.8, 2.4):
+    r_, p_, _, _ = drive_pose(_al)
+    crank_mesh_worst = max(crank_mesh_worst, r_.common(p_).Volume)
+bevel_mesh_worst = 0.0
+_bsp = 360.0 / CB_ZS / (Z_RIM / float(CP_Z))       # pack angle per lay-bevel tooth
+for _i in range(6):
+    _, _, s_, b_ = drive_pose(_bsp * _i / 6.0)
+    bevel_mesh_worst = max(bevel_mesh_worst, s_.common(b_).Volume)
+PACK_PER_CRANK = (CB_ZB / float(CB_ZS)) * (CP_Z / float(Z_RIM))
+CRANK_RPM = 60.0
+SHOTS_PER_S = CRANK_RPM / 60.0 * PACK_PER_CRANK * N
 z_cg = 0.5 * (z_cam0 + z_front1)
 z_carry = max(z_cg, BOX_Z1 + 50.0)
 x_handle = r_case_od + 22.0
@@ -829,6 +990,32 @@ bearings_on_axle = (gap(pack_axle, brg_f) < 1.5 and gap(pack_axle, brg_r) < 1.5
 mqr_free = gap(pack_axle, mqr_rotor) > 1.0 and gap(pack_axle, mqr_stator) > 1.0
 rim_vs_closed = min(gap(rim_gear, place(Part.makeCompound(qev_slide), k * 60.0)) for k in range(N))
 star_top = star_vs_stations = min(gap(star0, s) for s in stations)
+# Pack drive: every drive part vs the stations (six phases; full turn in the sweep),
+# vs the fixed parts round it, its gears vs its own bracket, the hand vs everything.
+_drv = [s for _, s in drive_parts]
+DRIVE_PAD = 5.0                   # bbox prefilter: a real distance only when it is below this
+drive_vs_stations = min(gap(d, st, pad=DRIVE_PAD) for d in _drv for st in stations)
+drive_vs_rim = min(gap(rim_gear, d) for n, d in drive_parts if not n.startswith("crank gear"))
+_near_fixed = [gearbox, gear_a, gear_b, gear_i, gear_s, lay_shaft, idl_shaft, star_shaft, star0,
+               feed_head, feed_cup, feed_lip, feed_guard, front_plate, carry_handle, sling]
+drive_vs_fixed = min(gap(d, f, pad=DRIVE_PAD) for d in _drv for f in _near_fixed)
+
+
+def far(g, pad=DRIVE_PAD):
+    return ("> %.0f" % pad) if g >= 99.0 else ("%.2f" % g)
+drive_vs_frame = min(gap(d, pack_frame) for n, d in drive_parts if n != "crank brackets")
+bracket_on_ring = all(gap(b_, pack_frame) < 0.05 for b_ in crank_bracket.Solids) and len(crank_bracket.Solids) == 2
+gears_vs_bracket = min(gap(g, crank_bracket) for g in (crank_gear, bevel_small, bevel_big))
+bevels_apart = gap(bevel_small, crank_gear)
+# The hand against the gun (not its own drive); the arm stands off the boss by design.
+_hand_gun = [("star-drive box", gearbox), ("star train", Part.makeCompound([gear_a, gear_b, gear_i, gear_s])),
+             ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("carry handle", carry_handle),
+             ("strap loops", sling), ("frame", pack_frame), ("liner", cam), ("front plate", front_plate),
+             ("ramp and trigger", ramp_fire), ("bearing disks", Part.makeCompound([brg_f, brg_r])),
+             ("dead-man and hose", Part.makeCompound([deadman, air_supply, supply_hose])),
+             ("pack (six phases)", Part.makeCompound(stations)), ("rim", rim_gear)]
+hand_gap, hand_near = min((gap(hand_space, s_, pad=150.0), n_) for n_, s_ in _hand_gun)
+hand_own = min(gap(hand_space, s_, pad=20.0) for n_, s_ in drive_parts if n_ != "crank shaft")
 print("fast checks done", flush=True)
 
 # ============================================================ assembly / checks / report
@@ -836,7 +1023,8 @@ pack = Part.makeCompound(stations)
 assembly = Part.makeCompound([
     pack, cam, front_plate, pack_frame, rear_disk, rim_gear, gear_a, gear_b, gear_i, gear_s,
     star_shaft, lay_shaft, idl_shaft, gearbox, star0, feed_head, feed_lip, feed_cup, feed_guard,
-    ramp_fire, crank, carry_handle, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
+    ramp_fire, crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings,
+    carry_handle, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
     mqr_plate, lines_inner, deadman, air_supply, supply_hose,
 ])
 bb = assembly.BoundBox
@@ -886,7 +1074,23 @@ checks = [
     ("air: axle Ø%.0f on two %s, MQR off the axle" % (AXLE_OD, BRG_NAME.split(" ")[0]), bearings_on_axle and mqr_free),
     ("valves' sweep ahead of the front bearing disk (%.2f)" % aft_gap, aft_gap >= CLEAR),
     ("carry handle on top, crank on the side", carry_handle.BoundBox.Center.x > 0.0
-     and abs(crank.BoundBox.Center.y) > abs(crank.BoundBox.Center.x)),
+     and abs(crank_shaft.BoundBox.Center.y) > abs(crank_shaft.BoundBox.Center.x)),
+    ("pack drive %d:%d bevel (m%.0f) -> gear %d in rim %d: %.3f pack turn per crank turn, %.0f rpm -> %.1f shots/s"
+     % (CB_ZB, CB_ZS, CB_M, CP_Z, Z_RIM, PACK_PER_CRANK, CRANK_RPM, SHOTS_PER_S),
+     abs(PACK_PER_CRANK - 0.5) < 1e-9 and abs(SHOTS_PER_S - 3.0) < 1e-9),
+    ("crank gear on the rim: centre %.3f on the pitch sum, mesh overlap %.2f mm3 over a rim tooth"
+     % (abs(CP_C.Length - (R_RIM + R_CP)), crank_mesh_worst),
+     abs(CP_C.Length - (R_RIM + R_CP)) < 1e-6 and crank_mesh_worst < 1.0),
+    ("bevel pair %d:%d, cones %.1f/%.1f deg: mesh overlap %.2f mm3 over a tooth"
+     % (CB_ZS, CB_ZB, CB_DS, CB_DB, bevel_mesh_worst), bevel_mesh_worst < 1.0),
+    ("drive vs stations, six phases %s >= %.2f" % (far(drive_vs_stations), CLEAR), drive_vs_stations >= CLEAR),
+    ("drive vs rim (all but its gear) %s, star train / feed / handle %s, frame %s"
+     % (far(drive_vs_rim, 2.0), far(drive_vs_fixed), far(drive_vs_frame, 2.0)),
+     min(drive_vs_rim, drive_vs_fixed, drive_vs_frame) >= CLEAR),
+    ("crank brackets stand on the frame (spar, front ring); gears clear them by %.2f" % gears_vs_bracket,
+     bracket_on_ring and gears_vs_bracket >= CLEAR and bevels_apart >= CLEAR),
+    ("room for the hand (crank R %.0f, fist R %.0f x %.0f): %.1f to the gun (%s), %.1f to its own boss"
+     % (CRANK_ARM_R, HAND_R, HAND_W, hand_gap, hand_near, hand_own), hand_gap >= 20.0 and hand_own >= 5.0),
     ("open frame (not full casing)", frame_ok),
     ("six phases", len(stations) == 6),
     ("closed station L %.1f ≈ 750" % closed_L, abs(closed_L - TARGET_L) <= 0.6),
@@ -922,7 +1126,16 @@ report = [
     % (AXLE_OD, (AXLE_OD - AXLE_ID) / 2.0, BRG_NAME, z_rotor0, z_rotor1),
     "  air supply             : no buffer; Ø%.0f hose from the receiver -> dead-man -> stator (z %.0f)"
     % (SUPPLY_HOSE_OD, z_supply),
-    "  crank                  : side hub on the frame (−Y)",
+    "  pack drive             : crank axis across the barrels (%s) at z %.0f (middle of the closed QEV);"
+    " bevel %d:%d m%.0f -> lay shaft at r %.0f -> gear %d in rim %d; %.2f pack turn per crank turn"
+    % ("+Y, right" if CRANK_SIDE > 0 else "−Y, left", Z_CRANK, CB_ZB, CB_ZS, CB_M, CP_C.Length, CP_Z, Z_RIM,
+       PACK_PER_CRANK),
+    "  crank turn             : top of the crank goes %s; shaft stub to |y| %.0f, arm and knob not drawn"
+    % ("forward" if (Z_RIM / float(CP_Z)) * CB_ZS / float(CB_ZB) * -CRANK_SIDE > 0 else "aft (towards the shooter)",
+       max(abs(crank_shaft.BoundBox.YMin), abs(crank_shaft.BoundBox.YMax))),
+    "  rate                   : %.0f rpm on the crank -> %.1f shots/s" % (CRANK_RPM, SHOTS_PER_S),
+    "  room for the hand      : y %.0f..%.0f, r %.0f round the crank axis; %.1f mm to the gun (%s)"
+    % (hand_space.BoundBox.YMin, hand_space.BoundBox.YMax, CRANK_ARM_R + HAND_R, hand_gap, hand_near),
     "  carry                  : handle on top ahead of the gearbox; strap loops front/aft",
 ]
 report.append("  phases:")
@@ -931,7 +1144,7 @@ for n, ang, u, dz, tag in phases:
 report += [
     "  overall LxWxH         : %.0f x %.0f x %.0f mm (was %.0f long)" % (gun_L, gun_W, gun_H, L_START),
     "  not drawn             : ramp guide pins + spring + trigger pivot, valve bracket bolts,"
-    " 1→6 manifold on the stator, crank drive to the pack, wheeled carriage, freeze",
+    " 1→6 manifold on the stator, crank arm and knob, wheeled carriage, freeze",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 report.append("  full turn             : breech_mechanism_sweep.py (separate run)")
@@ -960,6 +1173,7 @@ FV.STYLES["brg"] = ((0.35, 0.55, 0.85), 20)
 FV.STYLES["deadman"] = ((0.75, 0.25, 0.20), 15)
 FV.STYLES["guard"] = ((0.60, 0.30, 0.75), 40)
 FV.STYLES["carry"] = ((0.28, 0.28, 0.30), 15)
+FV.STYLES["hand"] = ((0.95, 0.75, 0.60), 80)
 
 if BREECH_MECH_LIBRARY:
     raise SystemExit(0 if all(ok for _, ok in checks) else 1)
@@ -989,7 +1203,14 @@ sc.add("Star_drive", "Star_shaft", star_shaft, "drive")
 sc.add("Star_drive", "Layshaft", lay_shaft, "drive")
 sc.add("Star_drive", "Idler_shaft", idl_shaft, "drive")
 sc.add("Star_drive", "Gearbox", gearbox, "frame")
-sc.add("Drive", "Crank", crank, "crank")
+sc.add("Drive", "Crank_rim_gear_60", crank_gear, "gear")
+sc.add("Drive", "Lay_shaft", pin_shaft, "drive")
+sc.add("Drive", "Bevel_lay", bevel_small, "gear")
+sc.add("Drive", "Bevel_crank", bevel_big, "gear")
+sc.add("Drive", "Crank_shaft", crank_shaft, "drive")
+sc.add("Drive", "Crank_bracket", crank_bracket, "frame")
+sc.add("Drive", "Crank_bearings_608", crank_bearings, "brg")
+sc.add("Reference", "Hand_space", hand_space, "hand")
 sc.add("Carry", "Carry_handle", carry_handle, "carry")
 sc.add("Carry", "Sling_loops", sling, "carry")
 sc.add("Air", "Pack_axle", pack_axle, "drive")
