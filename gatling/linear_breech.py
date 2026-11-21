@@ -116,6 +116,17 @@ CARR_EAR_R = EAR_R + 2.0
 CARR_BOLT = TIE_HOLE
 CARR_WEB = 6.0
 NOSE_GAP = 1.0                   # nose clamp split at Y=0 (as the barrel clamps)
+PILOT_PASS_D = 17.0              # bridge hole round the pilot fitting (hex AF 13 = 15.0 over the corners)
+
+# The bridge sits on the studs between the plug ears and the rear washers. Until
+# 2026-11-21 the washers and nuts were drawn on the ears, inside the bridge (112 mm3),
+# and the studs were CARR_T short: move them aft by the bridge, lengthen the studs.
+_hw_aft = hardware.common(Part.makeBox(100, 100, 100, V(-50, -50, z_ry - 100)))
+_hw_fwd = hardware.common(Part.makeBox(100, 100, 400, V(-50, -50, z_ry)))
+_hw_aft.translate(V(0, 0, -CARR_T))
+hardware = G.fuse_all([_hw_aft, _hw_fwd] + [G.cyl(TIE_D, z_ry - CARR_T - 0.1, z_ry + 0.1, at(TIE_R, a).x, at(TIE_R, a).y)
+                                            for a in TIE_ANGLES]).removeSplitter()
+STUD_L = tie_len + chamber_extension + CARR_T
 
 # Barrel clamps: two split rings on the real barrel (breech + forward) for coax.
 # Both sit on the rails; two points beat one for barrel/QEV alignment.
@@ -209,15 +220,21 @@ else:
     # Flat plate under the rear plug spanning both rails; the rail bores run through it.
     plate = Part.makeBox(2 * RAIL_X + BUSH_OD, BUSH_OD + 2.0, CARR_T,
                          V(-RAIL_X - BUSH_OD / 2, RAIL_Y - BUSH_OD / 2 - 1.0, z_ry - CARR_T))
-# Vertical webs from the bridge disc down to the plate (overlap both).
+# Vertical webs from the bridge disc down to the plate (overlap both). They stop on the
+# bridge's front face: until 2026-11-21 they ran 1 mm on into the rear plug (262 mm3).
+# In the pack they stop on its aft face too, where the valve bracket seats (2026-11-21).
 webs = []
+_web_aft = 0.0 if PACK_STATION else 1.0
 for x, y in rail_centers():
-    webs.append(Part.makeBox(CARR_WEB, abs(RAIL_Y) + BUSH_OD / 2, CARR_T + 2.0,
-                             V(x - CARR_WEB / 2, RAIL_Y - BUSH_OD / 2, z_ry - CARR_T - 1.0)))
+    webs.append(Part.makeBox(CARR_WEB, abs(RAIL_Y) + BUSH_OD / 2, CARR_T + _web_aft,
+                             V(x - CARR_WEB / 2, RAIL_Y - BUSH_OD / 2, z_ry - CARR_T - _web_aft)))
 carriage = G.fuse_all([bridge, plate] + webs).removeSplitter()
+# Through the bridge: the studs, the rails and (since 2026-11-21) the pilot fitting in the
+# middle of the plug, which went through the solid bridge (1071 mm3).
 carriage = carriage.cut(G.fuse_all(
     [G.cyl(CARR_BOLT, z_ry - CARR_T - 1, z_ry + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES]
     + [G.cyl(RAIL_HOLE, z_ry - CARR_T - 1, z_ry + 1, x, y) for x, y in rail_centers()]
+    + [G.cyl(PILOT_PASS_D, z_ry - CARR_T - 2, z_ry + 1)]
 )).removeSplitter()
 
 # ---------------------------------------------------------------- nose guide (printed, clamps the chamber)
@@ -277,6 +294,12 @@ for _s in (-1.0, 1.0):
                               V(_s * _nose_bolt_r, -(CH_OD + 8.0) / 2, z_mid), V(0, 1, 0))
     nose_lower = nose_lower.cut(_bolt)
     nose_upper = nose_upper.cut(_bolt)
+# The QEV tie studs (r TIE_R) run past the band (outer r 28): a channel each, since
+# 2026-11-21 (the band took 0.5 mm of each stud, 24 mm3). Cut again after anything is
+# fused onto the halves (the bench's link journal sits on the 30 deg stud).
+nose_rod_cut = G.fuse_all([G.cyl(TIE_HOLE, z_nose0 - 1, z_nose1 + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES])
+nose_lower = nose_lower.cut(nose_rod_cut)
+nose_upper = nose_upper.cut(nose_rod_cut)
 nose_lower = nose_lower.removeSplitter()
 nose_upper = nose_upper.removeSplitter()
 nose = Part.makeCompound([nose_lower, nose_upper])
@@ -459,6 +482,11 @@ bush_ok = (all(p.common(carriage).Volume < 1e-4 for p in _pass_rear)
 # overlapped the rail tubes by ~1050 mm3 along their whole length).
 rail_clash = rails_s.common(carriage).Volume + rails_s.common(nose).Volume
 nose_vs_chamber = nose.distToShape(chamber)[0]
+# The carriage on the plug: round the pilot fitting, short of the plug, ahead of the
+# stud washers; the nose clamp round the studs (all overlaps until 2026-11-21).
+carr_on_plug = (carriage.common(fitting).Volume, carriage.common(rp).Volume, carriage.common(hardware).Volume)
+carr_pilot_gap = carriage.distToShape(fitting)[0]
+nose_on_studs = nose.common(hardware).Volume
 nose_vs_clamp = nose.distToShape(barrel_clamp)[0]
 collar_vs_clamp = barrel_collar.distToShape(barrel_clamp)[0]
 # Open: fitting tip behind the barrel breech face (not cover bbox — cradle leads the tip).
@@ -507,6 +535,11 @@ checks = [
      rail_to_qev >= RAIL_CLEAR),
     ("carriage + nose clamp have plain rail bores at both stations", bush_ok),
     ("rails pass clean through both guides (clash %.2f mm3)" % rail_clash, rail_clash < 0.01),
+    ("carriage on the plug: pilot fitting through its bridge (%.2f mm, %.2f mm3), plug %.2f mm3,"
+     " stud washers and nuts behind it %.2f mm3 (studs 2 x M3 x %.0f)"
+     % (carr_pilot_gap, carr_on_plug[0], carr_on_plug[1], carr_on_plug[2], STUD_L),
+     max(carr_on_plug) < 0.01 and carr_pilot_gap >= 0.5),
+    ("nose clamp clear of the tie studs (%.2f mm3)" % nose_on_studs, nose_on_studs < 0.01),
     ("nose saddle clear of chamber (%.1f mm)" % nose_vs_chamber, nose_vs_chamber >= 0.2),
     ("nose bushings clear of breech clamp (%.1f mm)" % nose_vs_clamp, nose_vs_clamp >= 0.5),
     ("forward collar clear of breech clamp (%.1f mm span)" % collar_vs_clamp,
@@ -562,6 +595,8 @@ report = [
     "  carriage               : rear pusher (plain rail bores in the %s, bridge on the tie studs)"
     " + nose clamp 2xM3 on the chamber (bores in its %s); no sleeves, no link bars"
     % (("feet", "feet") if PACK_STATION else ("plate", "skirt")),
+    "  tie studs              : 2 x M3 x %.0f: plug ears | carriage bridge %.0f | washer | nut; Ø%.0f hole"
+    " in the bridge round the pilot fitting" % (STUD_L, CARR_T, PILOT_PASS_D),
     "  barrel clamps          : breech + forward (span %.0f), split L/R on Ø%.1f, feet on rails"
     % (CLAMP_SPAN, BARREL_OD),
     "  pellet cradle          : on front cover, low gutter OD %.1f past tip by %.0f mm; tip pushes"

@@ -18,7 +18,9 @@ independent):
   arm and knob in all their poses over a crank turn, so every pose of the crank
   meets every pose of the pack), carry handle, strap rings, the fist on the
   handle, the tripod pad and the tripod's ball; the gears that mesh the rim (star train gear A, crank gear 60)
-  against the stations; the rim against the fixed parts;
+  against the stations; the hub (rim, lower clamp halves, bearing seat and its
+  retainer bolts) against the fixed parts; since 2026-11-21 the fasteners too: the
+  stations' bolts move with them, the frame's M6 studs and the fixed parts' M3 bolts stand;
 - every 5 deg of phase: whole stations (valve group and lines included)
   against their neighbours, and the valve group and line R against their own
   station.
@@ -94,7 +96,7 @@ if _WORKER:
             if near_fire:
                 low("fixed ramp (bodies and lines, not plungers)", min(_gap(mv, ramp_fire), _gap(lr, ramp_fire)))
         for f in fixed:
-            low("rim vs fixed parts", _gap(rim, f))
+            low("hub (rim, lower clamp halves, bearing seat, retainer bolts) vs fixed parts", _gap(rim, f))
     for ph in task["phase"]:
         a, b, valve, own_fx, line, own_qev = _read(ph).childShapes()
         low("neighbours", _gap(a, b))
@@ -131,7 +133,12 @@ fixed_list = ([("guard", feed_guard), ("feed head", feed_head), ("TPU lip", feed
                ("carry handle", carry_handle), ("strap rings", sling), ("room for the hand", hand_space),
                ("crank arm and knob, every %.0f deg of a crank turn" % CK_STEP,
                 Part.makeCompound([s_ for pose_ in crank_poses for s_ in pose_])),
-               ("fist on the carry handle", carry_hand), ("tripod pad", tripod_pad), ("tripod ball and post", tripod_ball)]
+               ("fist on the carry handle", carry_hand), ("tripod pad", tripod_pad), ("tripod ball and post", tripod_ball),
+               ("frame M6 studs and nuts", frame_studs),
+               ("fixed M3 bolts (feed, ramp, liner, carry, keel, crank brackets)",
+                Part.makeCompound([f_.body for f_ in FEED_FAST + RAMP_FAST + LINER_FAST + CARRY_FAST + TRIPOD_FAST + CRANK_FAST])),
+               ("front bearing housing and its rear retainer", Part.makeCompound([brg_housing, brg_ret_out])),
+               ("star shaft collar", star_collar)]
               + [(n, s) for n, s in train_parts if not n.startswith("gear A")]
               + [(n, s) for n, s in drive_parts if not n.startswith("crank gear")])
 fixed_path = os.path.join(WORK, "fixed.brep")
@@ -141,7 +148,8 @@ turn_poses = []
 for _i in range(int(round(60.0 / SWEEP_STEP))):
     th = _i * SWEEP_STEP
     d = ((th + 30.0) % 60.0) - 30.0
-    parts = [star_at(d), rot(rim_gear, th), gear_a, ramp_fire, crank_gear]
+    parts = [star_at(d), rot(Part.makeCompound([pack_hub, brg_ret_in] + [f_.body for f_ in HUB_FAST]), th), gear_a, ramp_fire,
+             crank_gear]
     near_fire = []
     for k in range(N):
         phi = k * 60.0 + th
@@ -196,7 +204,8 @@ sweep_checks = [("mechanism build and fast checks", _mech_ok),
                 ("all %d workers finished%s" % (len(procs), (" (failed: %s, logs in %s)" % (failed, WORK)) if failed else ""),
                  not failed)]
 for n in [n for n, _ in fixed_list] + ["star", "gear A (meshes the rim)", "crank gear (meshes the rim)",
-                                        "fixed ramp (bodies and lines, not plungers)", "rim vs fixed parts"]:
+                                        "fixed ramp (bodies and lines, not plungers)",
+                                        "hub (rim, lower clamp halves, bearing seat, retainer bolts) vs fixed parts"]:
     v = results.get(n, 99.0)
     # The pressed ramp sits PL_L - RAMP_PRESS (0.5) off the valve bodies by design.
     lim = (PL_L - RAMP_PRESS - 0.05) if n.startswith("fixed ramp") else CLEAR - 1e-3

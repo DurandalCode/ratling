@@ -407,6 +407,8 @@ def feed_angle(stroke):
 nose_upper=nose_upper.fuse(Part.makeBox(6,10,10,V(22,13,LINK_A_Z-5)))
 nose_upper=nose_upper.fuse(Part.makeCylinder(2,3,V(28,LINK_A_Y,LINK_A_Z),X))
 nose_upper=nose_upper.cut(Part.makeCylinder(1.25,6.2,V(24.9,LINK_A_Y,LINK_A_Z),X)).removeSplitter()
+# The journal sits on the 30 deg tie stud: keep the stud's channel open through it (2026-11-21).
+nose_upper=nose_upper.cut(nose_rod_cut).removeSplitter()
 nose=Part.makeCompound([nose_lower,nose_upper])
 qev_closed['Nose_clamp']=nose
 
@@ -621,6 +623,10 @@ def link_clear(a,b):
 actuation_checks=[('output screw pocket leaves 2 mm neck wall',14.7-FEED_BORE/2>=2-1e-6),
                   ('upper nose half valid',G.single_solid(nose_upper)),
                   ('nose halves separated',link_clear(nose_lower,nose_upper))]
+# Since 2026-11-21 the rear washers and nuts sit behind the carriage bridge (studs 2 x M3 x STUD_L).
+_stud_hw_gap=min(shifted(hardware,dz_).distToShape(s_)[0] for dz_ in (0.0,-STROKE) for s_ in (front_foot,rear_foot,stops_s,cradle))
+actuation_checks+=[('nose clamp clear of the tie studs (%.2f mm3)'%nose.common(hardware).Volume,nose.common(hardware).Volume<0.01),
+                   ('stud nuts behind the bridge clear of feet, stops and valve cradle, open and closed (%.1f)'%_stud_hw_gap,_stud_hw_gap>=0.5)]
 release_angle=math.degrees(math.atan((BALL_D/2+FINGER_R-(FEED_BORE-BALL_D)/2-12)/11.9))
 release_stroke=next(STROKE*i/10000 for i in range(10001) if feed_angle(STROKE*i/10000)>=release_angle)
 clear_stroke=z_tip-(FEED_Z-BALL_D/2)

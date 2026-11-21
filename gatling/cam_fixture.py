@@ -116,6 +116,17 @@ BRK_R0, BRK_R1 = 12.0, 31.0
 BOSS_Y1 = 32.0
 TIE_R, TIE_ANGLES, TIE_HOLE = B["TIE_R"], B["TIE_ANGLES"], B["TIE_HOLE"]
 EAR_R = 5.5
+# The half ring goes on the studs between the bridge and the washers: with the fixture
+# on, the stud washers and nuts sit BRK_T further aft and the studs are BRK_T longer
+# (since 2026-11-21 the bench draws them behind the bridge, where the ring is).
+_hw = qev_closed["Tie_rods"]
+_hw_aft = _hw.common(Part.makeBox(100, 100, 100, V(-50, -50, z_aft - 100)))
+_hw_aft.translate(V(0, 0, -BRK_T))
+qev_closed = dict(qev_closed)
+qev_closed["Tie_rods"] = G.fuse_all([_hw_aft, _hw.common(Part.makeBox(100, 100, 400, V(-50, -50, z_aft)))]
+                                    + [G.cyl(B["TIE_D"], z_aft - BRK_T - 0.1, z_aft + 0.1, *B["at"](TIE_R, a)[:2])
+                                       for a in TIE_ANGLES]).removeSplitter()
+STUD_L_FIXTURE = B["STUD_L"] + BRK_T
 # Rollers: 623ZZ (3 x 10 x 4) on M3 axles, rim 0.1 off the plate edge.
 BRG_OD, BRG_ID, BRG_W = 10.0, 3.0, 4.0
 XR = 18.0                       # roller pairs at x = ±XR, beside the finger
@@ -412,6 +423,8 @@ checks = [
     ("bracket on the carriage aft face: gap %.3f, overlap %.4f mm3" % (bracket_on_carr, bracket_overlap),
      bracket_on_carr < 0.05 and bracket_overlap < 1e-3),
     ("bracket holes on both tie studs; pilot fitting clear %.2f" % bracket_pilot, stud_ok and bracket_pilot >= 1.0),
+    ("half ring ahead of the stud washers and nuts (%.2f mm3): studs 2 x M3 x %.0f with the fixture on"
+     % (bracket.common(qev_closed["Tie_rods"]).Volume, STUD_L_FIXTURE), bracket.common(qev_closed["Tie_rods"]).Volume < 0.01),
     ("finger at r %.0f, plate underside at the liner bore r %.1f (as the pack)" % (Y_TIP + R_PACK, Y_PB + R_PACK),
      abs(Y_TIP - 37.0) < 1e-6 and abs(Y_PB - 34.5) < 1e-6),
     ("side frames stand on the table (y %.0f), nothing else below it" % y_floor, frame_low_ok and nothing_under),
@@ -426,8 +439,8 @@ report = [
     " back = CLOSE" % (PSI0, PSI1, T_GROOVE, OPEN_A, OPEN_B),
     "  cam plate              : %.1f x %.0f x %.0f mm (X x Z x Y), underside at y %.1f, groove %.0f wide, %.1f deep"
     % (T_GROOVE + 2 * M_END, z_hi - z_lo, PLATE_T, Y_PB, 2 * G_R, Y_FLOOR - Y_PB),
-    "  finger                 : Ø%.0f at r %.0f, on a half ring under the tie-stud nuts (%.0f mm: studs need"
-    " ~%.0f mm more thread)" % (FOLLOWER_OD, Y_TIP, BRK_T, BRK_T),
+    "  finger                 : Ø%.0f at r %.0f, on a half ring under the tie-stud nuts (%.0f mm: studs"
+    " 2 x M3 x %.0f with it on, %.0f on the bench)" % (FOLLOWER_OD, Y_TIP, BRK_T, STUD_L_FIXTURE, B["STUD_L"]),
     "  rollers                : 4 x 623ZZ at x ±%.0f on the plate edges (rear pair on ±1 mm slots)" % XR,
     "  portal                 : side frames at x ±%.0f..%.0f, top plate y %.1f..%.1f; frames on M4 slots ±%.0f mm"
     % (FRAME_X0, FRAME_X0 + FRAME_T, y_top0, y_top1, SLOT_L / 2),
