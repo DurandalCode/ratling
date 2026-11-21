@@ -14,8 +14,10 @@ independent):
   position; bodies and lines only: the plungers are meant to touch it), the
   front bearing disk, the rear plate and its struts, the feed gate and its
   cable, the pack drive
-  (crank bracket, bevel pair, shafts, bearings; the room for the hand), carry
-  handle, strap; the gears that mesh the rim (star train gear A, crank gear 60)
+  (crank bracket, bevel pair, shafts, bearings; the room for the hand; the crank
+  arm and knob in all their poses over a crank turn, so every pose of the crank
+  meets every pose of the pack), carry handle, strap rings, the fist on the
+  handle, the tripod pad and the tripod's ball; the gears that mesh the rim (star train gear A, crank gear 60)
   against the stations; the rim against the fixed parts;
 - every 5 deg of phase: whole stations (valve group and lines included)
   against their neighbours, and the valve group and line R against their own
@@ -126,7 +128,10 @@ fixed_list = ([("guard", feed_guard), ("feed head", feed_head), ("TPU lip", feed
                ("ramp mount block", guide_block), ("front bearing disk", brg_f),
                ("rear plate and struts", Part.makeCompound([mqr_plate, rear_struts])),
                ("feed gate and its cable", Part.makeCompound([gate_housing, gate_pin, gate_pin_open, gate_cable])),
-               ("carry handle", carry_handle), ("strap", sling), ("room for the hand", hand_space)]
+               ("carry handle", carry_handle), ("strap rings", sling), ("room for the hand", hand_space),
+               ("crank arm and knob, every %.0f deg of a crank turn" % CK_STEP,
+                Part.makeCompound([s_ for pose_ in crank_poses for s_ in pose_])),
+               ("fist on the carry handle", carry_hand), ("tripod pad", tripod_pad), ("tripod ball and post", tripod_ball)]
               + [(n, s) for n, s in train_parts if not n.startswith("gear A")]
               + [(n, s) for n, s in drive_parts if not n.startswith("crank gear")])
 fixed_path = os.path.join(WORK, "fixed.brep")

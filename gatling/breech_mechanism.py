@@ -5,9 +5,10 @@ Gatling breech mechanism (not a freeze).
 Stroke from linear_breech (65.8 mm) -> angle->stroke law -> outboard cam liner ->
 six phases -> AirTAC on each carriage, fixed firing ramp -> star feed geared
 to the pack (rim on the breech clamps + fixed train) with a gate in the neck ->
-helical guard -> side crank, carry, strap -> air: hollow axle, bearings, MQR,
-hose from the receiver through a dead-man -> flintlock grip with one
-two-stage lever (air, then balls) for the left hand.
+helical guard -> side crank with arm and knob -> air: hollow axle, bearings,
+MQR, hose from the receiver through a dead-man -> flintlock grip with one
+two-stage lever (air, then balls) for the left hand -> mass and centre of
+gravity -> carry handle and strap rings over it, tripod socket under it.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism.py').read())"
 
@@ -67,15 +68,15 @@ and the rim maps onto itself, so the meshes hold. A bevel pair
 the frame (the stations sweep r <= 96.3 there and the frame spar on that side takes
 r 100..108); a gear 60 (m 1.5) on that shaft meshes the star-drive rim 120.
 One crank turn = 60 / 120 = 0.5 pack turn, so 60 rpm gives 3 shots/s; the
-top of the crank goes aft, towards the shooter. The first draft (crank at
+top of the crank went aft, towards the shooter (turned forward since: below). The first draft (crank at
 z 302 ahead of the clamps, bevel 48:16, pinion 20 at r 105) moved here at the
 owner's request; at r 105 the long shaft would cut the spar and front ring.
 Shafts Ø8 on 608s: the pair's bracket (two plates) sits on the spar, the
 rim-gear boss on the front ring. The bevels use gears.bevel_gear(back_cone=
 True) (full-height teeth; the planar form is half height at 45 deg and gave a
 16:48 pair 0.2 mm teeth). Tooth counts are a draft until the bench measures
-the torque. The crank arm and knob are not drawn; a reference body (knob
-orbit R 80, fist R 45 x 100) keeps room for the hand.
+the torque. A reference body (knob orbit R 80, fist R 45 x 100) keeps room
+for the hand; the arm and knob are drawn in it (stage 6, below).
 
 2026-11-20, controls at the rear (stage 6; owner: balls and air from one
 hand, behind, an old flintlock look). The firing ramp stays in the press
@@ -96,8 +97,46 @@ plate); let go and a spring puts the pin 5 mm across the Ø25.4 neck. The
 receiver's hose comes into the pommel, the valve's outlet runs up the grip and
 through the plate into the stator's rear port. The trigger under the liner,
 the D-grip with bails and the musket stock drawn earlier the same day are
-gone. The gun is 1222 x 330 x 418 (the hose hanging from the pommel sets the
-height).
+gone. The gun was 1222 x 330 x 418 then (the hose hanging from the pommel set
+the height).
+
+2026-11-20, stage 6 closed, stage 7 (centre of gravity, carry, strap):
+- Crank arm R 80 on the shaft end: a hub Ø22 on the Ø8 shaft (M4 set screw onto
+  a flat), 8 mm off the bearing boss; the knob Ø26 x 92 is a sleeve on its own
+  Ø6 steel pin (head inboard of the arm, nut outboard, 1 mm each end, bore
+  0.25 a side), so it turns in the hand. It lies inside the hand's reference
+  body; over a crank turn (10 deg steps) it is > 5 mm from everything fixed and
+  from the pack, and the sweep meets every crank pose with every pack pose.
+- Mass by body: printed PETG as a solid skin plus the profile's infill (skin =
+  V (1 - exp(-A t / V)), t 1.9, fitted to tools/print_mass.py on 19 of these
+  bodies: 6 % a body, 1 % the sum); airtight QEV parts 100 %, flow 1.05;
+  steel barrels, stubs, shafts, rods; Al chambers, rails, axle; a wooden grip;
+  bought parts by catalogue or estimate (MS_EST). 8.28 kg with the handle and
+  the tripod pad, CG (8, 7, 95) (8.30 with the longer lay shaft, below): z 95 is the middle of the closed QEVs, 20 mm
+  ahead of the crank axis. Balls, skin, bolts and the receiver hose are not
+  counted.
+- The hopper's cup stands on top just ahead of the CG (z 115..246), and the
+  only fixed parts on top are the liner and the star-drive gearbox, so the
+  carry handle is a bridge: posts on the liner (z -65) and on the gearbox
+  (z 256, a tab down its front face), CG +- 160, bar Ø24 at x 261 so the fist
+  round it clears the cup by 5 mm. A steel ring round each post takes the
+  strap, so the strap points are either side of the CG at the same distance.
+  The old handle at a fixed z (the middle of liner and front plate) and the
+  loops on nothing are gone. The gun is now 1222 x 426 x 467: the knob sets
+  the width (y +314), the handle the height.
+- Tripod pad (owner: the tripod is not chosen, a socket for a 5 cm ball): a
+  keel 30 x 15 along the bottom from the liner (z -68) to the front ring
+  (z 214), outside the liner's radius, and a boss Ø70 on it under the CG with a
+  spherical socket for a Ø50 ball, 15 deep (mouth Ø46, 0.25 clearance): the
+  ball sits in it below its equator and the tripod's clamp holds it. The
+  ball with a post tilted 20 deg either way clears the gun by > 5 mm. 195 g.
+- The crank turns clockwise seen from its knob, its top forward (owner): the
+  forward way of a drill or a flexible shaft on the shaft end (many flexible
+  shafts run one way only), the way the Gatling's right-hand crank turned, and
+  the faster way for a right hand. The lay bevel moved behind the apex, teeth
+  forward; the lay shaft runs forward 8.6 mm past the crank bevel and shaft,
+  and plate A with its 608 sits behind the lay bevel. The mesh check catches
+  a wrong sign (88.7 mm3 overlap against 0). 8.30 kg, CG (8, 7.5, 94.5).
 """
 import importlib
 import math
@@ -878,13 +917,20 @@ crank_gear = spur(CP_Z, follow_phase(O, Z_RIM, PH_RIM, CP_C, CP_Z), CP_C, P1_Z0,
 
 # Local frame: apex at the origin, axes as the world (+Z muzzle, -Y out); the lay
 # shaft is the local Z axis, the crank shaft the local Y axis.
-# Lay-shaft bevel: body ahead of the apex (+Z), a tooth at local -Y (the mesh side).
+# Lay-shaft bevel behind the apex (-Z), teeth facing forward, meshing the crank bevel
+# below its axis; the lay shaft runs forward past the crank bevel's inner face (the
+# crank shaft stops outboard of the apex). With the bevel ahead of the apex the crank
+# turned the other way: its top went aft. Now it turns clockwise seen from its knob
+# (top forward), as a drill or a flexible shaft drives it, and as the Gatling's crank
+# on the right turned. CB_SENSE is the crank bevel's turn per lay-bevel turn sign.
 # back_cone: full-height teeth (the plain planar form makes them half height at 45 deg).
+CB_SENSE = -1.0
 bevel_small, CB_INFO_S = GR.bevel_gear(CB_M, CB_ZS, CB_FACE, 16.0, 3.0, SHAFT_D + 0.2, CB_BACKLASH,
-                                       delta_deg=CB_DS, phase_deg=-90.0, back_cone=True)
-# Crank bevel: local +Z -> world -Y (90 deg about X); its gap at local +Y -> world +Z.
+                                       delta_deg=CB_DS, phase_deg=90.0, back_cone=True)
+bevel_small.rotate(O, V(1, 0, 0), 180.0)                  # axis +Z -> -Z; its tooth at local +Y -> -Y
+# Crank bevel: local +Z -> world -Y (90 deg about X); its gap at local -Y -> world -Z.
 bevel_big, CB_INFO_B = GR.bevel_gear(CB_M, CB_ZB, CB_FACE, 24.0, 10.0, SHAFT_D + 0.2, CB_BACKLASH,
-                                     delta_deg=CB_DB, phase_deg=90.0 + 180.0 / CB_ZB, back_cone=True)
+                                     delta_deg=CB_DB, phase_deg=-90.0 + 180.0 / CB_ZB, back_cone=True)
 bevel_big.rotate(O, V(1, 0, 0), 90.0)
 bevel_small.translate(APEX)
 bevel_big.translate(APEX)
@@ -900,8 +946,9 @@ def _rz(zw):
     return zw - Z_CRANK                                   # world z -> local
 
 
-# Lay shaft: from the bevel's small end to ahead of the rim gear.
-_ls0 = CB_INFO_S["small_end_z"] - 1.0
+# Lay shaft: from behind plate A (its 608) through the bevel and past the apex to
+# ahead of the rim gear.
+_ls0 = -(CB_INFO_S["mount"] + 1.0 + CBRG_W + 2.0 + 1.0)
 _ls1 = _rz(P1_Z1 + 2.0)
 pin_shaft = to_drive(Part.makeCylinder(SHAFT_D / 2, _ls1 - _ls0, V(0, 0, _ls0)))
 # Crank shaft on two 608 in a boss outboard of the crank bevel; the outer end is
@@ -911,7 +958,7 @@ y_cb0 = CB_INFO_B["mount"] + 3.0                          # boss, from the apex 
 y_cb1 = y_cb0 + 2 * CBRG_W + 14.0
 crank_shaft = to_drive(Part.makeCylinder(SHAFT_D / 2, y_cb1 + CRANK_STUB - CB_INFO_B["small_end_z"] + 1.0,
                                          V(0, -(CB_INFO_B["small_end_z"] - 1.0), 0), V(0, -1, 0)))
-# Bracket 1 (at the pair): plate A across the lay shaft ahead of its bevel (608),
+# Bracket 1 (at the pair): plate A across the lay shaft behind its bevel (608),
 # plate B outboard of the crank bevel with the crank boss (2 x 608); plate A
 # reaches in onto the frame spar (at 270, mirrored 90). Bracket 2: a boss behind the rim gear
 # (608) on a foot on the front frame ring.
@@ -929,6 +976,7 @@ bracket_pair = bracket_pair.cut(Part.makeCylinder(SHAFT_D / 2 + 1.0, 60, V(0, 0,
 for yb in (y_cb0 + 1.0, y_cb1 - 1.0 - CBRG_W):
     bracket_pair = bracket_pair.cut(Part.makeCylinder(CBRG_OD / 2 + 0.1, CBRG_W, V(0, -yb, 0), V(0, -1, 0)))
 bracket_pair = bracket_pair.cut(Part.makeCylinder(SHAFT_D / 2 + 1.0, 300, V(0, 50, 0), V(0, -1, 0)))
+bracket_pair = bracket_pair.mirror(O, V(0, 0, 1))         # drawn with plate A ahead; the lay bevel is behind the apex
 z_cboss_r0, z_cboss_r1 = P1_Z0 - 1.0 - PL_T, P1_Z0 - 1.0
 _ring_in = -APEX.y - (r_case_od - 2.0)                    # local y 2 mm into the front ring
 _b2 = [Part.makeCylinder(CBOSS_OD / 2, PL_T, V(0, 0, _rz(z_cboss_r0))),
@@ -938,7 +986,7 @@ bracket_rim = bracket_rim.cut(Part.makeCylinder(CBRG_OD / 2 + 0.1, CBRG_W, V(0, 
 bracket_rim = bracket_rim.cut(Part.makeCylinder(SHAFT_D / 2 + 1.0, 60, V(0, 0, _rz(z_cboss_r0) - 20)))
 crank_bracket = to_drive(Part.makeCompound([bracket_pair.removeSplitter(), bracket_rim.removeSplitter()]))
 crank_bearings = to_drive(Part.makeCompound(
-    [tube(CBRG_OD, SHAFT_D, z_pa0 + 1.0, z_pa0 + 1.0 + CBRG_W),
+    [tube(CBRG_OD, SHAFT_D, -(z_pa0 + 1.0 + CBRG_W), -(z_pa0 + 1.0)),
      tube(CBRG_OD, SHAFT_D, _rz(z_cboss_r0) + 1.0, _rz(z_cboss_r0) + 1.0 + CBRG_W)]
     + [Part.makeCylinder(CBRG_OD / 2, CBRG_W, V(0, -yb, 0), V(0, -1, 0)).cut(
         Part.makeCylinder(SHAFT_D / 2, CBRG_W, V(0, -yb, 0), V(0, -1, 0)))
@@ -949,6 +997,37 @@ CRANK_ARM_R, HAND_R, HAND_W, ARM_T = 80.0, 45.0, 100.0, 10.0
 y_arm0 = y_cb1 + CRANK_STUB - ARM_T - 2.0                 # arm on the shaft end
 hand_space = to_drive(Part.makeCylinder(CRANK_ARM_R + HAND_R, ARM_T + 2.0 + HAND_W,
                                         V(0, -y_arm0, 0), V(0, -1, 0)))
+# Crank arm and knob (stage 6, the shooter's right hand). The arm's hub takes the
+# shaft end (Ø8, M4 set screw onto a flat), the arm reaches CRANK_ARM_R; the knob
+# is a sleeve on its own steel pin (head inboard of the arm, washer and nut
+# outboard), so it turns in the hand. Rest pose: arm up (+X). It all lies inside
+# hand_space, which is round about the crank axis, so one pose shows that.
+CK_HUB_D, CK_W0, CK_W1 = 22.0, 20.0, 16.0          # hub Ø; arm width at the hub, at the knob
+CK_KNOB_OD, CK_KNOB_L, CK_PIN_D, CK_BORE = 26.0, 92.0, 6.0, 6.5
+CK_WASHER, CK_HEAD_D, CK_HEAD_T, CK_NUT_T = 1.0, 10.0, 3.0, 4.0
+ck_y_in = y_arm0                                    # arm's inboard face (local -y)
+ck_y_out = y_arm0 + ARM_T
+ck_y_shaft = y_cb1 + CRANK_STUB                     # shaft end = the hub's outer face
+ck_y_hub0 = ck_y_in - 2.0                           # hub stands 2 proud of the arm inboard
+_ck_prof = Part.makePolygon([V(0, 0, -CK_W0 / 2), V(CRANK_ARM_R, 0, -CK_W1 / 2), V(CRANK_ARM_R, 0, CK_W1 / 2),
+                             V(0, 0, CK_W0 / 2), V(0, 0, -CK_W0 / 2)])
+_ck_arm = Part.Face(_ck_prof).extrude(V(0, -ARM_T, 0))
+_ck_arm.translate(V(0, -ck_y_in, 0))
+_ck_arm = G.fuse_all([_ck_arm,
+                      Part.makeCylinder(CK_HUB_D / 2, ck_y_shaft - ck_y_hub0, V(0, -ck_y_hub0, 0), V(0, -1, 0)),
+                      Part.makeCylinder(CK_W1 / 2 + 1.0, ARM_T, V(CRANK_ARM_R, -ck_y_in, 0), V(0, -1, 0))])
+_ck_arm = _ck_arm.cut(Part.makeCylinder(SHAFT_D / 2, 60.0, V(0, -ck_y_hub0 + 1.0, 0), V(0, -1, 0)))
+_ck_arm = _ck_arm.cut(Part.makeCylinder(1.65, CK_HUB_D, V(0, -(ck_y_hub0 + ck_y_shaft) / 2, 0), V(-1, 0, 0)))   # M4 set screw
+_ck_arm = _ck_arm.cut(Part.makeCylinder(CK_PIN_D / 2 + 0.1, ARM_T + 2.0, V(CRANK_ARM_R, -ck_y_in + 1.0, 0), V(0, -1, 0)))
+crank_arm = to_drive(_ck_arm.removeSplitter())
+ck_y_knob0 = ck_y_out + CK_WASHER
+ck_y_knob1 = ck_y_knob0 + CK_KNOB_L
+crank_knob = to_drive(Part.makeCylinder(CK_KNOB_OD / 2, CK_KNOB_L, V(CRANK_ARM_R, -ck_y_knob0, 0), V(0, -1, 0)).cut(
+    Part.makeCylinder(CK_BORE / 2, CK_KNOB_L + 2.0, V(CRANK_ARM_R, -ck_y_knob0 + 1.0, 0), V(0, -1, 0))))
+crank_knob_pin = to_drive(G.fuse_all([
+    Part.makeCylinder(CK_PIN_D / 2, ck_y_knob1 + CK_WASHER + CK_NUT_T - ck_y_in, V(CRANK_ARM_R, -ck_y_in, 0), V(0, -1, 0)),
+    Part.makeCylinder(CK_HEAD_D / 2, CK_HEAD_T, V(CRANK_ARM_R, -(ck_y_in - CK_HEAD_T), 0), V(0, -1, 0)),
+    Part.makeCylinder(CK_HEAD_D / 2, CK_NUT_T, V(CRANK_ARM_R, -(ck_y_knob1 + CK_WASHER), 0), V(0, -1, 0))]))
 drive_parts = [("crank gear (meshes the rim)", crank_gear), ("lay shaft", pin_shaft),
                ("lay bevel", bevel_small), ("crank bevel", bevel_big), ("crank shaft", crank_shaft),
                ("crank brackets", crank_bracket), ("crank bearings", crank_bearings)]
@@ -966,22 +1045,30 @@ def to_side(s):
 
 
 _drawn = {"gear": crank_gear, "lay": bevel_small, "crank": bevel_big}
-crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings, hand_space = [
+(crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings, hand_space,
+ crank_arm, crank_knob, crank_knob_pin) = [
     to_side(x_) for x_ in (crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket,
-                           crank_bearings, hand_space)]
+                           crank_bearings, hand_space, crank_arm, crank_knob, crank_knob_pin)]
+crank_parts = [("crank arm", crank_arm), ("knob", crank_knob), ("knob pin", crank_knob_pin)]
+
+
+def crank_at(deg):
+    """Crank arm, knob and pin turned by deg about the crank axis (world Y through z Z_CRANK)."""
+    return [_rot_axis(s_, deg, V(0, 0, Z_CRANK), V(0, 1, 0)) for _, s_ in crank_parts]
 drive_parts = [(n_, to_side(s_)) for n_, s_ in drive_parts]
 
 
 def drive_pose(alpha):
     """Pack turned by alpha: rim; rim gear and lay bevel (-Z_RIM/CP_Z); crank bevel.
 
-    As drawn (-Y) the mesh is at local (0, -RS, +RS): v = 20 w_lay x = 20 w_crank x,
-    so the crank bevel turns as the lay shaft, about +Y. Mirrored, pack +alpha is
+    As drawn (-Y) the mesh is at local (0, -RS, -RS) (the lay bevel behind the
+    apex), so the crank bevel turns against the lay shaft (CB_SENSE), about +Y;
+    the bevel mesh check below catches a wrong sign. Mirrored, pack +alpha is
     the drawn drive at -alpha (the rim maps onto itself).
     """
     a = alpha if CRANK_SIDE < 0 else -alpha
     wl = -Z_RIM / float(CP_Z)
-    wc = wl * CB_ZS / float(CB_ZB)
+    wc = CB_SENSE * wl * CB_ZS / float(CB_ZB)
     return (rot(rim_gear, alpha), to_side(rot(_drawn["gear"], wl * a, CP_C)),
             to_side(rot(_drawn["lay"], wl * a, CP_C)), to_side(_rot_axis(_drawn["crank"], wc * a, APEX, V(0, 1, 0))))
 
@@ -995,19 +1082,24 @@ _bsp = 360.0 / CB_ZS / (Z_RIM / float(CP_Z))       # pack angle per lay-bevel to
 for _i in range(6):
     _, _, s_, b_ = drive_pose(_bsp * _i / 6.0)
     bevel_mesh_worst = max(bevel_mesh_worst, s_.common(b_).Volume)
+
+
+def _crank_top_dz(sense):
+    """z travel of the crank's top (+X of its axis) as the pack turns 1 deg its running way (+)."""
+    a_ = 1.0 if CRANK_SIDE < 0 else -1.0
+    wc_ = sense * (-Z_RIM / float(CP_Z)) * CB_ZS / float(CB_ZB)
+    p0_ = Part.Vertex(APEX + V(40.0, 0, 0))
+    p1_ = Part.Vertex(APEX + V(40.0, 0, 0))
+    p1_.rotate(APEX, V(0, 1, 0), wc_ * a_)
+    return to_side(p1_).Point.z - to_side(p0_).Point.z
+
+
+CRANK_TOP_DZ = _crank_top_dz(CB_SENSE)
+# Clockwise seen from the knob: on the right (+Y) that is the top going forward (+Z).
+CRANK_CW = CRANK_TOP_DZ * CRANK_SIDE > 0
 PACK_PER_CRANK = (CB_ZB / float(CB_ZS)) * (CP_Z / float(Z_RIM))
 CRANK_RPM = 60.0
 SHOTS_PER_S = CRANK_RPM / 60.0 * PACK_PER_CRANK * N
-z_cg = 0.5 * (z_cam0 + z_front1)
-z_carry = max(z_cg, BOX_Z1 + 50.0)
-x_handle = r_case_od + 22.0
-carry_handle = Part.makeBox(12.0, 18.0, 90.0, V(x_handle - 6.0, -9.0, z_carry - 45.0)).fuse(
-    Part.makeCylinder(9.0, 70.0, V(x_handle + 18.0, 0, z_carry - 35.0))).removeSplitter()
-_sf = Part.makeTorus(18.0, 3.0)
-_sf.translate(V(x_handle, 0, z_front0 + 10.0))
-_sr = Part.makeTorus(18.0, 3.0)
-_sr.translate(V(x_handle, 0, z_cam0 - RING_T - 12.0))
-sling = _sf.fuse(_sr)
 
 # ============================================================ controls: flintlock grip, one two-stage lever, feed gate
 # The left hand holds a grip that curls down behind the rear plate like a flintlock
@@ -1370,6 +1462,219 @@ gate_cable = Part.makeCompound([cable_ex, cable_in])
 CABLE_LEN = path_len(_cab_ex) + path_len(_cab_in)
 gate_parts = Part.makeCompound([gate_housing, gate_pin, gate_spring])
 
+# ============================================================ mass and centre of gravity (stage 7)
+# Printed PETG (1.27 g/cm3): a solid skin, the rest at the profile's infill. The
+# skin is V (1 - exp(-A t / V)) with t = PRINT_SKIN_T, fitted to tools/print_mass.py
+# on 19 bodies of this model (5 walls, 60 %: within 6 % a body, the sum within 1 %);
+# airtight (6 walls, 100 %, flow 1.05) is V x 1.27 x 1.05. Metal, wood and hoses by
+# volume; bought parts by catalogue or an estimate ("est."). The carry handle and
+# the strap loops are placed by this centre of gravity, then added to it.
+MS_RHO = {"PETG": 1.27, "steel": 7.85, "Al": 2.70, "PU": 1.20, "TPU": 1.21, "wood": 0.70, "brass": 8.50,
+          "rubber": 1.30}
+PRINT_SKIN_T = 1.9
+PRINT_PROFILE = {"strong": (0.60, 1.00), "airtight": (1.00, 1.05)}
+MS_EST = {"AirTAC M3R110": 60.0, "AirTAC fittings (2 straight + silencer)": 17.0, "pilot fitting G1/8": 8.0,
+          "O-rings, M3 nuts and washers": 7.0, "6808": 26.0, "608": 12.0, "MQR6 clone (Ø46 x 90 Al)": 350.0,
+          "dead-man 2/2 NC": 20.0, "brass pommel (cast shell ~1.5 mm)": 80.0}
+MS_BOWDEN_G_PER_M = 25.0                         # 5 mm bicycle brake housing, est.
+QEV_MAT = {"Rear_plug": "airtight", "Seat_ring": "airtight", "Front_cover": "airtight", "Diaphragm": "rubber",
+           "Front_yoke": "strong", "Barrel_stub": "steel", "Chamber_tube": "Al", "Tie_rods": "steel",
+           "Pilot_fitting": "pilot fitting G1/8", "Carriage": "strong", "Nose_clamp": "strong"}
+assert set(QEV_MAT) == set(qev_closed), "new QEV part without a material: %s" % (set(qev_closed) ^ set(QEV_MAT))
+mass_rows = []                                   # (group, name, grams, centre, basis)
+
+
+def ms_com(shape_):
+    sols_ = shape_.Solids
+    if not sols_:
+        return shape_.BoundBox.Center
+    vt_ = sum(s_.Volume for s_ in sols_)
+    c_ = V(0, 0, 0)
+    for s_ in sols_:
+        c_ = c_ + s_.CenterOfMass * (s_.Volume / vt_)
+    return c_
+
+
+def ms_add(group_, name_, shape_, mat_, frac_=1.0):
+    """One body: mat_ is a print profile, a material in MS_RHO, or a key of MS_EST (bought)."""
+    if mat_ in PRINT_PROFILE:
+        f_, flow_ = PRINT_PROFILE[mat_]
+        v_, a_ = shape_.Volume, shape_.Area
+        skin_ = v_ * (1.0 - math.exp(-a_ * PRINT_SKIN_T / v_))
+        g_, basis_ = MS_RHO["PETG"] * flow_ * (skin_ + f_ * (v_ - skin_)) / 1000.0, "PETG " + mat_
+    elif mat_ in MS_RHO:
+        g_, basis_ = MS_RHO[mat_] * shape_.Volume * frac_ / 1000.0, mat_
+    else:
+        g_, basis_ = MS_EST[mat_], "est. " + mat_
+    mass_rows.append((group_, name_, g_, ms_com(shape_), basis_))
+
+
+def ms_hose(group_, name_, shape_, od_, id_):
+    ms_add(group_, name_, shape_, "PU", 1.0 - (id_ / od_) ** 2)
+
+
+print("mass…", flush=True)
+for _mk in range(N):
+    _mp = _mk * 60.0
+    _mdz = cam_dz(_mp)
+    for _mn, _ms in qev_closed.items():
+        ms_add("stations", _mn, place(_ms, _mp, _mdz), QEV_MAT[_mn])
+    ms_add("stations", "O-rings, nuts", place(qev_closed["Chamber_tube"], _mp, _mdz), "O-rings, M3 nuts and washers")
+    ms_add("stations", "AirTAC", place(valve_body, _mp, _mdz), "AirTAC M3R110")
+    ms_add("stations", "AirTAC fittings", place(valve_fit, _mp, _mdz), "AirTAC fittings (2 straight + silencer)")
+    ms_add("stations", "valve bracket", place(valve_bracket, _mp, _mdz), "strong")
+    ms_add("stations", "finger", place(follower, _mp, _mdz), "steel")
+    ms_hose("stations", "line A", place(line_a, _mp, _mdz), HOSE_OD, HOSE_ID)
+    ms_hose("stations", "line R", place(line_r(_mdz), _mp), HOSE_OD, HOSE_ID)
+    ms_add("stations", "rails Al 8 x 1", place(rails_pack, _mp), "Al")
+    ms_add("stations", "barrel clamp", place(barrel_clamp, _mp), "strong")
+    ms_add("stations", "barrel collar", place(barrel_collar, _mp), "strong")
+    ms_add("stations", "barrel", place(fixed_barrel, _mp), "steel")
+for _mn, _ms, _mm in (("liner", cam, "strong"), ("frame (rings, spars)", pack_frame, "strong"),
+                      ("front barrel plate", front_plate, "strong"), ("rear rail disk", rear_disk, "strong"),
+                      ("firing ramp", ramp_fire, "strong"), ("ramp block", guide_block, "strong")):
+    ms_add("frame", _mn, _ms, _mm)
+for _mn, _ms, _mm in (("star", star0, "strong"), ("feed head", feed_head, "strong"), ("cup", feed_cup, "strong"),
+                      ("TPU lip", feed_lip, "TPU"), ("guard", feed_guard, "strong"),
+                      ("gate housing", gate_housing, "strong"), ("gate pin", gate_pin, "steel"),
+                      ("gate spring", gate_spring, "steel")):
+    ms_add("feed", _mn, _ms, _mm)
+for _mn, _ms, _mm in (("rim 120", rim_gear, "strong"), ("gear A", gear_a, "strong"), ("gear B", gear_b, "strong"),
+                      ("idler", gear_i, "strong"), ("star gear", gear_s, "strong"), ("gearbox", gearbox, "strong"),
+                      ("star shaft", star_shaft, "steel"), ("layshaft", lay_shaft, "steel"),
+                      ("idler shaft", idl_shaft, "steel")):
+    ms_add("star drive", _mn, _ms, _mm)
+for _mn, _ms, _mm in (("gear 60", crank_gear, "strong"), ("lay bevel", bevel_small, "strong"),
+                      ("crank bevel", bevel_big, "strong"), ("lay shaft", pin_shaft, "steel"),
+                      ("crank shaft", crank_shaft, "steel"), ("crank brackets", crank_bracket, "strong"),
+                      ("crank arm", crank_arm, "strong"), ("knob", crank_knob, "strong"),
+                      ("knob pin, head, nut", crank_knob_pin, "steel")):
+    ms_add("pack drive", _mn, _ms, _mm)
+for _ms in crank_bearings.Solids:
+    ms_add("pack drive", "608", _ms, "608")
+# Bearing disks: the 6808 is fused into each printed disk; weigh the race apart.
+for _mn, _ms, _z0 in (("front bearing disk", brg_f, z_brg_f0), ("rear bearing disk, rear spars", brg_r, z_brg_r0)):
+    _mrace = G.cyl(BRG_OD, _z0, _z0 + DISK_T)
+    ms_add("air", _mn, _ms.cut(_mrace), "strong")
+    ms_add("air", "6808", _ms.common(_mrace), "6808")
+for _mn, _ms, _mm in (("axle Al 38 x 1.5", pack_axle, "Al"), ("soft coupling", soft_coup, "TPU"),
+                      ("rear plate", mqr_plate, "strong"), ("struts", rear_struts, "strong")):
+    ms_add("air", _mn, _ms, _mm)
+ms_add("air", "MQR6", Part.makeCompound([mqr_rotor, mqr_stator]), "MQR6 clone (Ø46 x 90 Al)")
+ms_hose("air", "lines in the axle", lines_inner, HOSE_OD, HOSE_ID)
+for _mn, _ms, _mm in (("grip (wood)", grip, "wood"), ("lever", lever, "strong"), ("lever pin", lever_pin, "steel"),
+                      ("pusher", dm_pusher, "steel"), ("gate wire", gate_wire, "steel")):
+    ms_add("controls", _mn, _ms, _mm)
+ms_add("controls", "pommel", pommel, "brass pommel (cast shell ~1.5 mm)")
+ms_add("controls", "dead-man", deadman, "dead-man 2/2 NC")
+ms_hose("controls", "outlet hose 8 x 6", air_supply, HOSE_OUT_OD, HOSE_OUT_OD - 2.0)
+ms_hose("controls", "supply hose (in the grip, stub)", supply_hose, SUP_IN_D, SUP_IN_D - 2.0)
+mass_rows.append(("controls", "Bowden housing", MS_BOWDEN_G_PER_M * CABLE_LEN / 1000.0, ms_com(gate_cable),
+                  "est. %.0f g/m" % MS_BOWDEN_G_PER_M))
+
+
+def ms_sum(rows_):
+    m_ = sum(r_[2] for r_ in rows_)
+    c_ = V(0, 0, 0)
+    for r_ in rows_:
+        c_ = c_ + r_[3] * (r_[2] / m_)
+    return m_, c_
+
+
+MASS_GUN0, CG0 = ms_sum(mass_rows)               # without the carry handle and the strap loops
+print("mass %.0f g, CG (%.1f, %.1f, %.1f) before the handle" % (MASS_GUN0, CG0.x, CG0.y, CG0.z), flush=True)
+
+# ============================================================ carry: handle over the CG, strap rings
+# The hopper's cup sits on top just ahead of the CG and nothing fixed stands on the top
+# ahead of the liner but the star-drive gearbox, so the handle is a bridge: a post on
+# the liner, a post on the gearbox (with a tab down its front face), both the same
+# distance from the CG, and a bar between them high enough that the fist round it
+# clears the cup. A steel ring round each post takes the strap: the rings sit either
+# side of the CG at the same distance, and the strap pulls them up the posts, not
+# along the gun.
+CARRY_BAR_D, CARRY_FIST_R, CARRY_GRIP_L = 24.0, 32.0, 100.0
+CARRY_POST_W, CARRY_POST_T, CARRY_TAB_H, CARRY_TAB_T = 24.0, 10.0, 20.0, 4.0
+CARRY_CLEAR = 5.0                                 # the fist over the cup
+SLING_WIRE = 2.5
+SLING_R = math.hypot(CARRY_POST_W / 2, CARRY_POST_T / 2) + 0.5 + SLING_WIRE
+R_BOX_OUT = BOX_R1 + 2.5                          # gearbox outer wall
+x_carry = feed_cup.optimalBoundingBox().XMax + CARRY_CLEAR + CARRY_FIST_R
+y_carry, z_carry = CG0.y, CG0.z
+z_post_f = BOX_Z1 + CARRY_TAB_T - CARRY_POST_T / 2  # front post: 6 on the gearbox top, 4 ahead of its face
+d_carry = z_post_f - z_carry
+z_post_r = z_carry - d_carry
+x_bar_top = x_carry + CARRY_BAR_D / 2
+
+
+def carry_post(zc, r_seat):
+    p_ = Part.makeBox(x_bar_top - (r_seat - 10.0), CARRY_POST_W, CARRY_POST_T,
+                      V(r_seat - 10.0, y_carry - CARRY_POST_W / 2, zc - CARRY_POST_T / 2))
+    return p_.cut(Part.makeCylinder(r_seat, 400.0, V(0, 0, zc - 200.0)))
+
+
+_cp_tab = Part.makeBox(CARRY_TAB_H, CARRY_POST_W, CARRY_TAB_T,
+                       V(R_BOX_OUT - CARRY_TAB_H, y_carry - CARRY_POST_W / 2, BOX_Z1))
+carry_handle = G.fuse_all([carry_post(z_post_r, r_case_od), carry_post(z_post_f, R_BOX_OUT), _cp_tab,
+                           Part.makeCylinder(CARRY_BAR_D / 2, d_carry * 2.0, V(x_carry, y_carry, z_post_r), ZA)])
+carry_handle = carry_handle.removeSplitter()
+_sl = []
+for _zs, _xs in ((z_post_r, r_case_od + 14.0), (z_post_f, R_BOX_OUT + 12.0)):
+    _t = Part.makeTorus(SLING_R, SLING_WIRE)
+    _t.rotate(O, V(0, 1, 0), 90.0)                # axis along X: round the post
+    _t.translate(V(_xs, y_carry, _zs))
+    _sl.append(_t)
+sling = Part.makeCompound(_sl)
+carry_hand = Part.makeCylinder(CARRY_FIST_R, CARRY_GRIP_L, V(x_carry, y_carry, z_carry - CARRY_GRIP_L / 2), ZA)
+
+# ============================================================ tripod pad under the CG
+# The tripod is not chosen yet: a socket for a Ø50 ball under the CG. Below the pack
+# nothing fixed runs between the liner and the front ring (only the spars at 150 and
+# 210 deg), so a keel bridges them along the bottom (-X), outside the liner's radius,
+# and a boss on it under the CG carries a shallow spherical socket (the ball sits in
+# it, below its equator; the tripod's clamp holds it). A reference ball with a post
+# shows the tripod and is tilted 20 deg each way.
+TRIPOD_BALL_D, TRIPOD_SOCKET_CLEAR, TRIPOD_SOCKET_DEPTH = 50.0, 0.25, 15.0
+TRIPOD_KEEL_W, TRIPOD_KEEL_T = 30.0, 15.0           # across (y), down (x)
+TRIPOD_BOSS_D, TRIPOD_BOSS_H = 70.0, 25.0
+TRIPOD_FOOT_L = 20.0                                # keel foot on the liner (its front end)
+TRIPOD_POST_D, TRIPOD_POST_L, TRIPOD_TILT = 25.0, 120.0, 20.0
+y_tripod, z_tripod = CG0.y, CG0.z
+z_keel0 = z_cam1 - TRIPOD_FOOT_L                    # on the liner, ahead of the ramp block's inserts
+z_keel1 = Z_FRING1                                  # over the front ring's width
+x_keel_out = -(r_case_od + TRIPOD_KEEL_T)
+_keel = Part.makeBox(TRIPOD_KEEL_T + 10.0, TRIPOD_KEEL_W, z_keel1 - z_keel0,
+                     V(x_keel_out, y_tripod - TRIPOD_KEEL_W / 2, z_keel0))
+_keel = _keel.cut(Part.makeCylinder(r_case_od, 2000.0, V(0, 0, -1000.0)))
+x_socket_face = x_keel_out - TRIPOD_BOSS_H
+_boss = Part.makeCylinder(TRIPOD_BOSS_D / 2, TRIPOD_BOSS_H + 1.0, V(x_socket_face, y_tripod, z_tripod), V(1, 0, 0))
+TRIPOD_SOCKET_R = TRIPOD_BALL_D / 2 + TRIPOD_SOCKET_CLEAR
+P_BALL = V(x_socket_face - (TRIPOD_SOCKET_R - TRIPOD_SOCKET_DEPTH), y_tripod, z_tripod)
+tripod_pad = G.fuse_all([_keel, _boss]).cut(Part.makeSphere(TRIPOD_SOCKET_R, P_BALL)).removeSplitter()
+TRIPOD_MOUTH_D = 2.0 * math.sqrt(TRIPOD_SOCKET_R ** 2 - (TRIPOD_SOCKET_R - TRIPOD_SOCKET_DEPTH) ** 2)
+_tb = Part.makeSphere(TRIPOD_BALL_D / 2, P_BALL).fuse(
+    Part.makeCylinder(TRIPOD_POST_D / 2, TRIPOD_POST_L, P_BALL, V(-1, 0, 0))).removeSplitter()
+tripod_ball = _tb
+
+
+def tripod_at(tilt_deg, axis_):
+    return _rot_axis(tripod_ball, tilt_deg, P_BALL, axis_)
+
+
+ms_add("carry", "handle", carry_handle, "strong")
+for _s in sling.Solids:
+    ms_add("carry", "strap ring", _s, "steel")
+ms_add("tripod", "keel and socket", tripod_pad, "strong")
+MASS_GUN, CG = ms_sum(mass_rows)
+mass_groups = []
+for _g in ("stations", "frame", "feed", "star drive", "pack drive", "air", "controls", "carry", "tripod"):
+    _gm, _gc = ms_sum([r_ for r_ in mass_rows if r_[0] == _g])
+    mass_groups.append((_g, _gm, _gc))
+mass_by = {}
+for r_ in mass_rows:
+    _k = "bought (est.)" if r_[4].startswith("est.") else ("printed" if r_[4].startswith("PETG") else r_[4])
+    mass_by[_k] = mass_by.get(_k, 0.0) + r_[2]
+print("mass %.0f g, CG (%.1f, %.1f, %.1f) with the handle" % (MASS_GUN, CG.x, CG.y, CG.z), flush=True)
+
 # --- control checks
 print("controls…", flush=True)
 _lev_hit, _lev_worst = 0.0, "-"
@@ -1478,6 +1783,53 @@ _hand_gun = [("star-drive box", gearbox), ("star train", Part.makeCompound([gear
              ("pack (six phases)", Part.makeCompound(stations)), ("rim", rim_gear)]
 hand_gap, hand_near = min((gap(hand_space, s_, pad=150.0), n_) for n_, s_ in _hand_gun)
 hand_own = min(gap(hand_space, s_, pad=20.0) for n_, s_ in drive_parts if n_ != "crank shaft")
+# Crank arm and knob: a full crank turn in CK_STEP steps against everything fixed round
+# it (the pack on its six phases; every 3 deg of pack in the sweep); the knob on its own
+# pin; the hub on the shaft end.
+CK_STEP = 10.0
+crank_poses = [crank_at(CK_STEP * i_) for i_ in range(int(round(360.0 / CK_STEP)))]
+_ck_fixed = _hand_gun + [("crank brackets", crank_bracket), ("crank bearings", crank_bearings),
+                         ("lay bevel", bevel_small), ("gear 60", crank_gear), ("lay shaft", pin_shaft)]
+crank_gap, crank_near = min((gap(s_, f_, pad=DRIVE_PAD), n_) for pose_ in crank_poses for s_ in pose_
+                            for n_, f_ in _ck_fixed)
+crank_boss = gap(crank_arm, crank_bracket, pad=20.0)
+crank_seated = gap(crank_arm, crank_shaft) < 0.05
+knob_pin_gap = gap(crank_knob, crank_knob_pin)
+knob_arm_gap = gap(crank_knob, crank_arm)
+knob_in_room = crank_knob.common(hand_space).Volume / crank_knob.Volume
+# Carry: the posts stand on the liner and the gearbox; handle, rings and the fist clear the rest.
+carry_seat_r = gap(carry_handle, cam)
+carry_seat_f = gap(carry_handle, gearbox)
+carry_rear_on_liner = z_cam0 <= z_post_r - CARRY_POST_T / 2 and z_post_r + CARRY_POST_T / 2 <= z_cam1
+_carry_near = [("cup", feed_cup), ("feed head", feed_head), ("gate", Part.makeCompound([gate_housing, gate_pin, gate_pin_open])),
+               ("gate cable", gate_cable), ("star", star0), ("guard", feed_guard), ("frame", pack_frame),
+               ("star train", Part.makeCompound([gear_a, gear_b, gear_i, gear_s, star_shaft, lay_shaft, idl_shaft])),
+               ("rim", rim_gear), ("pack (six phases)", Part.makeCompound(stations))]
+carry_gap, carry_near = min((gap(carry_handle, f_, pad=DRIVE_PAD), n_) for n_, f_ in _carry_near)
+ring_gap, ring_near = min((gap(sling, f_, pad=DRIVE_PAD), n_) for n_, f_ in
+                          _carry_near + [("liner", cam), ("gearbox", gearbox), ("handle", carry_handle)])
+fist_gap, fist_near = min((gap(carry_hand, f_, pad=DRIVE_PAD), n_) for n_, f_ in
+                          _carry_near + [("liner", cam), ("gearbox", gearbox), ("strap rings", sling)])
+CG_OFF_Z, CG_OFF_Y, CG_UP = CG.z - z_carry, CG.y - y_carry, CG.x - CG0.x   # the handle lifts the CG towards itself
+# Tripod pad: the keel stands on the liner and the front ring, the socket is under the
+# CG; keel, boss and the tilted tripod clear the rest.
+tripod_seat_r = gap(tripod_pad, cam)
+tripod_seat_f = gap(tripod_pad, pack_frame)
+tripod_on_liner = z_cam0 <= z_keel0 and z_keel1 <= Z_FRING1 + 1e-6
+_tripod_near = [("pack (six phases)", Part.makeCompound(stations)), ("ramp and block", Part.makeCompound([ramp_fire, guide_block])),
+                ("rim", rim_gear), ("pack drive", Part.makeCompound([s_ for _, s_ in drive_parts])),
+                ("front bearing disk", brg_f), ("strap rings", sling), ("hoses and grip", Part.makeCompound([supply_hose, grip, pommel]))]
+tripod_gap, tripod_near = min((gap(tripod_pad, f_, pad=DRIVE_PAD), n_) for n_, f_ in _tripod_near)
+_tripod_gun = _tripod_near + [("liner", cam), ("frame", pack_frame)]
+tripod_tilt_gap, tripod_tilt_near = 99.0, "nothing nearer"
+for _ta in (V(0, 1, 0), V(0, 0, 1)):
+    for _td in (-TRIPOD_TILT, 0.0, TRIPOD_TILT):
+        for n_, f_ in _tripod_gun:
+            g_ = gap(tripod_at(_td, _ta), f_, pad=DRIVE_PAD)
+            if g_ < tripod_tilt_gap:
+                tripod_tilt_gap, tripod_tilt_near = g_, n_
+tripod_ball_seat = gap(Part.makeSphere(TRIPOD_BALL_D / 2, P_BALL), tripod_pad)
+TRIPOD_OFF_Z, TRIPOD_OFF_Y = CG.z - z_tripod, CG.y - y_tripod
 # Ramp mount block vs the stations, six phases (full turn in the sweep).
 mount_vs_stations = min(gap(guide_block, st) for st in stations)
 print("fast checks done", flush=True)
@@ -1489,7 +1841,7 @@ assembly = Part.makeCompound([
     star_shaft, lay_shaft, idl_shaft, gearbox, star0, feed_head, feed_lip, feed_cup, feed_guard,
     ramp_fire, guide_block, rear_struts, grip, pommel, lever, lever_pin, dm_pusher, gate_wire, gate_cable,
     gate_housing, gate_pin, gate_spring, crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings,
-    carry_handle, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
+    crank_arm, crank_knob, crank_knob_pin, carry_handle, tripod_pad, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
     mqr_plate, lines_inner, deadman, air_supply, supply_hose,
 ])
 bb = assembly.optimalBoundingBox()
@@ -1581,6 +1933,36 @@ checks = [
      bracket_on_ring and gears_vs_bracket >= CLEAR and bevels_apart >= CLEAR),
     ("room for the hand (crank R %.0f, fist R %.0f x %.0f): %.1f to the gun (%s), %.1f to its own boss"
      % (CRANK_ARM_R, HAND_R, HAND_W, hand_gap, hand_near, hand_own), hand_gap >= 20.0 and hand_own >= 5.0),
+    ("crank arm R %.0f and knob Ø%.0f x %.0f over a crank turn (%d steps of %.0f deg): %s to the gun (%s);"
+     " hub on the shaft end, %.1f off its boss"
+     % (CRANK_ARM_R, CK_KNOB_OD, CK_KNOB_L, len(crank_poses), CK_STEP, far(crank_gap),
+        crank_near if crank_gap < 99.0 else "nothing nearer", crank_boss),
+     crank_gap >= DRIVE_PAD and crank_seated and crank_boss >= 5.0),
+    ("crank turns clockwise seen from its knob (top %s), the forward way of a drill or a flexible shaft;"
+     " bevel pair with the lay bevel behind the apex" % ("forward" if CRANK_TOP_DZ > 0 else "aft"), CRANK_CW),
+    ("knob turns on its own pin (bore %.2f, %.1f off the arm), inside the room for the hand (%.1f %%)"
+     % (knob_pin_gap, knob_arm_gap, 100.0 * knob_in_room),
+     knob_pin_gap >= 0.15 and knob_arm_gap >= 0.5 and knob_in_room > 0.999),
+    ("carry handle over the CG (z %.0f, y %.0f): posts on the liner (%.2f) and the gearbox (%.2f), CG ± %.0f;"
+     " with the handle the CG is %.1f / %.1f off its middle and %.0f below the bar (rises %.1f)"
+     % (z_carry, y_carry, carry_seat_r, carry_seat_f, d_carry, CG_OFF_Z, CG_OFF_Y, x_carry - CG.x, CG_UP),
+     carry_seat_r < 0.05 and carry_seat_f < 0.05 and carry_rear_on_liner and abs(CG_OFF_Z) < 2.0
+     and abs(CG_OFF_Y) < 1.0 and CG.x < x_carry - 100.0),
+    ("handle clear of the cup, feed head, gate and cable, star train, frame, pack (%s, %s); strap rings round"
+     " the posts at z %.0f / %.0f (%s, %s)" % (far(carry_gap), carry_near, z_post_r, z_post_f, far(ring_gap), ring_near),
+     carry_gap >= 2.0 and ring_gap >= 0.3),
+    ("fist on the handle (R %.0f x %.0f round the bar) %s from the gun (%s)"
+     % (CARRY_FIST_R, CARRY_GRIP_L, far(fist_gap), fist_near), fist_gap >= CARRY_CLEAR - 0.05),
+    ("tripod pad under the CG: socket for a Ø%.0f ball at z %.0f, y %.0f (CG %.1f / %.1f off), %.0f below it;"
+     " keel on the liner (%.2f) and the front ring (%.2f)"
+     % (TRIPOD_BALL_D, z_tripod, y_tripod, TRIPOD_OFF_Z, TRIPOD_OFF_Y, CG.x - P_BALL.x, tripod_seat_r, tripod_seat_f),
+     tripod_seat_r < 0.05 and tripod_seat_f < 0.05 and tripod_on_liner and abs(TRIPOD_OFF_Z) < 2.0
+     and abs(TRIPOD_OFF_Y) < 1.0),
+    ("tripod socket depth %.0f, mouth Ø%.1f, ball seated %.2f; keel and boss clear of the pack, ramp, rim, drive (%s, %s);"
+     " ball and post tilted ±%.0f deg %s from the gun (%s)"
+     % (TRIPOD_SOCKET_DEPTH, TRIPOD_MOUTH_D, tripod_ball_seat, far(tripod_gap), tripod_near, TRIPOD_TILT,
+        far(tripod_tilt_gap), tripod_tilt_near),
+     tripod_ball_seat <= TRIPOD_SOCKET_CLEAR + 0.01 and tripod_gap >= 2.0 and tripod_tilt_gap >= 5.0),
     ("open frame (not full casing)", frame_ok),
     ("six phases", len(stations) == 6),
     ("closed station L %.1f ≈ 750" % closed_L, abs(closed_L - TARGET_L) <= 0.6),
@@ -1626,13 +2008,27 @@ report = [
     " bevel %d:%d m%.0f -> lay shaft at r %.0f -> gear %d in rim %d; %.2f pack turn per crank turn"
     % ("+Y, right" if CRANK_SIDE > 0 else "−Y, left", Z_CRANK, CB_ZB, CB_ZS, CB_M, CP_C.Length, CP_Z, Z_RIM,
        PACK_PER_CRANK),
-    "  crank turn             : top of the crank goes %s; shaft stub to |y| %.0f, arm and knob not drawn"
-    % ("forward" if (Z_RIM / float(CP_Z)) * CB_ZS / float(CB_ZB) * -CRANK_SIDE > 0 else "aft (towards the shooter)",
-       max(abs(crank_shaft.BoundBox.YMin), abs(crank_shaft.BoundBox.YMax))),
+    "  crank                  : top of the crank goes %s; arm R %.0f on the shaft end (|y| %.0f), knob Ø%.0f x %.0f"
+    " on its own pin Ø%.0f"
+    % ("forward, clockwise seen from the knob" if CRANK_CW else "aft, anticlockwise seen from the knob",
+       CRANK_ARM_R, max(abs(crank_shaft.BoundBox.YMin), abs(crank_shaft.BoundBox.YMax)), CK_KNOB_OD, CK_KNOB_L,
+       CK_PIN_D),
     "  rate                   : %.0f rpm on the crank -> %.1f shots/s" % (CRANK_RPM, SHOTS_PER_S),
     "  room for the hand      : y %.0f..%.0f, r %.0f round the crank axis; %.1f mm to the gun (%s)"
     % (hand_space.BoundBox.YMin, hand_space.BoundBox.YMax, CRANK_ARM_R + HAND_R, hand_gap, hand_near),
-    "  carry                  : handle on top ahead of the gearbox; strap loops front/aft",
+    "  mass                   : %.2f kg — printed %.2f, steel %.2f, Al %.2f, wood %.2f, bought (est.) %.2f, other %.2f;"
+    " balls, skin, bolts, the receiver hose not counted"
+    % (MASS_GUN / 1000.0, mass_by.get("printed", 0) / 1000.0, mass_by.get("steel", 0) / 1000.0,
+       mass_by.get("Al", 0) / 1000.0, mass_by.get("wood", 0) / 1000.0, mass_by.get("bought (est.)", 0) / 1000.0,
+       sum(v_ for k_, v_ in mass_by.items() if k_ not in ("printed", "steel", "Al", "wood", "bought (est.)")) / 1000.0),
+    "  centre of gravity      : x %.1f  y %.1f  z %.1f (z %.0f from the crank axis, %.0f ahead of the liner's rear face)"
+    % (CG.x, CG.y, CG.z, CG.z - Z_CRANK, CG.z - z_cam0),
+    "  mass by unit           : " + ", ".join("%s %.0f g (z %.0f)" % (g_, m_, c_.z) for g_, m_, c_ in mass_groups),
+    "  carry                  : bridge handle, bar Ø%.0f at x %.0f over the CG (z %.0f, y %.0f); posts at z %.0f / %.0f"
+    " (CG ± %.0f) on the liner and the gearbox; steel strap rings round the posts"
+    % (CARRY_BAR_D, x_carry, z_carry, y_carry, z_post_r, z_post_f, d_carry),
+    "  tripod                 : keel under the frame z %.0f..%.0f (liner to front ring), socket for a Ø%.0f ball"
+    " %.0f deep under the CG, ball centre x %.0f" % (z_keel0, z_keel1, TRIPOD_BALL_D, TRIPOD_SOCKET_DEPTH, P_BALL.x),
 ]
 report.append("  phases:")
 for n, ang, u, dz, tag in phases:
@@ -1640,7 +2036,7 @@ for n, ang, u, dz, tag in phases:
 report += [
     "  overall LxWxH         : %.0f x %.0f x %.0f mm (was %.0f long)" % (gun_L, gun_W, gun_H, L_START),
     "  not drawn             : valve bracket bolts,"
-    " 1→6 manifold on the stator, crank arm and knob, wheeled carriage, freeze",
+    " 1→6 manifold on the stator, wheeled carriage, freeze",
 ]
 report += ["  [%s] %s" % ("OK " if ok else "FAIL", n) for n, ok in checks]
 report.append("  full turn             : breech_mechanism_sweep.py (separate run)")
@@ -1721,7 +2117,13 @@ sc.add("Drive", "Bevel_crank", bevel_big, "gear")
 sc.add("Drive", "Crank_shaft", crank_shaft, "drive")
 sc.add("Drive", "Crank_bracket", crank_bracket, "frame")
 sc.add("Drive", "Crank_bearings_608", crank_bearings, "brg")
+sc.add("Drive", "Crank_arm", crank_arm, "crank")
+sc.add("Drive", "Crank_knob", crank_knob, "wood")
+sc.add("Drive", "Crank_knob_pin", crank_knob_pin, "drive")
 sc.add("Reference", "Hand_space", hand_space, "hand")
+sc.add("Reference", "Carry_hand", carry_hand, "hand")
+sc.add("Carry", "Tripod_pad", tripod_pad, "frame")
+sc.add("Reference", "Tripod_ball_50", tripod_ball, "brg")
 sc.add("Carry", "Carry_handle", carry_handle, "carry")
 sc.add("Carry", "Sling_loops", sling, "carry")
 sc.add("Air", "Pack_axle", pack_axle, "drive")
@@ -1751,6 +2153,11 @@ MeshPart.meshFromShape(
     os.path.join(OUT_DIR, "breech_mechanism.stl"))
 with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:
     f.write("\n".join(report) + "\n")
+with open(os.path.join(OUT_DIR, NAME + "_mass.txt"), "w") as f:
+    f.write("%s — mass by body (g), centre (x, y, z mm); total %.0f g, CG (%.1f, %.1f, %.1f)\n"
+            % (NAME, MASS_GUN, CG.x, CG.y, CG.z))
+    for r_ in mass_rows:
+        f.write("%-11s %-34s %8.1f  %-44s %7.1f %7.1f %7.1f\n" % (r_[0], r_[1], r_[2], r_[4], r_[3].x, r_[3].y, r_[3].z))
 
 if not all(ok for _, ok in checks):
     raise SystemExit("gatling breech mechanism has [FAIL] checks")
