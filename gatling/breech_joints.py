@@ -25,20 +25,27 @@ must stay within AXIAL_MAX (the owner: "about 1 mm").
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_joints.py').read())"
 
 The pairs are measured by JOINTS_WORKERS (environment, default cores - 2) freecadcmd
-processes, like the sweep: the bodies go to BREP once, each worker takes a share of the
-bounding-box pairs (2026-11-22: one process took ~12 of the ~19 min).
+processes, like the sweep: each worker takes a share of the bounding-box pairs (2026-11-22: one
+process took ~12 of the ~19 min). Since 2026-11-22 the axial pushes run there too, one task per
+group and direction (they took ~3 min in one process), the workers taking the next free task.
 
-JOINTS_CACHE (environment) = a directory: the bodies and fasteners are written there once
-(BREP + names) and read back on the next run, so the table can be reworked without
-rebuilding the mechanism (~3 min). Report:
+The bodies and fasteners come from the mechanism's body cache (gatling/breech_cache.py: written
+by breech_mechanism.py, keyed by the sources), so the tables here can be reworked without a
+rebuild; without a cache the mechanism is built once as a library (~3.5 min), which writes it.
+The pairs and pushes are remembered by the hashes of their bodies' BREP
+(exports/gatling_breech_mechanism/memo/): a repeat or a run after an edit measures only what a
+changed body takes part in (393 -> 87 s from scratch, ~5-13 s again; the report is the same).
+Report:
 exports/gatling_breech_mechanism/gatling_breech_mechanism_joints.txt
 """
 import fnmatch
 import json
 import os
 import re
+import resource
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -56,7 +63,6 @@ except NameError:
 CONTACT = 0.2          # mm: closer than this is a contact (a seat, not a running gap)
 OVERLAP = 0.05         # mm3: more common volume than this is an overlap
 FAST_NEAR = 0.35       # mm: a fastener this close to both parts runs through both
-CACHE = os.environ.get("JOINTS_CACHE", "")
 _WORKER = os.environ.get("BREECH_JOINTS_TASK")
 _t0 = time.time()
 
@@ -274,194 +280,6 @@ def measure(a, b, fast, need_fast):
     return d, ov, fi
 
 
-if _WORKER:
-    # ------------------------------------------------------------ worker: one share of the pairs
-    _task = json.load(open(_WORKER))
-    _sh = _read(_task["brep"]).childShapes()
-    _nb = _task["n_bodies"]
-    _out = [[i, j] + list(measure(_sh[i], _sh[j], _sh[_nb:], nf)) for i, j, nf in _task["pairs"]]
-    json.dump(_out, open(_task["out"], "w"))
-    raise SystemExit(0)
-
-# ---------------------------------------------------------------- bodies and fasteners
-_cached = CACHE and os.path.exists(os.path.join(CACHE, "bodies.json"))
-if _cached:
-    _meta = json.load(open(os.path.join(CACHE, "bodies.json")))
-    _shapes = _read(os.path.join(CACHE, "bodies.brep")).childShapes()
-    BODIES = [(m[0], s, m[1]) for m, s in zip(_meta["bodies"], _shapes[:len(_meta["bodies"])])]
-    FAST = list(zip(_meta["fasteners"], _shapes[len(_meta["bodies"]):]))
-    AXES = _meta["axes"]
-    print("joints: %d bodies, %d fasteners from the cache %s" % (len(BODIES), len(FAST), CACHE), flush=True)
-else:
-    BREECH_MECH_LIBRARY = True
-    _mech_ok = True
-    try:
-        exec(open(os.path.join(REPO, "gatling", "breech_mechanism.py")).read(), globals())
-    except SystemExit as _e:
-        _mech_ok = _e.code in (0, None)
-    BREECH_MECH_LIBRARY = False
-    print("joints: mechanism built in %.0f s (fast checks %s)" % (time.time() - _t0, "OK" if _mech_ok else "FAIL"),
-          flush=True)
-    QEV_MATS = {"Rear_plug": "print", "Seat_ring": "print", "Front_cover": "print", "Diaphragm": "rubber",
-                "Front_yoke": "print", "Barrel_stub": "steel", "Chamber_tube": "Al", "Pilot_fitting": "bought",
-                "Carriage": "print", "Nose_clamp": "print"}
-    BODIES, FAST = [], []
-
-    def body(name, shape, mat):
-        sols = shape.Solids
-        if len(sols) > 1:
-            for i, s in enumerate(sols):
-                BODIES.append(("%s.%d" % (name, i + 1), s, mat))
-        else:
-            BODIES.append((name, shape, mat))
-
-    for _k in (0, 3):                       # FIRE (on the ramp), LOAD (under the feed)
-        _p = _k * 60.0
-        _dz = cam_dz(_p)
-        _s = "st%d." % _k
-        for _n, _sh in qev_closed.items():
-            if _n == "Tie_rods":
-                FAST += [("%sTie_studs.%d" % (_s, i + 1), s_) for i, s_ in enumerate(place(_sh, _p, _dz).Solids)]
-                continue
-            body(_s + _n, place(_sh, _p, _dz), QEV_MATS[_n])
-        body(_s + "AirTAC", place(valve_body, _p, _dz), "bought")
-        body(_s + "AirTAC_plunger", place(valve_plunger, _p, _dz), "bought")
-        body(_s + "AirTAC_fittings", place(valve_fit, _p, _dz), "bought")
-        body(_s + "Valve_bracket", place(valve_bracket, _p, _dz), "print")
-        body(_s + "Line_A", place(line_a, _p, _dz), "hose")
-        body(_s + "Line_R", place(line_r(_dz), _p), "hose")
-        body(_s + "Finger", place(follower, _p, _dz), "steel")
-        body(_s + "Rails", place(rails_pack, _p), "Al")
-        body(_s + "Breech_clamp_upper", place(clamp_upper, _p), "print")
-        body(_s + "Barrel", place(fixed_barrel, _p), "steel")
-    for _n, _sh, _m in (
-            ("Pack_hub", pack_hub, "print"), ("Front_bearing_61836", front_bearing, "bought"),
-            ("Inner_race_retainer", brg_ret_in, "print"), ("Muzzle_plate", front_plate, "print"),
-            ("Rear_rail_disk", rear_disk, "print"), ("Pack_axle", pack_axle, "Al"), ("Axle_collars", axle_collars, "print"),
-            ("Lines_in_axle", lines_inner, "hose"), ("Soft_coupling", soft_coup, "TPU"), ("MQR_rotor", mqr_rotor, "bought"),
-            ("Liner_half_right", cam_r, "print"), ("Liner_half_left", cam_l, "print"), ("Front_ring", pack_frame, "print"),
-            ("Bearing_front", brg_f, "print"), ("Bearing_rear", brg_r, "print"), ("Front_6808_retainer", brg6808_ret, "print"),
-            ("Bearing_housing", brg_housing, "print"), ("Outer_race_retainer", brg_ret_out, "print"),
-            ("Firing_ramp", ramp_body, "print"), ("Ramp_mount_block", guide_block, "print"),
-            ("Rear_plate", mqr_plate, "print"), ("MQR_stator", mqr_stator, "bought"), ("Gearbox", gearbox, "print"),
-            ("Feed_head", feed_head, "print"), ("Lip_TPU", feed_lip, "TPU"), ("Cup", feed_cup, "print"),
-            ("Feed_guard", feed_guard, "print"), ("Gate_housing", gate_housing, "print"), ("Gate_pin", gate_pin, "steel"),
-            ("Gate_spring", gate_spring, "steel"), ("Gate_cable", gate_cable, "hose"), ("Gate_wire", gate_wire, "steel"),
-            ("Carry_handle", carry_handle, "print"), ("Sling_loops", sling, "steel"), ("Tripod_pad", tripod_pad, "print"),
-            ("Crank_bracket", crank_bracket, "print"), ("Crank_bearings_608", crank_bearings, "bought"),
-            ("Grip", grip, "wood"), ("Pommel", pommel, "brass"), ("Deadman_valve", deadman, "bought"),
-            ("Supply_stub", air_supply, "hose"), ("Supply_hose_end", supply_hose, "hose"),
-            ("Lever", lever, "print"), ("Lever_pin", lever_pin, "steel"), ("Deadman_pusher", dm_pusher, "steel"),
-            ("Star", star0, "print"), ("Star_gear", gear_s, "print"), ("Star_shaft", star_shaft, "steel"),
-            ("Star_collar", star_collar, "print"), ("Gears_A_B", gear_ab, "print"), ("Layshaft", lay_shaft, "steel"),
-            ("Idler", gear_i, "print"), ("Idler_shaft", idl_shaft, "steel"),
-            ("Crank_rim_gear_60", crank_gear, "print"), ("Lay_shaft", pin_shaft, "steel"), ("Bevel_lay", bevel_small, "print"),
-            ("Bevel_crank", bevel_big, "print"), ("Crank_shaft", crank_shaft, "steel"), ("Crank_arm", crank_arm, "print"),
-            ("Crank_knob", crank_knob, "print"), ("Crank_knob_pin", crank_knob_pin, "steel"),
-            ("Bearings_6808", races_6808, "bought"), ("Rear_6808_retainer", brg6808_ret_r, "print"),
-            ("Star_bearings_608", star_bearings, "bought"), ("Star_bearing_cover", star_cover, "print"),
-            ("Star_spacer", star_spacer, "steel"), ("Lay_shaft_collar", lay_collar, "print"),
-            ("Crank_spacer", crank_spacer, "print"), ("Collector_1to6", collector, "bought"),
-            ("Collector_fittings", coll_fittings, "bought"), ("Collector_hoses", coll_hoses, "hose"),
-            ("EVA_skin", skin, "EVA"), ("EVA_end_cap", skin_cap, "EVA")):
-        body(_n, _sh, _m)
-    FAST += [(f_.name, f_.body) for f_ in FASTENERS] + [(n_, b_) for n_, b_ in M4_EXC]
-    AXES = {"Z": [0.0, 0.0, 1.0], "Y": [0.0, 1.0, 0.0], "DM": [_face_n0.x, _face_n0.y, _face_n0.z]}
-    if CACHE:
-        os.makedirs(CACHE, exist_ok=True)
-        Part.makeCompound([b[1] for b in BODIES] + [f[1] for f in FAST]).exportBrep(os.path.join(CACHE, "bodies.brep"))
-        json.dump({"bodies": [[b[0], b[2]] for b in BODIES], "fasteners": [f[0] for f in FAST], "axes": AXES},
-                  open(os.path.join(CACHE, "bodies.json"), "w"))
-        print("joints: %d bodies, %d fasteners written to %s" % (len(BODIES), len(FAST), CACHE), flush=True)
-
-# ---------------------------------------------------------------- pairs
-print("joints: %d bodies, %d fasteners, measuring pairs…" % (len(BODIES), len(FAST)), flush=True)
-_bbs = [b[1].BoundBox for b in BODIES]
-_pairs = [(i, j, declared(BODIES[i][0], BODIES[j][0]) is None)
-          for i in range(len(BODIES)) for j in range(i + 1, len(BODIES)) if _near(_bbs[i], _bbs[j], CONTACT)]
-_n_pairs = len(_pairs)
-_n_workers = int(os.environ.get("JOINTS_WORKERS", max(1, (os.cpu_count() or 4) - 2)))
-_faces = [len(b[1].Faces) for b in BODIES]
-# Heaviest pairs first, dealt round the workers so each gets a like share of the work.
-_pairs.sort(key=lambda p_: -_faces[p_[0]] * _faces[p_[1]])
-_meas = []                                       # [i, j, dist, overlap, fastener index]
-if _n_workers <= 1:
-    _meas = [[i, j] + list(measure(BODIES[i][1], BODIES[j][1], [f[1] for f in FAST], nf)) for i, j, nf in _pairs]
-else:
-    _work = tempfile.mkdtemp(prefix="breech_joints_")
-    _brep = os.path.join(_work, "bodies.brep")
-    Part.makeCompound([b[1] for b in BODIES] + [f[1] for f in FAST]).exportBrep(_brep)
-    _exe = os.path.join(App.getHomePath(), "bin", "freecadcmd")
-    if not os.path.exists(_exe):
-        _exe = shutil.which("freecadcmd") or _exe
-    _procs = []
-    for _w in range(_n_workers):
-        _share = _pairs[_w::_n_workers]
-        if not _share:
-            continue
-        _tp, _op = os.path.join(_work, "task_%02d.json" % _w), os.path.join(_work, "out_%02d.json" % _w)
-        json.dump({"brep": _brep, "n_bodies": len(BODIES), "pairs": _share, "out": _op}, open(_tp, "w"))
-        _log = open(os.path.join(_work, "worker_%02d.log" % _w), "w")
-        _procs.append((_w, subprocess.Popen([_exe, os.path.join(REPO, "gatling", "breech_joints.py")],
-                                            env=dict(os.environ, BREECH_JOINTS_TASK=_tp, REPO=REPO),
-                                            stdout=_log, stderr=subprocess.STDOUT), _op))
-    _failed = []
-    for _w, _pr, _op in _procs:
-        _pr.wait()
-        if _pr.returncode not in (0, None) or not os.path.exists(_op):
-            _failed.append(_w)
-            continue
-        _meas += json.load(open(_op))
-    if _failed:
-        raise SystemExit("gatling joints: workers %s failed, logs in %s" % (_failed, _work))
-    shutil.rmtree(_work, ignore_errors=True)
-_meas.sort(key=lambda m_: (m_[0], m_[1]))
-rows = []                                        # (a, b, dist, overlap, how, ok)
-for i, j, d, ov, fi in _meas:
-    if d >= CONTACT:
-        continue
-    a, b = BODIES[i], BODIES[j]
-    how = declared(a[0], b[0])
-    if how is None and fi >= 0:
-        how = "fastened: " + re.sub(r", st \d+$", "", FAST[fi][0])
-    ok = how is not None and (ov <= OVERLAP or "press" in how)
-    rows.append((a[0], b[0], d, ov, how or "NOT DECLARED", ok))
-print("joints: %d bbox pairs on %d workers, %d contacts in %.0f s" % (_n_pairs, max(1, _n_workers), len(rows),
-                                                                      time.time() - _t0), flush=True)
-
-# One line per pair of part kinds (station parts of the two stations and multi-solid pieces merged).
-_merged = {}
-for a, b, d, ov, how, ok in rows:
-    k = tuple(sorted((key(a), key(b))))
-    m = _merged.setdefault(k, [99.0, 0.0, set(), True])
-    m[0] = min(m[0], d)
-    m[1] += max(ov, 0.0)
-    m[2].add(how)
-    m[3] = m[3] and ok
-bad = [k for k, m in _merged.items() if not m[3]]
-lines = ["%-28s %-28s %6s %9s  %s" % ("part", "part", "dist", "overlap", "held by")]
-for k in sorted(_merged, key=lambda k_: (_merged[k_][3], k_)):
-    d, ov, hows, ok = _merged[k]
-    lines.append("%-28s %-28s %6.2f %9.2f  %s%s" % (k[0], k[1], d, ov, "" if ok else "[FAIL] ", " | ".join(sorted(hows))))
-touch_nothing = [b[0] for b in BODIES if not any(b[0] in (r[0], r[1]) for r in rows)]
-
-
-def _free(n):
-    return next((why for pat, why in FREE if fnmatch.fnmatch(key(n), pat)), None)
-
-
-free_bad = sorted(set(key(n) for n in touch_nothing if _free(n) is None))
-lines += ["", "bodies touching nothing (closer than %.1f): %s" % (CONTACT, ", ".join(
-    "%s (%s)" % (n, _free(n) or "[FAIL] not in FREE") for n in touch_nothing) or "none"), ""]
-lines.append("  [%s] every contact fastened or declared, no undeclared overlap (%d pairs of part kinds, %d not)"
-             % ("OK " if not bad else "FAIL", len(_merged), len(bad)))
-lines.append("  [%s] every body touches a neighbour or is declared free (%s)"
-             % ("OK " if not free_bad else "FAIL", ", ".join(free_bad) or "all"))
-
-# ---------------------------------------------------------------- axial play
-_ALL = BODIES and [(b[0], b[1]) for b in BODIES] + [("F:" + n, s_) for n, s_ in FAST]
-
-
 def _pick(pats):
     return [(n, s_) for n, s_ in _ALL if any(re.fullmatch(p_, n) for p_ in pats)]
 
@@ -511,19 +329,231 @@ def _travel(group, obst, d, maxt=6.0):
     return lo, who
 
 
+
+def _claim(work, i):
+    try:
+        os.close(os.open(os.path.join(work, "claim_%04d" % i), os.O_CREAT | os.O_EXCL))
+        return True
+    except FileExistsError:
+        return False
+
+
+def _load(cdir):
+    """(bodies [(name, shape, material)], fasteners [(name, shape)], axes) from the cache."""
+    meta = json.load(open(os.path.join(cdir, "bodies.json")))
+    shapes = _read(os.path.join(cdir, "bodies.brep")).childShapes()
+    nb = len(meta["bodies"])
+    return ([(m[0], s_, m[1]) for m, s_ in zip(meta["bodies"], shapes[:nb])],
+            list(zip(meta["fasteners"], shapes[nb:])), meta["axes"])
+
+
+if _WORKER:
+    # ------------------------------------------------------------ worker: free tasks until none is left
+    _w0 = time.time()
+    _task = json.load(open(_WORKER))
+    BODIES, FAST, AXES = _load(_task["cache"])
+    _ALL = [(b[0], b[1]) for b in BODIES] + [("F:" + n, s_) for n, s_ in FAST]
+    _fs = [f[1] for f in FAST]
+    _res = {"pairs": [], "axial": {}}
+    for _ti, _t in enumerate(_task["tasks"]):
+        if not _claim(_task["work"], _ti):
+            continue
+        _t1 = time.time()
+        if _t["kind"] == "pairs":
+            _res["pairs"] += [[i, j] + list(measure(BODIES[i][1], BODIES[j][1], _fs, nf)) for i, j, nf in _t["pairs"]]
+            _lab = "%d pairs" % len(_t["pairs"])
+        else:
+            _lab_, _gp, _ax, _skip = AXIAL[_t["group"]]
+            _grp = _pick(_gp)
+            _gn = set(n for n, _ in _grp)
+            _obst = [(n, s_) for n, s_ in _ALL if n not in _gn and not any(re.fullmatch(p_, n) for p_ in _skip)]
+            _res["axial"]["%d %+d" % (_t["group"], _t["sign"])] = list(
+                _travel(_grp, _obst, App.Vector(*AXES[_ax]) * float(_t["sign"])))
+            _lab = "axial %s %+d" % (_lab_, _t["sign"])
+        print("task %3d %-60s %6.1f s" % (_ti, _lab, time.time() - _t1), flush=True)
+    print("worker: done in %.0f s, peak RSS %.0f MB" % (
+        time.time() - _w0, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1 << 20 if sys.platform == "darwin" else 1 << 10)),
+        flush=True)
+    json.dump(_res, open(_task["out"], "w"))
+    raise SystemExit(0)
+
+# ---------------------------------------------------------------- bodies and fasteners
+exec(open(os.path.join(REPO, "gatling", "breech_cache.py")).read(), globals())
+_cdir, _built = bc_load(REPO)
+_jdir = os.path.join(_cdir, "joints")
+BODIES, FAST, AXES = _load(_jdir)
+_ALL = [(b[0], b[1]) for b in BODIES] + [("F:" + n, s_) for n, s_ in FAST]
+print("joints: %d bodies, %d fasteners from %s (%s)" % (len(BODIES), len(FAST), _cdir,
+                                                     ("built in %.0f s" % _built) if _built else "cached"), flush=True)
+
+# ---------------------------------------------------------------- pairs
+print("joints: %d bodies, %d fasteners, measuring pairs…" % (len(BODIES), len(FAST)), flush=True)
+_bbs = [b[1].BoundBox for b in BODIES]
+_pairs = [(i, j, declared(BODIES[i][0], BODIES[j][0]) is None)
+          for i in range(len(BODIES)) for j in range(i + 1, len(BODIES)) if _near(_bbs[i], _bbs[j], CONTACT)]
+_n_pairs = len(_pairs)
+_n_workers = int(os.environ.get("JOINTS_WORKERS", max(1, (os.cpu_count() or 4) - 2)))
+_faces = [len(b[1].Faces) for b in BODIES]
+# Heaviest pairs first, dealt round the workers so each gets a like share of the work.
+_pairs.sort(key=lambda p_: -_faces[p_[0]] * _faces[p_[1]])
+# Remembered results (2026-11-22): a pair by the hashes of its two bodies' BREP (and of all the
+# fasteners when it needs one), an axial push by its group, the bodies near it and the way; kept
+# across rebuilds, so after an edit only what a changed part takes part in is measured again.
+import hashlib
+MEMO_VERSION = "joints 1: contact %.3f, near %.3f, axial eps %.3f" % (CONTACT, FAST_NEAR, AXIAL_EPS)
+MEMO = os.path.join(REPO, "exports", "gatling_breech_mechanism", "memo", "gatling_breech_mechanism_joints_memo.json")
+
+
+def _sha(b_):
+    return hashlib.sha1(b_).hexdigest()[:20]
+
+
+_bh = [_sha(b[1].exportBrepToString().encode()) for b in BODIES]
+_fh = _sha("".join(_sha(f[1].exportBrepToString().encode()) for f in FAST).encode())
+
+
+def _pair_key(i, j, nf):
+    return "%s|%s|%d%s" % (_bh[i], _bh[j], nf, ("|" + _fh) if nf else "")
+
+
+_hash_of = dict(zip([b[0] for b in BODIES], _bh))
+_hash_of.update({"F:" + f[0]: _sha(f[1].exportBrepToString().encode()) for f in FAST})
+
+
+def _axial_key(gi, sg, maxt=6.0):
+    lab, gp, ax, skip = AXIAL[gi]
+    grp = _pick(gp)
+    gn = set(n for n, _ in grp)
+    g = Part.makeCompound([s_ for _, s_ in grp])
+    near = [n for n, s_ in _ALL if n not in gn and not any(re.fullmatch(p_, n) for p_ in skip)
+            and _bb_pad(g.BoundBox, maxt + 0.5).intersect(s_.BoundBox)]
+    return _sha(json.dumps([[(n, _hash_of[n]) for n, _ in grp], [(n, _hash_of[n]) for n in near], AXES[ax], sg]).encode())
+
+
+_bh_nf = {(i, j): nf for i, j, nf in _pairs}
+_memo = {}
+if os.path.exists(MEMO):
+    _m = json.load(open(MEMO))
+    _memo = _m["memo"] if _m.get("version") == MEMO_VERSION else {}
+_memo_new = {}
+_meas, _axial = [], {}                           # _meas: [i, j, dist, overlap, fastener index]
+_todo = []
+for i, j, nf in _pairs:
+    k_ = _pair_key(i, j, nf)
+    if k_ in _memo:
+        _meas.append([i, j] + _memo[k_])
+        _memo_new[k_] = _memo[k_]
+    else:
+        _todo.append((i, j, nf))
+_ax_keys = {}
+for gi, (_l, gp, _a, _s) in enumerate(AXIAL):
+    if not _pick(gp):
+        continue
+    for sg in (1, -1):
+        k_ = _ax_keys["%d %+d" % (gi, sg)] = _axial_key(gi, sg)
+        if k_ in _memo:
+            _axial["%d %+d" % (gi, sg)] = _memo[k_]
+            _memo_new[k_] = _memo[k_]
+# Tasks: the axial pushes (one group, one way: the longest single tasks) first, then the pairs
+# in runs of PAIR_RUN, heaviest first; each worker takes the next free one.
+PAIR_RUN = 10
+_tasks = [{"kind": "axial", "group": int(k_.split()[0]), "sign": int(k_.split()[1])}
+          for k_ in _ax_keys if k_ not in _axial]
+_tasks += [{"kind": "pairs", "pairs": _todo[k:k + PAIR_RUN]} for k in range(0, len(_todo), PAIR_RUN)]
+print("joints: %d of %d pairs and %d of %d axial pushes remembered, %d tasks left"
+      % (len(_pairs) - len(_todo), len(_pairs), len(_axial), len(_ax_keys), len(_tasks)), flush=True)
+_n_workers = max(1, min(_n_workers, len(_tasks)))
+_procs, _failed, _work = [], [], None
+if _tasks:
+    _work = tempfile.mkdtemp(prefix="breech_joints_")
+    _exe = os.path.join(App.getHomePath(), "bin", "freecadcmd")
+    if not os.path.exists(_exe):
+        _exe = shutil.which("freecadcmd") or _exe
+    for _w in range(_n_workers):
+        _tp, _op = os.path.join(_work, "task_%02d.json" % _w), os.path.join(_work, "out_%02d.json" % _w)
+        json.dump({"cache": _jdir, "work": _work, "tasks": _tasks, "out": _op}, open(_tp, "w"))
+        _log = open(os.path.join(_work, "worker_%02d.log" % _w), "w")
+        _procs.append((_w, subprocess.Popen([_exe, os.path.join(REPO, "gatling", "breech_joints.py")],
+                                            env=dict(os.environ, BREECH_JOINTS_TASK=_tp, REPO=REPO),
+                                            stdout=_log, stderr=subprocess.STDOUT), _op))
+    print("joints: %d tasks on %d workers (logs in %s)" % (len(_tasks), len(_procs), _work), flush=True)
+    for _w, _pr, _op in _procs:
+        _pr.wait()
+        if _pr.returncode not in (0, None) or not os.path.exists(_op):
+            _failed.append(_w)
+            continue
+        _r = json.load(open(_op))
+        for m_ in _r["pairs"]:
+            _meas.append(m_)
+            _memo_new[_pair_key(m_[0], m_[1], _bh_nf[(m_[0], m_[1])])] = m_[2:]
+        for k_, v_ in _r["axial"].items():
+            _axial[k_] = v_
+            _memo_new[_ax_keys[k_]] = v_
+    _claimed = len([f_ for f_ in os.listdir(_work) if f_.startswith("claim_")])
+    if _failed or _claimed != len(_tasks):
+        raise SystemExit("gatling joints: workers %s failed, %d of %d tasks claimed, logs in %s"
+                         % (_failed, _claimed, len(_tasks), _work))
+    for _w, _, _ in _procs:
+        _wl = open(os.path.join(_work, "worker_%02d.log" % _w)).read().strip().splitlines()
+        print("  worker %02d: %s" % (_w, next((l_ for l_ in reversed(_wl) if l_.startswith("worker:")), "no summary")),
+              flush=True)
+    shutil.rmtree(_work, ignore_errors=True)
+os.makedirs(os.path.dirname(MEMO), exist_ok=True)
+json.dump({"version": MEMO_VERSION, "memo": _memo_new}, open(MEMO + ".tmp", "w"))
+os.replace(MEMO + ".tmp", MEMO)
+_meas.sort(key=lambda m_: (m_[0], m_[1]))
+rows = []                                        # (a, b, dist, overlap, how, ok)
+for i, j, d, ov, fi in _meas:
+    if d >= CONTACT:
+        continue
+    a, b = BODIES[i], BODIES[j]
+    how = declared(a[0], b[0])
+    if how is None and fi >= 0:
+        how = "fastened: " + re.sub(r", st \d+$", "", FAST[fi][0])
+    ok = how is not None and (ov <= OVERLAP or "press" in how)
+    rows.append((a[0], b[0], d, ov, how or "NOT DECLARED", ok))
+print("joints: %d bbox pairs on %d workers, %d contacts in %.0f s" % (_n_pairs, max(1, _n_workers), len(rows),
+                                                                      time.time() - _t0), flush=True)
+
+# One line per pair of part kinds (station parts of the two stations and multi-solid pieces merged).
+_merged = {}
+for a, b, d, ov, how, ok in rows:
+    k = tuple(sorted((key(a), key(b))))
+    m = _merged.setdefault(k, [99.0, 0.0, set(), True])
+    m[0] = min(m[0], d)
+    m[1] += max(ov, 0.0)
+    m[2].add(how)
+    m[3] = m[3] and ok
+bad = [k for k, m in _merged.items() if not m[3]]
+lines = ["%-28s %-28s %6s %9s  %s" % ("part", "part", "dist", "overlap", "held by")]
+for k in sorted(_merged, key=lambda k_: (_merged[k_][3], k_)):
+    d, ov, hows, ok = _merged[k]
+    lines.append("%-28s %-28s %6.2f %9.2f  %s%s" % (k[0], k[1], d, ov, "" if ok else "[FAIL] ", " | ".join(sorted(hows))))
+touch_nothing = [b[0] for b in BODIES if not any(b[0] in (r[0], r[1]) for r in rows)]
+
+
+def _free(n):
+    return next((why for pat, why in FREE if fnmatch.fnmatch(key(n), pat)), None)
+
+
+free_bad = sorted(set(key(n) for n in touch_nothing if _free(n) is None))
+lines += ["", "bodies touching nothing (closer than %.1f): %s" % (CONTACT, ", ".join(
+    "%s (%s)" % (n, _free(n) or "[FAIL] not in FREE") for n in touch_nothing) or "none"), ""]
+lines.append("  [%s] every contact fastened or declared, no undeclared overlap (%d pairs of part kinds, %d not)"
+             % ("OK " if not bad else "FAIL", len(_merged), len(bad)))
+lines.append("  [%s] every body touches a neighbour or is declared free (%s)"
+             % ("OK " if not free_bad else "FAIL", ", ".join(free_bad) or "all"))
+
+# ---------------------------------------------------------------- axial play
 axial_bad = []
 lines += ["", "axial play (pushed both ways along the axis until a body is met; limit %.1f):" % AXIAL_MAX]
-for lab, gp, ax, skip in AXIAL:
-    grp = _pick(gp)
-    if not grp:
+for gi, (lab, gp, ax, skip) in enumerate(AXIAL):
+    if not _pick(gp):
         axial_bad.append(lab)
         lines.append("  [FAIL] %s: no such bodies %s" % (lab, gp))
         continue
-    gn = set(n for n, _ in grp)
-    obst = [(n, s_) for n, s_ in _ALL if n not in gn and not any(re.fullmatch(p_, n) for p_ in skip)]
-    d = App.Vector(*AXES[ax])
-    a_, wa = _travel(grp, obst, d)
-    b_, wb = _travel(grp, obst, d * -1.0)
+    a_, wa = _axial["%d +1" % gi]
+    b_, wb = _axial["%d -1" % gi]
     ok = a_ + b_ <= AXIAL_MAX + 1e-6
     if not ok:
         axial_bad.append(lab)

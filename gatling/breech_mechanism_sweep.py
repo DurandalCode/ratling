@@ -2,10 +2,10 @@
 """
 Full-turn clearance sweep of the gatling breech mechanism (separate from the build).
 
-Builds gatling/breech_mechanism.py once as a library (build + fast checks, no
-scene, no export), writes every pose to BREP and hands the poses to parallel
-freecadcmd workers (one OCC distance query runs on one core; the poses are
-independent):
+Reads the poses from the mechanism's body cache (gatling/breech_cache.py: written by
+breech_mechanism.py, keyed by the sources; without it the mechanism is built here once as a
+library, which writes it) and hands them to parallel freecadcmd workers (one OCC distance
+query runs on one core; the poses are independent):
 
 - every 3 deg of pack turn over a station pitch (the stations are identical):
   each station's moving parts, fixed parts, plunger and line R against every
@@ -27,11 +27,24 @@ independent):
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism_sweep.py').read())"
 
-SWEEP_WORKERS (environment) sets the number of workers, default cores - 2.
+SWEEP_WORKERS (environment) sets the number of workers, default cores - 2. 2026-11-22: a task
+is one station in one pose (or the hub in one pose, or one phase); the workers take the next
+free task as they finish (a pose per worker left most of them idle at the end), and a solid
+pair whose bounding boxes are farther apart than the nearest gap found so far for its line is
+not measured (it cannot lower the minimum: the boxes come from triangulations of at most
+0.5 mm deflection, both may sit inside: BOX_MARGIN = 1.5 mm); a radial bound does the same for
+a part inside a ring's bore. The hub's lines share one bound (the report keeps their minimum and
+its name) and a solid of more than FACE_MANY faces is measured by its faces near the other one
+(the hub took 138 s a pose). Results are remembered by the hashes of the two shapes' BREP
+(exports/gatling_breech_mechanism/memo/), so a repeat or a run after an edit measures only the
+pairs with a changed part. The reported minima are the same (diffed: 791 -> 162 s from
+scratch, ~3 s again).
 Report: exports/gatling_breech_mechanism/gatling_breech_mechanism_sweep_report.txt
 """
 import json
+import math
 import os
+import resource
 import shutil
 import subprocess
 import sys
@@ -42,6 +55,7 @@ import FreeCAD as App
 import Part
 
 _WORKER = os.environ.get("BREECH_SWEEP_TASK")
+BOX_MARGIN = 1.5        # mm: two boxes from 0.5 mm triangulations may each sit 0.5 inside their shapes
 
 
 def _near(ba, bb_, pad):
@@ -50,17 +64,124 @@ def _near(ba, bb_, pad):
     return ba2.intersect(bb_)
 
 
-def _gap(a, b, pad=2.0):
-    if not _near(a.BoundBox, b.BoundBox, pad):
+def _box_dist(a, b):
+    dx = max(0.0, a.XMin - b.XMax, b.XMin - a.XMax)
+    dy = max(0.0, a.YMin - b.YMax, b.YMin - a.YMax)
+    dz = max(0.0, a.ZMin - b.ZMax, b.ZMin - a.ZMax)
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+
+
+def _r_box(b):
+    """(lower bound of the radius from the pack axis, upper bound) over a box."""
+    dx = max(0.0, b.XMin, -b.XMax)
+    dy = max(0.0, b.YMin, -b.YMax)
+    rx, ry = max(abs(b.XMin), abs(b.XMax)), max(abs(b.YMin), abs(b.YMax))
+    return math.sqrt(dx * dx + dy * dy), math.sqrt(rx * rx + ry * ry)
+
+
+_AXIS = None
+
+
+class _Sh:
+    """A shape with its solids, their boxes and radial bounds about the pack axis, taken once.
+    exact_r: the solid's distance from the axis by distToShape (the fixed parts; a ring's box
+    holds the whole pack, its bore does not), else from its box."""
+
+    def __init__(self, s, exact_r=False):
+        global _AXIS
+        self.s, self.bb = s, s.BoundBox
+        self.sol = []
+        for x in (s.Solids or [s]):
+            bx = x.BoundBox
+            r0, r1 = _r_box(bx)
+            if exact_r and r0 == 0.0:
+                if _AXIS is None:
+                    _AXIS = Part.makeLine(App.Vector(0, 0, -1e4), App.Vector(0, 0, 1e4))
+                r0 = _AXIS.distToShape(x)[0]
+            self.sol.append(_Solid(x, bx, r0, r1))
+
+
+class _Solid:
+    __slots__ = ("s", "bb", "r0", "r1", "_faces", "_fine")
+
+    def __init__(self, s, bb, r0, r1):
+        self.s, self.bb, self.r0, self.r1, self._faces, self._fine = s, bb, r0, r1, None, False
+
+    def faces(self):
+        if self._faces is None:
+            self._faces = [(f_, f_.BoundBox) for f_ in self.s.Faces]
+        return self._faces
+
+    def fine_r1(self):
+        """Upper radius from a 0.5 mm triangulation, its nodes + 1 mm (a round part's box corners
+        sit at 1.41 times its radius; the surface strays at most the deflection from the mesh)."""
+        if not self._fine and self.s.Faces:
+            pts = self.s.tessellate(0.5)[0]
+            if pts:
+                self.r1 = min(self.r1, max(math.hypot(p_.x, p_.y) for p_ in pts) + 1.0)
+            self._fine = True
+        return self.r1
+
+
+FACE_MANY = 300         # a solid with more faces is measured by its faces near the other one
+
+
+def _box_of(faces):
+    b = App.BoundBox()
+    for _, fb in faces:
+        b.add(fb)
+    return b
+
+
+def _dist(x, y, r):
+    """x.distToShape(y) where it is below r (exact there; >= r otherwise). A solid with many faces
+    (the rim's 120 teeth) is measured by its faces whose boxes come within r + BOX_MARGIN of the
+    other's box, and the other's faces by the same test against those; one solid wholly inside
+    the other still gives 0."""
+    if r >= 99.0 or max(len(x.faces()), len(y.faces())) <= FACE_MANY or not x.s.Faces or not y.s.Faces:
+        return x.s.distToShape(y.s)[0]
+    lim = r + BOX_MARGIN
+    nx = [fx for fx in x.faces() if _box_dist(fx[1], y.bb) <= lim]
+    ny = [fy for fy in y.faces() if nx and _box_dist(fy[1], _box_of(nx)) <= lim] if nx else []
+    nx = [fx for fx in nx if ny and _box_dist(fx[1], _box_of(ny)) <= lim] if ny else []
+    d = Part.makeCompound([f_ for f_, _ in nx]).distToShape(Part.makeCompound([f_ for f_, _ in ny]))[0] \
+        if nx and ny else 99.0
+    if d > 0.0 and x.s.ShapeType == "Solid" and y.s.ShapeType == "Solid" and (
+            x.s.isInside(y.s.Vertexes[0].Point, 1e-7, True) or y.s.isInside(x.s.Vertexes[0].Point, 1e-7, True)):
+        d = 0.0
+    return d
+
+
+def _lb(x, y):
+    return max(_box_dist(x.bb, y.bb), y.r0 - x.r1, x.r0 - y.r1)
+
+
+def _gap(a, b, pad=2.0, bound=99.0):
+    """Min distance solid by solid (99 = farther than pad), as the build's gap(). A pair is
+    skipped when a lower bound of its distance (box to box, or radial: one solid inside the
+    other's bore) is past the best so far, or past `bound` (the line's minimum), by BOX_MARGIN:
+    the result is exact below `bound` and >= `bound` otherwise."""
+    if not _near(a.bb, b.bb, pad):
         return 99.0
-    g = 99.0
-    for x in (a.Solids or [a]):
-        bx = x.BoundBox
-        if not _near(bx, b.BoundBox, pad):
+    cand = []
+    for x in a.sol:
+        if not _near(x.bb, b.bb, pad):
             continue
-        for y in (b.Solids or [b]):
-            if _near(bx, y.BoundBox, pad):
-                g = min(g, x.distToShape(y)[0])
+        for y in b.sol:
+            if _near(x.bb, y.bb, pad):
+                cand.append((_lb(x, y), x, y))
+    cand.sort(key=lambda c_: c_[0])
+    g = 99.0
+    for lb, x, y in cand:
+        r = min(g, bound)
+        if lb - BOX_MARGIN >= r:
+            break
+        if r < 99.0 and max(len(x.s.Faces), len(y.s.Faces)) > FACE_MANY:
+            x.fine_r1()
+            y.fine_r1()
+            if _lb(x, y) - BOX_MARGIN >= r:
+                continue
+        g = min(g, _dist(x, y, r))
     return g
 
 
@@ -70,38 +191,112 @@ def _read(path):
     return s
 
 
+def _claim(work, i):
+    try:
+        os.close(os.open(os.path.join(work, "claim_%04d" % i), os.O_CREAT | os.O_EXCL))
+        return True
+    except FileExistsError:
+        return False
+
+
 if _WORKER:
-    # ------------------------------------------------------------ worker: one batch of poses
+    # ------------------------------------------------------------ worker: free tasks until none is left
+    _w0 = time.time()
     task = json.load(open(_WORKER))
-    fixed = _read(task["fixed"]).childShapes()
+    cdir = task["cache"]
+    fixed = [_Sh(s_, exact_r=True) for s_ in _read(os.path.join(cdir, "fixed.brep")).childShapes()]
+    for f_, h_ in zip(fixed, task["fixed_hashes"]):
+        f_.h = h_
     names = task["fixed_names"]
-    out = {}
+    memo = json.load(open(task["memo"])) if os.path.exists(task["memo"]) else {}
+    used, fresh = set(), {}
+    out = dict(task["seed"])
+    print("worker: fixed read in %.1f s, %d remembered gaps" % (time.time() - _w0, len(memo)), flush=True)
 
-    def low(key, v):
-        out[key] = min(out.get(key, 99.0), v)
+    spent = {}
 
-    for pose in task["turn"]:
-        sh = _read(pose["brep"]).childShapes()
-        star, rim, gear_a, ramp_fire, pinion = sh[0], sh[1], sh[2], sh[3], sh[4]
-        st = sh[5:]
-        for k, near_fire in enumerate(pose["near_fire"]):
-            mv, fx, pl, lr = st[4 * k:4 * k + 4]
+    def measure(a, b, bound, line):
+        """_gap(a, b, bound=bound), or the remembered one for the same two shapes (by the hash of
+        their BREP): [value, bound it was measured with] is exact below that bound and only a
+        floor above it, so it serves when it is exact or its bound is at least this one."""
+        mk = a.h + "|" + b.h + "|" + line
+        m = fresh.get(mk) or memo.get(mk)
+        if m is not None and (m[0] < m[1] or m[1] >= bound):
+            used.add(mk)
+            return m[0]
+        v = _gap(a, b, bound=bound)
+        fresh[mk] = [v, bound, line]
+        return v
+
+    def low(key, a, b):
+        t_ = time.time()
+        out[key] = min(out.get(key, 99.0), measure(a, b, out.get(key, 99.0), key))
+        spent[key] = spent.get(key, 0.0) + time.time() - t_
+
+    _common = {}
+
+    def read_hashed(path):
+        sh_ = [_Sh(s_) for s_ in _read(os.path.join(cdir, path)).childShapes()]
+        for i_, x_ in enumerate(sh_):
+            x_.h = "%s:%d" % (task["file_hashes"][path], i_)
+        return sh_
+
+    def common_pose(path):
+        if path not in _common:
+            _common.clear()
+            _common[path] = read_hashed(path)
+        return _common[path]
+
+    n_done = 0
+    for ti, t in enumerate(task["tasks"]):
+        if not _claim(task["work"], ti):
+            continue
+        t0 = time.time()
+        if t["kind"] == "station":
+            star, rim, gear_a, ramp_fire, pinion = common_pose(t["common"])
+            mv, fx, pl, lr = read_hashed(t["brep"])
             for n, f in zip(names, fixed):
                 for g_ in (mv, fx, pl, lr):
-                    low(n, _gap(g_, f))
+                    low(n, g_, f)
             for g_ in (mv, fx, pl, lr):
-                low("star", _gap(g_, star))
-            low("gear A (meshes the rim)", min(_gap(fx, gear_a), _gap(mv, gear_a)))
-            low("crank gear (meshes the rim)", min(_gap(fx, pinion), _gap(mv, pinion)))
-            if near_fire:
-                low("fixed ramp (bodies and lines, not plungers)", min(_gap(mv, ramp_fire), _gap(lr, ramp_fire)))
-        for n, f in zip(names, fixed):
-            low("hub vs " + n, _gap(rim, f))
-    for ph in task["phase"]:
-        a, b, valve, own_fx, line, own_qev = _read(ph).childShapes()
-        low("neighbours", _gap(a, b))
-        low("own", min(_gap(valve, own_fx), _gap(line, own_qev)))
-    json.dump(out, open(task["out"], "w"))
+                low("star", g_, star)
+            low("gear A (meshes the rim)", fx, gear_a)
+            low("gear A (meshes the rim)", mv, gear_a)
+            low("crank gear (meshes the rim)", fx, pinion)
+            low("crank gear (meshes the rim)", mv, pinion)
+            if t["near_fire"]:
+                low("fixed ramp (bodies and lines, not plungers)", mv, ramp_fire)
+                low("fixed ramp (bodies and lines, not plungers)", lr, ramp_fire)
+        elif t["kind"] == "hub":
+            # The report keeps only the nearest fixed part to the hub (value and name), so one
+            # bound serves all the hub's lines: a part farther than the nearest so far is not
+            # measured to the end (its own line may stay above its true gap).
+            rim = common_pose(t["common"])[1]
+            hb = min([v_ for k_, v_ in out.items() if k_.startswith("hub vs ")] + [99.0])
+            order = sorted(zip(names, fixed), key=lambda nf_: min(
+                [_lb(x_, y_) for x_ in rim.sol for y_ in nf_[1].sol] + [99.0]))
+            for n, f in order:
+                t_ = time.time()
+                v_ = measure(rim, f, hb, "hub vs " + n)
+                out["hub vs " + n] = min(out.get("hub vs " + n, 99.0), v_)
+                hb = min(hb, v_)
+                spent["hub vs " + n] = spent.get("hub vs " + n, 0.0) + time.time() - t_
+        else:
+            a, b, valve, own_fx, line, own_qev = read_hashed(t["brep"])
+            low("neighbours", a, b)
+            low("own", valve, own_fx)
+            low("own", line, own_qev)
+        n_done += 1
+        print("task %3d %-7s %-22s %6.1f s" % (ti, t["kind"], t.get("brep") or t.get("common"), time.time() - t0),
+              flush=True)
+    for k_, v_ in sorted(spent.items(), key=lambda kv: -kv[1])[:6]:
+        print("  %6.1f s  %s" % (v_, k_), flush=True)
+    print("worker: %d tasks in %.0f s, %d gaps remembered, %d measured, peak RSS %.0f MB" % (
+        n_done, time.time() - _w0, len(used), len(fresh),
+        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1 << 20 if sys.platform == "darwin" else 1 << 10)),
+        flush=True)
+    json.dump({"res": out, "spent": spent, "memo": dict({k_: memo[k_] for k_ in used}, **fresh)},
+              open(task["out"], "w"))
     raise SystemExit(0)
 
 # ---------------------------------------------------------------- parent
@@ -114,94 +309,102 @@ except NameError:
         REPO = os.path.expanduser("~/ratling")
 
 _t0 = time.time()
-BREECH_MECH_LIBRARY = True
-_mech_ok = True
-try:
-    exec(open(os.path.join(REPO, "gatling", "breech_mechanism.py")).read(), globals())
-except SystemExit as _e:
-    _mech_ok = _e.code in (0, None)
-BREECH_MECH_LIBRARY = False
-print("sweep: mechanism built in %.0f s (fast checks %s)" % (time.time() - _t0, "OK" if _mech_ok else "FAIL"), flush=True)
+exec(open(os.path.join(REPO, "gatling", "breech_cache.py")).read(), globals())
+_cdir, _built = bc_load(REPO)
+_meta = json.load(open(os.path.join(_cdir, "done.json")))
+_mech_ok = _meta["mech_ok"]
+NAME, CLEAR, PL_L, RAMP_PRESS = _meta["NAME"], _meta["CLEAR"], _meta["PL_L"], _meta["RAMP_PRESS"]
+OUT_DIR = os.path.join(REPO, "exports", "gatling_breech_mechanism")
+_sw_dir = os.path.join(_cdir, "sweep")
+_sw = json.load(open(os.path.join(_sw_dir, "sweep.json")))
+SWEEP_STEP, PHASE_STEP = _sw["SWEEP_STEP"], _sw["PHASE_STEP"]
+fixed_names = _sw["fixed_names"]
+print("sweep: %s (%s, fast checks %s)" % (_cdir, ("built in %.0f s" % _built) if _built else "cached",
+                                          "OK" if _mech_ok else "FAIL"), flush=True)
 
-SWEEP_STEP = 3.0
-PHASE_STEP = 5.0
+# Heaviest first: the hub (its rim's 120 teeth), then the stations, then the phases.
+tasks = ([{"kind": "hub", "common": t["brep"]} for t in _sw["turn"]]
+         + [{"kind": "station", "common": t["brep"], "brep": s["brep"], "near_fire": s["near_fire"]}
+            for t in _sw["turn"] for s in t["stations"]]
+         + [{"kind": "phase", "brep": p} for p in _sw["phase"]])
+# Remembered gaps (2026-11-22): keyed by the hashes of the two shapes' BREP, kept across
+# rebuilds, so after an edit only the pairs with a changed part are measured again.
+import hashlib
+MEMO_VERSION = "sweep 3: pad 2.0"
+MEMO = os.path.join(OUT_DIR, "memo", NAME + "_sweep_memo.json")
+
+
+def _sha(b_):
+    return hashlib.sha1(b_).hexdigest()[:20]
+
+
+fixed_hashes = [_sha(c_.exportBrepToString().encode()) for c_ in _read(os.path.join(_sw_dir, "fixed.brep")).childShapes()]
+file_hashes = {}
+for t_ in tasks:
+    for k_ in ("common", "brep"):
+        if k_ in t_ and t_[k_] not in file_hashes:
+            file_hashes[t_[k_]] = _sha(open(os.path.join(_sw_dir, t_[k_]), "rb").read())
+_memo = {}
+if os.path.exists(MEMO):
+    _m = json.load(open(MEMO))
+    _memo = _m["gaps"] if _m.get("version") == MEMO_VERSION else {}
+# Seed each line with the exact remembered gaps of pairs that are in this run (same hashes):
+# the line's minimum is at most that, and the pair itself is looked up exact, so the minimum
+# is the same; the remembered floors then serve too (a first measure ran with no bound).
+_ids = set(fixed_hashes) | set(file_hashes.values())
+seed = {}
+for k_, m_ in _memo.items():
+    if len(m_) > 2 and m_[0] < m_[1] and all(h_.split(":")[0] in _ids for h_ in k_.split("|")[:2]):
+        seed[m_[2]] = min(seed.get(m_[2], 99.0), m_[0])
 WORK = tempfile.mkdtemp(prefix="breech_sweep_")
-fixed_list = ([("guard", feed_guard), ("feed head", feed_head), ("TPU lip", feed_lip), ("cup", feed_cup),
-               ("ramp mount block", guide_block), ("front bearing disk", brg_f),
-               ("rear plate and struts", Part.makeCompound([mqr_plate, rear_struts])),
-               ("feed gate and its cable", Part.makeCompound([gate_housing, gate_pin, gate_pin_open, gate_cable])),
-               ("carry handle", carry_handle), ("strap rings", sling), ("room for the hand", hand_space),
-               ("crank arm and knob, every %.0f deg of a crank turn" % CK_STEP,
-                Part.makeCompound([s_ for pose_ in crank_poses for s_ in pose_])),
-               ("fist on the carry handle", carry_hand), ("tripod pad", tripod_pad), ("tripod ball and post", tripod_ball),
-               ("frame M6 studs and nuts", frame_studs),
-               ("fixed M3 bolts (feed, ramp, liner, carry, keel, crank brackets)",
-                Part.makeCompound([f_.body for f_ in FEED_FAST + RAMP_FAST + LINER_FAST + CARRY_FAST + TRIPOD_FAST + CRANK_FAST])),
-               ("front bearing housing and its rear retainer", Part.makeCompound([brg_housing, brg_ret_out])),
-               ("star shaft collar", star_collar),
-               ("front ring with its top pad (the star shaft's 608)", pack_frame),
-               ("star shaft: 608s, cover, spacer", Part.makeCompound([star_bearings, star_cover, star_spacer])),
-               ("EVA skin and its end cap", Part.makeCompound([skin, skin_cap]))]
-              + [(n, s) for n, s in train_parts if not n.startswith("gear A")]
-              + [(n, s) for n, s in drive_parts if not n.startswith("crank gear")])
-fixed_path = os.path.join(WORK, "fixed.brep")
-Part.makeCompound([s for _, s in fixed_list]).exportBrep(fixed_path)
-
-turn_poses = []
-for _i in range(int(round(60.0 / SWEEP_STEP))):
-    th = _i * SWEEP_STEP
-    d = ((th + 30.0) % 60.0) - 30.0
-    parts = [star_at(d), rot(Part.makeCompound([pack_hub, brg_ret_in] + [f_.body for f_ in HUB_FAST]), th), gear_a, ramp_fire,
-             crank_gear]
-    near_fire = []
-    for k in range(N):
-        phi = k * 60.0 + th
-        parts += list(station(phi))
-        near_fire.append(abs(((phi + 180.0) % 360.0) - 180.0) < 65.0)
-    path = os.path.join(WORK, "turn_%02d.brep" % _i)
-    Part.makeCompound(parts).exportBrep(path)
-    turn_poses.append({"brep": path, "near_fire": near_fire})
-phase_files = []
-for _i in range(int(round(360.0 / PHASE_STEP))):
-    p = _i * PHASE_STEP
-    path = os.path.join(WORK, "phase_%02d.brep" % _i)
-    Part.makeCompound([Part.makeCompound(list(station(p))), Part.makeCompound(list(station(p + 60.0))),
-                       place(valve_group, p, cam_dz(p)), place(fixed0, p),
-                       place(line_r(cam_dz(p)), p), place(Part.makeCompound(qev_slide), p, cam_dz(p))]).exportBrep(path)
-    phase_files.append(path)
-print("sweep: %d turn poses + %d phases written in %.0f s" % (len(turn_poses), len(phase_files), time.time() - _t0), flush=True)
-
+_memo_in = os.path.join(WORK, "memo.json")
+json.dump(_memo, open(_memo_in, "w"))
 n_workers = int(os.environ.get("SWEEP_WORKERS", max(1, (os.cpu_count() or 4) - 2)))
-batches = [{"turn": [], "phase": []} for _ in range(n_workers)]
-for i, t in enumerate(turn_poses):
-    batches[i % n_workers]["turn"].append(t)
-for i, f in enumerate(phase_files):
-    batches[(len(turn_poses) + i) % n_workers]["phase"].append(f)
+n_workers = max(1, min(n_workers, len(tasks)))
 exe = os.path.join(App.getHomePath(), "bin", "freecadcmd")
 if not os.path.exists(exe):
     exe = shutil.which("freecadcmd") or exe
 me = os.path.join(REPO, "gatling", "breech_mechanism_sweep.py")
 procs = []
-for i, b in enumerate(batches):
-    if not b["turn"] and not b["phase"]:
-        continue
+for i in range(n_workers):
     task_path = os.path.join(WORK, "task_%02d.json" % i)
-    b.update({"fixed": fixed_path, "fixed_names": [n for n, _ in fixed_list],
-              "out": os.path.join(WORK, "out_%02d.json" % i)})
-    json.dump(b, open(task_path, "w"))
+    json.dump({"cache": _sw_dir, "work": WORK, "tasks": tasks, "fixed_names": fixed_names,
+               "fixed_hashes": fixed_hashes, "file_hashes": file_hashes, "memo": _memo_in, "seed": seed,
+               "out": os.path.join(WORK, "out_%02d.json" % i)}, open(task_path, "w"))
     env = dict(os.environ, BREECH_SWEEP_TASK=task_path)
     log = open(os.path.join(WORK, "worker_%02d.log" % i), "w")
-    procs.append((i, subprocess.Popen([exe, me], env=env, stdout=log, stderr=subprocess.STDOUT), b["out"]))
-print("sweep: %d workers started" % len(procs), flush=True)
-results, failed = {}, []
+    procs.append((i, subprocess.Popen([exe, me], env=env, stdout=log, stderr=subprocess.STDOUT),
+                  os.path.join(WORK, "out_%02d.json" % i)))
+print("sweep: %d tasks on %d workers (logs in %s)" % (len(tasks), len(procs), WORK), flush=True)
+results, failed, spent, memo_new = {}, [], {}, {}
 for i, pr, outp in procs:
     pr.wait()
     if pr.returncode not in (0, None) or not os.path.exists(outp):
         failed.append(i)
         continue
-    for k, v in json.load(open(outp)).items():
+    _o = json.load(open(outp))
+    for k, v in _o["res"].items():
         results[k] = min(results.get(k, 99.0), v)
-print("sweep: workers done in %.0f s total" % (time.time() - _t0), flush=True)
+    for k, v in _o["spent"].items():
+        spent[k] = spent.get(k, 0.0) + v
+    for k, v in _o["memo"].items():
+        # Two workers may hold the same pair: keep the exact one, else the higher bound.
+        o_ = memo_new.get(k)
+        if o_ is None or (o_[0] >= o_[1] and (v[0] < v[1] or v[1] > o_[1])):
+            memo_new[k] = v
+_claimed = len([f for f in os.listdir(WORK) if f.startswith("claim_")])
+if _claimed != len(tasks):
+    failed.append("%d of %d tasks claimed" % (_claimed, len(tasks)))
+for i, _, _ in procs:
+    _wl = open(os.path.join(WORK, "worker_%02d.log" % i)).read().strip().splitlines()
+    print("  worker %02d: %s" % (i, next((l_ for l_ in reversed(_wl) if l_.startswith("worker:")), "no summary")), flush=True)
+print("sweep: workers done in %.0f s total; worker time by line (s):" % (time.time() - _t0), flush=True)
+for k, v in sorted(spent.items(), key=lambda kv: -kv[1])[:10]:
+    print("  %7.1f  %s" % (v, k), flush=True)
+if not failed:
+    os.makedirs(os.path.dirname(MEMO), exist_ok=True)
+    json.dump({"version": MEMO_VERSION, "gaps": memo_new}, open(MEMO + ".tmp", "w"))
+    os.replace(MEMO + ".tmp", MEMO)
 
 sweep_checks = [("mechanism build and fast checks", _mech_ok),
                 ("all %d workers finished%s" % (len(procs), (" (failed: %s, logs in %s)" % (failed, WORK)) if failed else ""),
@@ -210,7 +413,7 @@ sweep_checks = [("mechanism build and fast checks", _mech_ok),
 _hub_v, _hub_n = min((v, k[len("hub vs "):]) for k, v in list(results.items()) + [("hub vs nothing", 99.0)]
                      if k.startswith("hub vs "))
 results["hub (rim, lower clamp halves, bearing seat, retainer bolts) vs fixed parts (nearest: %s)" % _hub_n] = _hub_v
-for n in [n for n, _ in fixed_list] + ["star", "gear A (meshes the rim)", "crank gear (meshes the rim)",
+for n in fixed_names + ["star", "gear A (meshes the rim)", "crank gear (meshes the rim)",
                                         "fixed ramp (bodies and lines, not plungers)",
                                         "hub (rim, lower clamp halves, bearing seat, retainer bolts) vs fixed parts"
                                         " (nearest: %s)" % _hub_n]:

@@ -13,10 +13,14 @@ gravity -> carry handle and strap rings over it, tripod socket under it.
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism.py').read())"
 
 The full-turn clearance sweep (every station part against every fixed part,
-every 3 deg; neighbours every 5 deg of phase) is a separate run in parallel
-freecadcmd workers, ~4.5 min:
+every 3 deg; neighbours every 5 deg of phase) and the joint audit are separate
+runs in parallel freecadcmd workers; since 2026-11-22 they read the bodies from
+the cache this build writes at the end of its checks (gatling/breech_cache.py,
++14 s) and remember their results by the bodies' BREP hashes: ~2.7 and ~1.5 min
+from scratch, seconds again:
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism_sweep.py').read())"
+    freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_joints.py').read())"
 
 Pack R / casing may move if parts will not seat. No wheeled carriage; no
 full-length tube. Exports: exports/gatling_breech_mechanism/
@@ -390,20 +394,40 @@ def _near(ba, bb_, pad):
     return ba2.intersect(bb_)
 
 
+GAP_BOX_MARGIN = 1.5
+
+
+def _box_dist(a, b):
+    dx = max(0.0, a.XMin - b.XMax, b.XMin - a.XMax)
+    dy = max(0.0, a.YMin - b.YMax, b.YMin - a.YMax)
+    dz = max(0.0, a.ZMin - b.ZMax, b.ZMin - a.ZMax)
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+
+
 def gap(a, b, pad=2.0):
     """Min distance, solid by solid with a bounding-box shortcut (99 = far apart)."""
     if not _near(a.BoundBox, b.BoundBox, pad):
         return 99.0
     sa = a.Solids or [a]
-    sb = b.Solids or [b]
-    g = 99.0
+    sb = [(y, y.BoundBox) for y in (b.Solids or [b])]
+    bb_b = b.BoundBox
+    cand = []
     for x in sa:
         bx = x.BoundBox
-        if not _near(bx, b.BoundBox, pad):
+        if not _near(bx, bb_b, pad):
             continue
-        for y in sb:
-            if _near(bx, y.BoundBox, pad):
-                g = min(g, x.distToShape(y)[0])
+        for y, by in sb:
+            if _near(bx, by, pad):
+                cand.append((_box_dist(bx, by), x, y))
+    # 2026-11-22: nearest boxes first; a pair whose boxes are farther apart than the best gap so
+    # far (by GAP_BOX_MARGIN: a box from a 0.5 mm tessellation may sit inside its shape) cannot
+    # lower it and is not measured. Same result, fewer distToShape.
+    cand.sort(key=lambda c_: c_[0])
+    g = 99.0
+    for bd, x, y in cand:
+        if bd - GAP_BOX_MARGIN >= g:
+            break
+        g = min(g, x.distToShape(y)[0])
     return g
 
 
@@ -3557,6 +3581,13 @@ FV.STYLES["hand"] = ((0.95, 0.75, 0.60), 80)
 FV.STYLES["wood"] = ((0.45, 0.27, 0.13), 0)
 FV.STYLES["brass"] = ((0.80, 0.63, 0.28), 0)
 FV.STYLES["eva"] = ((0.34, 0.25, 0.18), 30)
+
+# 2026-11-22: the full-turn sweep and the joint audit read their bodies from this cache (keyed by
+# the sources) instead of building the mechanism again each (~3.5 min apiece).
+exec(open(os.path.join(REPO, "gatling", "breech_cache.py")).read(), globals())
+_tick("cache for the sweep and the joint audit…")
+bc_write(all(ok for _, ok in checks))
+_tick("cache written: " + BC_WRITTEN)
 
 if BREECH_MECH_LIBRARY:
     raise SystemExit(0 if all(ok for _, ok in checks) else 1)
