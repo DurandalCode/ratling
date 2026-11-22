@@ -1232,15 +1232,18 @@ side_band = _biggest(side_band)
 # ID ~10.7 (11.2 x 6 / (6 + 106/360)), 0.35 a side left; at rest 0.6. A Ø12 flange (Ø13 came 0.06 off the band's sloped shell) at its left end, against the
 # band's axle boss (y -28.5), sets the left pack's outer end at y -26.1; the tube runs to 0.3 short of the hammer's
 # hub (y -5). Spares at OD 9.6 / 10.4 are exported to try by hand.
-SPRING_ARBOR = dict(bore=8.2, od=10.0, flange=(12.0, 1.8), y=(AXLE_BOSS["y1"] + 0.3, -5.3))
+# 2026-11-22, second cut: the flanged arbor would not enter the coils and its flange broke off when pushed.
+# Now a plain tube, bore through, no flange, under the two packs only (y -26.1 .. -6.1, 20 mm), both ends
+# chamfered 0.5 against the first layers' squash; printed without a brim. OD 9.7, spares 9.4 / 10.0 (try by hand).
+SPRING_ARBOR = dict(bore=8.2, od=9.7, chamfer=0.5, y=(MAINSPRING["y"][0][0], MAINSPRING["y"][1][1]))
 
 
 def spring_arbor_shape(od_=None):
     a_ = SPRING_ARBOR
     y0_, y1_ = a_["y"]
-    return (Part.makeCylinder((od_ or a_["od"]) / 2, y1_ - y0_, V(H.x, y0_, H.z), YA)
-            .fuse(Part.makeCylinder(a_["flange"][0] / 2, a_["flange"][1], V(H.x, y0_, H.z), YA))
-            .cut(Part.makeCylinder(a_["bore"] / 2, y1_ - y0_ + 2, V(H.x, y0_ - 1, H.z), YA)).removeSplitter())
+    t_ = Part.makeCylinder((od_ or a_["od"]) / 2, y1_ - y0_, V(H.x, y0_, H.z), YA)
+    t_ = t_.makeChamfer(a_["chamfer"], [e_ for e_ in t_.Edges if e_.Curve.__class__.__name__ == "Circle"])
+    return t_.cut(Part.makeCylinder(a_["bore"] / 2, y1_ - y0_ + 2, V(H.x, y0_ - 1, H.z), YA)).removeSplitter()
 
 
 spring_arbor = spring_arbor_shape()
@@ -1631,7 +1634,7 @@ BUY_NOTE = {"Front_disc": "Prototype PETG: six outer flexure jaws, rear 2 mm roo
             "Frame_upper": "independent guide support, main valve clamp mounts and I-section web slot, and a 0.2 mm top keeper for the button valve; retained nut for the lower/upper frame assembly screw",
             "Trigger_pad_fastener": "M3 x 12 cylindrical-head bolt along +y + standard M3 nut, no washer; seat the pad against the lever broad y=3 face, slide nut into its open side pocket from positive x, tighten from negative y",
             "Trigger_pad": "PETG carrier for smooth steel pin 3 x 24; 3.2 mm root bore, open contact channel and distal axial stop. Print on broad x=-6 side",
-            "Spring_arbor": "printed tube on the hammer axle inside both mainsprings: bore 8.2, OD 10.0 (spares 9.6 / 10.4), Ø12 x 1.8 flange against the band's axle boss; centres the coils (ID 11.2) on the Ø8 axle",
+            "Spring_arbor": "printed plain tube on the hammer axle inside both mainsprings: bore 8.2 through, OD 9.7 (spares 9.4 / 10.0), 20 mm, ends chamfered 0.5; centres the coils on the Ø8 axle",
             "Hammer_pin": "smooth steel pin diameter 3 x 32 mm, cut from the Ø3 rod: the mainsprings' moving legs bear on it. Epoxied into the blind Ø3.2 socket of the hammer's Ø9 boss (9.7 mm deep), the rest stands free along the springs",
             "Trigger_pin": "smooth steel pin diameter 3 x 24 mm; captured between blind root and carrier end lip, 0.3 mm total end play. Remove the carrier to withdraw the pin",
             "Mainsprings": "2 torsion springs, wire Ø1.4, OD 14, 6 coils, 60 deg free; both legs trimmed to ~14 mm past the coil; moving legs on the hammer's steel pin, fixed legs on the stop screw",

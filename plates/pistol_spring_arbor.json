@@ -1,11 +1,11 @@
 {
   "id": "pistol_spring_arbor",
-  "title": "Pistol mainspring arbor on the hammer axle, OD 10.0 plus spares 9.6 / 10.4 (2026-11-22)",
+  "title": "Pistol mainspring arbor: plain tube, bore 8.2, OD 9.7 plus spares 9.4 / 10.0, no brim (2026-11-22)",
   "generator": "pistol/build/export_parts.py",
   "export": "exports/pistol_build/stl",
   "parts": [
-    {"file": "spring_arbor.stl", "group": "strong", "nozzle": "0.4", "brim": 5, "project": "pistol_spring_arbor"},
-    {"file": "spring_arbor_od96.stl", "group": "strong", "nozzle": "0.4", "brim": 5, "project": "pistol_spring_arbor"},
-    {"file": "spring_arbor_od104.stl", "group": "strong", "nozzle": "0.4", "brim": 5, "project": "pistol_spring_arbor"}
+    {"file": "spring_arbor.stl", "group": "strong", "nozzle": "0.4", "project": "pistol_spring_arbor"},
+    {"file": "spring_arbor_od94.stl", "group": "strong", "nozzle": "0.4", "project": "pistol_spring_arbor"},
+    {"file": "spring_arbor_od100.stl", "group": "strong", "nozzle": "0.4", "project": "pistol_spring_arbor"}
   ]
 }
