@@ -1,9 +1,10 @@
 {
   "id": "jezzail",
-  "title": "Jezzail side project: tennis-ball muzzle bell, curved trumpet, rim down, no supports; PLA on the 0.8 nozzle",
+  "title": "Jezzail muzzle v4: swept bell (rim down, 0.8) and the plug for the 40 mm tube (tube end down, 0.4: 0.25 mm fits); PLA, no supports",
   "generator": "jezzail/muzzle_bell.py",
   "export": "exports/jezzail_muzzle_bell",
   "parts": [
-    {"file": "jezzail_muzzle_bell.stl", "group": "standard", "filament": "pla", "nozzle": "0.8", "brim": 5, "project": "jezzail"}
+    {"file": "jezzail_muzzle_bell.stl", "group": "standard", "filament": "pla", "nozzle": "0.8", "brim": 5, "project": "jezzail"},
+    {"file": "jezzail_tube_plug.stl", "group": "standard", "filament": "pla", "nozzle": "0.4", "brim": 5, "project": "jezzail_plug"}
   ]
 }

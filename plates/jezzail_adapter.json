@@ -1,0 +1,9 @@
+{
+  "id": "jezzail_adapter",
+  "title": "Jezzail: sleeve that seats the printed v1.2 bell (Ø80.5 socket) on the 63 mm tube; lip down, PLA on 0.4 (0.25 mm fits)",
+  "generator": "jezzail/bell_v12_adapter.py",
+  "export": "exports/jezzail_bell_v12_adapter",
+  "parts": [
+    {"file": "jezzail_bell_v12_adapter.stl", "group": "standard", "filament": "pla", "nozzle": "0.4", "project": "jezzail_adapter"}
+  ]
+}
