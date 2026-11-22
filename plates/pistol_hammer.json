@@ -1,0 +1,9 @@
+{
+  "id": "pistol_hammer",
+  "title": "Pistol hammer alone: steel spring-stop pin socket instead of the printed rib, regenerated 2026-11-22",
+  "generator": "pistol/build/export_parts.py",
+  "export": "exports/pistol_build/stl",
+  "parts": [
+    {"file": "hammer.stl", "group": "impact", "brim": 5, "project": "pistol_hammer"}
+  ]
+}

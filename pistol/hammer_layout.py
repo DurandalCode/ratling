@@ -429,7 +429,7 @@ crank_root = Part.Face(Part.Wire([_root_curve.toShape(),
                                 Part.makeLine(_crank_root_point(16, _root_y + 0.05), _crank_root_point(5, _root_y + 0.05)),
                                 Part.makeLine(_crank_root_point(5, _root_y + 0.05), _crank_root_point(5, _root_y - 4))])).extrude(_crank_n * 8)
 peg_at = _at(H, SPRING_PEG[0], SPRING_PEG[1])
-# A printed teardrop rib replaces the fragile Ø3 cantilever; its inner nose keeps the spring contact.
+# A printed teardrop rib replaced the fragile printed Ø3 cantilever (kept under SPRING_STOP_RIB); a steel pin replaces both below.
 _stop_d = (peg_at - H).normalize()
 _stop_n = _stop_d.cross(YA).normalize()
 _stop_y0 = -27.5                    # the rib's left end as printed (the old pack's outer end): the hammer stays as is
@@ -448,13 +448,33 @@ _stop_down.setPoles([_spring_stop_point(r_, -t_) for r_, t_ in reversed(_stop_po
 _stop_arc = Part.Arc(_spring_stop_point(_stop_r, -_stop_nose), _spring_stop_point(_stop_r - _stop_nose, 0),
                      _spring_stop_point(_stop_r, _stop_nose)).toShape()
 _stop_face = Part.Face(Part.Wire([_stop_arc, _stop_up.toShape(), _stop_down.toShape()]))
-peg = _stop_face.extrude(YA * (4.0 - _stop_y0))   # enters the hub by 9 mm, rather than touching its end
-peg = peg.fuse(Part.makeCylinder(4.5, 10, V(peg_at.x, -5, peg_at.z), YA)).removeSplitter()
+_peg_boss = Part.makeCylinder(4.5, 10, V(peg_at.x, -5, peg_at.z), YA)
+# 2026-11-22: the printed rib tore off at the hub twice. Like the trigger's cam, the spring stop is now a
+# bought steel pin: Ø3 x 32 from the Ø3 rod, glued (epoxy) into a blind Ø3.2 socket in the Ø9 boss, the
+# hub's whole 9.7 mm (y -5 .. 4.7; the sleeve behind it is coaxial with the axle, no room for a deeper
+# socket). It sits where the rib's nose was (45 deg, r 9.5, Ø3), so the legs meet it as before; its free
+# end stays at the rib's y -27.5. Bearing in the socket ~34 MPa with both springs at full cock (PETG ~55).
+SPRING_STOP_PIN = dict(d=3.0, hole=3.2, y=(-27.5, 4.5), socket=(-5.0, 4.7))
+try:
+    SPRING_STOP_RIB                 # True: the printed teardrop rib, as printed until 2026-11-22
+except NameError:
+    SPRING_STOP_RIB = False
+_sp_ = SPRING_STOP_PIN
+if SPRING_STOP_RIB:
+    peg = _stop_face.extrude(YA * (4.0 - _stop_y0))   # enters the hub by 9 mm, rather than touching its end
+    peg = peg.fuse(_peg_boss).removeSplitter()
+    HAMMER_PIN = None
+else:
+    peg = _peg_boss
+    HAMMER_PIN = Part.makeCylinder(_sp_["d"] / 2, _sp_["y"][1] - _sp_["y"][0], V(peg_at.x, _sp_["y"][0], peg_at.z), YA)
 # The M3 crank fastener is separate hardware; the printed hammer carries its nut pocket and shoulder.
 hammer_body = (hub_h.fuse(spur).fuse(sleeve).fuse(crank).fuse(crank_root).fuse(peg)
                .cut(Part.makeCylinder(4.15, 100, V(H.x, -50, H.z), YA))
                .cut(Part.makeCylinder(1.7, 15, V(c_tip0.x, 28, c_tip0.z), YA))
                .removeSplitter())
+if HAMMER_PIN is not None:
+    hammer_body = hammer_body.cut(Part.makeCylinder(_sp_["hole"] / 2, _sp_["socket"][1] - _sp_["socket"][0] + 1.0,
+                                                    V(peg_at.x, _sp_["socket"][0] - 1.0, peg_at.z), YA)).removeSplitter()
 HAMMER = hammer_body
 
 
@@ -799,6 +819,7 @@ def pose(st):
             "Slider_cap": SLIDER_CAP.translated(V(0, 0, slider_z(c))),
             "Slider_cap_fastener": SLIDER_CAP_FASTENER.translated(V(0, 0, slider_z(c))),
             "Crank_fastener": _rot_y(CRANK_FASTENER, H, hammer_rot(c)),
+            **({} if HAMMER_PIN is None else {"Hammer_pin": _rot_y(HAMMER_PIN, H, hammer_rot(c))}),
             "Trigger": _rot_y(TRIGGER_BODY.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
             "Trigger_pad": _rot_y(TRIGGER_PAD.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
             "Trigger_pad_fastener": _rot_y(TRIGGER_PAD_FASTENER.translated(TRIGGER_PIVOT), TRIGGER_PIVOT, TRIGGER_TRAVEL * st["trig"]),
@@ -808,7 +829,7 @@ def pose(st):
 
 
 STYLE = dict(STYLE)
-STYLE.update({"Trigger_pad": ((0.25, 0.55, 0.8), 0), "Trigger_pad_fastener": ((0.75, 0.75, 0.78), 0), "Trigger_pin": ((0.75, 0.75, 0.78), 0), "Crank_fastener": ((0.75, 0.75, 0.78), 0), "Hammer": ((0.35, 0.25, 0.2), 0), "Pusher": ((0.75, 0.45, 0.85), 0)})
+STYLE.update({"Trigger_pad": ((0.25, 0.55, 0.8), 0), "Trigger_pad_fastener": ((0.75, 0.75, 0.78), 0), "Trigger_pin": ((0.75, 0.75, 0.78), 0), "Crank_fastener": ((0.75, 0.75, 0.78), 0), "Hammer_pin": ((0.75, 0.75, 0.78), 0), "Hammer": ((0.35, 0.25, 0.2), 0), "Pusher": ((0.75, 0.45, 0.85), 0)})
 STYLE.update({"Slider_cap": ((0.25, 0.55, 0.8), 0), "Slider_cap_fastener": ((0.75, 0.75, 0.78), 0)})
 for k in ("Lever", "Wedge"):
     STYLE.pop(k, None)
@@ -831,7 +852,7 @@ for i in range(11):
     c = i / 10
     st = dict(cock=c, block=block_drive(c), bend=0.0, trig=0.0)
     sh = pose(st)
-    for mv_ in [m_ for m_ in ("Hammer", "Crank_fastener", "Slider", "Slider_cap", "Slider_cap_fastener", "Pusher", "Sector", "Sleeve", "Trigger", "Trigger_pad", "Trigger_pad_fastener", "Pin") if m_ in sh]:
+    for mv_ in [m_ for m_ in ("Hammer", "Crank_fastener", "Hammer_pin", "Slider", "Slider_cap", "Slider_cap_fastener", "Pusher", "Sector", "Sleeve", "Trigger", "Trigger_pad", "Trigger_pad_fastener", "Pin") if m_ in sh]:
         for fx_, s_ in FIXED.items():
             v_ = sh[mv_].common(s_).Volume
             worst[(mv_, fx_)] = max(worst.get((mv_, fx_), 0.0), v_)

@@ -1260,7 +1260,7 @@ def front_clamp_checks():
 
 rest = pose(REST)
 if CHECKS:
-    moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Slider_cap", "Slider_cap_fastener", "Pin", "Bolt", "Hammer", "Crank_fastener", "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Trigger_pad_fastener", "Trigger_pin") if n_ in rest)
+    moving = tuple(n_ for n_ in ("Sector", "Pawl", "Slider", "Slider_cap", "Slider_cap_fastener", "Pin", "Bolt", "Hammer", "Crank_fastener", "Hammer_pin", "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Trigger_pad_fastener", "Trigger_pin") if n_ in rest)
     worst = {}
     for c in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
         for tg in (0.0, 1.0):
@@ -1591,7 +1591,7 @@ MATERIAL = {
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Valve_clamp_liner", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
-    "buy": ("Front_clamp_fastener", "Chamber_axle", "Vent_valve", "Detent_service_fastener", "Pin", "Crank_fastener", "Slider_cap_fastener", "Trigger_pad_fastener", "Trigger_pin", "Valve_clamp_fasteners", "Frame_join_fastener", "Grip_mount_fastener", "Guard_fasteners", "Mainsprings", "Spring_stop_screw", "Band_low_fastener", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
+    "buy": ("Front_clamp_fastener", "Chamber_axle", "Vent_valve", "Detent_service_fastener", "Pin", "Crank_fastener", "Hammer_pin", "Slider_cap_fastener", "Trigger_pad_fastener", "Trigger_pin", "Valve_clamp_fasteners", "Frame_join_fastener", "Grip_mount_fastener", "Guard_fasteners", "Mainsprings", "Spring_stop_screw", "Band_low_fastener", "Hammer_axle", "Guide_rod", "Hose", "Vial_glass", "Gauge", "Gauge_glass",
             "Gauge_needle", "Pilot_pipe", "Gauge_line", "Tee", "Axle_cap", "Thrust_washer", "Tie_rods", "Lock_bolts"),
 }
 BUY_NOTE = {"Front_disc": "Prototype PETG: six outer flexure jaws, rear 2 mm roots; rear face on bed. Central bore remains free. Clamp holding force requires a physical test.",
@@ -1612,11 +1612,12 @@ BUY_NOTE = {"Front_disc": "Prototype PETG: six outer flexure jaws, rear 2 mm roo
             "Frame_upper": "independent guide support, main valve clamp mounts and I-section web slot, and a 0.2 mm top keeper for the button valve; retained nut for the lower/upper frame assembly screw",
             "Trigger_pad_fastener": "M3 x 12 cylindrical-head bolt along +y + standard M3 nut, no washer; seat the pad against the lever broad y=3 face, slide nut into its open side pocket from positive x, tighten from negative y",
             "Trigger_pad": "PETG carrier for smooth steel pin 3 x 24; 3.2 mm root bore, open contact channel and distal axial stop. Print on broad x=-6 side",
+            "Hammer_pin": "smooth steel pin diameter 3 x 32 mm, cut from the Ø3 rod: the mainsprings' moving legs bear on it. Epoxied into the blind Ø3.2 socket of the hammer's Ø9 boss (9.7 mm deep), the rest stands free along the springs",
             "Trigger_pin": "smooth steel pin diameter 3 x 24 mm; captured between blind root and carrier end lip, 0.3 mm total end play. Remove the carrier to withdraw the pin",
-            "Mainsprings": "2 torsion springs, wire Ø1.4, OD 14, 6 coils, 60 deg free; both legs trimmed to ~14 mm past the coil; moving legs on the hammer's stop rib, fixed legs on the stop screw",
+            "Mainsprings": "2 torsion springs, wire Ø1.4, OD 14, 6 coils, 60 deg free; both legs trimmed to ~14 mm past the coil; moving legs on the hammer's steel pin, fixed legs on the stop screw",
             "Band_low_fastener": "2 x M3 x 20 cylindrical head along y, self-tapped: front lug into a Ø2.5 x 16.5 pilot in Frame_lower (x -13, z -52), rear lug into a Ø2.5 x 14 pilot in Frame_upper (x -99.5, z -21)",
             "Spring_stop_screw": "M3 x 25 cylindrical head, self-tapped from the left into the Ø2.5 pilot of the spring post on Frame_upper; the springs' fixed legs bear on its shank on both sides of the post. Drive it in after the legs are pushed down", "Hose": "6/4 hose from the receiver, up the grip to the vent valve's R port",
-            "Hammer": "one printed piece; thumb handle 30 mm lower at rest with a short rounded downward finger hook (about 22 mm below the heel including the R3.2 tip, 8 mm thick). Internal crank and sleeve retain their axes; teardrop spring-stop rib, Ø9 root boss; M3 x 6 crank fastener with captive nut",
+            "Hammer": "one printed piece; thumb handle 30 mm lower at rest with a short rounded downward finger hook (about 22 mm below the heel including the R3.2 tip, 8 mm thick). Internal crank and sleeve retain their axes; steel spring-stop pin (Hammer_pin) in a blind Ø3.2 socket of the Ø9 boss; M3 x 6 crank fastener with captive nut",
             "Vial_glass": "a test tube Ø16", "Gauge": "a Ø25 0-4 bar gauge with a 4 mm push-in (it reads the chamber, through the pilot)",
             "Pilot_pipe": "PU tube 4/2.5: vent valve A, straight out of the left wall (Ø5 hole at x -91.5, z -39.2), back round the tail and in through the Ø16 hole in its rear to a tee behind the cap, then the cap's G1/8 push-in",
             "Gauge_line": "PU tube 4/2.5, tee to the gauge", "Tee": "push-in tee for 4 mm tube", "Axle_cap": "M6 x 25 stud (or a headless bolt) + cap nut; an M6 nut glued in the plug",
