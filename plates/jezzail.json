@@ -1,0 +1,9 @@
+{
+  "id": "jezzail",
+  "title": "Jezzail side project: tennis-ball muzzle bell, curved trumpet, rim down, no supports; PLA on the 0.8 nozzle",
+  "generator": "jezzail/muzzle_bell.py",
+  "export": "exports/jezzail_muzzle_bell",
+  "parts": [
+    {"file": "jezzail_muzzle_bell.stl", "group": "standard", "filament": "pla", "nozzle": "0.8", "brim": 5, "project": "jezzail"}
+  ]
+}

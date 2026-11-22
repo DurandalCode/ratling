@@ -35,6 +35,7 @@
 | Тикеты для слабых моделей | `tasks/`, `tools/verify.py`, `.opencode/agents/` | `tasks/README.md`, `docs/agent-brief.md` |
 | Печать | `tools/make_plates.py`, `tools/print_plate.py`, `plates/*.json`, `*_plates.sh` | `docs/print.md`, `.claude/skills/plates/SKILL.md` |
 | Конвейер правок через GPT (Mechanismus) | `experiments/gpt-mask/mask`, `mask_sync.py`, `rename.py`, `obfuscate_pistol.py`, `names.json`, `products/*.json` | `experiments/gpt-mask/README.md` |
+| Джезайль (побочный: пружина, теннисный мяч) | `jezzail/muzzle_bell.py`, `plates/jezzail.json` | `docs/jezzail.md` |
 | Трубка 25 мм, пробка, селектор | `connectors/`, `selector/`, `ratling/params.py` | `docs/requirements.md` |
 
 ## Как устроен код
