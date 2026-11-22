@@ -95,8 +95,8 @@ if _WORKER:
             low("crank gear (meshes the rim)", min(_gap(fx, pinion), _gap(mv, pinion)))
             if near_fire:
                 low("fixed ramp (bodies and lines, not plungers)", min(_gap(mv, ramp_fire), _gap(lr, ramp_fire)))
-        for f in fixed:
-            low("hub (rim, lower clamp halves, bearing seat, retainer bolts) vs fixed parts", _gap(rim, f))
+        for n, f in zip(names, fixed):
+            low("hub vs " + n, _gap(rim, f))
     for ph in task["phase"]:
         a, b, valve, own_fx, line, own_qev = _read(ph).childShapes()
         low("neighbours", _gap(a, b))
@@ -206,9 +206,14 @@ print("sweep: workers done in %.0f s total" % (time.time() - _t0), flush=True)
 sweep_checks = [("mechanism build and fast checks", _mech_ok),
                 ("all %d workers finished%s" % (len(procs), (" (failed: %s, logs in %s)" % (failed, WORK)) if failed else ""),
                  not failed)]
+# The hub against every fixed part, by name (2026-11-22: one min over all hid which part it met).
+_hub_v, _hub_n = min((v, k[len("hub vs "):]) for k, v in list(results.items()) + [("hub vs nothing", 99.0)]
+                     if k.startswith("hub vs "))
+results["hub (rim, lower clamp halves, bearing seat, retainer bolts) vs fixed parts (nearest: %s)" % _hub_n] = _hub_v
 for n in [n for n, _ in fixed_list] + ["star", "gear A (meshes the rim)", "crank gear (meshes the rim)",
                                         "fixed ramp (bodies and lines, not plungers)",
-                                        "hub (rim, lower clamp halves, bearing seat, retainer bolts) vs fixed parts"]:
+                                        "hub (rim, lower clamp halves, bearing seat, retainer bolts) vs fixed parts"
+                                        " (nearest: %s)" % _hub_n]:
     v = results.get(n, 99.0)
     # The pressed ramp sits PL_L - RAMP_PRESS (0.5) off the valve bodies by design.
     lim = (PL_L - RAMP_PRESS - 0.05) if n.startswith("fixed ramp") else CLEAR - 1e-3

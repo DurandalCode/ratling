@@ -52,6 +52,21 @@ except NameError:
     PACK_STATION = False
 if not GATLING_LINEAR_BREECH_LIBRARY:
     PACK_STATION = False
+# Breech tray (2026-11-22, the owner: the pellet tray off the QEV's nose, onto the pack's
+# breech). The breech clamp's lower half runs TRAY_L aft of the barrel as an open-top
+# trough of the bore's Ø; its aft face is the QEV's stop (the barrel's face was). The
+# fitting grows by TRAY_L, passes the trough and goes FIT_IN_BARREL into the barrel as
+# before; the stroke is unchanged. Everything ahead of the barrel's face moves TRAY_L
+# forward from the QEV. Library only (breech_mechanism, feed_bench); the bench keeps
+# the barrel on the cover's stop.
+try:
+    BREECH_TRAY
+except NameError:
+    BREECH_TRAY = False
+if not GATLING_LINEAR_BREECH_LIBRARY:
+    BREECH_TRAY = False
+FIT_IN_BARREL = 30.0             # fitting inside the barrel, closed (fat coax's FIT_INSERT)
+TRAY_L = 23.8 + 12.0 if BREECH_TRAY else 0.0     # = PELLET_D + STROKE_MARGIN: open tip at the trough's aft end
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 import ratling.geom as G
@@ -64,7 +79,13 @@ NAME = "gatling_linear_breech"
 
 # ---------------------------------------------------------------- load QEV as library
 GATLING_FAT_COAX_LIBRARY = True
+_override_saved = globals().get("OVERRIDE")
+OVERRIDE = dict(_override_saved or {}, FIT_INSERT=FIT_IN_BARREL + TRAY_L)
 exec(open(os.path.join(REPO, "gatling", "fat_coax_qev.py")).read(), globals())
+if _override_saved is None:
+    del OVERRIDE
+else:
+    OVERRIDE = _override_saved
 # fat_coax overwrites OUT_DIR / NAME; put them back for this sketch.
 OUT_DIR = os.path.join(REPO, "exports", "gatling_linear_breech")
 NAME = "gatling_linear_breech"
@@ -91,12 +112,21 @@ _tie_links = [G.cyl(3.0, _tie_cut_z - 0.1, _tie_cut_z + chamber_extension + 0.1,
 hardware = G.fuse_all([_tie_rear, _tie_front] + _tie_links).removeSplitter()
 z_fs += chamber_extension
 z_stop += chamber_extension
+z_bf = z_stop + TRAY_L            # the barrel's breech face (= z_stop without the tray)
 
 # ---------------------------------------------------------------- breech parameters
 # Stroke: fitting fully out + gap for a ØBARREL_ID pellet to drop past the stop face.
 PELLET_D = BARREL_ID
 STROKE_MARGIN = 12.0
-STROKE = FIT_INSERT + PELLET_D + STROKE_MARGIN
+STROKE = FIT_IN_BARREL + PELLET_D + STROKE_MARGIN
+assert abs(TRAY_L - (PELLET_D + STROKE_MARGIN if BREECH_TRAY else 0.0)) < 1e-9
+assert abs(FIT_INSERT - (FIT_IN_BARREL + TRAY_L)) < 1e-9
+TRAY_ID = BARREL_ID + 0.1        # trough: the fitting (Ø23.3) runs through it, the ball lies 0.05 under the axis
+TRAY_Y_TOP = -4.6                # trough walls' top: the star's lobes reach 4.0 under the ball's centre
+try:
+    TRAY_PACK_R                  # the pack's axis lies at local (0, -TRAY_PACK_R): the walls' top is an arc
+except NameError:                # round it, so the star's lobes pass over the whole trough, not just mid-line
+    TRAY_PACK_R = 67.0           # = breech_mechanism R_PACK, feed_bench PACK_R
 
 # Two aluminium tubes under the module (+Y is the feed side, kept clear).
 # Keep them tight under the Ø50 tube so a hex pack at PACK_PITCH still clears.
@@ -186,8 +216,8 @@ def rail_centers():
     return ((-RAIL_X, RAIL_Y), (RAIL_X, RAIL_Y))
 
 
-# Closed pose: barrel breech face at z_stop (from fat_coax).
-z_clamp0 = z_stop
+# Closed pose: barrel breech face at z_bf (z_stop from fat_coax, + TRAY_L with the trough).
+z_clamp0 = z_bf
 z_clamp1 = z_clamp0 + CLAMP_L
 # Forward collar further along the real barrel (same print as the breech clamp).
 z_clamp2_0 = z_clamp1 + CLAMP_SPAN
@@ -196,7 +226,7 @@ z_rail0 = (z_ry - STROKE) - RAIL_PAST_REAR
 z_rail1 = z_clamp2_1 + RAIL_PAST_FRONT
 if PACK_STATION:
     # In the pack the rails end in the front barrel-plate, not 6 mm past the muzzle.
-    z_rail1 = min(z_rail1, z_stop + BARREL_SHOW)
+    z_rail1 = min(z_rail1, z_bf + BARREL_SHOW)
 
 # ---------------------------------------------------------------- rails (bought Al tube)
 rails = [
@@ -403,9 +433,16 @@ def make_barrel_clamp(z0, z1, feed_notch=False):
 
 barrel_clamp = make_barrel_clamp(z_clamp0, z_clamp1, feed_notch=True)
 barrel_collar = make_barrel_clamp(z_clamp2_0, z_clamp2_1, feed_notch=False)
+breech_tray = None
+if BREECH_TRAY:
+    # The trough: the clamp's lower half (below CRADLE_Y_TOP) on aft to the QEV's stop.
+    breech_tray = tube(CLAMP_OD, TRAY_ID, z_stop, z_bf + 0.5).cut(Part.makeBox(
+        CLAMP_OD + 4.0, CLAMP_OD, TRAY_L + 4.0, V(-(CLAMP_OD + 4.0) / 2, TRAY_Y_TOP, z_stop - 2.0))).common(
+        G.cyl(2 * (TRAY_PACK_R + TRAY_Y_TOP), z_stop - 1.0, z_bf + 1.0, 0.0, -TRAY_PACK_R)).removeSplitter()
+    barrel_clamp = barrel_clamp.fuse(breech_tray).removeSplitter()
 
-# Fixed real barrel (bought), breech face at z_stop, held by both clamps.
-fixed_barrel = tube(BARREL_OD, BARREL_ID, z_stop, z_stop + BARREL_SHOW)
+# Fixed real barrel (bought), breech face at z_bf, held by both clamps.
+fixed_barrel = tube(BARREL_OD, BARREL_ID, z_bf, z_bf + BARREL_SHOW)
 
 # ---------------------------------------------------------------- pellet cradle (part of front cover)
 # Half-pipe ahead of the tip + a solid lower bond onto the tip nose, fused into
@@ -433,6 +470,13 @@ bond = bond.cut(G.cyl(FIT_BORE, z_feed0 - 1.0, z_tip + 1.0))
 feed = feed.fuse(bond).removeSplitter()
 # Cover with feed cradle (breech-station lid; standalone fat_coax cover unchanged).
 front_cover_feed = front_cover.fuse(feed).removeSplitter()
+if BREECH_TRAY:
+    front_cover_feed = front_cover            # the trough carries the ball: no gutter on the nose
+    feed_id, feed_od = TRAY_ID, CLAMP_OD
+    CRADLE_Y_TOP = TRAY_Y_TOP                 # feed_bench reads the ball support's rim height here
+# What carries the ball, in the closed station's frame with the ball at the closed tip (feed_bench):
+# the cover's gutter, or the fixed trough moved by the stroke.
+feed_chute = front_cover_feed if not BREECH_TRAY else breech_tray.translated(V(0, 0, STROKE))
 
 # ---------------------------------------------------------------- QEV solids to slide
 qev_closed = {
@@ -491,11 +535,11 @@ nose_vs_clamp = nose.distToShape(barrel_clamp)[0]
 collar_vs_clamp = barrel_collar.distToShape(barrel_clamp)[0]
 # Open: fitting tip behind the barrel breech face (not cover bbox — cradle leads the tip).
 open_tip_z = z_tip - STROKE
-open_gap = z_stop - open_tip_z  # ~ STROKE - FIT_INSERT = PELLET_D + margin
+open_gap = z_bf - open_tip_z  # ~ STROKE - FIT_IN_BARREL = PELLET_D + margin
 open_cradle_z1 = z_feed1 - STROKE
 # Top feed clear: no rail / carriage above y = 0 in the breech window.
 feed_box = Part.makeBox(CH_OD, 80, STROKE + 10,
-                        V(-CH_OD / 2, 2.0, z_stop - STROKE - 5))
+                        V(-CH_OD / 2, 2.0, z_bf - STROKE - 5))
 feed_hit_rail = rails_s.common(feed_box).Volume
 feed_hit_carr_open = (qev_open["Carriage"].common(feed_box).Volume
                       + qev_open["Nose_clamp"].common(feed_box).Volume) if SHOW_OPEN else 0.0
@@ -508,7 +552,7 @@ vent_vs_rails = vent_body.distToShape(rails_s)[0]
 # Feed cradle on the cover: tip free, gutter under; OD slips into the barrel.
 open_tip_fit = z_tip - STROKE
 pellet_aft = pellet_z - PELLET_D / 2
-barrel_wall = tube(BARREL_OD + 2.0, BARREL_ID, z_stop, z_stop + BARREL_SHOW)
+barrel_wall = tube(BARREL_OD + 2.0, BARREL_ID, z_bf, z_bf + BARREL_SHOW)
 feed_vs_barrel = feed.distToShape(barrel_wall)[0]
 feed_in_bore = feed.common(
     G.cyl(BARREL_ID - 0.05, z_stop, z_tip + CRADLE_PAST_TIP + 1)).Volume
@@ -518,6 +562,30 @@ feed_hit_drop = open_feed.common(drop_col).Volume if SHOW_OPEN else 0.0
 feed_vs_clamp = feed.distToShape(barrel_clamp)[0]
 # Cover+feed is one solid; gutter stays below the pellet equator.
 feed_low = feed.BoundBox.YMax <= CRADLE_Y_TOP + 0.2
+
+tray_checks = []
+if BREECH_TRAY:
+    _cover_open = shifted(front_cover_feed, -STROKE)
+    _fit_gap = front_cover_feed.common(G.cyl(80, z_stop + 0.5, z_tip + 1)).distToShape(barrel_clamp)[0]
+    _ball_open = Part.makeSphere(PELLET_D / 2, V(0, 0, z_tip - STROKE + PELLET_D / 2 + 0.05))
+    _ball_open.translate(V(0, -(TRAY_ID - PELLET_D) / 2, 0))
+    _stop_touch = front_cover_feed.common(Part.makeBox(60, 60, 0.02, V(-30, -30, z_stop - 0.01)))
+    tray_checks = [
+        ("trough: Ø%.1f x %.1f open above Y %.1f, one piece with the breech clamp's lower half"
+         % (TRAY_ID, TRAY_L, TRAY_Y_TOP),
+         barrel_clamp.isValid() and len(barrel_clamp.Solids) == 2 and breech_tray.BoundBox.YMax <= TRAY_Y_TOP + 1e-6),
+        ("closed fitting runs clear through the trough into the barrel (%.2f mm, %.0f mm inside the barrel)"
+         % (_fit_gap, z_tip - z_bf), _fit_gap >= 0.25 and abs(z_tip - z_bf - FIT_IN_BARREL) < 1e-6),
+        ("cover's stop butts the trough's aft face (QEV stop), barrel face %.1f ahead" % TRAY_L,
+         abs(breech_tray.BoundBox.ZMin - z_stop) < 1e-6 and front_cover_feed.BoundBox.ZMin < z_stop
+         and front_cover_feed.common(barrel_clamp).Volume < 0.01),
+        ("open: tip at the trough's aft end (%.1f <= %.1f), ball Ø%.1f lies in it (%.2f mm3 into it)"
+         % (z_tip - STROKE, z_stop, PELLET_D, _ball_open.common(barrel_clamp).Volume),
+         z_tip - STROKE <= z_stop + 1e-6 and _ball_open.common(barrel_clamp).Volume < 0.5
+         and _ball_open.BoundBox.ZMax <= z_bf + 1e-6),
+        ("open cover clear of the trough (%.1f mm)" % _cover_open.distToShape(barrel_clamp)[0],
+         _cover_open.distToShape(barrel_clamp)[0] >= 0.0),
+    ]
 
 checks = [
     ("chamber tube is valid and 200 mm long", G.single_solid(chamber) and abs(chamber.BoundBox.ZLength - CHAMBER_LENGTH) < 1e-6),
@@ -529,7 +597,7 @@ checks = [
     ("nose clamp: upper half single solid", G.single_solid(nose_upper)),
     ("barrel clamp valid two connected halves", barrel_clamp.isValid() and len(barrel_clamp.Solids) == 2),
     ("forward barrel collar valid two connected halves", barrel_collar.isValid() and len(barrel_collar.Solids) == 2),
-    ("front cover+feed cradle valid single solid", G.single_solid(front_cover_feed)),
+    ("front cover%s valid single solid" % ("" if BREECH_TRAY else "+feed cradle"), G.single_solid(front_cover_feed)),
     ("AirTAC cradle valid single solid", G.single_solid(cradle)),
     ("rails clear of closed QEV body (%.1f mm >= %.1f)" % (rail_to_qev, RAIL_CLEAR),
      rail_to_qev >= RAIL_CLEAR),
@@ -545,15 +613,15 @@ checks = [
     ("forward collar clear of breech clamp (%.1f mm span)" % collar_vs_clamp,
      collar_vs_clamp >= CLAMP_SPAN - 1.0),
     ("stroke extracts the fitting: open tip z %.1f <= breech %.1f (gap %.1f >= pellet+margin %.1f)"
-     % (open_tip_z, z_stop, open_gap, PELLET_D + STROKE_MARGIN - 0.5),
-     SHOW_OPEN and open_tip_z <= z_stop + 1e-3
-     and open_gap >= PELLET_D + STROKE_MARGIN - 0.5),
-    ("stroke = fitting + pellet + margin (%.1f = %.1f + %.1f + %.1f)"
-     % (STROKE, FIT_INSERT, PELLET_D, STROKE_MARGIN),
-     abs(STROKE - (FIT_INSERT + PELLET_D + STROKE_MARGIN)) < 1e-6),
+     % (open_tip_z, z_bf, open_gap, PELLET_D + STROKE_MARGIN - 0.5),
+     open_tip_z <= z_stop + 1e-3 and open_gap >= PELLET_D + STROKE_MARGIN - 0.5),
+    ("stroke = fitting in the barrel + pellet + margin (%.1f = %.1f + %.1f + %.1f)"
+     % (STROKE, FIT_IN_BARREL, PELLET_D, STROKE_MARGIN),
+     abs(STROKE - (FIT_IN_BARREL + PELLET_D + STROKE_MARGIN)) < 1e-6),
     ("+Y feed window clear of rails (vol %.0f)" % feed_hit_rail, feed_hit_rail < 1.0),
     ("+Y feed window clear of open carriage (vol %.0f)" % feed_hit_carr_open,
      feed_hit_carr_open < 1.0),
+] + ([
     ("+Y drop onto open cradle clear (vol %.0f)" % feed_hit_drop, feed_hit_drop < 1.0),
     ("feed cradle stays below pellet equator (Ymax %.1f <= %.1f)"
      % (feed.BoundBox.YMax, CRADLE_Y_TOP), feed_low),
@@ -565,17 +633,18 @@ checks = [
      feed_od <= BARREL_ID - 0.2 and feed_vs_barrel >= 0.15),
     ("closed cradle enters the bore (vol %.0f)" % feed_in_bore, feed_in_bore > 50),
     ("closed cradle clear of breech clamp (%.1f mm)" % feed_vs_clamp, feed_vs_clamp >= 0.5),
+] if not BREECH_TRAY else tray_checks) + [
     ("rails clear of neighbour at pack pitch (%.1f mm >= %.1f; envelope R %.1f)"
      % (rail_to_nbr, RAIL_CLEAR, rail_r_max),
      rail_to_nbr >= RAIL_CLEAR),
-    ("closed stop face at barrel breech (z_stop %.1f)" % z_stop,
-     abs(fixed_barrel.BoundBox.ZMin - z_stop) < 1e-6),
+    ("closed stop face %.1f mm behind the barrel's breech (z_stop %.1f, barrel %.1f)" % (TRAY_L, z_stop, z_bf),
+     abs(fixed_barrel.BoundBox.ZMin - z_stop - TRAY_L) < 1e-6),
     ("breech clamp holds the barrel OD (hole ~Ø%.1f)" % (BARREL_OD + 0.3),
      barrel_clamp.BoundBox.ZMin <= z_clamp0 + 1e-3 and barrel_clamp.BoundBox.ZMax >= z_clamp1 - 1e-3),
     ("forward collar on barrel (z %.0f .. %.0f)" % (z_clamp2_0, z_clamp2_1),
      barrel_collar.BoundBox.ZMin <= z_clamp2_0 + 1e-3
      and barrel_collar.BoundBox.ZMax >= z_clamp2_1 - 1e-3
-     and z_clamp2_1 <= z_stop + BARREL_SHOW + 1e-3),
+     and z_clamp2_1 <= z_bf + BARREL_SHOW + 1e-3),
     ("AirTAC cradle clear of closed QEV (%.1f mm)" % airtac_cradle_vs_qev,
      airtac_cradle_vs_qev >= 0.5),
     ("AirTAC body clear of rails (%.1f mm)" % vent_vs_rails, vent_vs_rails >= 0.5),

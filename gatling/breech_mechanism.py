@@ -261,7 +261,7 @@ V = App.Vector
 O = V(0, 0, 0)
 ZA = V(0, 0, 1)
 
-TARGET_L = 750.0
+TARGET_L = 750.0                # closed station, rear plug to muzzle, without the breech trough
 BARREL_SHOW_DEFAULT = 160.0
 N = 6
 R_PACK = 67.00                  # = breech_pack PINNED_R; rail feet need >= 66.3
@@ -293,11 +293,16 @@ def _tick(msg):
 _tick("load linear_breech…")
 GATLING_LINEAR_BREECH_LIBRARY = True
 PACK_STATION = True
+# 2026-11-22 (the owner): the pellet lies in a fixed trough on each breech clamp, not on the QEV's
+# nose; the trough adds TRAY_L between the QEV's stop and the barrel, the barrel keeps its length.
+BREECH_TRAY = True
+TRAY_PACK_R = R_PACK
 SHOW_OPEN = False
 BARREL_SHOW = BARREL_SHOW_DEFAULT
 exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), globals())
+TARGET_L = 750.0 + TRAY_L
 Z_AFT_CLIP = qev_closed["Rear_plug"].BoundBox.ZMin
-BARREL_SHOW = TARGET_L - (z_stop - Z_AFT_CLIP)
+BARREL_SHOW = TARGET_L - (z_bf - Z_AFT_CLIP)
 assert BARREL_SHOW > 50.0
 print("reload BARREL_SHOW=%.1f…" % BARREL_SHOW, flush=True)
 exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), globals())
@@ -306,7 +311,7 @@ NAME = "gatling_breech_mechanism"
 Z_AFT_CLIP = qev_closed["Rear_plug"].BoundBox.ZMin
 
 BENCH_STROKE = STROKE
-assert abs(BENCH_STROKE - (FIT_INSERT + PELLET_D + STROKE_MARGIN)) < 1e-6
+assert abs(BENCH_STROKE - (FIT_IN_BARREL + PELLET_D + STROKE_MARGIN)) < 1e-6
 print("STROKE=%.1f" % BENCH_STROKE, flush=True)
 
 
@@ -850,7 +855,8 @@ print("press max %.2f flat %.2f outside %.3f" % (press_max, press_flat, press_ou
 
 # ============================================================ star feed (feed_bench as library)
 _tick("load feed_bench (star)…")
-_fb = {"REPO": REPO, "FEED_BENCH_LIBRARY": True, "PELLET_D": PELLET_D}
+_fb = {"REPO": REPO, "FEED_BENCH_LIBRARY": True, "PELLET_D": PELLET_D, "BREECH_TRAY": BREECH_TRAY,
+       "TRAY_PACK_R": R_PACK}
 _fb_ok = False
 try:
     exec(open(os.path.join(REPO, "gatling", "feed_bench.py")).read(), _fb)
@@ -903,7 +909,7 @@ def ball_at(phi):
 # --- guard: follows the ball on the close ramp, inside the breech clamp's feed notch
 Z_GUARD_MAX = barrel_clamp.BoundBox.ZMax - 10.5
 GUARD_END = 240.0
-while GUARD_END < 330.0 and ball_z(GUARD_END) < z_stop + 2.0:
+while GUARD_END < 330.0 and ball_z(GUARD_END) < z_bf + 2.0:
     GUARD_END += 0.25
 _w = []
 _p = GUARD_PHI0
@@ -926,7 +932,8 @@ while _p <= GUARD_END:
 
 # ============================================================ star drive: breech rim + fixed train
 GEAR_M, GEAR_FACE, GEAR_BACKLASH = 1.5, 8.0, 0.3
-Z_RIM, Z_A, Z_B, Z_I, Z_S = 120, 40, 18, 18, 27
+Z_RIM, Z_A, Z_B, Z_I, Z_S = 120, 40, 14, 18, 28    # 2026-11-22: 18 | 27 -> 14 | 28: the star turns 1.5 per
+                                                   # pack turn (4 pockets, feed_bench), on X 111.6 (was 108.75)
 R_RIM, R_A, R_B, R_I, R_S = [GEAR_M * z / 2.0 for z in (Z_RIM, Z_A, Z_B, Z_I, Z_S)]
 TRAIN_RATIO = -(R_RIM / R_A) * (R_B / R_S)          # star turns per pack turn (sign: 3 external meshes)
 P1_Z0 = z_clamp1                  # on the breech clamps: one print with their lower halves (the hub)
@@ -1119,10 +1126,10 @@ RING_T = 6.0
 RING_WALL = 4.0
 r_case_od = cam_od / 2.0
 r_case_id = r_case_od - RING_WALL
-z_tip_b = z_stop + BARREL_SHOW
+z_tip_b = z_bf + BARREL_SHOW
 z_front0 = z_tip_b - PLATE_T + PLATE_LIP
 z_front1 = z_tip_b + PLATE_LIP
-Z_FRING0, Z_FRING1 = z_stop - PLATE_T * 0.35, z_stop - PLATE_T * 0.35 + PLATE_T   # front frame ring (breech)
+Z_FRING0, Z_FRING1 = z_bf - PLATE_T * 0.35, z_bf - PLATE_T * 0.35 + PLATE_T   # front frame ring (barrel's breech)
 _fol_zmax = follower.BoundBox.ZMax
 z_spar0 = z_cam1                       # bay 2 studs start on the liner's front lugs
 z_case1 = Z_FRING1
@@ -2201,7 +2208,10 @@ brg_r = brg_r.fuse(Part.makeCompound([stud_lug(r_case_od - 5.0, w, z_brg_r0, z_b
                                      + [SKIN_LANDS[4]])).removeSplitter()
 # --- the guard (2026-11-21: it stood on nothing): two webs out to the front ring's inner
 # face, an M3 x 20 each, radially from the ring's outer face, the nut slid into the web.
-GUARD_WEBS = ((30.0, 188.0, 206.0), (84.0, 195.0, 213.0))   # world angle, z0, z1
+# z set by hand for the front ring at 202.3; since 2026-11-22 (the breech trough) it stands TRAY_L further
+# forward with the barrel, and the webs and the head's boss with it.
+_DZ_RING = Z_FRING0 - 202.31
+GUARD_WEBS = ((30.0, 188.0 + _DZ_RING, 206.0 + _DZ_RING), (84.0, 195.0 + _DZ_RING, 213.0 + _DZ_RING))   # world angle, z0, z1
 FEED_FAST = []
 for w, za, zb in GUARD_WEBS:
     _wb = Part.makeBox(r_case_id - 0.05 - (GUARD_R_OUT - 0.7), 9.0, zb - za, V(GUARD_R_OUT - 0.7, -4.5, za))
@@ -2214,12 +2224,16 @@ feed_guard, pack_frame = cut_fast(feed_guard.removeSplitter(), FEED_FAST, "guard
 feed_guard = feed_guard.cut(tube(2 * r_case_od + 2.0, 2 * r_case_id, Z_FRING0 - 1.0, Z_FRING1 + 1.0)).removeSplitter()   # webs' corners off the ring
 # --- the feed head (2026-11-21: it stood in a notch of the front ring): a boss on its web
 # where the web crosses the ring (-26 deg), an M3 x 20 radially from the ring's outer face.
-HEAD_WEB_W = -26.0
-_hb = Part.makeBox(r_case_id - 0.05 - 90.0, 9.0, 8.0, V(90.0, -4.5, 200.0))
+# On the shroud's web where it crosses the ring, 4 deg short of its end (-26 set by hand until 2026-11-22;
+# the 4-pocket star stands further out and its web crosses the ring at -32).
+_a_web = math.radians(_fb["SHROUD_WEB_END"] - 4.0)
+_r_web = 0.5 * (_fb["SHROUD_R_IN"] + _fb["SHROUD_R_OUT"])
+HEAD_WEB_W = -math.degrees(math.atan2(_r_web * math.sin(_a_web), X_STAR + _r_web * math.cos(_a_web)))
+_hb = Part.makeBox(r_case_id - 0.05 - 90.0, 9.0, 8.0, V(90.0, -4.5, 200.0 + _DZ_RING))
 _hb.rotate(O, ZA, HEAD_WEB_W)
 feed_head = fuse_sound(feed_head, _hb.cut(tube(2 * r_case_od + 2.0, 2 * r_case_id, Z_FRING0 - 1.0, Z_FRING1 + 1.0)),
                        "feed head + its web boss (fuse)")
-FEED_FAST.append(FA.m3_at("feed head web on the front ring", wpt(r_case_od, HEAD_WEB_W, 204.0), wpt(-1.0, HEAD_WEB_W),
+FEED_FAST.append(FA.m3_at("feed head web on the front ring", wpt(r_case_od, HEAD_WEB_W, 204.0 + _DZ_RING), wpt(-1.0, HEAD_WEB_W),
                           0.0, 20.0 - FA.NUT_T - 1.0, 20.0, nut_slot=(wpt(1.0, HEAD_WEB_W + 90.0), 6.0)))
 feed_head, pack_frame = cut_fast(feed_head, FEED_FAST[-1:], "feed head"), cut_fast(pack_frame, FEED_FAST[-1:], "front ring")
 # --- the star's shaft (2026-11-21). It turned in printed holes and in a slot through the front
@@ -2268,9 +2282,12 @@ for _zc in (0.5 * (z_sf + z_hub1), 0.5 * (z_scol0 + z_scol1)):
     star_shaft = star_shaft.cut(Part.makeCylinder(1.6, 24.0, V(S_C.x, S_C.y + 12.0, _zc), V(0, -1, 0)))
 FEED_FAST += STAR_FAST
 # --- gears A and B are one print (the cluster turns on a fixed layshaft pin)
-gear_ab = G.fuse_all([gear_a, gear_b, tube(20.0, SHAFT_D + 0.2, P1_Z1 - 0.5, P2_Z0 + 0.5, L_C.x, L_C.y),
+# Its hub ahead of A stays inside B's root circle: the idler's tips reach down to it (2026-11-22: B 14
+# has its roots on r 8.6, the Ø20 hub took 0.67 mm3 of the idler).
+_ab_hub_d = min(20.0, 2.0 * (R_B - 1.25 * GEAR_M) - 1.0)
+gear_ab = G.fuse_all([gear_a, gear_b, tube(_ab_hub_d, SHAFT_D + 0.2, P1_Z1 - 0.5, P2_Z0 + 0.5, L_C.x, L_C.y),
                       tube(20.0, SHAFT_D + 0.2, _cav_r + TRAIN_GAP, P1_Z0 + 0.1, L_C.x, L_C.y),
-                      tube(20.0, SHAFT_D + 0.2, P2_Z1 - 0.1, _cav_f - TRAIN_GAP, L_C.x, L_C.y)]).removeSplitter()
+                      tube(_ab_hub_d, SHAFT_D + 0.2, P2_Z1 - 0.1, _cav_f - TRAIN_GAP, L_C.x, L_C.y)]).removeSplitter()
 _ec = {"brg_r": (z_brg_r0, z_brg_r1), "brg_f": (z_brg_f0, z_brg_f1), "liner_r": (z_lr0, z_lr1),
        "liner_f": (z_lf0, z_lf1), "fring": (Z_FRING0, Z_FRING1), "housing": (z_brg0 - 3.0, z_brg1 + 3.0),
        "box": (BOX_Z0, P1_Z0 - 1.0)}
@@ -3212,7 +3229,17 @@ cap_gap, cap_near = min((gap(skin_cap, s_, pad=3.0), n_) for n_, s_ in CAP_NEAR 
 _glue_shell = tube(2.0 * SKIN_R_IN, 2.0 * SKIN_R_IN - 1.0, SKIN_Z0, SKIN_Z1)
 SKIN_GLUE = Part.makeCompound([s_ for _, s_ in SKIN_CARRIERS]).common(_glue_shell).cut(
     Part.makeCompound([_skin_cutter(r_) for r_ in SKIN_RECTS])).Volume / 0.5          # mm2 of land under the skin
-skin_gaps = sorted((gap(skin, s_, pad=3.0), n_) for n_, s_ in SKIN_OBST)
+
+
+def skin_gap(s_, pad=3.0, far=5.0):
+    """gap(skin, s_), but a part that stays more than `far` inside the skin's bore (r_max from a 0.5 mm
+    tessellation, less its deflection) gets that radial bound: the thin, windowed skin makes
+    distToShape slow (2026-11-22: 69 of the build's 282 s went here)."""
+    rb = SKIN_R_IN - r_max(s_) - 0.5
+    return rb if rb > far else gap(skin, s_, pad=pad)
+
+
+skin_gaps = sorted((skin_gap(s_), n_) for n_, s_ in SKIN_OBST)
 skin_near = [(g_, n_) for g_, n_ in skin_gaps if n_ not in SKIN_RESTS]
 skin_rest = [(g_, n_) for g_, n_ in skin_gaps if n_ in SKIN_RESTS]
 SKIN_PACK_R = max(r_max(st_) for st_ in stations)
@@ -3235,7 +3262,7 @@ assembly = Part.makeCompound([
 bb = assembly.optimalBoundingBox()
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
 case_od = 2.0 * r_case_od
-closed_L = (z_stop + BARREL_SHOW) - Z_AFT_CLIP
+closed_L = (z_bf + BARREL_SHOW) - Z_AFT_CLIP
 fb_n_ok = sum(1 for _, ok in FB_CHECKS if ok)
 
 checks = [
@@ -3369,7 +3396,7 @@ checks = [
      tripod_ball_seat <= TRIPOD_SOCKET_CLEAR + 0.01 and tripod_gap >= 2.0 and tripod_tilt_gap >= 5.0),
     ("open frame (not full casing)", frame_ok),
     ("six phases", len(stations) == 6),
-    ("closed station L %.1f ≈ 750" % closed_L, abs(closed_L - TARGET_L) <= 0.6),
+    ("closed station L %.1f ≈ %.1f (750 + trough %.1f)" % (closed_L, TARGET_L, TRAY_L), abs(closed_L - TARGET_L) <= 0.6),
     ("no full-length tube", z_case1 < z_tip_b - 200.0),
     ("fasteners: %s; every M3 fits 6/20/50 with its nut and 3 mm under head and nut (%s)"
      % (", ".join("%s %s" % (k_, ("%.0f" % v_) if isinstance(v_, float) else v_) for k_, v_ in sorted(FAST_BOM.items())),
@@ -3622,7 +3649,7 @@ sc.add("Fasteners", "Frame_studs_M6", Part.makeCompound([f_.body for f_ in FRAME
 sc.add("Fasteners", "Bolts_M3", Part.makeCompound([f_.body for f_ in FASTENERS if f_.kind == "M3"]), "drive")
 sc.add("Fasteners", "Bought_threads_M4", Part.makeCompound([b_ for _, b_ in M4_EXC]), "drive")
 for n, ang, u, dz, tag in phases:
-    p = polar(R_PACK + 70, ang, z_stop + dz)
+    p = polar(R_PACK + 70, ang, z_bf + dz)
     sc.label("Labels", "%d° %s" % (ang, tag), (p.x, p.y, p.z))
 sc.finish(hidden_groups=("Labels",), opaque_groups=())
 doc = sc.doc

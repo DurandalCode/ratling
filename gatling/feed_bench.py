@@ -73,6 +73,13 @@ try:
     FEED_BENCH_LIBRARY
 except NameError:
     FEED_BENCH_LIBRARY = False
+# 2026-11-22: the ball lies in the breech's fixed trough (linear_breech BREECH_TRAY), not on a
+# gutter on the QEV's nose; the chutes here are the troughs, moved by the stroke into this
+# bench's frame (ball at the closed tip). False builds the old gutter chutes.
+try:
+    BREECH_TRAY
+except NameError:
+    BREECH_TRAY = True
 _T0 = time.time()
 
 
@@ -83,11 +90,12 @@ OUT_DIR = os.path.join(REPO, "exports", "gatling_feed_bench")
 NAME = "gatling_feed_bench"
 
 # ---------------------------------------------------------------- station gutter (library)
-_lib = {"REPO": REPO, "GATLING_LINEAR_BREECH_LIBRARY": True, "SHOW_OPEN": False}
+_lib = {"REPO": REPO, "GATLING_LINEAR_BREECH_LIBRARY": True, "SHOW_OPEN": False, "BREECH_TRAY": BREECH_TRAY,
+        "TRAY_PACK_R": 67.0}                     # = PACK_R below
 exec(open(os.path.join(REPO, "gatling", "linear_breech.py")).read(), _lib)
-front_cover_feed = _lib["front_cover_feed"]
+front_cover_feed = _lib["feed_chute"]             # the name stays: the gutter on the cover, or the trough
 z_tip = _lib["z_tip"]
-FIT_INSERT = _lib["FIT_INSERT"]
+FIT_INSERT = _lib["FIT_IN_BARREL"]                # the fitting's run inside the barrel, closed
 STROKE = _lib["STROKE"]
 LIB_PELLET = _lib["PELLET_D"]
 FEED_ID = _lib["feed_id"]
@@ -100,9 +108,11 @@ N_STATION = 6
 # Station 0 sits under the star. phi 180 is +X (up); phi 90 is +Y (crank side).
 STATION_PHI = [180.0 + i * (360.0 / N_STATION) for i in range(N_STATION)]
 Z_BALL = z_tip + PELLET_D / 2.0  # ball against the fitting tip, on the gutter
-# A rigid ball rests on the inner rims of the open gutter (cut at CRADLE_Y_TOP).
+# A rigid ball rests on the inner rims of the open gutter (cut at CRADLE_Y_TOP), or, in a
+# trough wider than its rims, on the bottom (0.05 under the axis in the Ø23.9 trough).
 _rim_x2 = (FEED_ID / 2.0) ** 2 - CRADLE_Y_TOP ** 2
-BALL_LIFT = CRADLE_Y_TOP + math.sqrt((PELLET_D / 2.0) ** 2 - _rim_x2)
+BALL_LIFT = max(CRADLE_Y_TOP + math.sqrt(max(0.0, (PELLET_D / 2.0) ** 2 - _rim_x2)),
+                -(FEED_ID - PELLET_D) / 2.0)
 R_BALL = PACK_R + BALL_LIFT
 
 # 6000: 10 x 26 x 8 on the pack shaft; 608: 8 x 22 x 7 on the star shaft.
@@ -115,14 +125,21 @@ SBRG_OD, SBRG_W = 22.0, 7.0
 
 # Star geared to the pack. Pitch radii of the gears are the ball radius and the
 # pocket radius, so the pocket and the chute roll on each other.
-STAR_POCKETS = 3
-STAR_TURNS = 2                    # star turns per pack turn: 3 pockets x 2 = 6 balls
+# 2026-11-22, the trough: the ball circle came in to R 66.95, and a 2:1 star (on 1.5 x R = 100.4) put
+# its drive into the pack's hub; 4 pockets at 1.5 turns stand it on 1.667 x R = 111.6, out past
+# the old 108.75. Pockets x turns = 6 balls per pack turn either way.
+STAR_POCKETS, STAR_TURNS = (4, 1.5) if BREECH_TRAY else (3, 2)
 GEAR_M = 2.5
 GEAR_FACE = 8.0
 GEAR_BACKLASH = 0.40
-STAR_PIN = int(round(R_BALL * (1.0 + 1.0 / STAR_TURNS) / (GEAR_M * (1 + STAR_TURNS) / 2.0)))
-STAR_WHEEL = STAR_TURNS * STAR_PIN
-X_STAR = GEAR_M * (STAR_PIN + STAR_WHEEL) / 2.0      # centre distance, star axis on +X
+_pin0 = R_BALL * (1.0 + 1.0 / STAR_TURNS) / (GEAR_M * (1 + STAR_TURNS) / 2.0)
+STAR_PIN = min((p_ for p_ in range(int(_pin0) - 3, int(_pin0) + 4) if abs(STAR_TURNS * p_ - round(STAR_TURNS * p_)) < 1e-9),
+               key=lambda p_: abs(p_ - _pin0))      # the wheel's teeth STAR_TURNS x the pin's, whole
+STAR_WHEEL = int(round(STAR_TURNS * STAR_PIN))
+# 2026-11-22: the star stands where pocket and ball speeds match exactly, and the printed bench
+# gears take the module that fits (2.48 for the trough's R_BALL 66.95; m 2.5 left 2.5 % slip).
+X_STAR = R_BALL * (1.0 + 1.0 / STAR_TURNS)          # centre distance, star axis on +X
+GEAR_M = 2.0 * X_STAR / (STAR_PIN + STAR_WHEEL)
 POCKET_R = X_STAR - R_BALL                           # pocket centres on the star
 SPEED_RATIO = STAR_TURNS * POCKET_R / R_BALL          # pocket / ball speed at the handoff
 POCKET_CLEAR = 0.6                # ball to pocket wall
@@ -501,7 +518,7 @@ check(_rest_hit < 0.5 and _rest_low > 0.05,
 # Kinematics: pitch radii, speed match, handoff point, six balls per turn.
 check(abs(GEAR_M * STAR_WHEEL / 2.0 + GEAR_M * STAR_PIN / 2.0 - X_STAR) < 1e-6
       and STAR_POCKETS * STAR_TURNS == N_STATION,
-      "gears %d/%d m%.1f, centre distance %.2f; %d pockets x %d turns = %d balls per pack turn"
+      "gears %d/%d m%.3f, centre distance %.2f; %d pockets x %g turns = %g balls per pack turn"
       % (STAR_WHEEL, STAR_PIN, GEAR_M, X_STAR, STAR_POCKETS, STAR_TURNS, STAR_POCKETS * STAR_TURNS))
 check(abs(SPEED_RATIO - 1.0) <= 0.02,
       "pocket / chute speed at the handoff %.3f (pocket R %.2f x %d, ball R %.2f)"
@@ -521,11 +538,14 @@ check(_mesh_ov < 1.0, "gears mesh without overlap over a tooth (worst %.2f mm3)"
 # Star: one solid, three pockets each holding one ball.
 check(G.single_solid(star), "star one solid (%.0f mm3)" % star.Volume)
 # Unturned star: pockets at 180, 300 and 60 deg; probe the one under the shroud.
-_pc = pocket_center(60.0)
+# The pocket under the shroud (60 deg with 3 pockets, 90 with 4).
+_PA = next(a_ % 360.0 for a_ in (180.0 + k_ * 360.0 / STAR_POCKETS for k_ in range(STAR_POCKETS))
+           if 15.0 < a_ % 360.0 < SHROUD_END)
+_pc = pocket_center(_PA)
 _one = Part.makeSphere(PELLET_D / 2.0, _pc)
-_two_side = Part.makeSphere(PELLET_D / 2.0, pocket_center(60.0 + math.degrees(PELLET_D / POCKET_R)))
-_two_out = Part.makeSphere(PELLET_D / 2.0, V(X_STAR + (POCKET_R + PELLET_D) * math.cos(math.radians(60.0)),
-                                             (POCKET_R + PELLET_D) * math.sin(math.radians(60.0)), Z_BALL))
+_two_side = Part.makeSphere(PELLET_D / 2.0, pocket_center(_PA + math.degrees(PELLET_D / POCKET_R)))
+_two_out = Part.makeSphere(PELLET_D / 2.0, V(X_STAR + (POCKET_R + PELLET_D) * math.cos(math.radians(_PA)),
+                                             (POCKET_R + PELLET_D) * math.sin(math.radians(_PA)), Z_BALL))
 _hit_one = star.common(_one).Volume
 _hit_side = star.common(_two_side).Volume
 _hit_out = feed_head.common(_two_out).Volume
@@ -649,7 +669,7 @@ report = [
     "ball circle R %.2f" % (PACK_R, N_STATION, PELLET_D, BALL_LIFT, R_BALL),
     "  star                   : %d pockets on R %.2f, lobes R %.2f, %.0f thick; cut by the ball over "
     "+/-%.0f deg of pack turn in %.0f deg steps" % (STAR_POCKETS, POCKET_R, STAR_R, STAR_T, MESH_SPAN, MESH_STEP),
-    "  gears                  : %d/%d m%.1f, centre distance %.2f, star %d turns per pack turn; "
+    "  gears                  : %d/%d m%.2f, centre distance %.2f, star %g turns per pack turn; "
     "speed match %.3f" % (STAR_WHEEL, STAR_PIN, GEAR_M, X_STAR, STAR_TURNS, SPEED_RATIO),
     "  fill                   : neck ID %.1f above the star top; strike-off at R %.2f (x %.1f), "
     "next ball held %.1f mm below its centre; TPU lip %.1f x %.0f, bends %.1f mm"

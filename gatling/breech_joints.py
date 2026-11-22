@@ -24,6 +24,10 @@ must stay within AXIAL_MAX (the owner: "about 1 mm").
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_joints.py').read())"
 
+The pairs are measured by JOINTS_WORKERS (environment, default cores - 2) freecadcmd
+processes, like the sweep: the bodies go to BREP once, each worker takes a share of the
+bounding-box pairs (2026-11-22: one process took ~12 of the ~19 min).
+
 JOINTS_CACHE (environment) = a directory: the bodies and fasteners are written there once
 (BREP + names) and read back on the next run, so the table can be reworked without
 rebuilding the mechanism (~3 min). Report:
@@ -33,6 +37,9 @@ import fnmatch
 import json
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import time
 
 import FreeCAD as App
@@ -50,6 +57,7 @@ CONTACT = 0.2          # mm: closer than this is a contact (a seat, not a runnin
 OVERLAP = 0.05         # mm3: more common volume than this is an overlap
 FAST_NEAR = 0.35       # mm: a fastener this close to both parts runs through both
 CACHE = os.environ.get("JOINTS_CACHE", "")
+_WORKER = os.environ.get("BREECH_JOINTS_TASK")
 _t0 = time.time()
 
 # (pattern a, pattern b, how the pair is held). Names: station parts as "st.Name",
@@ -243,6 +251,38 @@ def declared(a, b):
     return None
 
 
+def measure(a, b, fast, need_fast):
+    """(distance, common volume or -1, first fastener index within FAST_NEAR of both or -1)."""
+    d = a.distToShape(b)[0]
+    if d >= CONTACT:
+        return d, 0.0, -1
+    ov = 0.0
+    if d < 1e-6:
+        try:
+            ov = a.common(b).Volume
+        except Exception:
+            ov = -1.0
+    fi = -1
+    if need_fast:
+        ba, bb_ = a.BoundBox, b.BoundBox
+        for k, fs in enumerate(fast):
+            fb = fs.BoundBox
+            if _near(fb, ba, FAST_NEAR) and _near(fb, bb_, FAST_NEAR) \
+                    and fs.distToShape(a)[0] < FAST_NEAR and fs.distToShape(b)[0] < FAST_NEAR:
+                fi = k
+                break
+    return d, ov, fi
+
+
+if _WORKER:
+    # ------------------------------------------------------------ worker: one share of the pairs
+    _task = json.load(open(_WORKER))
+    _sh = _read(_task["brep"]).childShapes()
+    _nb = _task["n_bodies"]
+    _out = [[i, j] + list(measure(_sh[i], _sh[j], _sh[_nb:], nf)) for i, j, nf in _task["pairs"]]
+    json.dump(_out, open(_task["out"], "w"))
+    raise SystemExit(0)
+
 # ---------------------------------------------------------------- bodies and fasteners
 _cached = CACHE and os.path.exists(os.path.join(CACHE, "bodies.json"))
 if _cached:
@@ -337,34 +377,57 @@ else:
 # ---------------------------------------------------------------- pairs
 print("joints: %d bodies, %d fasteners, measuring pairs…" % (len(BODIES), len(FAST)), flush=True)
 _bbs = [b[1].BoundBox for b in BODIES]
-_fbb = [f[1].BoundBox for f in FAST]
+_pairs = [(i, j, declared(BODIES[i][0], BODIES[j][0]) is None)
+          for i in range(len(BODIES)) for j in range(i + 1, len(BODIES)) if _near(_bbs[i], _bbs[j], CONTACT)]
+_n_pairs = len(_pairs)
+_n_workers = int(os.environ.get("JOINTS_WORKERS", max(1, (os.cpu_count() or 4) - 2)))
+_faces = [len(b[1].Faces) for b in BODIES]
+# Heaviest pairs first, dealt round the workers so each gets a like share of the work.
+_pairs.sort(key=lambda p_: -_faces[p_[0]] * _faces[p_[1]])
+_meas = []                                       # [i, j, dist, overlap, fastener index]
+if _n_workers <= 1:
+    _meas = [[i, j] + list(measure(BODIES[i][1], BODIES[j][1], [f[1] for f in FAST], nf)) for i, j, nf in _pairs]
+else:
+    _work = tempfile.mkdtemp(prefix="breech_joints_")
+    _brep = os.path.join(_work, "bodies.brep")
+    Part.makeCompound([b[1] for b in BODIES] + [f[1] for f in FAST]).exportBrep(_brep)
+    _exe = os.path.join(App.getHomePath(), "bin", "freecadcmd")
+    if not os.path.exists(_exe):
+        _exe = shutil.which("freecadcmd") or _exe
+    _procs = []
+    for _w in range(_n_workers):
+        _share = _pairs[_w::_n_workers]
+        if not _share:
+            continue
+        _tp, _op = os.path.join(_work, "task_%02d.json" % _w), os.path.join(_work, "out_%02d.json" % _w)
+        json.dump({"brep": _brep, "n_bodies": len(BODIES), "pairs": _share, "out": _op}, open(_tp, "w"))
+        _log = open(os.path.join(_work, "worker_%02d.log" % _w), "w")
+        _procs.append((_w, subprocess.Popen([_exe, os.path.join(REPO, "gatling", "breech_joints.py")],
+                                            env=dict(os.environ, BREECH_JOINTS_TASK=_tp, REPO=REPO),
+                                            stdout=_log, stderr=subprocess.STDOUT), _op))
+    _failed = []
+    for _w, _pr, _op in _procs:
+        _pr.wait()
+        if _pr.returncode not in (0, None) or not os.path.exists(_op):
+            _failed.append(_w)
+            continue
+        _meas += json.load(open(_op))
+    if _failed:
+        raise SystemExit("gatling joints: workers %s failed, logs in %s" % (_failed, _work))
+    shutil.rmtree(_work, ignore_errors=True)
+_meas.sort(key=lambda m_: (m_[0], m_[1]))
 rows = []                                        # (a, b, dist, overlap, how, ok)
-_n_pairs = 0
-for i in range(len(BODIES)):
-    for j in range(i + 1, len(BODIES)):
-        if not _near(_bbs[i], _bbs[j], CONTACT):
-            continue
-        _n_pairs += 1
-        a, b = BODIES[i], BODIES[j]
-        d = a[1].distToShape(b[1])[0]
-        if d >= CONTACT:
-            continue
-        ov = 0.0
-        if d < 1e-6:
-            try:
-                ov = a[1].common(b[1]).Volume
-            except Exception:
-                ov = -1.0
-        how = declared(a[0], b[0])
-        if how is None:
-            for (fn, fs), fb in zip(FAST, _fbb):
-                if _near(fb, _bbs[i], FAST_NEAR) and _near(fb, _bbs[j], FAST_NEAR) \
-                        and fs.distToShape(a[1])[0] < FAST_NEAR and fs.distToShape(b[1])[0] < FAST_NEAR:
-                    how = "fastened: " + re.sub(r", st \d+$", "", fn)
-                    break
-        ok = how is not None and (ov <= OVERLAP or "press" in how)
-        rows.append((a[0], b[0], d, ov, how or "NOT DECLARED", ok))
-print("joints: %d bbox pairs, %d contacts in %.0f s" % (_n_pairs, len(rows), time.time() - _t0), flush=True)
+for i, j, d, ov, fi in _meas:
+    if d >= CONTACT:
+        continue
+    a, b = BODIES[i], BODIES[j]
+    how = declared(a[0], b[0])
+    if how is None and fi >= 0:
+        how = "fastened: " + re.sub(r", st \d+$", "", FAST[fi][0])
+    ok = how is not None and (ov <= OVERLAP or "press" in how)
+    rows.append((a[0], b[0], d, ov, how or "NOT DECLARED", ok))
+print("joints: %d bbox pairs on %d workers, %d contacts in %.0f s" % (_n_pairs, max(1, _n_workers), len(rows),
+                                                                      time.time() - _t0), flush=True)
 
 # One line per pair of part kinds (station parts of the two stations and multi-solid pieces merged).
 _merged = {}
