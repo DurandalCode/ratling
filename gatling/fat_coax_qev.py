@@ -75,20 +75,28 @@ CH_CLEAR = 0.10             # plugs' spigots in the chamber tube, per side: Ø34
 CH_ORING = (42.0, 3.0)      # ID x CS @ ~18 % squeeze in ID 47
 BR_ORING = (24.0, 2.5)      # ID x CS, on the barrel (front plug; v4.4: no longer in the seat ring's socket)
 SP_ORING = (20.0, 2.0)      # ID x CS, v4.4: on the seat ring's spigot, inside the barrel's bore
-ORING_SQUEEZE = 0.18        # chamber O-rings; 18 % at Ø34.6 (was 15 % at Ø35: in the Ø34.6 tube ~22 %, very tight)
+ORING_SQUEEZE = 0.18        # seat spigot's 20 x 2 in the barrel's bore
+CH_SQUEEZE = 0.12           # chamber 42 x 3 (2026-11-22: at 18 % it would not go into the tube; groove 0.18 mm deeper)
+CH_STRETCH_MIN = -0.01      # the deeper root (Ø41.7) closes the 42 ring down 0.7 %: allowed to -1 %
 BR_SQUEEZE = 0.12           # v4.1: the barrel's 24 x 2 a little easier, it was cut by the barrel's edge going in
 GROOVE_W = 1.3              # x CS
 LEAD_CHAMFER = 1.0
+STOP_LIP = 1.2                   # square lip of a stop that prints as a ceiling (front cover), radial
 GROOVE_SLOPE = 1.2               # z-run per radial step on groove walls: they print without supports;
                                  # also bounded by the 1.2 mm wall between the front plug's two grooves
 # v4.3: two M3 threaded rods outside the tube hold the stack (no glue, nothing drilled through the tube).
 TIE_D, TIE_HOLE, TIE_STRESS_A = 3.0, 3.4, 5.03     # M3: stress area mm2
 TIE_R, TIE_ANGLES = 29.0, (30.0, 210.0)            # clears Ø50; each alone in a hex pack gap
 EAR_R = 4.0                 # ear round the rod
+YOKE_EAR_R = 4.6            # front yoke's ears round the nut socket: 1.2 mm past the hex corners (3.4), 1.65 past
+                            # the flats; 4.9 already hits the bench's feeder frame and guards
 EAR_ROOT_R = 14.0           # ears are the hull of this circle round the axis and the ear circle
 WASHER_D, WASHER_T, NUT_AF, NUT_T = 7.0, 0.5, 5.5, 2.4
 YOKE_T = 8.0                # front yoke, and the rear plug's ears behind its flange (v4.4 rear)
 YOKE_CLEAR = 0.2
+# 2026-11-22: the front nuts sit in hex sockets in the yoke (they hold, the rear nuts tighten); AF 5.9 x 2.8 as
+# ratling/fasteners.py. Only one end can be captured: two caught nuts on a threaded rod cannot pull it tight.
+NUT_SOCKET_AF, NUT_SOCKET_T = 5.9, 2.8
 # Real barrel the module plugs into (bought 25 x 0.6); shown ahead of the stop.
 REAL_BARREL_SHOW = 200.0
 # Plain self-centering nose into that bore. No O-ring: the real barrel only locates.
@@ -159,7 +167,8 @@ PILOT_D = 4.0
 # Front plug
 FP_SPIGOT = 20.0
 FP_GROOVE_WALL = 8.0        # barrel groove's front (square) wall ahead of the spigot tip
-FP_CH_GROOVE_WALL = 16.0    # v4.4: the chamber groove ahead of it (side by side the 29 x 3 left a 0.3 mm wall between)
+FP_CH_GROOVE_WALL = 15.0    # v4.4: the chamber groove ahead of it (side by side the 29 x 3 left a 0.3 mm wall between);
+                            # 2026-11-22: its root's fore end; the sloped stop reaches 1.6 mm further fore
 FP_FLANGE_T = 2.0
 FP_SLEEVE = 12.0
 
@@ -181,7 +190,7 @@ X, Y, Z = App.Vector(1, 0, 0), App.Vector(0, 1, 0), App.Vector(0, 0, 1)
 V = App.Vector
 t_c = DIA_T * (1 - DIA_SQUEEZE)             # diaphragm z in [-t_c, 0], seat face at z = 0
 spigot_r = CH_ID / 2 - CH_CLEAR
-ch_root_r = CH_ID / 2 - CH_ORING[1] * (1 - ORING_SQUEEZE)
+ch_root_r = CH_ID / 2 - CH_ORING[1] * (1 - CH_SQUEEZE)
 ch_stretch = 2 * ch_root_r / CH_ORING[0] - 1
 sock_r = BARREL_OD / 2 + RADIAL_CLEAR
 br_root_r = BARREL_OD / 2 + BR_ORING[1] * (1 - BR_SQUEEZE)      # housing groove: outer root
@@ -228,16 +237,27 @@ def at(r, a_deg, z=0.0):
     return V(r * math.cos(a), r * math.sin(a), z)
 
 
-def shaft_groove(z_sq, toward):
-    """Outer O-ring groove in a spigot inside the chamber tube: square wall at
-    z_sq, 45 deg wall on the `toward` side (+1 / -1), which prints as a ceiling."""
+def shaft_groove(z_sq, toward, stop_up):
+    """Outer O-ring groove in a spigot inside the chamber tube, the root from
+    z_sq to z_sq + toward * w. The stop is the wall at z_sq: pressure and the
+    tube's edge going in push the ring onto it. The wall that faces up in
+    print is square, the one that faces down slopes (GROOVE_SLOPE).
+    stop_up False (rear plug): the stop faces up, it is square.
+    stop_up True (front cover, printed spigot down): the stop faces down; it
+    slopes from the root and ends in a square lip STOP_LIP wide at the spigot's
+    OD, a short overhang that keeps the ring from rolling out over it.
+    2026-11-22: until now both walls sloped (8afc18e), so the ring had no stop
+    and rolled out going in. Returns (cutter, (z_min, z_max), z of the square stop face)."""
     w = GROOVE_W * CH_ORING[1]
     z1 = z_sq + toward * w
-    z2 = z1 + toward * (spigot_r - ch_root_r) * GROOVE_SLOPE
-    return revolve([(ch_root_r, z_sq),
-                    (spigot_r + 1, z_sq - toward * (spigot_r + 1 - ch_root_r) * GROOVE_SLOPE),
-                    (spigot_r + 1, z2 + toward * 1), (ch_root_r, z1)]), \
-        (min(z_sq, z2), max(z_sq, z2))
+    if not stop_up:
+        z2 = z1 + toward * (spigot_r - ch_root_r) * GROOVE_SLOPE
+        return revolve([(ch_root_r, z_sq), (spigot_r + 1, z_sq),
+                        (spigot_r + 1, z2 + toward * 1), (ch_root_r, z1)]), (min(z_sq, z2), max(z_sq, z2)), z_sq
+    r_lip = spigot_r - STOP_LIP
+    z_lip = z_sq - toward * (r_lip - ch_root_r) * GROOVE_SLOPE
+    return revolve([(ch_root_r, z_sq), (r_lip, z_lip), (spigot_r + 1, z_lip),
+                    (spigot_r + 1, z1), (ch_root_r, z1)]), (min(z_lip, z1), max(z_lip, z1)), z_lip
 
 
 def bore_groove(z_sq, toward):
@@ -266,14 +286,14 @@ def hull_prism(circles, z0, z1, n=72):
     return Part.Face(Part.makePolygon([V(x, y, z0) for x, y in ring + ring[:1]])).extrude(V(0, 0, z1 - z0))
 
 
-def ears(z0, z1):
+def ears(z0, z1, r=EAR_R):
     """The two rod ears: each the hull of a circle round the axis and the ear round its rod."""
-    return [hull_prism([(0, 0, EAR_ROOT_R), (*at(TIE_R, a)[:2], EAR_R)], z0, z1) for a in TIE_ANGLES]
+    return [hull_prism([(0, 0, EAR_ROOT_R), (*at(TIE_R, a)[:2], r)], z0, z1) for a in TIE_ANGLES]
 
 
-def tie_plate(core_r, z0, z1):
+def tie_plate(core_r, z0, z1, ear_r=EAR_R):
     """A disc with the two rod ears and their holes."""
-    plate = G.fuse_all([cyl(2 * core_r, z0, z1)] + ears(z0, z1))
+    plate = G.fuse_all([cyl(2 * core_r, z0, z1)] + ears(z0, z1, ear_r))
     return plate.cut(G.fuse_all([cyl(TIE_HOLE, z0 - 1, z1 + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES]))
 
 
@@ -282,7 +302,7 @@ rp = G.fuse_all([cyl(CH_OD, z_ry, z_te)] + ears(z_ry, z_rp)).fuse(revolve([(0, z
                                           (spigot_r - 0.5, z_f), (0, z_f)]))
 rp = rp.fuse(revolve([(BEAD_R - BEAD_W[0] / 2, z_f - 0.01), (BEAD_R + BEAD_W[0] / 2, z_f - 0.01),
                       (BEAD_R + BEAD_W[1] / 2, z_f + BEAD_H), (BEAD_R - BEAD_W[1] / 2, z_f + BEAD_H)]))
-rp_groove, rp_groove_z = shaft_groove(z_f - RP_GROOVE_WALL, +1)     # chamber in front: rear wall square
+rp_groove, rp_groove_z, rp_stop_z = shaft_groove(z_f - RP_GROOVE_WALL, +1, False)   # chamber in front: rear wall the stop
 pilot_cuts = [revolve([(0, z_floor), (MOUTH_R - MOUTH_CHAMFER, z_floor), (MOUTH_R - MOUTH_CHAMFER, z_f - MOUTH_CHAMFER),
                        (MOUTH_R, z_f), (MOUTH_R, z_f + 1), (0, z_f + 1)]),
               cyl(PILOT_D, z_ry + G18_TAP_DEPTH, z_floor + 0.01),
@@ -384,7 +404,7 @@ z_stop = z_flange0 + FIT_FLANGE_T
 z_fit1 = z_stop + FIT_INSERT
 z_fit_cyl1 = z_fit1 - FIT_LEAD_LEN
 
-fp_groove, fp_groove_z = shaft_groove(z_fp_tip + FP_CH_GROOVE_WALL, -1)
+fp_groove, fp_groove_z, fp_stop_z = shaft_groove(z_fp_tip + FP_CH_GROOVE_WALL, -1, True)  # stop fore, a ceiling in print
 fp_bgroove, fp_bgroove_z = bore_groove(z_fp_tip + FP_GROOVE_WALL, -1)
 
 # Front cover: chamber plug + stub lip + stop disc + self-centering fitting (no muzzle part).
@@ -408,39 +428,40 @@ front_cover = front_cover.cut(G.fuse_all([fp_groove, fp_bgroove])).removeSplitte
 _dz = YOKE_CLEAR * math.sqrt(2)
 _r0 = CH_OD / 2 + 0.3
 z_fy1 = z_fs + YOKE_T
-front_yoke = tie_plate(CH_OD / 2, z_fs, z_fy1).cut(revolve(
+z_nut_seat = z_fy1 - NUT_SOCKET_T          # the socket's floor: the front nut bears here
+nut_sockets = G.fuse_all([G.hex_prism(NUT_SOCKET_AF, z_nut_seat, z_fy1 + 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES])
+front_yoke = tie_plate(CH_OD / 2, z_fs, z_fy1, YOKE_EAR_R).cut(revolve(
     [(0, z_fs - 1), (_r0, z_fs - 1), (_r0, z_fs + _dz - 0.3),
      (fp_out_r + YOKE_CLEAR, z_fs + _dz + CH_OD / 2 - fp_out_r - YOKE_CLEAR),
-     (fp_out_r + YOKE_CLEAR, z_fy1 + 1), (0, z_fy1 + 1)])).removeSplitter()
+     (fp_out_r + YOKE_CLEAR, z_fy1 + 1), (0, z_fy1 + 1)])).cut(nut_sockets).removeSplitter()
 
 _stick = WASHER_T + NUT_T + 2.0
 z_front = z_fy1
-z_rod0, z_rod1 = z_ry - _stick, z_front + _stick
+z_rod0, z_rod1 = z_ry - _stick, z_nut_seat + NUT_T + 2.0
 tie_len = z_rod1 - z_rod0
 
 
 def rods_yoke():
-    """Both tie rods with a washer and a nut on the rear plug and the front yoke."""
+    """Both tie rods: washer and nut on the rear plug's ears (tightened there), nut in the yoke's hex socket."""
     hw = []
     for a in TIE_ANGLES:
         x, y = at(TIE_R, a)[:2]
         hw.append(cyl(TIE_D, z_rod0, z_rod1, x, y))
-        for zf, sgn in ((z_ry, -1), (z_fy1, +1)):
-            zw = zf + sgn * WASHER_T
-            hw.append(cyl(WASHER_D, min(zf, zw), max(zf, zw), x, y).cut(cyl(TIE_HOLE, zf - 2, zf + 2, x, y)))
-            zn = zw + sgn * NUT_T
-            hw.append(G.hex_prism(NUT_AF, min(zw, zn), max(zw, zn), x, y).cut(cyl(TIE_D, zw - 4, zw + 4, x, y)))
+        zw = z_ry - WASHER_T
+        hw.append(cyl(WASHER_D, zw, z_ry, x, y).cut(cyl(TIE_HOLE, zw - 2, z_ry + 2, x, y)))
+        for z0n in (zw - NUT_T, z_nut_seat):
+            hw.append(G.hex_prism(NUT_AF, z0n, z0n + NUT_T, x, y).cut(cyl(TIE_D, z0n - 4, z0n + 4, x, y)))
     return G.fuse_all(hw)
 
 
 hardware = rods_yoke()
 
 # pack footprint
-_fp2d = G.fuse_all([cyl(CH_OD, 0, 1)] + ears(0, 1) + [cyl(WASHER_D, 0, 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES])
+_fp2d = G.fuse_all([cyl(CH_OD, 0, 1)] + ears(0, 1, max(EAR_R, YOKE_EAR_R)) + [cyl(WASHER_D, 0, 1, *at(TIE_R, a)[:2]) for a in TIE_ANGLES])
 _nbrs = {"hex": [at(PACK_PITCH, 60 * k) for k in range(6)],
          "square": [at(PACK_PITCH * (math.sqrt(2) if k % 2 else 1), 45 * k) for k in range(8)]}
 pack_gap = {k: min(_fp2d.distToShape(_fp2d.translated(c))[0] for c in cs) for k, cs in _nbrs.items()}
-pack_grow = TIE_R + EAR_R - CH_OD / 2
+pack_grow = TIE_R + max(EAR_R, YOKE_EAR_R) - CH_OD / 2
 
 tube = lambda od, idd, z0, z1: cyl(od, z0, z1).cut(cyl(idd, z0 - 1, z1 + 1))
 barrel_stub = tube(BARREL_OD, BARREL_ID, z_sh, z_stub_end)
@@ -476,12 +497,26 @@ ball = Part.makeSphere(BARREL_ID / 2, V(0, 0, z_fit1 + BARREL_ID / 2 + 0.5))
 torus = lambda rc, cs, z: Part.makeTorus(rc, cs / 2, V(0, 0, z), Z)
 orings_g = G.fuse_all([
     torus(ch_root_r + CH_ORING[1] / 2, CH_ORING[1], rp_groove_z[0] + GROOVE_W * CH_ORING[1] / 2),
-    torus(ch_root_r + CH_ORING[1] / 2, CH_ORING[1], fp_groove_z[1] - GROOVE_W * CH_ORING[1] / 2),
+    torus(ch_root_r + CH_ORING[1] / 2, CH_ORING[1], z_fp_tip + FP_CH_GROOVE_WALL - GROOVE_W * CH_ORING[1] / 2),
     torus(sp_root_r + SP_ORING[1] / 2, SP_ORING[1], z_spg2 - GROOVE_W * SP_ORING[1] / 2),
     torus(br_root_r - BR_ORING[1] / 2, BR_ORING[1], fp_bgroove_z[1] - GROOVE_W * BR_ORING[1] / 2),
 ])
 
 F_stub = F_ring
+A_nut = math.sqrt(3) / 2 * NUT_AF ** 2 - area(TIE_HOLE)          # nut face on the socket's floor
+nut_bearing = (F_rp + F_ring) / len(TIE_ANGLES) / A_nut
+nut_floor = z_nut_seat - z_fs
+nut_wall = YOKE_EAR_R - NUT_SOCKET_AF / math.sqrt(3)
+
+
+def square_wall(shape, r, z_sq, side):
+    """True if the groove's square wall at z_sq has material on `side` (-1 aft, +1 fore) and the groove on the other."""
+    return shape.isInside(P2(r, z_sq + side * 0.05), 1e-6, True) and not shape.isInside(P2(r, z_sq - side * 0.05), 1e-6, True)
+
+
+_r_probe = spigot_r - 0.3                      # in the square lip: the outer edge the ring would roll over
+groove_dir_ok = (square_wall(rp, _r_probe, rp_stop_z, -1) and square_wall(rp, ch_root_r + 0.3, rp_stop_z, -1)
+                 and square_wall(front_cover, _r_probe, fp_stop_z, +1))
 post_area = stop_posts.common(cyl(CH_ID + 2, z_f, z_f + 0.01)).Volume / 0.01
 A_clamp = sr.common(revolve([(MOUTH_R, 0), (POST_R0 - 0.1, 0), (POST_R0 - 0.1, 0.01), (MOUTH_R, 0.01)])).Volume / 0.01  # squeezing face
 A_clamp_v41 = area(2 * 15.5) - area(2 * MOUTH_R)
@@ -527,7 +562,15 @@ checks = [
      TIE_R - TIE_HOLE / 2 >= CH_OD / 2 + 0.3 and G.no_overlap(hardware, G.fuse_all([chamber, rp, front_cover]))),
     ("pack: footprint >= %.1f mm off the neighbours' (hex %.1f, square %.1f)"
      % (PACK_CLEAR, pack_gap["hex"], pack_gap["square"]), min(pack_gap.values()) >= PACK_CLEAR),
-    ("chamber O-ring stretch 0..6 %% (%.1f %%)" % (ch_stretch * 100), 0 <= ch_stretch <= 0.06),
+    ("chamber O-ring stretch %.0f..6 %% (%.1f %%), squeeze %.0f %% (groove %.2f deep, root Ø%.2f)"
+     % (CH_STRETCH_MIN * 100, ch_stretch * 100, CH_SQUEEZE * 100, spigot_r - ch_root_r, 2 * ch_root_r),
+     CH_STRETCH_MIN <= ch_stretch <= 0.06),
+    ("chamber grooves: square wall on the low-pressure side, the one the ring is dragged to going in"
+     " (rear plug: aft, square; front cover: fore, %.1f mm square lip at the OD over a slope)" % STOP_LIP, groove_dir_ok),
+    ("front nuts in hex sockets AF %.1f x %.1f: floor %.1f >= 3, wall %.2f >= 1.15, bear %.0f MPa at %.0f bar (<= 35)"
+     % (NUT_SOCKET_AF, NUT_SOCKET_T, nut_floor, nut_wall, nut_bearing, P_MAX_BAR),
+     nut_floor >= 3.0 and nut_wall >= 1.15 and nut_bearing <= 35.0 and NUT_SOCKET_T >= NUT_T
+     and G.no_overlap(hardware, front_yoke) and G.single_solid(front_yoke)),
     ("barrel O-ring stretch 0..6 %% (%.1f %%)" % (br_stretch * 100), 0 <= br_stretch <= 0.06),
     ("spigot O-ring stretch 0..6 %% (%.1f %%)" % (sp_stretch * 100), 0 <= sp_stretch <= 0.06),
     ("front plug: >= 1.2 mm between its two grooves, chamber groove inside the spigot",
@@ -594,7 +637,8 @@ report = [
     " (catch %.1f mm radial, %.0f deg; bore Ø%.0f, no O-ring)"
     % (BARREL_STUB_LEN, 2 * fit_flange_r, 2 * fit_body_r, FIT_INSERT, FIT_LEAD_LEN,
        2 * fit_tip_r, fit_lead_catch, fit_lead_deg, FIT_BORE),
-    "  tie rods               : 2 x M3 x %.0f at R%.1f, %.0f / %.0f deg; nuts on rear plug and front yoke only"
+    "  tie rods               : 2 x M3 x %.0f at R%.1f, %.0f / %.0f deg; washer + nut on the rear plug (tighten),"
+    " nut in a hex socket in the front yoke"
     % (tie_len, TIE_R, *TIE_ANGLES),
     "  pack                   : pitch %.0f; %.1f mm to neighbours (hex), %.1f (square); ears stand %.1f mm out of Ø%.0f"
     % (PACK_PITCH, pack_gap["hex"], pack_gap["square"], pack_grow, CH_OD),
