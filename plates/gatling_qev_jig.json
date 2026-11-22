@@ -1,0 +1,9 @@
+{
+  "id": "gatling_qev_jig",
+  "title": "Gatling QEV diaphragm template (v4.5): the diaphragm's outline with its notches and the 1.0 mm bleed guide",
+  "generator": "gatling/fat_coax_qev.py",
+  "export": "exports/gatling_fat_coax_qev",
+  "parts": [
+    {"file": "jig_guide.stl", "group": "strong", "infill": "60%", "walls": 5, "pattern": "gyroid", "support": false, "brim": 5, "project": "gatling_qev_jig"}
+  ]
+}

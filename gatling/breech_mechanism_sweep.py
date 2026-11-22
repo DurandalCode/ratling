@@ -140,7 +140,8 @@ fixed_list = ([("guard", feed_guard), ("feed head", feed_head), ("TPU lip", feed
                ("front bearing housing and its rear retainer", Part.makeCompound([brg_housing, brg_ret_out])),
                ("star shaft collar", star_collar),
                ("front ring with its top pad (the star shaft's 608)", pack_frame),
-               ("star shaft: 608s, cover, spacer", Part.makeCompound([star_bearings, star_cover, star_spacer]))]
+               ("star shaft: 608s, cover, spacer", Part.makeCompound([star_bearings, star_cover, star_spacer])),
+               ("EVA skin and its end cap", Part.makeCompound([skin, skin_cap]))]
               + [(n, s) for n, s in train_parts if not n.startswith("gear A")]
               + [(n, s) for n, s in drive_parts if not n.startswith("crank gear")])
 fixed_path = os.path.join(WORK, "fixed.brep")

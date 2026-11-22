@@ -167,6 +167,18 @@ JOINTS = [
     ("Gate_cable", "Grip", "Bowden in its channel, its end on the shoulder at the stop"),
     ("Gate_cable", "Gate_wire", "the wire inside it (press)"),
     ("Carry_handle", "Sling_loops", "steel rings round the posts"),
+    # --- EVA skin (2026-11-22): contact glue, no fixing points (owner 2026-11-21)
+    ("EVA_skin", "Liner_half_*", "contact glue on the liner's glue lands"),
+    ("EVA_skin", "Front_ring", "contact glue on the front ring's glue land"),
+    ("EVA_skin", "Bearing_housing", "contact glue on the bearing housing"),
+    ("EVA_skin", "Outer_race_retainer", "contact glue on the retainer's rim"),
+    ("EVA_skin", "Crank_bracket", "rests on the tip of plate A's stud boss (r 127)"),
+    ("EVA_skin", "Gearbox", "rests on the tips of the box's tie bosses (r 127)"),
+    ("EVA_skin", "Bearing_front", "contact glue on the front 6808 disk's glue land"),
+    ("EVA_skin", "Bearing_rear", "contact glue on the rear 6808 disk's glue land"),
+    ("EVA_skin", "Rear_plate", "contact glue on the rear plate's rim"),
+    ("EVA_end_cap", "Rear_plate", "contact glue on the rear plate's aft face"),
+    ("EVA_end_cap", "EVA_skin", "EVA glued edge to edge"),
 ]
 
 # Bodies allowed to touch nothing (closer than CONTACT): (pattern, why).
@@ -310,7 +322,8 @@ else:
             ("Star_bearings_608", star_bearings, "bought"), ("Star_bearing_cover", star_cover, "print"),
             ("Star_spacer", star_spacer, "steel"), ("Lay_shaft_collar", lay_collar, "print"),
             ("Crank_spacer", crank_spacer, "print"), ("Collector_1to6", collector, "bought"),
-            ("Collector_fittings", coll_fittings, "bought"), ("Collector_hoses", coll_hoses, "hose")):
+            ("Collector_fittings", coll_fittings, "bought"), ("Collector_hoses", coll_hoses, "hose"),
+            ("EVA_skin", skin, "EVA"), ("EVA_end_cap", skin_cap, "EVA")):
         body(_n, _sh, _m)
     FAST += [(f_.name, f_.body) for f_ in FASTENERS] + [(n_, b_) for n_, b_ in M4_EXC]
     AXES = {"Z": [0.0, 0.0, 1.0], "Y": [0.0, 1.0, 0.0], "DM": [_face_n0.x, _face_n0.y, _face_n0.z]}

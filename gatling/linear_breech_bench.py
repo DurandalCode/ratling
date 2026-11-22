@@ -723,6 +723,33 @@ SCENE_PARTS = set(qev_closed) | {"Link_input", "Link_crank", "Link_output", "Lin
     "AirTAC_body", "AirTAC_fittings", "AirTAC_plunger", "Feeder_axle", "Feeder_pin_bolts", "Rail_stop_hardware", "Feeder_mount_hardware",
 }
 assert set(PART_GROUP) == SCENE_PARTS
+# Sub-folders by assembly element inside Printable / NonPrintable (2026-11-22: print one element at a time).
+ELEMENTS = [
+    ("QEV", "QEV", ("Rear_plug", "Seat_ring", "Diaphragm", "Front_cover", "Front_yoke", "Barrel_stub",
+                    "Chamber_tube", "Tie_rods", "Pilot_fitting")),
+    ("Carriage", "Каретка и тяги", ("Carriage", "Nose_clamp", "Link_input", "Link_crank", "Link_output",
+                                     "Link_bracket", "Link_bolts", "Link_bracket_hardware")),
+    ("Barrel", "Ствол", ("Barrel_clamp", "Barrel_collar", "Fixed_barrel")),
+    ("AirTAC", "AirTAC", ("AirTAC_cradle", "AirTAC_body", "AirTAC_fittings", "AirTAC_plunger")),
+    ("Frame", "Рельсы и опоры", ("Rails", "Foot_front", "Foot_rear", "Rail_stops", "Rail_stop_hardware")),
+    ("Feeder", "Подача", ("Feeder_frame", "Feeder_rail_cap", "Guard_left", "Guard_right", "Feeder_rocker",
+                          "Feeder_lower", "Feeder_upper", "Feeder_magazine", "Feeder_axle", "Feeder_pin_bolts",
+                          "Feeder_mount_hardware")),
+]
+ELEMENT = {n: (key, label) for key, label, names in ELEMENTS for n in names}
+assert set(ELEMENT) == SCENE_PARTS, sorted(SCENE_PARTS ^ set(ELEMENT))
+
+
+def folder(n, open_copy=False):
+    """Scene group for part n: Printable/NonPrintable -> element (-> open copies)."""
+    top = PART_GROUP[n] + ("Open" if open_copy else "")
+    key, label = ELEMENT[n]
+    name = top + "_" + key
+    if name not in sc.groups:
+        sc.group(name).Label = label + {"Printable": "", "NonPrintable": " (покупное)", "PrintableOpen": " (открыто)",
+                                         "NonPrintableOpen": " (покупное, открыто)"}[top]
+        sc.group(top).addObject(sc.group(name))
+    return name
 
 printable_group = sc.group("Printable")
 printable_group.Label = "Печатное"
@@ -738,8 +765,8 @@ nonprintable_group.addObject(nonprintable_open_group)
 for n, s in qev_closed.items():
     if n == "Carriage":
         continue
-    sc.add(PART_GROUP[n], n, s, styles_qev.get(n, "stator"))
-sc.add(PART_GROUP["Carriage"], "Carriage", carriage, "stator")
+    sc.add(folder(n), n, s, styles_qev.get(n, "stator"))
+sc.add(folder("Carriage"), "Carriage", carriage, "stator")
 for n, s, style in (
     ("Rails", rails_s, "steel"),
     ("Barrel_clamp", barrel_clamp, "stator"),
@@ -753,21 +780,21 @@ for n, s, style in (
     ("AirTAC_fittings", vent_fittings, "ghost"),
     ("AirTAC_plunger", vent_plunger, "shoe"),
 ):
-    sc.add(PART_GROUP[n], n, s, style)
+    sc.add(folder(n), n, s, style)
 for n,shape in [('Link_input',link_input),('Link_crank',link_crank),('Link_output',link_output)]:
-    sc.add('Printable',n,shape,'rotor')
-sc.add('NonPrintable','Link_bolts',link_bolts,'steel')
-sc.add('NonPrintable','Link_bracket_hardware',link_bracket_hardware,'steel')
-sc.add("NonPrintable", "Feeder_mount_hardware", feeder_mount_hardware, "steel")
-sc.add("NonPrintable", "Feeder_axle", feeder_axle, "steel")
-sc.add("NonPrintable", "Feeder_pin_bolts", feeder_pin_bolts, "steel")
-sc.add("NonPrintable", "Rail_stop_hardware", stop_hardware, "steel")
+    sc.add(folder(n),n,shape,'rotor')
+sc.add(folder('Link_bolts'),'Link_bolts',link_bolts,'steel')
+sc.add(folder('Link_bracket_hardware'),'Link_bracket_hardware',link_bracket_hardware,'steel')
+sc.add(folder("Feeder_mount_hardware"), "Feeder_mount_hardware", feeder_mount_hardware, "steel")
+sc.add(folder("Feeder_axle"), "Feeder_axle", feeder_axle, "steel")
+sc.add(folder("Feeder_pin_bolts"), "Feeder_pin_bolts", feeder_pin_bolts, "steel")
+sc.add(folder("Rail_stop_hardware"), "Rail_stop_hardware", stop_hardware, "steel")
 for n, shape in feeder_parts.items():
-    obj = sc.add("Printable", n, shape, "stator" if n.startswith("Guard_") else
+    obj = sc.add(folder(n), n, shape, "stator" if n.startswith("Guard_") else
                  ("rotor" if n == "Feeder_rocker" else "printed"))
 if SHOW_OPEN:
     for n, s in qev_open.items():
-        sc.add(PART_GROUP[n] + "Open", "Open_" + n, s, "ghost")
+        sc.add(folder(n, open_copy=True), "Open_" + n, s, "ghost")
 
 for text, pos in [
     ("ДВЕ ОПОРЫ — рельсы сами балка", (0, y_floor - 12, (front_z + rear_z) / 2)),
@@ -783,7 +810,8 @@ bench_view = App.Placement(V(0, 0, 0), App.Rotation(Y, 90))
 for obj in sc.doc.Objects:
     if obj.TypeId == "Part::Feature":
         obj.Placement = bench_view.multiply(obj.Placement)
-sc.finish(hidden_groups=("Labels", "PrintableOpen", "NonPrintableOpen"), opaque_groups=())
+sc.finish(hidden_groups=tuple(g for g in sc.groups if g.split("_")[0] in ("Labels", "PrintableOpen", "NonPrintableOpen")),
+          opaque_groups=())
 doc.saveAs(os.path.join(OUT_DIR, NAME + ".FCStd"))
 
 import MeshPart

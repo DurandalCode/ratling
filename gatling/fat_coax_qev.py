@@ -19,6 +19,17 @@ Run inside FreeCAD / freecadcmd:
 
 Exports: exports/gatling_fat_coax_qev/
 Library: set GATLING_FAT_COAX_LIBRARY = True before exec.
+
+v4.5 diaphragm (2026-11-22): the diaphragm fills the tube's bore (Ø46.4 in
+Ø47), so it drops in and the bore centres it; the Ø31 one had to be laid into
+the stop lip's pocket 24 mm deep in the tube. The squeeze is set by four stop
+posts at the tube wall instead of the full stop lip; they pass through four
+notches in the diaphragm's rim and land on the rear plug's face (unchanged
+rear plug: reprint the seat ring only). Only the v4.1 band R 12.3..15.5 is
+squeezed: beyond it the seat ring's face steps back 0.35 mm and the rim lies
+free, so the rods need no more force than before. The free Ø, lift and bead are as
+before, so the valve opens as before. The drilling template is the diaphragm's
+own outline with the bleed guide: cut the rubber round it, drill through it.
 """
 import importlib
 import math
@@ -102,13 +113,22 @@ MOUTH_CHAMFER = 1.0         # pocket edge, rear plug side
 LIFT = 2.9                  # the free annulus is narrow: more stretches the rubber > 30 %
 DIA_T = 1.5
 DIA_SQUEEZE = 0.20          # set by the seat ring's stop lip
-DIA_R = 15.5                # v4.1: inside the seat ring's stop lip (v4: 17.4, on pins)
+DIA_EDGE_CLEAR = 0.30       # v4.5: diaphragm in the tube's bore, per side (the squeeze bulges the rim out)
+DIA_R = CH_ID / 2 - DIA_EDGE_CLEAR    # v4.5: fills the bore (v4.1: 15.5 inside the stop lip; v4: 17.4 on pins)
 BEAD_R = 13.2
 BEAD_W = (0.9, 0.4)         # base, top
 BEAD_H = 0.4
-# v4.1: no stop pins. The seat ring's stop lip, outside the diaphragm, lands on the rear plug's face and sets
-# the squeeze all round; it also centres the diaphragm. (On a v4 rear plug, cut the four pins off.)
-STOP_LIP_R0 = DIA_R + 0.3
+# v4.5: stop posts on the seat ring at the tube wall, through notches in the diaphragm's rim, land on the
+# rear plug's face and set the squeeze (v4.1: a full stop lip outside a Ø31 diaphragm).
+POST_N, POST_W, POST_R0 = 4, 8.0, 20.5      # count, chord width, inner radius (out to the ring's OD)
+POST_ANGLES = tuple(360.0 / POST_N * i for i in range(POST_N))   # 0, 90, ...: the bleed at 0 sits between struts
+NOTCH_CLEAR = 0.3           # diaphragm notch round each post, per side
+POST_PRELOAD = 600.0        # N, rods tightened by hand: the posts carry it (pressure pulls the stack apart)
+# v4.5: squeeze only the v4.1 band (MOUTH_R..CLAMP_R1); outside it the seat ring's face steps back, so the wide
+# rim only centres the diaphragm. Squeezed all over, the band would need >4x the force and the posts never land.
+CLAMP_R1 = 15.5             # = the v4.1 diaphragm's rim: same squeezed area, same force
+CLAMP_RELIEF = 0.35         # face step beyond it: > the 0.3 squeeze, the rim lies free; the face stays
+                            # < 1.6 mm over the bed (t_c + 0.35 = 1.55), so it prints as a first-layer bridge
 STRUT_RELIEF = 0.6          # struts stand this far off the clamp face over the free diaphragm: the bleed may sit anywhere
 BLEED_D, BLEED_R, BLEED_ANGLE = 1.0, 10.9, 0.0     # was 0.8: as v1.1's, ~0.5 s to charge on the bench
 GROOVE_N, GROOVE_WIDTH, GROOVE_DEPTH = 4, 2.0, 0.6     # pocket floor
@@ -145,8 +165,8 @@ FP_SLEEVE = 12.0
 
 PACK_PITCH = 68.0            # six around
 
-# Drilling template: a disc of the diaphragm's own Ø with a guide for each
-# hole. Rubber on a scrap board, template on top, drill, cut round it.
+# Drilling template (v4.5): the diaphragm's own outline, notches included, with a guide per hole.
+# Rubber on a scrap board, template on top: cut round it, drill through the guide.
 JIG_GUIDE_CLEAR = 0.15
 JIG_GUIDE_T = 3.0
 
@@ -173,7 +193,7 @@ sp_root_r = BARREL_ID / 2 - SP_ORING[1] * (1 - ORING_SQUEEZE)
 sp_stretch = 2 * sp_root_r / SP_ORING[0] - 1
 seat_r = SEAT_D / 2
 seat_out_r = seat_r + SEAT_LAND
-ring_out_r = CH_ID / 2 - 0.3              # Ø34.0, as printed before the bore was measured: it fits
+ring_out_r = CH_ID / 2 - 0.3              # Ø46.4 in the Ø47 bore
 z_flare = SEAT_TUBE_H
 z_flare_end = z_flare + (sock_out_r - seat_out_r) * GROOVE_SLOPE   # the flare also prints supportless
 z_sh = z_flare + (sock_r + SHOULDER_WALL - seat_out_r)    # barrel stop: shoulder in the seat ring
@@ -285,7 +305,19 @@ for i in range(STRUT_N):
     s = s.cut(Part.makeBox(MOUTH_R - seat_out_r, STRUT_W + 2, STRUT_RELIEF, V(seat_out_r, -STRUT_W / 2 - 1, -0.01)))
     s.rotate(V(0, 0, 0), Z, 360.0 / STRUT_N * (i + 0.5))
     sr = sr.fuse(s)
-sr = sr.fuse(revolve([(STOP_LIP_R0, -t_c), (ring_out_r, -t_c), (ring_out_r, 0.01), (STOP_LIP_R0, 0.01)]))   # stop lip
+
+
+def post_sector(r0, r1, w, a, z0, z1):
+    """Block between radii r0..r1 (r1 an arc), chord width w, centred on angle a."""
+    b = Part.makeBox(r1 + 1 - r0, w, z1 - z0, V(r0, -w / 2, z0)).common(cyl(2 * r1, z0, z1))
+    b.rotate(V(0, 0, 0), Z, a)
+    return b
+
+
+stop_posts = G.fuse_all([post_sector(POST_R0, ring_out_r, POST_W, a, -t_c, 0.01) for a in POST_ANGLES])
+sr = sr.fuse(stop_posts)                       # v4.5: stop posts (v4.1: a full stop lip)
+sr = sr.cut(revolve([(CLAMP_R1, -0.01), (ring_out_r + 1, -0.01), (ring_out_r + 1, CLAMP_RELIEF), (CLAMP_R1, CLAMP_RELIEF)])
+            .cut(G.fuse_all([post_sector(POST_R0, ring_out_r + 1, POST_W, a, -1, CLAMP_RELIEF + 1) for a in POST_ANGLES])))
 # v4.4: the socket round the barrel, and inside it the spigot (O-ring groove) that goes into the barrel's bore
 sr_cuts = [revolve([(0, -1), (seat_r, -1), (seat_r, z_sh), (SP_BORE / 2, z_sh), (SP_BORE / 2, z_sock + 1), (0, z_sock + 1)]),
            revolve([(sp_r, z_sh), (sock_r, z_sh), (sock_r, z_sock - LEAD_CHAMFER), (sock_r + LEAD_CHAMFER, z_sock + 0.01),
@@ -302,12 +334,27 @@ oring_cone = revolve([(_cone_out / 2, 0), (CH_OD / 2 + 0.15, 0), (CH_OD / 2 + 0.
                       (_cone_in / 2, CONE_LEN)])
 
 # ---------------------------------------------------------------- diaphragm (clamped, in place)
-dcuts = [cyl(BLEED_D, -t_c - 1, 1, *at(BLEED_R, BLEED_ANGLE)[:2])]
-diaphragm = cyl(2 * DIA_R, -t_c, 0).cut(G.fuse_all(dcuts))
-diaphragm_free = cyl(2 * DIA_R, 0, DIA_T).cut(G.fuse_all(dcuts))
+def diaphragm_blank(z0, z1, hole_d):
+    notches = [post_sector(POST_R0 - NOTCH_CLEAR, DIA_R + 1, POST_W + 2 * NOTCH_CLEAR, a, z0 - 1, z1 + 1)
+               for a in POST_ANGLES]
+    holes = [cyl(hole_d, z0 - 1, z1 + 1, *at(BLEED_R, BLEED_ANGLE)[:2])]
+    return cyl(2 * DIA_R, z0, z1).cut(G.fuse_all(notches + holes)).removeSplitter()
+
+
+diaphragm = diaphragm_blank(-t_c, 0, BLEED_D)
+diaphragm_free = diaphragm_blank(0, DIA_T, BLEED_D)
 jig_holes = [(BLEED_R, BLEED_ANGLE, BLEED_D)]
-jig_guide = cyl(2 * DIA_R, 0, JIG_GUIDE_T).cut(
-    G.fuse_all([cyl(d + JIG_GUIDE_CLEAR, -1, JIG_GUIDE_T + 1, *at(r, a)[:2]) for r, a, d in jig_holes])).removeSplitter()
+jig_guide = diaphragm_blank(0, JIG_GUIDE_T, BLEED_D + JIG_GUIDE_CLEAR)   # one guide for now: the bleed
+
+
+def jig_guide_axes():
+    """Radii of the guide bores' axes: cylindrical faces of the guide's Ø."""
+    out = []
+    for f in jig_guide.Faces:
+        srf = f.Surface
+        if isinstance(srf, Part.Cylinder) and any(abs(srf.Radius - (d + JIG_GUIDE_CLEAR) / 2) < 1e-6 for _, _, d in jig_holes):
+            out.append(math.hypot(srf.Center.x, srf.Center.y))
+    return out
 
 
 # ---------------------------------------------------------------- chamber length, front cover (upper lid)
@@ -435,6 +482,10 @@ orings_g = G.fuse_all([
 ])
 
 F_stub = F_ring
+post_area = stop_posts.common(cyl(CH_ID + 2, z_f, z_f + 0.01)).Volume / 0.01
+A_clamp = sr.common(revolve([(MOUTH_R, 0), (POST_R0 - 0.1, 0), (POST_R0 - 0.1, 0.01), (MOUTH_R, 0.01)])).Volume / 0.01  # squeezing face
+A_clamp_v41 = area(2 * 15.5) - area(2 * MOUTH_R)
+post_on_face = stop_posts.common(cyl(2 * (spigot_r - 0.5), z_f, z_f + 0.01)).Volume / 0.01 / post_area  # rear plug's flat face
 lip_bearing = F_stub / max(math.pi * (sock_r ** 2 - lip_r ** 2), 1e-6)
 fit_wall = fit_body_r - FIT_BORE / 2
 module_len = z_fit1 - z_ry
@@ -445,8 +496,20 @@ checks = [
     ("rear plug / diaphragm / seat ring clear (bead and the proud seat aside)",
      G.no_overlap(sr.cut(cyl(2 * seat_out_r + 0.2, -1, 0)), diaphragm) and G.no_overlap(sr, rp) and
      G.no_overlap(rp.cut(cyl(CH_ID + 2, z_f, 1)), diaphragm)),
-    ("stop lip lands on the rear plug's face (squeeze %.0f %%)" % (DIA_SQUEEZE * 100),
-     abs(sr.BoundBox.ZMin - z_f) < 1e-6 and G.no_overlap(sr, rp.cut(cyl(2 * BEAD_R + 2, z_f, 1)))),
+    ("stop posts land on the rear plug's face (squeeze %.0f %%, %.0f %% of the post on the flat), through the notches"
+     % (DIA_SQUEEZE * 100, post_on_face * 100),
+     abs(sr.BoundBox.ZMin - z_f) < 1e-6 and G.no_overlap(sr, rp.cut(cyl(2 * BEAD_R + 2, z_f, 1)))
+     and post_on_face >= 0.8),
+    ("diaphragm fills the bore: Ø%.1f in Ø%.1f, notches clear of the posts, posts outside the bead and the pocket"
+     % (2 * DIA_R, CH_ID),
+     G.single_solid(diaphragm) and G.no_overlap(diaphragm, stop_posts) and POST_R0 - NOTCH_CLEAR > BEAD_R + 2
+     and DIA_R < CH_ID / 2 and DIA_R - (POST_R0 - NOTCH_CLEAR) < 3.5),
+    ("squeezed band R %.1f..%.1f only: %.0f mm2 <= v4.1's %.0f; the rim lies free (gap %.2f > %.2f)"
+     % (MOUTH_R, CLAMP_R1, A_clamp, A_clamp_v41, t_c + CLAMP_RELIEF, DIA_T),
+     A_clamp <= A_clamp_v41 * 1.02 and t_c + CLAMP_RELIEF > DIA_T and t_c + CLAMP_RELIEF < 1.6
+     and G.single_solid(sr) and POST_R0 > CLAMP_R1 + 2),
+    ("stop posts bear <= 15 MPa at %.0f N preload (%.0f mm2)" % (POST_PRELOAD, post_area),
+     POST_PRELOAD / post_area <= 15.0),
     ("seat %.0f %% of the barrel bore" % (A_seat / A_bore * 100), A_seat >= 0.4 * A_bore),
     ("seat curtain >= 0.7 x seat (lift %.1f: %.0f mm2)" % (LIFT, A_curtain), A_curtain >= 0.7 * A_seat),
     ("chamber annulus round the socket >= 1.3 x the curtain (%.0f vs %.0f mm2)" % (A_sock_annulus, A_curtain),
@@ -495,7 +558,17 @@ checks = [
     ("no muzzle part: rods end on the front yoke (z_front = z_fy1)", abs(z_front - z_fy1) < 1e-9),
     ("pilot fitting's hex and body clear of the rear plug behind its back face",
      G.no_overlap(fitting.common(cyl(100, z_ry - 50, z_ry)), rp) and fitting.BoundBox.ZMax <= z_ry + G18_TAP_DEPTH),
-    ("drilling template valid single solid", G.single_solid(jig_guide)),
+    ("drilling template valid single solid, flat on the bed, the diaphragm's outline",
+     G.single_solid(jig_guide) and abs(jig_guide.BoundBox.ZMin) < 1e-6
+     and abs(jig_guide.Volume - diaphragm.Volume / t_c * JIG_GUIDE_T
+             + sum((area(d + JIG_GUIDE_CLEAR) - area(d)) * JIG_GUIDE_T for _, _, d in jig_holes)) < 0.5),
+    ("drilling template: guide Ø%.2f axis on R %.2f = BLEED_R"
+     % (BLEED_D + JIG_GUIDE_CLEAR, (jig_guide_axes() or [float("nan")])[0], ),
+     len(jig_guide_axes()) == len(jig_holes) and all(abs(r - BLEED_R) < 1e-6 for r in jig_guide_axes())),
+    ("drilling template: Ø%.1f drill clear of the guide, its hole inside the free diaphragm (R %.1f + %.1f < %.1f)"
+     % (BLEED_D, BLEED_R, BLEED_D / 2, MOUTH_R),
+     all(G.no_overlap(cyl(d, -1, JIG_GUIDE_T + 1, *at(r, a)[:2]), jig_guide) for r, a, d in jig_holes)
+     and BLEED_R + BLEED_D / 2 < MOUTH_R),
     ("O-ring cone: mouth over the free ring (Ø%.1f > %.1f), exit under the bore (Ø%.1f < %.1f), taper <= 10 deg"
      % (_cone_in, _o_free, _cone_out, CH_ID),
      G.single_solid(oring_cone) and _cone_in > _o_free and 2 * spigot_r + 0.05 <= _cone_out < CH_ID
@@ -508,8 +581,8 @@ report = [
     "  flow path              : seat Ø%.0f (%.0f mm2 = %.0f %% of the Ø%.1f bore), curtain %.0f at lift %.1f,"
     " annulus round the socket %.0f, gallery entry %.0f"
     % (SEAT_D, A_seat, A_seat / A_bore * 100, BARREL_ID, A_curtain, LIFT, A_sock_annulus, A_entry),
-    "  diaphragm              : Ø%.1f x %.1f, free Ø%.1f, squeeze %.0f %% (stop lip), stretch %.0f %% at full lift"
-    % (2 * DIA_R, DIA_T, 2 * MOUTH_R, DIA_SQUEEZE * 100, dia_strain * 100),
+    "  diaphragm              : Ø%.1f x %.1f, free Ø%.1f, squeeze %.0f %% (%d stop posts), stretch %.0f %% at full lift"
+    % (2 * DIA_R, DIA_T, 2 * MOUTH_R, DIA_SQUEEZE * 100, POST_N, dia_strain * 100),
     "  chamber                : %.0f cm3, tube %.0f x %.1f aluminium, %.0f mm long, %.0f g"
     % (chamber_v, CH_OD, CH_WALL, chamber_len, (area(CH_OD) - area(CH_ID)) * chamber_len * 2.70e-3),
     "  module                 : Ø%.0f (ears %.0f across), %.0f mm long rear plug to fitting tip; stub %.0f mm;"
