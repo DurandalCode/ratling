@@ -14,7 +14,13 @@ and overlap (common volume). Each contact must be either
   bearing, a mesh, a D-flat, a socket, a push-in fitting, the QEV stack, ...).
 
 An undeclared contact is a part that only "stands on" its neighbour: [FAIL]. So is an
-overlap (common volume) that is not declared as a press fit or a squeeze.
+overlap (common volume) that is not declared as a press fit or a squeeze, and a body that
+touches nothing and is not in FREE (2026-11-21: the feed head had dropped out of the model and
+the cup and the TPU lip floated, listed but not failed).
+
+AXIAL (2026-11-21): the parts on shafts and pins, the shafts and pins themselves and a few
+captured parts are pushed along their axes both ways until they meet another body; the play
+must stay within AXIAL_MAX (the owner: "about 1 mm").
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_joints.py').read())"
 
@@ -82,17 +88,24 @@ JOINTS = [
     ("Front_bearing_61836", "Inner_race_retainer", "inner race under the retainer"),
     ("Front_bearing_61836", "Bearing_housing", "outer race in the housing, under its lip"),
     ("Front_bearing_61836", "Outer_race_retainer", "outer race on the retainer"),
-    ("Pack_axle", "Bearing_*", "6808 on a 1 mm shim"),
+    ("Bearings_6808", "Bearing_*", "outer race in its disk's seat between the disk's lip and the retainer's spigot (press)"),
+    ("Bearings_6808", "*_6808_retainer", "the retainer's spigot on the outer race"),
+    ("Bearings_6808", "Axle_collars", "collar lips on the front 6808's inner race"),
     ("Axle_collars", "Pack_axle", "split collars clamped, an M3 x 20 across each slit"),
     ("Rear_rail_disk", "Pack_axle", "split hub clamped, an M3 x 20 across its slit"),
     ("Soft_coupling", "Pack_axle", "clamped, an M3 x 20 across its slit; the axle's end on its neck (press)"),
     ("Lines_in_axle", "Soft_coupling", "the lines pass it"),
-    ("Axle_collars", "Bearing_front", "collar lips on the front 6808's inner race"),
     ("Lines_in_axle", "Lines_in_axle", "one hose each (press)"),
     ("Lines_in_axle", "Pack_axle", "inside the axle, out through its windows"),
     ("Lines_in_axle", "MQR_rotor", "M5 push-in fittings"),
     ("MQR_rotor", "MQR_stator", "the rotary union (bought)"),
-    ("MQR_stator", "Supply_stub", "push-in fitting (press)"),
+    ("Collector_1to6", "Supply_stub", "push-in fitting from below (press)"),
+    ("Rear_plate", "Supply_stub", "through its hole"),
+    ("Collector_fittings", "Collector_1to6", "M5 thread"),
+    ("Collector_fittings", "MQR_stator", "M5 thread in the stator's ports (press)"),
+    ("Collector_fittings", "Collector_hoses", "push-in fitting (press)"),
+    ("Collector_hoses", "Collector_hoses", "one hose (press)"),
+    ("Collector_fittings", "Collector_fittings", "side by side in the manifold's row (draft pitch 7)"),
     # --- frame
     ("Lip_TPU", "Feed_head", "TPU strip in its pocket"),
     ("Liner_half_right", "Liner_half_left", "the split: M3 x 20 lug pairs, the carry base, the keel, the ramp block"),
@@ -102,49 +115,94 @@ JOINTS = [
     ("Gears_A_B", "Idler", "mesh"),
     ("Idler", "Star_gear", "mesh"),
     ("Bevel_lay", "Bevel_crank", "mesh"),
-    ("Star", "Star_shaft", "D-flat; the star between the shroud's walls"),
-    ("Star_gear", "Star_shaft", "D-flat; between the box's plates"),
-    ("Star_collar", "Star_shaft", "M3 x 20 across the drilled shaft"),
-    ("Star_collar", "Front_ring", "thrust face"),
-    ("Star_shaft", "Front_ring", "journal"),
-    ("Star_shaft", "Gearbox", "journal"),
-    ("Star_shaft", "Outer_race_retainer", "front end stop"),
+    ("Star_gear", "Star_shaft", "D-flat; between the floor of the box's 608 pocket and the front plate (AXIAL)"),
+    ("Star_bearings_608", "Star_shaft", "the shaft in the 608s' inner races"),
+    ("Star_bearings_608", "Front_ring", "locating 608 in the pad's pocket on its floor, under the cover (press)"),
+    ("Star_bearings_608", "Gearbox", "floating 608 in the rear plate's pocket on its floor: no axial load (press)"),
+    ("Star_bearings_608", "Star_bearing_cover", "the cover on the outer race"),
+    ("Star_bearings_608", "Star_spacer", "the spacer on the inner race"),
+    ("Star_bearings_608", "Star", "the hub's spigot on the inner race"),
+    ("Star_spacer", "Star_shaft", "on the shaft"),
+    ("Star_spacer", "Star_collar", "clamped by the collar"),
     ("Gears_A_B", "Layshaft", "cluster turns on a fixed pin"),
-    ("Layshaft", "Gearbox", "pin pressed in the box's plates"),
-    ("Idler", "Idler_shaft", "turns on its pin"),
-    ("Idler_shaft", "Gearbox", "pin pressed in the box's front plate"),
-    ("Crank_rim_gear_60", "Lay_shaft", "D-flat"),
-    ("Bevel_lay", "Lay_shaft", "D-flat; the bevel on plate A's 608"),
-    ("Bevel_crank", "Crank_shaft", "D-flat; on the boss's 608"),
-    ("Crank_bearings_608", "Crank_*", "608 press fit (press)"),
+    ("Layshaft", "Gearbox", "pin in a blind hole of the rear plate, its front end 0.5 under the 61836's retainer (press)"),
+    ("Idler", "Idler_shaft", "turns on its tube"),
+    ("Idler_shaft", "Gearbox", "the tube clamped on the box's front plate by the M3 x 20 inside it (0.5 round the bolt)"),
+    ("Bevel_lay", "Lay_shaft", "D-flat; its thrust on plate A's 608 through its spigot, the mesh ahead (AXIAL)"),
+    ("Crank_spacer", "Crank_bearings_608", "the spacer's spigot on the outer 608's inner race"),
+    ("Crank_spacer", "Crank_arm", "the arm's hub holds the spacer"),
+    ("Crank_spacer", "Crank_shaft", "on the shaft"),
+    ("Crank_bearings_608", "Bevel_*", "the bevel's spigot on its 608's inner race"),
+    ("Crank_bearings_608", "Crank_rim_gear_60", "gear 60's spigot on the rim boss's 608"),
+    ("Crank_bearings_608", "Lay_shaft_collar", "the collar's spigot on plate A's 608"),
+    ("Crank_bracket", "Bevel_*", "the spigot through the 608's lip (0.2)"),
+    ("Crank_bracket", "Crank_rim_gear_60", "the spigot through the 608's lip (0.2)"),
+    ("Crank_bracket", "Lay_shaft_collar", "the spigot through the 608's lip (0.2)"),
+    ("Crank_bracket", "Crank_spacer", "the spigot through the 608's lip (0.2)"),
+    ("Crank_bearings_608", "Crank_*", "608 trapped in its pocket by 1 mm lips (press)"),
     ("Crank_bearings_608", "Lay_shaft", "608 on the shaft"),
     ("Crank_knob", "Crank_knob_pin", "knob turns on its pin (an M6 bolt)"),
     ("Crank_arm", "Crank_knob_pin", "the knob's pin: head and nut on the arm"),
     # --- controls
     ("Grip", "Pommel", "cast brass cap pressed on (press)"),
-    ("Grip", "Deadman_valve", "in its pocket, the hoses hold it"),
-    ("Grip", "Lever_pin", "pivot pin in the grip's lugs (press)"),
+    ("Grip", "Deadman_valve", "in its pocket between the grip's halves, shoulders at both ends (AXIAL)"),
     ("Grip", "Supply_*", "hoses in their channels"),
     ("Deadman_valve", "Supply_*", "push-in fittings (press)"),
     ("Deadman_valve", "Deadman_pusher", "the pusher (press)"),
     ("Pommel", "Supply_hose_end", "the receiver hose through the pommel (press)"),
     ("Supply_*", "Supply_*", "one hose (press)"),
     ("Lever", "Lever_pin", "pivot"),
+    ("Grip", "Lever_pin", "the tube's ends in the lugs' counterbores, clamped by the pivot's M3 x 50 (0.55 round the bolt)"),
     ("Grip", "Deadman_pusher", "the pusher in its bore"),
     ("Grip", "Gate_wire", "the wire in its channel"),
     ("Lever", "Deadman_pusher", "presses it"),
-    ("Lever", "Gate_wire", "the wire's end in the tail (press)"),
+    ("Lever", "Gate_wire", "the wire's barrel nipple in the tail's cross hole (press)"),
     ("Gate_housing", "Gate_pin", "the gate pin in its bore"),
     ("Gate_housing", "Gate_spring", "the gate spring"),
     ("Gate_pin", "Gate_spring", "the gate spring"),
     ("Gate_pin", "Feed_head", "through its bore"),
     ("Gate_cable", "Gate_cable", "one Bowden housing (press)"),
-    ("Gate_cable", "Gate_housing", "Bowden ferrule"),
+    ("Gate_cable", "Gate_housing", "the housing's end 5 mm deep in its seat"),
     ("Gate_cable", "Rear_plate", "Bowden through the plate (press)"),
-    ("Gate_cable", "Grip", "Bowden in its channel"),
+    ("Gate_cable", "Grip", "Bowden in its channel, its end on the shoulder at the stop"),
     ("Gate_cable", "Gate_wire", "the wire inside it (press)"),
     ("Carry_handle", "Sling_loops", "steel rings round the posts"),
 ]
+
+# Bodies allowed to touch nothing (closer than CONTACT): (pattern, why).
+FREE = [
+    ("Muzzle_plate", "pinched on the barrels by an M3 x 20 across each slit (bores 0.35 over)"),
+    ("st.Nose_clamp", "the halves clamp the rails by their 2 x M3 x 20 (bores 0.15 over)"),
+    ("Sling_loops", "steel rings round the carry posts, 0.5 loose"),
+    ("Crank_knob", "turns on its pin, 0.25 a side"),
+]
+
+# Axial play: (label, the moving group, axis key in AXES, bodies it slides along, limit).
+AXIAL_MAX = 1.0
+AXIAL = [
+    ("star shaft with the star, its collar and spacer", [r"Star_shaft", r"Star", r"Star_collar", r"Star_spacer",
+                                                         r"F:star on its shaft \(hub\)", r"F:star shaft collar"],
+     "Z", [r"Star_gear"]),
+    ("star gear", [r"Star_gear"], "Z", [r"Star_shaft"]),
+    ("gears A + B", [r"Gears_A_B"], "Z", [r"Layshaft"]),
+    ("A + B pin", [r"Layshaft"], "Z", [r"Gears_A_B"]),
+    ("idler", [r"Idler"], "Z", []),
+    ("idler tube", [r"Idler_shaft"], "Z", [r"Idler"]),
+    ("lay shaft with gear 60 and its collar", [r"Lay_shaft", r"Crank_rim_gear_60", r"Lay_shaft_collar",
+                                               r"F:gear 60 on the lay shaft \(hub\)", r"F:lay shaft collar behind plate A"],
+     "Z", [r"Bevel_lay"]),
+    ("lay bevel", [r"Bevel_lay"], "Z", [r"Lay_shaft"]),
+    ("crank shaft with its bevel, spacer, arm and knob", [r"Crank_shaft", r"Bevel_crank", r"Crank_spacer", r"Crank_arm",
+                                                         r"Crank_knob", r"Crank_knob_pin", r"F:crank arm on its shaft",
+                                                         r"F:crank bevel on its shaft \(hub\)"],
+     "Y", []),
+    ("lever", [r"Lever"], "Y", [r"Lever_pin", r"Gate_wire"]),
+    ("lever pivot tube", [r"Lever_pin"], "Y", [r"Lever"]),
+    ("dead-man valve", [r"Deadman_valve"], "DM", [r"Deadman_pusher", r"Supply_.*"]),
+    ("front 6808 race", [r"Bearings_6808\.1"], "Z", [r"Pack_axle", r"Axle_collars.*"]),
+    ("rear 6808 race", [r"Bearings_6808\.2"], "Z", [r"Pack_axle"]),
+]
+AXIAL_EPS = 0.02        # mm3 of common volume that counts as a stop
 
 
 def _near(ba, bb_, pad):
@@ -180,6 +238,7 @@ if _cached:
     _shapes = _read(os.path.join(CACHE, "bodies.brep")).childShapes()
     BODIES = [(m[0], s, m[1]) for m, s in zip(_meta["bodies"], _shapes[:len(_meta["bodies"])])]
     FAST = list(zip(_meta["fasteners"], _shapes[len(_meta["bodies"]):]))
+    AXES = _meta["axes"]
     print("joints: %d bodies, %d fasteners from the cache %s" % (len(BODIES), len(FAST), CACHE), flush=True)
 else:
     BREECH_MECH_LIBRARY = True
@@ -246,13 +305,19 @@ else:
             ("Idler", gear_i, "print"), ("Idler_shaft", idl_shaft, "steel"),
             ("Crank_rim_gear_60", crank_gear, "print"), ("Lay_shaft", pin_shaft, "steel"), ("Bevel_lay", bevel_small, "print"),
             ("Bevel_crank", bevel_big, "print"), ("Crank_shaft", crank_shaft, "steel"), ("Crank_arm", crank_arm, "print"),
-            ("Crank_knob", crank_knob, "print"), ("Crank_knob_pin", crank_knob_pin, "steel")):
+            ("Crank_knob", crank_knob, "print"), ("Crank_knob_pin", crank_knob_pin, "steel"),
+            ("Bearings_6808", races_6808, "bought"), ("Rear_6808_retainer", brg6808_ret_r, "print"),
+            ("Star_bearings_608", star_bearings, "bought"), ("Star_bearing_cover", star_cover, "print"),
+            ("Star_spacer", star_spacer, "steel"), ("Lay_shaft_collar", lay_collar, "print"),
+            ("Crank_spacer", crank_spacer, "print"), ("Collector_1to6", collector, "bought"),
+            ("Collector_fittings", coll_fittings, "bought"), ("Collector_hoses", coll_hoses, "hose")):
         body(_n, _sh, _m)
     FAST += [(f_.name, f_.body) for f_ in FASTENERS] + [(n_, b_) for n_, b_ in M4_EXC]
+    AXES = {"Z": [0.0, 0.0, 1.0], "Y": [0.0, 1.0, 0.0], "DM": [_face_n0.x, _face_n0.y, _face_n0.z]}
     if CACHE:
         os.makedirs(CACHE, exist_ok=True)
         Part.makeCompound([b[1] for b in BODIES] + [f[1] for f in FAST]).exportBrep(os.path.join(CACHE, "bodies.brep"))
-        json.dump({"bodies": [[b[0], b[2]] for b in BODIES], "fasteners": [f[0] for f in FAST]},
+        json.dump({"bodies": [[b[0], b[2]] for b in BODIES], "fasteners": [f[0] for f in FAST], "axes": AXES},
                   open(os.path.join(CACHE, "bodies.json"), "w"))
         print("joints: %d bodies, %d fasteners written to %s" % (len(BODIES), len(FAST), CACHE), flush=True)
 
@@ -303,14 +368,99 @@ for k in sorted(_merged, key=lambda k_: (_merged[k_][3], k_)):
     d, ov, hows, ok = _merged[k]
     lines.append("%-28s %-28s %6.2f %9.2f  %s%s" % (k[0], k[1], d, ov, "" if ok else "[FAIL] ", " | ".join(sorted(hows))))
 touch_nothing = [b[0] for b in BODIES if not any(b[0] in (r[0], r[1]) for r in rows)]
-lines += ["", "bodies touching nothing (closer than %.1f): %s" % (CONTACT, ", ".join(touch_nothing) or "none"), ""]
+
+
+def _free(n):
+    return next((why for pat, why in FREE if fnmatch.fnmatch(key(n), pat)), None)
+
+
+free_bad = sorted(set(key(n) for n in touch_nothing if _free(n) is None))
+lines += ["", "bodies touching nothing (closer than %.1f): %s" % (CONTACT, ", ".join(
+    "%s (%s)" % (n, _free(n) or "[FAIL] not in FREE") for n in touch_nothing) or "none"), ""]
 lines.append("  [%s] every contact fastened or declared, no undeclared overlap (%d pairs of part kinds, %d not)"
              % ("OK " if not bad else "FAIL", len(_merged), len(bad)))
+lines.append("  [%s] every body touches a neighbour or is declared free (%s)"
+             % ("OK " if not free_bad else "FAIL", ", ".join(free_bad) or "all"))
+
+# ---------------------------------------------------------------- axial play
+_ALL = BODIES and [(b[0], b[1]) for b in BODIES] + [("F:" + n, s_) for n, s_ in FAST]
+
+
+def _pick(pats):
+    return [(n, s_) for n, s_ in _ALL if any(re.fullmatch(p_, n) for p_ in pats)]
+
+
+def _bb_pad(bb, pad):
+    return App.BoundBox(bb.XMin - pad, bb.YMin - pad, bb.ZMin - pad, bb.XMax + pad, bb.YMax + pad, bb.ZMax + pad)
+
+
+def _travel(group, obst, d, maxt=6.0):
+    """How far the group goes along d before it meets an obstacle (its common volume grows by
+    AXIAL_EPS over the start: a press fit across the axis is no stop): (t, name)."""
+    g = Part.makeCompound([s_ for _, s_ in group])
+    near = [(n, s_) for n, s_ in obst if _bb_pad(g.BoundBox, maxt + 0.5).intersect(s_.BoundBox)]
+
+    def vol(m, s_):
+        if not _bb_pad(m.BoundBox, 0.01).intersect(s_.BoundBox):
+            return 0.0
+        try:
+            return m.common(s_).Volume
+        except Exception:
+            return 0.0
+    base = [vol(g, s_) for _, s_ in near]
+
+    def hit(t):
+        m = g.copy()
+        m.translate(d * t)
+        for (n, s_), v0 in zip(near, base):
+            if vol(m, s_) > v0 + AXIAL_EPS:
+                return n
+        return None
+    lo, hi, who, t = 0.0, None, None, 0.1
+    while t <= maxt + 1e-9:
+        w = hit(t)
+        if w:
+            hi, who = t, w
+            break
+        lo, t = t, t + (0.1 if t < 1.0 else 0.5)
+    if hi is None:
+        return maxt, "nothing within %.0f" % maxt
+    for _ in range(5):
+        mid = 0.5 * (lo + hi)
+        w = hit(mid)
+        if w:
+            hi, who = mid, w
+        else:
+            lo = mid
+    return lo, who
+
+
+axial_bad = []
+lines += ["", "axial play (pushed both ways along the axis until a body is met; limit %.1f):" % AXIAL_MAX]
+for lab, gp, ax, skip in AXIAL:
+    grp = _pick(gp)
+    if not grp:
+        axial_bad.append(lab)
+        lines.append("  [FAIL] %s: no such bodies %s" % (lab, gp))
+        continue
+    gn = set(n for n, _ in grp)
+    obst = [(n, s_) for n, s_ in _ALL if n not in gn and not any(re.fullmatch(p_, n) for p_ in skip)]
+    d = App.Vector(*AXES[ax])
+    a_, wa = _travel(grp, obst, d)
+    b_, wb = _travel(grp, obst, d * -1.0)
+    ok = a_ + b_ <= AXIAL_MAX + 1e-6
+    if not ok:
+        axial_bad.append(lab)
+    lines.append("  [%s] %-48s %5.2f  (+ %.2f to %s, - %.2f to %s)" % ("OK " if ok else "FAIL", lab, a_ + b_, a_, wa, b_, wb))
+    print(lines[-1], flush=True)
+lines.append("  [%s] axial play within %.1f mm (%d groups, %s)" % ("OK " if not axial_bad else "FAIL", AXIAL_MAX, len(AXIAL),
+                                                                   ", ".join(axial_bad) or "all"))
 print("\n".join(lines))
 _out = os.path.join(REPO, "exports", "gatling_breech_mechanism")
 os.makedirs(_out, exist_ok=True)
 with open(os.path.join(_out, "gatling_breech_mechanism_joints.txt"), "w") as f:
     f.write("\n".join(lines) + "\n")
 print("joints: done in %.0f s" % (time.time() - _t0), flush=True)
-if bad:
-    raise SystemExit("gatling joints: %d undeclared contacts" % len(bad))
+if bad or free_bad or axial_bad:
+    raise SystemExit("gatling joints: %d undeclared contacts, %d undeclared free bodies, %d axial plays over %.1f"
+                     % (len(bad), len(free_bad), len(axial_bad), AXIAL_MAX))

@@ -170,6 +170,33 @@ the height).
   the axle's collars, the coupling, the grip's root in a cup on the rear plate, the MQR's
   own M4s. The axle's windows follow the lines (they crossed its wall, 293 mm3).
 80 x M3 x 20, 15 M6 studs (2.64 m, 74 nuts), 6 x M4; 11.25 kg, CG (5.0, 4.5, 96.4).
+
+2026-11-21, fasteners, second pass (joints that were only declared now hold; the joint audit
+pushes every part on a shaft along its axis, AXIAL in breech_joints.py, limit 1 mm):
+- The feed head had dropped out of the model in the first pass: removeSplitter() on its cut
+  for the cup's bolts gave a broken shape and the fuse with its web boss kept 1 cm3 of 57. The
+  fastener cuts go through cut_fast() now (refined, unrefined, one cutter at a time: the first
+  sound result; a check lists each). The box stood on two nut stacks in one 8.4 mm gap: it is on
+  bosses now. The front ring was cut through at the top by the star shaft's hole.
+- Star shaft: a pad closes the front ring at the top and takes the locating 608 (cover on
+  2 x M3 x 20); the star is pinned to the shaft by its hub (the old collar), the hub's spigot, a
+  steel spacer and the collar ahead of the pad clamp the inner race (0.15 float); a second 608
+  floats in the box's rear plate. Star gear: hub and boss 0.3 off the box (was 3.0 loose between
+  the faces of the turning hub). A + B: bosses 0.3 off the plates, the pin in a blind hole and
+  0.5 under the 61836's retainer. Idler: on a tube 6 x 1 clamped by an M3 x 20 from inside (head
+  in a recess of the idler, nut in a boss ahead of the box).
+- Lay shaft: a collar behind plate A and gear 60 pinned on a hub, each on a 608's inner race
+  through a spigot; the lay bevel's thrust on plate A's 608. Crank shaft: the bevel pinned, its
+  thrust on the inner 608, a spacer between the outer 608 and the arm's hub (it could be pulled
+  out through its 608s). The 608s of the crank side are trapped in their pockets by 1 mm lips.
+- 6808s: the races are bodies; each outer race between a lip of its disk and a retainer's spigot
+  (the front retainer stood 5.5 off its race, the rear race was held by its press alone).
+- Grip: two halves split at y 0 (the dead-man, the cable and the hoses lie between them), 2 x M3
+  x 20 across where they clear every channel; the lever's pivot is a brass tube clamped by an
+  M3 x 50 in 12 mm lugs (a bare pin in 4 mm lugs); the wire ends in a barrel nipple across the
+  tail; the Bowden housing sits 5 mm deep in a seat under the gate.
+- Collector 1 -> 6 (owner): a bought manifold on a tab of the rear plate, six hoses to the
+  stator's M5 ports (their row on +y is assumed until the MQR6 arrives).
 """
 import importlib
 import math
@@ -375,6 +402,60 @@ def tube_path(points, r):
 
 def path_len(points):
     return sum((b - a).Length for a, b in zip(points[:-1], points[1:]))
+
+
+CUT_LOG = []                    # (part, volume before, after, ok, how): fastener cuts and the fuses after them
+
+
+def _sound(s, lo, hi):
+    return s.isValid() and len(s.Solids) >= 1 and lo <= s.Volume <= hi
+
+
+def cut_fast(shape, cutters, what, split=True):
+    """shape minus the fastener cutters (shapes or Fasteners), checked.
+
+    The cut must stay valid and lose no more than the cutters hold. 2026-11-21: the feed head
+    came out of its cut sound, but removeSplitter() on it gave an empty or invalid shape, and
+    the next fuse kept a 1 cm3 boss of its 59 cm3 (the neck, the shroud and the cup's ring were
+    gone from the model). So: the compound cut refined, then unrefined, then one cutter at a
+    time, refined and not; the first sound one is kept.
+    """
+    cs = [getattr(c, "cutter", c) for c in cutters]
+    v0 = shape.Volume
+    lo, hi = v0 - sum(c.Volume for c in cs) - 1e-3, v0 + 1e-3
+    raw = shape.cut(Part.makeCompound(cs))
+    tries = [("refined", lambda: raw.removeSplitter()), ("unrefined", lambda: raw)] if split else [("unrefined", lambda: raw)]
+    seq = []
+
+    def _seq():
+        if not seq:
+            t_ = shape
+            for c in cs:
+                t_ = t_.cut(c)
+            seq.append(t_)
+        return seq[0]
+    if split:
+        tries.append(("one by one, refined", lambda: _seq().removeSplitter()))
+    tries.append(("one by one", _seq))
+    for how, f in tries:
+        out = f()
+        if _sound(out, lo, hi):
+            CUT_LOG.append((what, v0, out.Volume, True, how))
+            return out
+    CUT_LOG.append((what, v0, out.Volume, False, how))
+    return out
+
+
+def fuse_sound(shape, other, what):
+    """shape fused with other, refined if refining keeps it sound (as cut_fast)."""
+    v0 = shape.Volume
+    raw = shape.fuse(other)
+    for how, out in (("refined", raw.removeSplitter()), ("unrefined", raw)):
+        if _sound(out, v0 - 1e-3, v0 + other.Volume + 1e-3):
+            CUT_LOG.append((what, v0, out.Volume, True, how))
+            return out
+    CUT_LOG.append((what, v0, out.Volume, False, how))
+    return out
 
 
 # ============================================================ station (pack variant)
@@ -697,9 +778,8 @@ for _s in (-1, 1):
     _d = polar(1.0, _s * BLK_SCREW_PSI)
     RAMP_FAST.append(FA.m3("ramp block to the liner", polar(BLK_R0 + 2.0, _s * BLK_SCREW_PSI, _z_blk_mid), _d,
                            [guide_block, cam], clip=(-3.0, 60.0)))
-_rc = Part.makeCompound([f_.cutter for f_ in RAMP_FAST])
-ramp_body, guide_block, cam = ramp_body.cut(_rc).removeSplitter(), guide_block.cut(_rc).removeSplitter(), cam.cut(_rc)
-cam_outside = cam_outside.cut(_rc)
+ramp_body, guide_block = cut_fast(ramp_body, RAMP_FAST, "ramp"), cut_fast(guide_block, RAMP_FAST, "ramp block")
+cam, cam_outside = cut_fast(cam, RAMP_FAST, "liner", split=False), cut_fast(cam_outside, RAMP_FAST, "liner outside", split=False)
 insert_holes = [f_.cutter for f_ in RAMP_FAST if f_.name == "ramp block to the liner"]
 ramp_fire = ramp_body
 ramp_seated = gap(ramp_body, guide_block)
@@ -766,9 +846,13 @@ def to_pack(s):
     return m
 
 
+STAR_HUB_BODY = None              # the star's hub with its bolt (feed section below): round, it turns with the star
+
+
 def star_at(d):
-    """Star when the station nearest the top is at pack angle 180 + d."""
-    return to_pack(_fb["star_turn"](_fb["star"], STAR_TURNS * d))
+    """Star when the station nearest the top is at pack angle 180 + d (with its hub once drawn)."""
+    st_ = to_pack(_fb["star_turn"](_fb["star"], STAR_TURNS * d))
+    return st_ if STAR_HUB_BODY is None else Part.makeCompound([st_, STAR_HUB_BODY])
 
 
 feed_head = to_pack(_fb["feed_head"])
@@ -880,15 +964,52 @@ _cav = _cav.cut(Part.makeCylinder(60.0, 200, V(0, 0, P1_Z0 - 50)))
 _cav.rotate(O, ZA, BOX_A0 + 2.0)
 _cav = _cav.fuse(Part.makeCylinder(BOX_R0 + 1.0, P2_Z1 + 1.5 - (P1_Z0 - 1.0), V(0, 0, P1_Z0 - 1.0)))
 gearbox = _sec.cut(_cav)
-for c, d in ((L_C, SHAFT_D), (I_C, 6.0), (S_C, SHAFT_D)):
-    gearbox = gearbox.cut(Part.makeCylinder(d / 2 + 0.2, 200, V(c.x, c.y, BOX_Z0 - 50)))
-gearbox = gearbox.removeSplitter()
+# Shafts and pins in the box (2026-11-21; they were bare pins and journals in printed holes,
+# held along their axes by "the walls": the star gear 3.0 loose between the hub's faces, A + B
+# 2.5, the idler 3.5 with gear A's face as its rear stop, the A + B pin free to slide out aft).
+# - Star shaft: in from the front ring's pad (feed section below); here a floating 608 in the
+#   rear plate, in from behind, its floor ahead; the front plate only lets the shaft through.
+# - A + B pin: a blind hole in the rear plate (2 mm floor), its front end PIN_STOP under the
+#   61836's rear retainer.
+# - Idler: on a steel tube 6 x 1 clamped by an M3 x 20 from inside: the head in a recess of the
+#   idler's rear face, the tube, the front plate, the nut in a boss ahead of the plate. The
+#   idler turns on the tube between the head and the plate.
+# The gears' bosses and hubs reach the plates TRAIN_GAP short.
+TRAIN_GAP = 0.3
+SB_OD, SB_W = 22.0, 7.0                              # 608 for the star shaft
+PIN_STOP = 0.5
+_cav_r, _cav_f = P1_Z0 - 1.0, P2_Z1 + 1.5             # the cavity's rear and front faces
+gearbox = gearbox.cut(Part.makeCylinder(SHAFT_D / 2 + 0.2, _cav_f + 10.0 - (BOX_Z0 + 2.0), V(L_C.x, L_C.y, BOX_Z0 + 2.0)))
+gearbox = gearbox.cut(Part.makeCylinder(SB_OD / 2 + 0.1, SB_W + 1.0, V(S_C.x, S_C.y, BOX_Z0 - 1.0)))
+gearbox = gearbox.cut(Part.makeCylinder(5.0, 200, V(S_C.x, S_C.y, BOX_Z0 - 50)))
+star_brg_box = tube(SB_OD, SHAFT_D, BOX_Z0, BOX_Z0 + SB_W, S_C.x, S_C.y)
 z_star0 = Z_BALL_OPEN - STAR_T / 2.0
 star_shaft = Part.makeCylinder(SHAFT_D / 2, BOX_Z1 + 1.0 - (z_star0 - 2.0), V(S_C.x, S_C.y, z_star0 - 2.0))
-lay_shaft = Part.makeCylinder(SHAFT_D / 2, BOX_Z1 + 1.0 - (BOX_Z0 - 1.0), V(L_C.x, L_C.y, BOX_Z0 - 1.0))
-# The idler's pin is pressed into the box's front plate and stops short of plane 1, where
-# gear A turns through its axis (until 2026-11-21 it ran 2 mm into it: 50 mm3).
-idl_shaft = Part.makeCylinder(3.0, BOX_Z1 + 1.0 - (P2_Z0 - 0.5), V(I_C.x, I_C.y, P2_Z0 - 0.5))
+lay_shaft = Part.makeCylinder(SHAFT_D / 2, BOX_Z1 + 2.0 - PIN_STOP - (BOX_Z0 + 2.0), V(L_C.x, L_C.y, BOX_Z0 + 2.0))
+# The head (Ø5.5) would pass the idler's bore (6.2): a washer Ø9 x 0.8 (DIN 9021) under it
+# holds the idler; washer and head sit in the recess.
+IDL_TUBE_OD, IDL_TUBE_ID, IDL_WASHER = 6.0, 4.0, (9.0, 0.8)
+IDL_HEAD_REC = IDL_WASHER[0] + 0.6
+_ih0 = P2_Z0 + 0.2                                   # the bolt head, 0.2 inside the idler's rear face
+_iw0 = _ih0 + FA.HEAD_T                              # its bearing face on the washer
+_it0 = _iw0 + IDL_WASHER[1]                          # the tube's rear end
+_it1 = _cav_f + 1.0                                  # the tube 1 mm into the front plate
+idl_shaft = tube(IDL_TUBE_OD, IDL_TUBE_ID, _it0, _it1, I_C.x, I_C.y).fuse(
+    tube(IDL_WASHER[0], FA.M3_HOLE, _iw0, _it0, I_C.x, I_C.y)).removeSplitter()
+IDL_FAST = FA.m3_at("idler: its tube clamped to the box's front plate", V(I_C.x, I_C.y, _iw0), ZA, 0.0,
+                    20.0 - FA.NUT_T - 1.0, 20.0, floor_nut=20.0 - FA.NUT_T - 1.0 - (_it1 - _iw0))
+_iblk1 = _iw0 + IDL_FAST.grip + FA.SOCKET_T
+gearbox = gearbox.fuse(Part.makeCylinder(7.0, _iblk1 - BOX_Z1 + 0.5, V(I_C.x, I_C.y, BOX_Z1 - 0.5)))
+gearbox = gearbox.cut(Part.makeCylinder(IDL_TUBE_OD / 2 + 0.1, _it1 - _cav_f + 0.5, V(I_C.x, I_C.y, _cav_f - 0.5)))
+gearbox = cut_fast(gearbox, [IDL_FAST], "gearbox")
+gear_i = gear_i.cut(Part.makeCylinder(IDL_HEAD_REC / 2, _it0 + 0.2 - (P2_Z0 - 1.0), V(I_C.x, I_C.y, P2_Z0 - 1.0)))
+gear_i = gear_i.fuse(tube(12.0, 6.2, P2_Z1 - 0.1, _cav_f - TRAIN_GAP, I_C.x, I_C.y)).removeSplitter()
+# The star gear: a hub back through plane 1 to the floor of the 608's pocket (gear A's tips
+# pass it by STAR_HUB_CLEAR) and a boss ahead to the front plate.
+STAR_HUB_D = 2.0 * ((S_C - L_C).Length - (R_A + GEAR_M)) - 1.4
+gear_s = G.fuse_all([gear_s, tube(STAR_HUB_D, SHAFT_D + 0.2, _cav_r + TRAIN_GAP, P2_Z0 + 0.1, S_C.x, S_C.y),
+                     tube(16.0, SHAFT_D + 0.2, P2_Z1 - 0.1, _cav_f - TRAIN_GAP, S_C.x, S_C.y)]).removeSplitter()
+STAR_HUB_CLEAR = (S_C - L_C).Length - (R_A + GEAR_M) - STAR_HUB_D / 2.0
 train_parts = [("gear A (meshes the rim)", gear_a), ("gear B", gear_b), ("idler", gear_i),
                ("star gear", gear_s), ("star shaft", star_shaft), ("layshaft", lay_shaft),
                ("idler shaft", idl_shaft), ("gearbox", gearbox)]
@@ -945,8 +1066,7 @@ for k in range(N):
     _o = polar(_r_ret, _a, z_brg1 + RET_T)
     HUB_FAST.append(FA.m3_at("hub: inner race retainer", _o, V(0, 0, -1), 0.0, 20.0 - FA.NUT_T - 1.0, 20.0,
                              nut_slot=(polar(-1.0, _a), _r_ret - HUB_TUBE_RI + 1.0)))
-_hub_cut = Part.makeCompound([f_.cutter for f_ in HUB_FAST])
-pack_hub, brg_ret_in = pack_hub.cut(_hub_cut).removeSplitter(), brg_ret_in.cut(_hub_cut).removeSplitter()
+pack_hub, brg_ret_in = cut_fast(pack_hub, HUB_FAST, "hub"), cut_fast(brg_ret_in, HUB_FAST, "inner race retainer")
 hub_one = len(pack_hub.Solids) == 1
 # The tube and the seat against the box and its train (the rim's teeth: in the sweep).
 _hub_core = G.fuse_all(_hub[-3:])
@@ -994,7 +1114,7 @@ for k in range(N):
     _rb = 0.5 * (R_PACK + BARREL_OD / 2 + 0.35 + r_plate)
     PLATE_FAST.append(FA.m3("muzzle plate pinch", polar(_rb, k * 60.0, 0.5 * (z_front0 + z_front1)),
                             polar(1.0, k * 60.0 + 90.0) * -1.0, [front_plate, front_plate], clip=(-11.0, 11.0)))
-front_plate = front_plate.cut(Part.makeCompound([f_.cutter for f_ in PLATE_FAST])).removeSplitter()
+front_plate = cut_fast(front_plate, PLATE_FAST, "muzzle plate")
 SPAR_ANGLES = [w for w in (30.0, 90.0, 150.0, 210.0, 270.0, 330.0)
                if abs(((w + 180.0) % 360.0) - 180.0) > 35.0]       # none under the feed (world 0)
 pack_frame = tube(2 * r_case_od, 2 * r_case_id, Z_FRING0, Z_FRING1)
@@ -1032,11 +1152,16 @@ z_mqr_plate1 = z_stator0 - MQR_SPIGOT
 z_mqr_plate0 = z_mqr_plate1 - 6.0
 
 
-def bearing_disk(z_a, z_b, r_frame):
-    race = tube(BRG_OD, BRG_BORE + 0.3, z_a + (DISK_T - BRG_T) / 2, z_b - (DISK_T - BRG_T) / 2)
+BRG_LIP_ID = 47.0               # 6808: its outer race's face is r 24.2..26, the inner race's r <= 21.8
+
+
+def bearing_disk(z_a, z_b, r_frame, lip):
+    """Printed disk with a 6808 seat (the race is its own body), a lip on the face lip (+1 / -1)."""
     hub = tube(BRG_OD + 12.0, BRG_OD - 0.2, z_a, z_b)
     rim = tube(2.0 * r_frame, 2.0 * (r_frame - 5.0), z_a, z_b)
-    parts = [race, hub, rim]
+    ri = (DISK_T - BRG_T) / 2.0
+    lip_ = tube(BRG_OD + 1.0, BRG_LIP_ID, z_b - ri, z_b) if lip > 0 else tube(BRG_OD + 1.0, BRG_LIP_ID, z_a, z_a + ri)
+    parts = [hub, rim, lip_]
     for w in SPAR_ANGLES:
         a = math.radians(w)
         r0 = BRG_OD / 2 + 4.0
@@ -1046,8 +1171,12 @@ def bearing_disk(z_a, z_b, r_frame):
     return G.fuse_all(parts)
 
 
-brg_f = bearing_disk(z_brg_f0, z_brg_f1, r_case_od)
-brg_r = bearing_disk(z_brg_r0, z_brg_r1, r_case_od)
+brg_f = bearing_disk(z_brg_f0, z_brg_f1, r_case_od, +1)
+brg_r = bearing_disk(z_brg_r0, z_brg_r1, r_case_od, -1)
+_ri = (DISK_T - BRG_T) / 2.0
+race_f = tube(BRG_OD, BRG_BORE, z_brg_f0 + _ri, z_brg_f1 - _ri)
+race_r = tube(BRG_OD, BRG_BORE, z_brg_r0 + _ri, z_brg_r1 - _ri)
+races_6808 = Part.makeCompound([race_f, race_r])
 pack_axle = tube(AXLE_OD, AXLE_ID, z_axle0, z_axle1)
 # Rear disk (2026-11-21): 16 thick, the rail ends in blind sockets from its front face; the
 # line R slots only where an opening station's line crosses it (r >= 34.5: they used to run
@@ -1089,8 +1218,9 @@ def shaft_collar(name, z0, z1, lip_z, od=56.0, lip_od=43.0, lip_l=1.5, ang=30.0)
 
 
 # The front 6808 locates the axle (both its collars bear on its inner race, 1.5 mm inside the
-# disk's faces), the rear one floats. The front one's outer race: a lip in its disk ahead, a
-# retainer ring behind, 3 x M3 x 20 into the disk's hub.
+# disk's faces), the rear one floats. Each outer race sits between a lip of its disk and the
+# spigot of a retainer ring on 3 x M3 x 20 (2026-11-21: the front retainer stood 5.5 mm off its
+# race and neither disk had a lip; the rear race was held by its press alone).
 _race_in = (DISK_T - BRG_T) / 2.0
 BRG_HUB_AFT, BRG_RET_T = 4.0, 6.0               # the hub ring runs 4 aft of the disk (ahead are the stations)
 axle_collar_f, _f = shaft_collar("axle collar ahead of the front 6808", z_brg_f1 + 2.0, z_brg_f1 + 12.0, -1,
@@ -1101,12 +1231,24 @@ axle_collar_r, _f = shaft_collar("axle collar behind the front 6808", _zr - 11.0
                                  lip_l=(z_brg_f0 + _race_in) - (_zr - 1.0))
 AIR_FAST.append(_f)
 brg_f = brg_f.fuse(tube(BRG_OD + 20.0, BRG_OD - 0.2, z_brg_f0 - BRG_HUB_AFT, z_brg_f1)).removeSplitter()
-brg6808_ret = tube(BRG_OD + 20.0, BRG_OD - 6.0, _zr, _zr + BRG_RET_T)
+brg6808_ret = tube(BRG_OD + 20.0, BRG_OD - 6.0, _zr, _zr + BRG_RET_T).fuse(
+    tube(BRG_OD - 0.2, BRG_LIP_ID, _zr + BRG_RET_T - 0.1, z_brg_f0 + _ri)).removeSplitter()
 for _k in range(3):
     _p = polar(0.5 * (BRG_OD / 2 + BRG_OD / 2 + 10.0), 30.0 + 120.0 * _k, _zr)
     AIR_FAST.append(FA.m3("front 6808 retainer", _p, ZA, [brg6808_ret, brg_f], head_on_face=True, clip=(-0.01, 30.0)))
-_bc = Part.makeCompound([f_.cutter for f_ in AIR_FAST[-3:]])
-brg_f, brg6808_ret = brg_f.cut(_bc).removeSplitter(), brg6808_ret.cut(_bc).removeSplitter()
+brg_f, brg6808_ret = cut_fast(brg_f, AIR_FAST[-3:], "front 6808 disk"), cut_fast(brg6808_ret, AIR_FAST[-3:], "front 6808 retainer")
+# The rear one: the same ring on the disk's front face (behind it the lines leave the axle), its
+# hub run 4 ahead so the bolt's stack is the front one's 20 mm.
+_zrr = z_brg_r1 + BRG_HUB_AFT                    # the rear retainer's rear face
+brg_r = brg_r.fuse(tube(BRG_OD + 20.0, BRG_OD - 0.2, z_brg_r0, _zrr)).removeSplitter()
+brg6808_ret_r = tube(BRG_OD + 20.0, BRG_OD - 6.0, _zrr, _zrr + BRG_RET_T).fuse(
+    tube(BRG_OD - 0.2, BRG_LIP_ID, z_brg_r1 - _ri, _zrr + 0.1)).removeSplitter()
+for _k in range(3):
+    _p = polar(0.5 * (BRG_OD / 2 + BRG_OD / 2 + 10.0), 30.0 + 120.0 * _k, _zrr + BRG_RET_T)
+    AIR_FAST.append(FA.m3("rear 6808 retainer", _p, V(0, 0, -1), [brg6808_ret_r, brg_r], head_on_face=True, clip=(-0.01, 30.0)))
+brg_r, brg6808_ret_r = cut_fast(brg_r, AIR_FAST[-3:], "rear 6808 disk"), cut_fast(brg6808_ret_r, AIR_FAST[-3:], "rear 6808 retainer")
+# Each race between its lip and its retainer's spigot (measured: 0 means touching both).
+race_capture = max(gap(race_f, brg6808_ret), gap(race_r, brg6808_ret_r))
 axle_collars = Part.makeCompound([axle_collar_f, axle_collar_r])
 soft_coup = tube(SOFT_OD, AXLE_OD + 0.2, z_soft1 - 10.0, z_soft1).fuse(
     tube(SOFT_OD * 0.7, 6.5, z_soft0, z_soft0 + 10.0)).fuse(
@@ -1213,8 +1355,10 @@ def _rz(zw):
 
 # Lay shaft: from behind plate A (its 608) through the bevel and past the apex to
 # ahead of the rim gear.
-_ls0 = -(CB_INFO_S["mount"] + 1.0 + CBRG_W + 2.0 + 1.0)
-_ls1 = _rz(P1_Z1 + 2.0)
+# 2026-11-21: the lay shaft runs on behind plate A into a collar and ahead of gear 60 into its hub.
+LAY_COL_L, G60_HUB_L, DRV_SPIGOT_D = 8.0, 10.0, 9.6
+_ls0 = -(CB_INFO_S["mount"] + 1.0 + (CBRG_W + 2.0) + 0.3 + LAY_COL_L)
+_ls1 = _rz(P1_Z1 + G60_HUB_L)
 pin_shaft = to_drive(Part.makeCylinder(SHAFT_D / 2, _ls1 - _ls0, V(0, 0, _ls0)))
 # Crank shaft on two 608 in a boss outboard of the crank bevel; the outer end is
 # left for the crank arm (drawn later).
@@ -1314,20 +1458,65 @@ def to_side(s):
     return s.mirror(O, V(0, 1, 0)) if CRANK_SIDE > 0 else s.copy()
 
 
+# Along their axes (2026-11-21; they sat on D-flats between "the walls": gear 60 had 11 mm free
+# ahead and 2 mm of shaft past it, the lay shaft and the crank shaft nothing stopping them, the
+# crank's pull took the shaft out through its 608s). The 608s are trapped in their pockets by
+# 1 mm lips either side; every thrust goes to an inner race through a spigot DRV_SPIGOT_D that
+# passes a lip:
+# - lay shaft: a collar behind plate A (M3 x 20 across it and the shaft) on plate A's 608, and
+#   gear 60 (M3 x 20 across a hub ahead of it) on the rim boss's 608: DRV_GAP float each;
+# - lay bevel: on the shaft's D-flat; its thrust (away from the apex) on plate A's 608, ahead of
+#   it the mesh;
+# - crank shaft: the crank bevel pinned (M3 x 20 across its hub), its thrust outboard onto the
+#   inner 608; a printed spacer between the outer 608 and the arm's hub takes the push inward.
+DRV_GAP = 0.15
+_gears_plain = [crank_gear, bevel_small, bevel_big]                       # without hubs and spigots (bracket clearance)
+_z608a = (Z_CRANK - (z_pa0 + 1.0 + CBRG_W), Z_CRANK - (z_pa0 + 1.0))       # plate A's 608 (drawn = world z)
+_z608r = (z_cboss_r0 + 1.0, z_cboss_r0 + 1.0 + CBRG_W)                    # the rim boss's 608
+_g60 = G.fuse_all([crank_gear, tube(22.0, SHAFT_D + 0.2, P1_Z1 - 0.1, P1_Z1 + G60_HUB_L, CP_C.x, CP_C.y),
+                   tube(DRV_SPIGOT_D, SHAFT_D + 0.2, _z608r[1] + DRV_GAP, P1_Z0 + 0.1, CP_C.x, CP_C.y)]).removeSplitter()
+_f60 = FA.m3("gear 60 on the lay shaft (hub)", V(CP_C.x, CP_C.y, P1_Z1 + 0.5 * G60_HUB_L), V(-1, 0, 0), [_g60, _g60],
+             clip=(-12.0, 12.0))
+crank_gear = cut_fast(_g60, [_f60], "gear 60")
+_zlc1 = _z608a[0] - 1.0 - 0.3                                            # the collar's front face, 0.3 off plate A
+lay_collar = G.fuse_all([tube(20.0, SHAFT_D + 0.1, _zlc1 - LAY_COL_L, _zlc1, CP_C.x, CP_C.y),
+                         tube(DRV_SPIGOT_D, SHAFT_D + 0.1, _zlc1 - 0.1, _z608a[0] - DRV_GAP, CP_C.x, CP_C.y)]).removeSplitter()
+_flc = FA.m3("lay shaft collar behind plate A", V(CP_C.x, CP_C.y, _zlc1 - 0.5 * LAY_COL_L), V(-1, 0, 0),
+             [lay_collar, lay_collar], clip=(-11.0, 11.0))
+lay_collar = cut_fast(lay_collar, [_flc], "lay shaft collar")
+bevel_small = G.fuse_all([bevel_small, tube(DRV_SPIGOT_D, SHAFT_D + 0.2, _z608a[1] + DRV_GAP, Z_CRANK - CB_INFO_S["mount"] + 0.1,
+                                            CP_C.x, CP_C.y)]).removeSplitter()
+pin_shaft = pin_shaft.cut(Part.makeCompound([Part.makeCylinder(1.6, 30.0, V(CP_C.x + 15.0, CP_C.y, z_), V(-1, 0, 0))
+                                             for z_ in (P1_Z1 + 0.5 * G60_HUB_L, _zlc1 - 0.5 * LAY_COL_L)]))
+_ycb_in = APEX.y - y_cb0                                                  # drawn: the boss's inner face
+_bb = G.fuse_all([bevel_big, Part.makeCylinder(DRV_SPIGOT_D / 2, (y_cb0 + 1.0 - DRV_GAP) - CB_INFO_B["mount"] + 0.1,
+                                               V(APEX.x, APEX.y - CB_INFO_B["mount"] + 0.1, Z_CRANK), V(0, -1, 0))])
+_bb = _bb.cut(Part.makeCylinder(SHAFT_D / 2 + 0.1, 40.0, V(APEX.x, APEX.y - CB_INFO_B["mount"] + 5.0, Z_CRANK), V(0, -1, 0)))
+_fcb = FA.m3("crank bevel on its shaft (hub)", V(APEX.x, APEX.y - CB_INFO_B["big_end_z"] - 0.5 * (CB_INFO_B["mount"] - CB_INFO_B["big_end_z"]),
+                                                  Z_CRANK), V(-1, 0, 0), [_bb, _bb], clip=(-13.0, 13.0))
+bevel_big = cut_fast(_bb.removeSplitter(), [_fcb], "crank bevel")
+crank_spacer = G.fuse_all([Part.makeCylinder(8.0, ck_y_hub0 - (y_cb1 + 0.3), V(APEX.x, APEX.y - (y_cb1 + 0.3), Z_CRANK), V(0, -1, 0)),
+                           Part.makeCylinder(DRV_SPIGOT_D / 2, 1.4, V(APEX.x, APEX.y - (y_cb1 - 1.0), Z_CRANK), V(0, -1, 0))])
+crank_spacer = crank_spacer.cut(Part.makeCylinder(SHAFT_D / 2 + 0.2, 40.0, V(APEX.x, APEX.y - (y_cb1 - 5.0), Z_CRANK), V(0, -1, 0))).removeSplitter()
+crank_shaft = crank_shaft.cut(Part.makeCylinder(1.6, 30.0, V(APEX.x + 15.0, _fcb.p.y, Z_CRANK), V(-1, 0, 0)))
+DRIVE_AXIAL_FAST = [_f60, _flc, _fcb]
 _drawn = {"gear": crank_gear, "lay": bevel_small, "crank": bevel_big}
 (crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings, hand_space,
- crank_arm, crank_knob, crank_knob_pin) = [
+ crank_arm, crank_knob, crank_knob_pin, lay_collar, crank_spacer) = [
     to_side(x_) for x_ in (crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket,
-                           crank_bearings, hand_space, crank_arm, crank_knob, crank_knob_pin)]
+                           crank_bearings, hand_space, crank_arm, crank_knob, crank_knob_pin, lay_collar, crank_spacer)]
 crank_parts = [("crank arm", crank_arm), ("knob", crank_knob), ("knob pin", crank_knob_pin)]
-CRANK_ARM_FAST = [FA.moved(_ck_f, lambda s_: to_side(to_drive(s_)))]
+CRANK_ARM_FAST = [FA.moved(_ck_f, lambda s_: to_side(to_drive(s_)))] + [FA.moved(f_, to_side) for f_ in DRIVE_AXIAL_FAST]
+_gears_plain = [to_side(x_) for x_ in _gears_plain]
 crank_shaft = crank_shaft.cut(to_side(_ck_shaft_hole))
 
 
 def crank_at(deg):
     """Crank arm, knob and pin turned by deg about the crank axis (world Y through z Z_CRANK)."""
     return [_rot_axis(s_, deg, V(0, 0, Z_CRANK), V(0, 1, 0)) for _, s_ in crank_parts]
-drive_parts = [(n_, to_side(s_)) for n_, s_ in drive_parts]
+drive_parts = [("crank gear (meshes the rim)", crank_gear), ("lay shaft", pin_shaft), ("lay bevel", bevel_small),
+               ("crank bevel", bevel_big), ("crank shaft", crank_shaft), ("crank brackets", crank_bracket),
+               ("crank bearings", crank_bearings), ("lay shaft collar", lay_collar), ("crank spacer", crank_spacer)]
 
 
 def drive_pose(alpha):
@@ -1398,8 +1587,16 @@ LEV_ANG, STAGE1 = 15.0, 5.0
 S_PIV, S_END, PIV_OFF = 0.12, 0.86, 13.0           # pivot at the top (behind the plate), free end by the pommel
 LEV_GAP_PIV = 7.0                                # blade off the grip by the pivot
 LEV_GAP_TOP = 26.0                               # ... and at its free end
-LUG_T, LUG_GAP, LEV_PIN_D = 4.0, 0.3, 5.0
+# The pivot (2026-11-21, it was a bare Ø5 pin pressed in 4 mm lugs): a brass tube 5 x 0.45 with
+# its ends 3 mm into counterbores in the lugs, an M3 x 50 through it clamping the lugs (and the
+# grip's two halves) onto its ends; the lever turns on the tube. 12 mm lugs give the 48.6 mm
+# stack the 50 mm bolt needs (45.6..47.6 between head and nut) with its nut in a socket.
+GRIP_LUG_T, LUG_GAP, LEV_PIN_D = 12.0, 0.3, 5.0
+LEV_TUBE_ID, LEV_TUBE_IN = 4.1, 3.0
 TAIL_W, TAIL_T = 6.0, 5.0
+# The wire's end (2026-11-21, it was only drawn into the tail): a barrel nipple Ø4 across the
+# tail's tip, as on a brake lever, in a boss with a slot toward the wire.
+NIP_D, NIP_BOSS_R, NIP_SLOT = 4.0, 5.0, 1.6
 PUSH_D, PUSH_GAP, OVERTRAVEL_MAX = 5.0, 0.5, 9.0
 DM_D, DM_L, DM_STROKE = 14.0, 18.0, 3.0           # dead-man valve body in the grip
 GATE_PIN_D, GATE_IN, GATE_CLEAR = 6.0, 5.0, 1.0
@@ -1549,6 +1746,15 @@ lever_blade = lever_blade.fuse(cyl_y(E_LEV.x, E_LEV.z, LEV_W / 2, LEV_T)).remove
 lever_0 = G.fuse_all([lever_blade, cyl_y(P_LEV.x, P_LEV.z, LEV_HUB_R, LEV_T),
                       bar_y((P_LEV.x, P_LEV.z), (TAIL_TIP.x, TAIL_TIP.z), TAIL_W, TAIL_T)])
 lever_0 = lever_0.cut(cyl_y(P_LEV.x, P_LEV.z, LEV_PIN_D / 2 + 0.1, LEV_T + 2))
+_nip_dir = P_STOP - TAIL_TIP
+_nip_dir.normalize()
+_nip_slot = Part.makeBox(NIP_BOSS_R + 2.0, TAIL_T + 2.0, NIP_SLOT, V(0, -TAIL_T / 2 - 1.0, -NIP_SLOT / 2))
+_nip_slot.rotate(O, YA, -math.degrees(math.atan2(_nip_dir.z, _nip_dir.x)))
+_nip_slot.translate(V(TAIL_TIP.x, 0, TAIL_TIP.z))
+lever_0 = lever_0.fuse(cyl_y(TAIL_TIP.x, TAIL_TIP.z, NIP_BOSS_R, TAIL_T)).cut(
+    cyl_y(TAIL_TIP.x, TAIL_TIP.z, NIP_D / 2 + 0.1, TAIL_T + 2.0)).cut(_nip_slot).removeSplitter()
+gate_nipple = cyl_y(TAIL_TIP.x, TAIL_TIP.z, NIP_D / 2, TAIL_T)
+nip_wall = NIP_BOSS_R - NIP_D / 2 - 0.1
 
 
 def lever_at(deg):
@@ -1560,12 +1766,13 @@ stage1_travel = (lever_pt(E_LEV, STAGE1) - E_LEV).Length
 # Lugs on the grip each side of the lever, pin through them.
 _lugs = []
 for _sy in (-1, 1):
-    _y0 = LEV_T / 2 + LUG_GAP if _sy > 0 else -(LEV_T / 2 + LUG_GAP + LUG_T)
-    _lug = bar_y((P_LEV.x, P_LEV.z), (_cp.x, _cp.z), 2 * LEV_HUB_R + 2.0, LUG_T)
-    _lug.translate(V(0, _y0 + LUG_T / 2, 0))
+    _y0 = LEV_T / 2 + LUG_GAP if _sy > 0 else -(LEV_T / 2 + LUG_GAP + GRIP_LUG_T)
+    _lug = bar_y((P_LEV.x, P_LEV.z), (_cp.x, _cp.z), 2 * LEV_HUB_R + 2.0, GRIP_LUG_T)
+    _lug.translate(V(0, _y0 + GRIP_LUG_T / 2, 0))
     _lugs.append(_lug)
-_pin_l = LEV_T + 2 * (LUG_GAP + LUG_T + 0.7)
-lever_pin = cyl_y(P_LEV.x, P_LEV.z, LEV_PIN_D / 2, _pin_l)
+_pin_l = LEV_T + 2 * (LUG_GAP + LEV_TUBE_IN)
+_pin_bore = cyl_y(P_LEV.x, P_LEV.z, LEV_PIN_D / 2, _pin_l)          # the tube's counterbores and the lever's bore
+lever_pin = _pin_bore.cut(cyl_y(P_LEV.x, P_LEV.z, LEV_TUBE_ID / 2, _pin_l + 2.0))
 
 # --- dead-man: a pusher on the blade's grip side, along its motion, where 5 deg of squeeze
 # makes 3 mm + 0.5 gap; checked with a probe line through the real (curved) blade.
@@ -1654,8 +1861,12 @@ for f_ in (0.08, 0.3, 0.55):
     _back.append((c_, n_, h_))
 _cab_in = [V(CABLE_HOLE[0], CABLE_HOLE[1], z_mqr_plate0 + 3.0), V(CABLE_HOLE[0] - 6.0, -8.0, z_mqr_plate0 - 10.0),
            P_STOP - _mdir * 12.0 + V(0, -4.0, 0), P_STOP]
-_out_in = [_dm_end + V(0, 5.0, 0)] + [c_ - n_ * (0.2 * h_) + V(0, 8.0, 0) for c_, n_, h_ in reversed(_back)] + \
-          [V(0, 8.0, z_mqr_plate0 - 4.0), V(0, 8.0, z_mqr_plate0 + 2.0)]
+# The outlet leaves the grip's root on +y and goes up through the plate into the 1 -> 6
+# collector beside the stator (2026-11-21; it ended in a rear port the MQR does not have).
+COLL_INLET = V(0, 43.0, 0)
+_out_grip = [_dm_end + V(0, 5.0, 0)] + [c_ - n_ * (0.2 * h_) + V(0, 8.0, 0) for c_, n_, h_ in reversed(_back)]
+_out_in = _out_grip + [V(0, 20.0, z_mqr_plate0 - 8.0), V(COLL_INLET.x, COLL_INLET.y, z_mqr_plate0 - 8.0),
+                       V(COLL_INLET.x, COLL_INLET.y, z_mqr_plate1 + 1.0)]
 _tip_p = _ce + _te * (POMMEL[0] + 2.0)
 _c85, _t85, _n85, _h85, _w85 = grip_frame(0.88)
 _c70, _t70, _n70, _h70, _w70 = grip_frame(0.70)
@@ -1665,16 +1876,18 @@ cable_in = tube_path(_cab_in, CABLE_OD / 2)
 air_supply = tube_path(_out_in, HOSE_OUT_OD / 2)
 supply_hose = Part.makeCompound([tube_path(_sup_in, SUP_IN_D / 2),
                                  Part.makeCylinder(SUPPLY_HOSE_OD / 2, 50.0, _tip_p - _te * 2.0, _te)])
-gate_wire = Part.makeCylinder(0.6, (TAIL_TIP - P_STOP).Length, P_STOP, TAIL_TIP - P_STOP)
+gate_wire = Part.makeCylinder(0.6, (TAIL_TIP - P_STOP).Length, P_STOP, TAIL_TIP - P_STOP).fuse(gate_nipple).removeSplitter()
 _channels = [tube_path(_cab_in, CABLE_OD / 2 + 0.3), tube_path(_out_in, HOSE_OUT_OD / 2 + 0.3),
              tube_path(_sup_in, SUP_IN_D / 2 + 0.3),
              Part.makeCylinder(1.5, (TAIL_TIP - P_STOP).Length + 2.0, P_STOP, TAIL_TIP - P_STOP)]
 # Slot for the tail (its swept volume + 0.5 all round).
 _tail_sw = G.fuse_all([bar_y((P_LEV.x, P_LEV.z), (lever_pt(TAIL_TIP, a_).x, lever_pt(TAIL_TIP, a_).z),
-                             TAIL_W + 1.0, TAIL_T + 1.0) for a_ in [LEV_ANG * i / 6.0 for i in range(7)]])
+                             TAIL_W + 1.0, TAIL_T + 1.0) for a_ in [LEV_ANG * i / 6.0 for i in range(7)]]
+                       + [cyl_y(lever_pt(TAIL_TIP, a_).x, lever_pt(TAIL_TIP, a_).z, NIP_BOSS_R + 0.5, TAIL_T + 1.0)
+                          for a_ in [LEV_ANG * i / 6.0 for i in range(7)]])
 grip = grip_full.fuse(_lugs)
 pommel = pommel_full.cut(grip_full)
-for _c in _channels + [_tail_sw, lever_pin]:
+for _c in _channels + [_tail_sw, _pin_bore]:
     grip = grip.cut(_c)
     pommel = pommel.cut(_c)
 grip = grip.cut(Part.makeCylinder(DM_D / 2 + 0.3, DM_L + 0.3, _body0, _face_n0))
@@ -1683,7 +1896,7 @@ grip = grip.cut(Part.makeCylinder(PUSH_D / 2 + 0.3, 30.0, _entry - _face_n0 * 10
 grip = grip.removeSplitter()
 pommel = pommel.removeSplitter()
 mqr_plate = mqr_plate.cut(Part.makeCylinder(CABLE_OD / 2 + 0.5, 20.0, V(CABLE_HOLE[0], CABLE_HOLE[1], z_mqr_plate0 - 5.0)))
-mqr_plate = mqr_plate.cut(Part.makeCylinder(HOSE_OUT_OD / 2 + 0.3, 20.0, V(0, 8.0, z_mqr_plate0 - 5.0)))   # into the stator's rear port
+mqr_plate = mqr_plate.cut(Part.makeCylinder(HOSE_OUT_OD / 2 + 0.3, 20.0, V(COLL_INLET.x, COLL_INLET.y, z_mqr_plate0 - 5.0)))   # into the collector
 # The grip (2026-11-21: it stood on the plate and ran 913 mm3 into it): its root in a cup
 # on the plate, an M3 x 50 across the cup and the wood (nut in a socket in the cup's wall).
 GRIP_CUP_L, GRIP_CUP_WALL = 10.0, 4.0
@@ -1699,8 +1912,38 @@ for _sy in (-1, 1):
     _yo = _sy * (GRIP_KEYS[0][2] + GRIP_CUP_WALL)
     CONTROL_FAST.append(FA.m3_at("grip root in the rear plate's cup", V(12.0, _yo, z_mqr_plate0 - GRIP_CUP_L / 2), V(0, -_sy, 0),
                                  0.0, 20.0 - FA.NUT_T - 1.0, 20.0, nut_slot=(ZA, GRIP_CUP_L / 2 + 1.0)))
-_hc = Part.makeCompound([f_.cutter for f_ in CONTROL_FAST])
-mqr_plate, grip = mqr_plate.cut(_hc).removeSplitter(), grip.cut(_hc).removeSplitter()
+_lug_out = LEV_T / 2 + LUG_GAP + GRIP_LUG_T
+CONTROL_FAST.append(FA.m3("lever pivot: through its tube and the grip's lugs", V(P_LEV.x, 0, P_LEV.z), V(0, -1, 0),
+                          [grip, grip], clip=(-_lug_out - 1.0, _lug_out + 1.0)))
+# The grip is two halves split at y 0 (2026-11-21): the dead-man, the cable and the hoses lie in
+# the channels between them, which one piece of wood could not take. The pivot's bolt and an
+# M3 x 20 across the grip in its upper and its lower half (each where its wells clear every
+# channel by GRIP_BOLT_CLEAR) clamp the halves.
+GRIP_BOLT_CLEAR = 1.5
+_gch = Part.makeCompound(_channels + [_tail_sw, Part.makeCylinder(DM_D / 2 + 0.3, DM_L + 0.3, _body0, _face_n0),
+                                      Part.makeCylinder(PUSH_D / 2 + 0.3, 30.0, _entry - _face_n0 * 10.0, _face_n0)])
+GRIP_BOLTS = []
+for _band in ((0.30, 0.36, 0.42, 0.48), (0.62, 0.68, 0.74, 0.80)):
+    _best = None
+    for _f in _band:
+        _c, _t, _n, _h, _w = grip_frame(_f)
+        for _k in (-0.45, -0.3, -0.15, 0.0, 0.15, 0.3, 0.45):
+            try:
+                _gb = FA.m3("grip halves", _c + _n * (_k * _h), V(0, -1, 0), [grip, grip], L=20.0, clip=(-_w - 2.0, _w + 2.0))
+            except ValueError:
+                continue
+            _d = _gb.cutter.distToShape(_gch)[0]
+            if _best is None or _d > _best[0]:
+                _best = (_d, _f, _k, _gb)
+    GRIP_BOLTS.append(_best)
+CONTROL_FAST += [b_[3] for b_ in GRIP_BOLTS]
+grip_bolt_clear = min(b_[0] for b_ in GRIP_BOLTS)
+mqr_plate, grip = cut_fast(mqr_plate, CONTROL_FAST, "rear plate"), cut_fast(grip, CONTROL_FAST, "grip")
+_gy = Part.makeBox(600, 300, 800, V(-300, 0, z_mqr_plate0 - 700))
+grip_r = grip.common(_gy).removeSplitter()
+_gy.translate(V(0, -300, 0))
+grip_l = grip.common(_gy).removeSplitter()
+grip = Part.makeCompound([grip_r, grip_l])
 # MQR stator on the plate: its own 4 x M4 DP10 on Ø38 (bought thread), through the plate.
 for _k in range(4):
     _p = polar(19.0, 45.0 + 90.0 * _k, z_mqr_plate0)
@@ -1710,6 +1953,37 @@ for _k in range(4):
                        Part.makeCylinder(3.5, 4.0, V(_p.x, _p.y, z_mqr_plate0 - 4.0)))))
 mqr_plate = mqr_plate.removeSplitter()
 lever = lever_at(0.0)
+# --- collector 1 -> 6 (2026-11-21, owner): the MQR6's stator has six M5 ports and no common
+# one. A bought aluminium manifold (G1/8 in from below, six M5 out on top, est. 64 x 16 x 10)
+# on a tab of the rear plate on +y, 2 x M3 x 20 through its own holes (nuts on the tab's rear
+# face). PU 4 x 2.5 hoses run up and over to M5 push-in fittings in the stator's ports. The
+# ports' row (pitch 8.2, docs/img/mqr6_dims.png) is assumed on +y, centred on the stator's
+# body, until the MQR6 is here; each hose takes a port so no hose crosses another.
+COLL_X, COLL_Y0, COLL_Y1, COLL_H = 24.0, 35.0, 51.0, 10.0
+COLL_PITCH, COLL_OUT_Y, COLL_FIT_D, COLL_FIT_H = 7.0, 40.0, 7.0, 8.0
+MQR_PORT_PITCH, MQR_FIT_D, MQR_FIT_L, COLL_HOSE_OD = 8.2, 7.0, 10.0, 4.0
+_zc0, _zc1 = z_mqr_plate1, z_mqr_plate1 + COLL_H
+coll_tab = Part.makeBox(2 * COLL_X, COLL_Y1 + 7.0 - 40.0, z_mqr_plate1 - z_mqr_plate0, V(-COLL_X, 40.0, z_mqr_plate0))
+mqr_plate = mqr_plate.fuse(coll_tab).cut(Part.makeCylinder(HOSE_OUT_OD / 2 + 0.3, 20.0, V(COLL_INLET.x, COLL_INLET.y,
+                                                                                       z_mqr_plate0 - 5.0))).removeSplitter()
+collector = Part.makeBox(2 * COLL_X, COLL_Y1 - COLL_Y0, COLL_H, V(-COLL_X, COLL_Y0, _zc0))
+_xo = [s_ * COLL_PITCH * (i_ + 0.5) for i_ in range(3) for s_ in (-1, 1)]            # inner outlets first
+_zp = [0.5 * (z_stator0 + z_stator1) + (k_ - 2.5) * MQR_PORT_PITCH for k_ in range(N)]
+_fits = [Part.makeCylinder(COLL_FIT_D / 2, COLL_FIT_H, V(x_, COLL_OUT_Y, _zc1)) for x_ in _xo]
+_fits += [Part.makeCylinder(MQR_FIT_D / 2, MQR_FIT_L, V(0, MQR_D / 2 - 1.0, z_), YA) for z_ in _zp]
+coll_fittings = Part.makeCompound(_fits)
+_hz0 = _zc1 + COLL_FIT_H - 1.0
+coll_hoses = []
+for x_, z_ in zip(_xo, _zp):
+    _pts = [V(x_, COLL_OUT_Y, _hz0), V(x_, COLL_OUT_Y, max(z_, _hz0 + 4.0)), V(0, MQR_D / 2 - 1.0 + MQR_FIT_L + 5.0, z_),
+            V(0, MQR_D / 2 - 1.0 + MQR_FIT_L - 1.0, z_)]
+    coll_hoses.append(G.fuse_all(tube_path(_pts, COLL_HOSE_OD / 2).Solids).removeSplitter())
+coll_hoses = Part.makeCompound(coll_hoses)
+COLL_FAST = [FA.m3("collector on the rear plate's tab", V(s_ * 10.5, 47.5, _zc1 + 1.0), V(0, 0, -1), [collector, mqr_plate],
+                   head_on_face=True, nut_on_face=True, clip=(0.5, COLL_H + 7.5)) for s_ in (-1, 1)]
+collector, mqr_plate = cut_fast(collector, COLL_FAST, "collector"), cut_fast(mqr_plate, COLL_FAST, "rear plate")
+CONTROL_FAST += COLL_FAST
+coll_hose_gap = min(gap(a_, b_) for i_, a_ in enumerate(coll_hoses.Solids) for b_ in coll_hoses.Solids[i_ + 1:])
 hand_left = tube_path([grip_frame(f_)[0] for f_ in (0.32, 0.5, 0.66, 0.78)], 36.0)
 
 # --- feed gate: a pin across the neck from aft, spring-closed, pulled out by the cable
@@ -1727,6 +2001,14 @@ _cav0, _cav1 = z_gh0 + 3.0, z_neck_aft - 2.0
 gate_housing = gate_housing.cut(Part.makeCylinder(5.0, _cav1 - _cav0, V(x_gate, 0, _cav0)))
 gate_housing = gate_housing.cut(Part.makeCylinder(GATE_PIN_D / 2 + 0.15, 10.0, V(x_gate, 0, _cav1 - 1.0)))
 gate_housing = gate_housing.cut(Part.makeCylinder(1.0, 5.0, V(x_gate, 0, z_gh0 - 1.0))).removeSplitter()
+# The Bowden housing's end (2026-11-21, it stood on the housing's flat bottom): a seat GATE_SEAT
+# deep in a boss under the housing. The other end sits on the channel's shoulder at the stop in
+# the grip, so the housing lies between two seats and cannot leave either.
+GATE_SEAT = 5.0
+gate_housing = gate_housing.fuse(Part.makeBox(2 * GATE_HW - 4.0, 2 * GATE_HW - 4.0, GATE_SEAT + 1.0,
+                                              V(x_gate - GATE_HW + 2.0, -GATE_HW + 2.0, z_gh0 - GATE_SEAT - 1.0)))
+gate_housing = gate_housing.cut(Part.makeCylinder(CABLE_OD / 2 + 0.2, GATE_SEAT + 1.0, V(x_gate, 0, z_gh0 - GATE_SEAT - 2.0)))
+gate_housing = gate_housing.cut(Part.makeCylinder(1.0, 5.0, V(x_gate, 0, z_gh0 - 2.0))).removeSplitter()
 feed_head = feed_head.cut(Part.makeCylinder(GATE_PIN_D / 2 + 0.15, NECK_OR - NECK_R + 2.0,
                                             V(x_gate, 0, z_neck_aft - 1.0)))
 # The housing is glued onto the neck and the shroud's side wall below it: it takes
@@ -1743,8 +2025,8 @@ CUP_FAST = [FA.m3_at("cup on the feed head, through the gate housing", V(_cupf, 
                      0.0, 20.0 - FA.NUT_T - 1.0, 20.0, nut_slot=(V(0, 1, 0), GATE_HW + 1.0)),
             FA.m3("cup on the feed head", V(_cupf, 0, Z_NECK + CUP_BOLT_R), V(-1, 0, 0), [feed_cup, feed_head],
                   head_on_face=True, nut_on_face=True, clip=(-0.01, 25.0))]
-_uc = Part.makeCompound([f_.cutter for f_ in CUP_FAST])
-feed_cup, feed_head, gate_housing = [x_.cut(_uc).removeSplitter() for x_ in (feed_cup, feed_head, gate_housing)]
+feed_cup, feed_head, gate_housing = [cut_fast(x_, CUP_FAST, n_) for x_, n_ in
+                                     ((feed_cup, "cup"), (feed_head, "feed head"), (gate_housing, "gate housing"))]
 gate_housing = Part.makeCompound([s_ for s_ in gate_housing.Solids if s_.Volume > 50.0]) \
     if len(gate_housing.Solids) > 1 else gate_housing
 
@@ -1764,7 +2046,7 @@ gate_pin_open, gate_spring_open, gate_spring_opened = gate_at(True)
 # Cable: housing from the gate along the top, left of the strap loop, round the rear
 # bearing disk, through the rear plate (outside the stator) into the grip, down its
 # back to the stop in the pommel; the wire runs to the lever's tail.
-_cab_ex = [V(x_gate, 0, z_gh0), V(x_gate, 0, z_gh0 - 15.0), V(128.0, -30.0, z_gh0 - 70.0),
+_cab_ex = [V(x_gate, 0, z_gh0 - 1.0), V(x_gate, 0, z_gh0 - 15.0), V(128.0, -30.0, z_gh0 - 70.0),
            V(122.0, -30.0, -120.0), V(122.0, -30.0, z_brg_r0 - 20.0), V(92.0, -18.0, z_mqr_plate1 + 25.0),
            V(CABLE_HOLE[0], CABLE_HOLE[1], z_mqr_plate1 + 10.0), _cab_in[0]]
 cable_ex = tube_path(_cab_ex, CABLE_OD / 2)
@@ -1826,9 +2108,8 @@ LINER_FAST = []
 for w, za, zb in _split_bands:
     _p = wpt(r_case_od + SPLIT_LUG_H / 2, w, 0.5 * (za + zb))
     LINER_FAST.append(FA.m3("liner halves", _p, V(0, -1, 0), [cam_r, cam_l], clip=(-SPLIT_LUG_W / 2 - 1, SPLIT_LUG_W / 2 + 1)))
-_lc = Part.makeCompound([f_.cutter for f_ in LINER_FAST])
-cam_r, cam_l = cam_r.cut(_lc).removeSplitter(), cam_l.cut(_lc).removeSplitter()
-cam = cam.cut(_lc).removeSplitter()
+cam_r, cam_l = cut_fast(cam_r, LINER_FAST, "liner right"), cut_fast(cam_l, LINER_FAST, "liner left")
+cam = cut_fast(cam, LINER_FAST, "liner")
 liner_halves_ok = len(cam_r.Solids) == 1 and len(cam_l.Solids) == 1
 
 # --- front ring, bearing disks, the housing, the box: lugs
@@ -1847,29 +2128,67 @@ for w, za, zb in GUARD_WEBS:
     _zb = 0.5 * (max(za, Z_FRING0) + min(zb, Z_FRING1))
     FEED_FAST.append(FA.m3_at("guard web on the front ring", wpt(r_case_od, w, _zb), wpt(-1.0, w), 0.0,
                               20.0 - FA.NUT_T - 1.0, 20.0, nut_slot=(wpt(1.0, w + 90.0), 6.5)))
-_gc = Part.makeCompound([f_.cutter for f_ in FEED_FAST])
-feed_guard, pack_frame = feed_guard.removeSplitter().cut(_gc).removeSplitter(), pack_frame.cut(_gc).removeSplitter()
+feed_guard, pack_frame = cut_fast(feed_guard.removeSplitter(), FEED_FAST, "guard"), cut_fast(pack_frame, FEED_FAST, "front ring")
 feed_guard = feed_guard.cut(tube(2 * r_case_od + 2.0, 2 * r_case_id, Z_FRING0 - 1.0, Z_FRING1 + 1.0)).removeSplitter()   # webs' corners off the ring
 # --- the feed head (2026-11-21: it stood in a notch of the front ring): a boss on its web
 # where the web crosses the ring (-26 deg), an M3 x 20 radially from the ring's outer face.
 HEAD_WEB_W = -26.0
 _hb = Part.makeBox(r_case_id - 0.05 - 90.0, 9.0, 8.0, V(90.0, -4.5, 200.0))
 _hb.rotate(O, ZA, HEAD_WEB_W)
-feed_head = feed_head.fuse(_hb.cut(tube(2 * r_case_od + 2.0, 2 * r_case_id, Z_FRING0 - 1.0, Z_FRING1 + 1.0))).removeSplitter()
+feed_head = fuse_sound(feed_head, _hb.cut(tube(2 * r_case_od + 2.0, 2 * r_case_id, Z_FRING0 - 1.0, Z_FRING1 + 1.0)),
+                       "feed head + its web boss (fuse)")
 FEED_FAST.append(FA.m3_at("feed head web on the front ring", wpt(r_case_od, HEAD_WEB_W, 204.0), wpt(-1.0, HEAD_WEB_W),
                           0.0, 20.0 - FA.NUT_T - 1.0, 20.0, nut_slot=(wpt(1.0, HEAD_WEB_W + 90.0), 6.0)))
-feed_head, pack_frame = feed_head.cut(FEED_FAST[-1].cutter).removeSplitter(), pack_frame.cut(FEED_FAST[-1].cutter).removeSplitter()
-# --- the star's shaft (D-flat, the star and its gear keyed on it): a collar between the star
-# and the front ring, an M3 x 20 across it and the drilled shaft (the shaft could slide aft).
-z_scol0, z_scol1 = star0.BoundBox.ZMax + 1.5, Z_FRING0 - 1.5
+feed_head, pack_frame = cut_fast(feed_head, FEED_FAST[-1:], "feed head"), cut_fast(pack_frame, FEED_FAST[-1:], "front ring")
+# --- the star's shaft (2026-11-21). It turned in printed holes and in a slot through the front
+# ring (the shaft's hole was wider than the ring's 4 mm wall: the ring was cut through at the
+# top), nothing stopped it aft, and the star was 7 mm loose on its D-flat. Now a pad closes the
+# ring at the top and takes the locating 608: in from behind, the pad's floor ahead, a cover
+# behind on 2 x M3 x 20 (heads on the cover, nuts on the pad's front face). The star is pinned
+# to the shaft by an M3 x 20 across its hub (the old collar, one print with the star); the
+# hub's spigot and a steel spacer 10 x 1 through the floor clamp the 608's inner race with a
+# collar ahead of the pad (M3 x 20 across it and the shaft), STAR_SPIGOT_GAP of float. The
+# other 608 floats in the box's rear plate (train section).
+COVER_T, STAR_SPIGOT_GAP = 3.0, 0.15
+PAD_X0, PAD_X1, PAD_Y = 95.0, 124.0, 19.0
+z_sf = star0.BoundBox.ZMax                                     # the star's front face
+z_hub1 = Z_FRING0 - COVER_T - TRAIN_GAP
+z_scol0, z_scol1 = Z_FRING1 + TRAIN_GAP, BOX_Z0 - TRAIN_GAP     # the collar, between the pad and the box
+_pad = Part.makeBox(PAD_X1 - PAD_X0, 2 * PAD_Y, Z_FRING1 - Z_FRING0, V(PAD_X0, -PAD_Y, Z_FRING0))
+pack_frame = pack_frame.fuse(_pad).cut(feed_head).removeSplitter()
+pack_frame = pack_frame.cut(Part.makeCylinder(SB_OD / 2 + 0.1, SB_W + 1.0, V(S_C.x, S_C.y, Z_FRING0 - 1.0)))
+pack_frame = pack_frame.cut(Part.makeCylinder(5.5, 40.0, V(S_C.x, S_C.y, Z_FRING0 - 10.0))).removeSplitter()
+star_brg_pad = tube(SB_OD, SHAFT_D, Z_FRING0, Z_FRING0 + SB_W, S_C.x, S_C.y)
+star_bearings = Part.makeCompound([star_brg_pad, star_brg_box])
+star_spacer = tube(10.0, SHAFT_D, Z_FRING0 + SB_W, z_scol0, S_C.x, S_C.y)
+_cov_b = [V(S_C.x + 7.5, s_ * 13.0, 0) for s_ in (-1, 1)]
+star_cover = G.fuse_all([Part.makeCylinder(12.0, COVER_T, V(S_C.x, S_C.y, Z_FRING0 - COVER_T)),
+                         Part.makeBox(7.5, 26.0, COVER_T, V(S_C.x, -13.0, Z_FRING0 - COVER_T))]
+                        + [Part.makeCylinder(5.0, COVER_T, V(q_.x, q_.y, Z_FRING0 - COVER_T)) for q_ in _cov_b])
+star_cover = star_cover.cut(Part.makeCylinder(7.5, 10.0, V(S_C.x, S_C.y, Z_FRING0 - 5.0))).removeSplitter()
+STAR_FAST = [FA.m3("star bearing cover on the front ring's pad", V(q_.x, q_.y, Z_FRING0 - COVER_T - 1.0), ZA,
+                   [star_cover, pack_frame], head_on_face=True, nut_on_face=True, clip=(0.5, COVER_T + 14.0 + 1.5))
+             for q_ in _cov_b]
+star_cover, pack_frame = cut_fast(star_cover, STAR_FAST, "star bearing cover"), cut_fast(pack_frame, STAR_FAST, "front ring")
+star_hub = G.fuse_all([tube(20.0, SHAFT_D + 0.2, z_sf - 0.1, z_hub1, S_C.x, S_C.y),
+                       tube(10.0, SHAFT_D + 0.2, z_hub1 - 0.1, Z_FRING0 - STAR_SPIGOT_GAP, S_C.x, S_C.y)]).removeSplitter()
+STAR_FAST.append(FA.m3("star on its shaft (hub)", V(S_C.x, S_C.y + 10.0, 0.5 * (z_sf + z_hub1)), V(0, -1, 0),
+                       [star_hub, star_hub], clip=(-0.01, 20.01)))
+star_hub = cut_fast(star_hub, STAR_FAST[-1:], "star hub")
+STAR_HUB_BODY = Part.makeCompound([star_hub, STAR_FAST[-1].body])
+star0 = fuse_sound(star0, star_hub, "star + its hub")
 star_collar = Part.makeCylinder(10.0, z_scol1 - z_scol0, V(S_C.x, S_C.y, z_scol0)).cut(
     Part.makeCylinder(SHAFT_D / 2 + 0.1, 50.0, V(S_C.x, S_C.y, z_scol0 - 10.0)))
-FEED_FAST.append(FA.m3("star shaft collar", V(S_C.x, S_C.y + 10.0, 0.5 * (z_scol0 + z_scol1)), V(0, -1, 0),
+STAR_FAST.append(FA.m3("star shaft collar", V(S_C.x, S_C.y + 10.0, 0.5 * (z_scol0 + z_scol1)), V(0, -1, 0),
                        [star_collar, star_collar], clip=(-0.01, 20.01)))
-star_collar = star_collar.cut(FEED_FAST[-1].cutter).removeSplitter()
-star_shaft = star_shaft.cut(Part.makeCylinder(1.6, 24.0, V(S_C.x, S_C.y + 12.0, 0.5 * (z_scol0 + z_scol1)), V(0, -1, 0)))
+star_collar = cut_fast(star_collar, STAR_FAST[-1:], "star shaft collar")
+for _zc in (0.5 * (z_sf + z_hub1), 0.5 * (z_scol0 + z_scol1)):
+    star_shaft = star_shaft.cut(Part.makeCylinder(1.6, 24.0, V(S_C.x, S_C.y + 12.0, _zc), V(0, -1, 0)))
+FEED_FAST += STAR_FAST
 # --- gears A and B are one print (the cluster turns on a fixed layshaft pin)
-gear_ab = G.fuse_all([gear_a, gear_b, tube(20.0, SHAFT_D + 0.2, P1_Z1 - 0.5, P2_Z0 + 0.5, L_C.x, L_C.y)]).removeSplitter()
+gear_ab = G.fuse_all([gear_a, gear_b, tube(20.0, SHAFT_D + 0.2, P1_Z1 - 0.5, P2_Z0 + 0.5, L_C.x, L_C.y),
+                      tube(20.0, SHAFT_D + 0.2, _cav_r + TRAIN_GAP, P1_Z0 + 0.1, L_C.x, L_C.y),
+                      tube(20.0, SHAFT_D + 0.2, P2_Z1 - 0.1, _cav_f - TRAIN_GAP, L_C.x, L_C.y)]).removeSplitter()
 _ec = {"brg_r": (z_brg_r0, z_brg_r1), "brg_f": (z_brg_f0, z_brg_f1), "liner_r": (z_lr0, z_lr1),
        "liner_f": (z_lf0, z_lf1), "fring": (Z_FRING0, Z_FRING1), "housing": (z_brg0 - 3.0, z_brg1 + 3.0),
        "box": (BOX_Z0, P1_Z0 - 1.0)}
@@ -1906,19 +2225,25 @@ for _sx in (-4.5, 4.5):
     _p = V(_sx, 111.0 * CRANK_SIDE, z_cboss_r1)
     CRANK_FAST.append(FA.m3("gear-60 bracket foot on the front ring", _p, V(0, 0, -1), [_prm, pack_frame],
                             clip=(-0.01, z_cboss_r1 - Z_FRING0 + 0.01)))
-_kc = Part.makeCompound([f_.cutter for f_ in CRANK_FAST])
-_prm, pack_frame = _prm.cut(_kc).removeSplitter(), pack_frame.cut(_kc).removeSplitter()
+_prm, pack_frame = cut_fast(_prm, CRANK_FAST, "gear-60 bracket"), cut_fast(pack_frame, CRANK_FAST, "front ring")
 for w in (150.0, 210.0, 270.0):
     FRAME_STUDS.append(stud_through("bay 2+3 %.0f (liner front, front ring, bearing housing)" % w, w,
                                     ["liner_f", "fring", "housing"]))
 FRAME_STUDS.append(stud_through("bay 3 300 (front ring, bearing housing)", 300.0, ["fring", "housing"]))
+# The box stands on the front ring on a boss round each tie: the ring and the box are clamped
+# between the ring's rear nut and the nut sunk in the box. Until 2026-11-21 a nut and washer sat
+# on either face of the 8.4 mm gap between them: two stacks of 6.6 in one place, 4.8 mm deep in
+# each other.
 _box_sock = []
 for w in BOX_TIES:
     _zf = P1_Z0 - 1.0
     FRAME_STUDS.append(stud_through("front ring to the star-drive box %.0f" % w, w, ["fring", "box"],
-                                    nuts=[(Z_FRING0, -1), (Z_FRING1, +1), (BOX_Z0, -1), (_zf - NUT_STACK - 0.5, +1)]))
+                                    nuts=[(Z_FRING0, -1), (_zf - NUT_STACK - 0.5, +1)]))
     _box_sock.append(Part.makeCylinder(FA.M6_WASHER_D / 2 + 0.8, NUT_STACK + 2.0, wpt(STUD_R, w, _zf - NUT_STACK - 0.5)))
+gearbox = gearbox.fuse(Part.makeCompound([Part.makeCylinder(STUD_LUG_D / 2, BOX_Z0 - Z_FRING1 + 0.5, wpt(STUD_R, w, Z_FRING1))
+                                          for w in BOX_TIES])).removeSplitter()
 gearbox = gearbox.cut(Part.makeCompound(_box_sock)).removeSplitter()
+box_tie_gap = BOX_Z0 - Z_FRING1
 # rear struts: inclined M6 studs from the rear 6808 disk to the rear plate, bosses square to them
 STRUT_BOSS_D, STRUT_BOSS_L = 16.0, 8.0
 _sb_d, _sb_p = [], []
@@ -1941,11 +2266,14 @@ for w in STRUT_ANGLES:
 brg_r = brg_r.fuse(Part.makeCompound(_sb_d)).removeSplitter()
 mqr_plate = mqr_plate.fuse(Part.makeCompound(_sb_p)).removeSplitter()
 rear_struts = Part.makeCompound([f_.body for f_ in FRAME_STUDS if f_.name.startswith("rear strut")])
-_scut = Part.makeCompound([f_.cutter for f_ in FRAME_STUDS])
-cam, cam_r, cam_l, cam_outside = [x_.cut(_scut).removeSplitter() for x_ in (cam, cam_r, cam_l, cam_outside)]
-pack_frame, brg_f, brg_r, mqr_plate = [x_.cut(_scut).removeSplitter() for x_ in (pack_frame, brg_f, brg_r, mqr_plate)]
-brg_housing, brg_ret_out, gearbox = [x_.cut(_scut).removeSplitter() for x_ in (brg_housing, brg_ret_out, gearbox)]
-_pa, _prm = _pa.cut(_scut).removeSplitter(), _prm.cut(_scut).removeSplitter()
+cam, cam_r, cam_l, cam_outside = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in
+                                   ((cam, "liner"), (cam_r, "liner right"), (cam_l, "liner left"), (cam_outside, "liner outside"))]
+pack_frame, brg_f, brg_r, mqr_plate = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in
+                                       ((pack_frame, "front ring"), (brg_f, "front 6808 disk"), (brg_r, "rear 6808 disk"),
+                                        (mqr_plate, "rear plate"))]
+brg_housing, brg_ret_out, gearbox = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in
+                                     ((brg_housing, "bearing housing"), (brg_ret_out, "outer race retainer"), (gearbox, "gearbox"))]
+_pa, _prm = cut_fast(_pa, FRAME_STUDS, "crank plate A"), cut_fast(_prm, FRAME_STUDS, "gear-60 bracket")
 crank_bracket = Part.makeCompound([_pa, _prm])
 drive_parts = [(n_, crank_bracket if n_ == "crank brackets" else s_) for n_, s_ in drive_parts]
 frame_studs = Part.makeCompound([f_.body for f_ in FRAME_STUDS])
@@ -1967,7 +2295,8 @@ PRINT_PROFILE = {"strong": (0.60, 1.00), "airtight": (1.00, 1.05)}
 MS_EST = {"AirTAC M3R110": 60.0, "AirTAC fittings (2 straight + silencer)": 17.0, "pilot fitting G1/8": 8.0,
           "O-rings, M3 nuts and washers": 7.0, "6808": 26.0, "608": 12.0, "MQR6 clone (Ø46 x 90 Al)": 350.0,
           "dead-man 2/2 NC": 20.0, "brass pommel (cast shell ~1.5 mm)": 80.0,
-          "61836 (180 x 225 x 22)": 1750.0}
+          "61836 (180 x 225 x 22)": 1750.0, "collector 1->6 (Al 64 x 16 x 10)": 30.0,
+          "push-in fittings M5 x 12": 36.0}
 MS_BOWDEN_G_PER_M = 25.0                         # 5 mm bicycle brake housing, est.
 QEV_MAT = {"Rear_plug": "airtight", "Seat_ring": "airtight", "Front_cover": "airtight", "Diaphragm": "rubber",
            "Front_yoke": "strong", "Barrel_stub": "steel", "Chamber_tube": "Al", "Tie_rods": "steel",
@@ -2046,18 +2375,29 @@ for _mn, _ms, _mm in (("gear 60", crank_gear, "strong"), ("lay bevel", bevel_sma
     ms_add("pack drive", _mn, _ms, _mm)
 for _ms in crank_bearings.Solids:
     ms_add("pack drive", "608", _ms, "608")
-# Bearing disks: the 6808 is fused into each printed disk; weigh the race apart.
+for _mn, _ms, _mm in (("lay shaft collar", lay_collar, "strong"), ("crank spacer", crank_spacer, "strong")):
+    ms_add("pack drive", _mn, _ms, _mm)
+for _ms in star_bearings.Solids:
+    ms_add("star drive", "608", _ms, "608")
+for _mn, _ms, _mm in (("star bearing cover", star_cover, "strong"), ("star shaft collar", star_collar, "strong"),
+                      ("star shaft spacer 10 x 1", star_spacer, "steel")):
+    ms_add("star drive", _mn, _ms, _mm)
+# Bearing disks; the 6808 races are their own bodies (2026-11-21).
 for _mn, _ms, _z0 in (("front bearing disk", brg_f, z_brg_f0), ("rear bearing disk, rear spars", brg_r, z_brg_r0)):
-    _mrace = G.cyl(BRG_OD, _z0, _z0 + DISK_T)
-    ms_add("air", _mn, _ms.cut(_mrace), "strong")
-    ms_add("air", "6808", _ms.common(_mrace), "6808")
+    ms_add("air", _mn, _ms, "strong")
+for _ms in (race_f, race_r):
+    ms_add("air", "6808", _ms, "6808")
+ms_add("air", "6808 retainers", Part.makeCompound([brg6808_ret, brg6808_ret_r]), "strong")
 for _mn, _ms, _mm in (("axle Al 38 x 1.5", pack_axle, "Al"), ("soft coupling", soft_coup, "TPU"),
                       ("axle collars", axle_collars, "strong"),
                       ("rear plate", mqr_plate, "strong"), ("struts", rear_struts, "strong")):
     ms_add("air", _mn, _ms, _mm)
 ms_add("air", "MQR6", Part.makeCompound([mqr_rotor, mqr_stator]), "MQR6 clone (Ø46 x 90 Al)")
+ms_add("air", "collector 1->6", collector, "collector 1->6 (Al 64 x 16 x 10)")
+ms_add("air", "collector fittings", coll_fittings, "push-in fittings M5 x 12")
+ms_hose("air", "collector hoses 4 x 2.5", coll_hoses, COLL_HOSE_OD, 2.5)
 ms_hose("air", "lines in the axle", lines_inner, HOSE_OD, HOSE_ID)
-for _mn, _ms, _mm in (("grip (wood)", grip, "wood"), ("lever", lever, "strong"), ("lever pin", lever_pin, "steel"),
+for _mn, _ms, _mm in (("grip (wood)", grip, "wood"), ("lever", lever, "strong"), ("lever pivot tube 5 x 0.45", lever_pin, "brass"),
                       ("pusher", dm_pusher, "steel"), ("gate wire", gate_wire, "steel")):
     ms_add("controls", _mn, _ms, _mm)
 ms_add("controls", "pommel", pommel, "brass pommel (cast shell ~1.5 mm)")
@@ -2082,7 +2422,7 @@ FASTENERS = ([FA.moved(f_, (lambda k_: (lambda s_: place(s_, k_ * 60.0, cam_dz(k
              + [FA.moved(f_, (lambda k_: (lambda s_: place(s_, k_ * 60.0)))(k), "%s, st %d" % (f_.name, k + 1))
                 for k in range(N) for f_ in PK_FAST]
              + HUB_FAST + AIR_FAST + PLATE_FAST + LINER_FAST + RAMP_FAST + FEED_FAST + CRANK_FAST + CRANK_ARM_FAST
-             + CUP_FAST + CONTROL_FAST + FRAME_STUDS)
+             + CUP_FAST + CONTROL_FAST + [IDL_FAST] + FRAME_STUDS)
 for f_ in FASTENERS:
     mass_rows.append(("fasteners", f_.name, f_.mass, ms_com(f_.body), "steel"))
 for n_, b_ in M4_EXC:
@@ -2142,10 +2482,10 @@ for _sy in (-1, 1):
     _g = 20.0 - FA.NUT_T - 1.0
     CARRY_FAST.append(FA.m3_at("carry post on the bearing housing", V(_topf, _yb, z_post_f), V(-1, 0, 0), 0.0, _g, 20.0,
                                nut_slot=(V(0, 0, 1), z_brg1 + 3.0 - z_post_f + 1.0)))
-_cc = Part.makeCompound([f_.cutter for f_ in CARRY_FAST])
-carry_handle = carry_handle.cut(_cc).removeSplitter()
-cam, cam_r, cam_l, cam_outside = [x_.cut(_cc).removeSplitter() for x_ in (cam, cam_r, cam_l, cam_outside)]
-brg_housing = brg_housing.cut(_cc).removeSplitter()
+carry_handle = cut_fast(carry_handle, CARRY_FAST, "carry handle")
+cam, cam_r, cam_l, cam_outside = [cut_fast(x_, CARRY_FAST, n_) for x_, n_ in
+                                   ((cam, "liner"), (cam_r, "liner right"), (cam_l, "liner left"), (cam_outside, "liner outside"))]
+brg_housing = cut_fast(brg_housing, CARRY_FAST, "bearing housing")
 _sl = []
 for _zs, _xs in ((z_post_r, r_case_od + CARRY_BASE_T + SLING_WIRE + 1.0), (z_post_f, HOUS_RO + CARRY_BASE_T + SLING_WIRE + 1.0)):
     _t = Part.makeTorus(SLING_R, SLING_WIRE)
@@ -2190,10 +2530,10 @@ for _sy in (-1, 1):
                              clip=(-0.01, 60.0)))
     TRIPOD_FAST.append(FA.m3("keel on the front ring", V(x_keel_out, _yb, 0.5 * (Z_FRING0 + Z_FRING1)), V(1, 0, 0),
                              [tripod_pad, pack_frame], nut_on_face=True, clip=(-0.01, 40.0)))
-_tc = Part.makeCompound([f_.cutter for f_ in TRIPOD_FAST])
-tripod_pad = tripod_pad.cut(_tc).removeSplitter()
-cam, cam_r, cam_l, cam_outside = [x_.cut(_tc).removeSplitter() for x_ in (cam, cam_r, cam_l, cam_outside)]
-pack_frame = pack_frame.cut(_tc).removeSplitter()
+tripod_pad = cut_fast(tripod_pad, TRIPOD_FAST, "keel")
+cam, cam_r, cam_l, cam_outside = [cut_fast(x_, TRIPOD_FAST, n_) for x_, n_ in
+                                   ((cam, "liner"), (cam_r, "liner right"), (cam_l, "liner left"), (cam_outside, "liner outside"))]
+pack_frame = cut_fast(pack_frame, TRIPOD_FAST, "front ring")
 frame_all = Part.makeCompound([pack_frame, frame_studs])
 TRIPOD_MOUTH_D = 2.0 * math.sqrt(TRIPOD_SOCKET_R ** 2 - (TRIPOD_SOCKET_R - TRIPOD_SOCKET_DEPTH) ** 2)
 _tb = Part.makeSphere(TRIPOD_BALL_D / 2, P_BALL).fuse(
@@ -2240,10 +2580,10 @@ for _i in range(7):
 lever_closed = gap(turn_y(lever_blade, P_LEV, SQ * LEV_ANG), grip_full)   # the blade; the tail lives in its slot
 push_released = gap(lever_at(0.0), dm_pusher)
 grip_on_plate = gap(grip, mqr_plate)
-grip_one = len(grip.Solids) == 1
+grip_one = len(grip.Solids) == 2 and all(s_.isValid() for s_ in grip.Solids)      # two halves
 _skin = Part.makeCompound([f_ for f_ in grip_full.Faces if f_.Surface.__class__.__name__ != "Plane"])
 _walls = [(n_, tube_path(pts_, r_).distToShape(_skin)[0])
-          for n_, pts_, r_ in (("cable", _cab_in[1:], CABLE_OD / 2 + 0.3), ("outlet", _out_in[1:-2], HOSE_OUT_OD / 2 + 0.3),
+          for n_, pts_, r_ in (("cable", _cab_in[1:], CABLE_OD / 2 + 0.3), ("outlet", _out_grip[1:], HOSE_OUT_OD / 2 + 0.3),
                                ("valve", [_body0, _dm_end], DM_D / 2 + 0.3))]
 chan_wall = min(w_ for _, w_ in _walls)
 _wall_worst = min(_walls, key=lambda x_: x_[1])[0]
@@ -2271,7 +2611,15 @@ _cable_fixed = [("liner", cam_outside), ("frame", frame_all), ("bearing disks", 
                 ("feed cup", feed_cup), ("star", star0)]
 cable_gap, cable_near = min((gap(cable_ex, s_, pad=5.0), n_) for n_, s_ in _cable_fixed)
 _hand_l_gun = [("plate", mqr_plate), ("struts", rear_struts), ("stator", mqr_stator), ("cable", cable_ex),
-               ("bearing disk", brg_r), ("receiver hose", supply_hose.Solids[-1])]
+               ("bearing disk", brg_r), ("receiver hose", supply_hose.Solids[-1]),
+               ("collector and its hoses", Part.makeCompound([collector, coll_fittings, coll_hoses]))]
+# The collector and its hoses against what stands and turns round the stator, and the lever's swing.
+_coll = Part.makeCompound([collector, coll_fittings, coll_hoses])
+coll_gap, coll_near = min((gap(_coll, s_, pad=5.0), n_) for n_, s_ in (
+    ("struts", rear_struts), ("cable", gate_cable), ("rotor", mqr_rotor), ("coupling", soft_coup), ("lines", lines_inner),
+    ("grip", grip), ("rear 6808 disk", brg_r), ("lever, squeezed", lever_at(LEV_ANG)), ("lever", lever)))
+coll_stator = gap(Part.makeCompound([collector, coll_hoses]), mqr_stator)
+coll_seated = gap(collector, mqr_plate) < 0.05 and max(gap(f_, mqr_stator) for f_ in coll_fittings.Solids[N:]) < 0.05
 hand_l_gap, hand_l_near = min((gap(hand_left, s_, pad=5.0), n_) for n_, s_ in _hand_l_gun)
 
 # ============================================================ fast checks (the full turn: breech_mechanism_sweep.py)
@@ -2302,7 +2650,7 @@ aft_clear = brg_f.BoundBox.ZMax - _rot_min          # >0 would be overlap; we wa
 aft_gap = _rot_min - brg_f.BoundBox.ZMax
 lines_fixed = min(gap(lines_inner, s) for s in (brg_f, brg_r, mqr_stator, air_supply, mqr_plate, rear_struts))
 bundle_fit = (AXLE_ID / 2.0) - BUNDLE_R
-bearings_on_axle = (gap(pack_axle, brg_f) < 1.5 and gap(pack_axle, brg_r) < 1.5
+bearings_on_axle = (gap(pack_axle, race_f) < 1.5 and gap(pack_axle, race_r) < 1.5
                     and brg_f.BoundBox.ZMin > z_axle0 and brg_r.BoundBox.ZMin > z_axle0)
 mqr_free = gap(pack_axle, mqr_rotor) > 1.0 and gap(pack_axle, mqr_stator) > 1.0
 rim_vs_closed = min(gap(rim_gear, place(Part.makeCompound(qev_slide), k * 60.0)) for k in range(N))
@@ -2323,7 +2671,7 @@ def far(g, pad=DRIVE_PAD):
     return ("> %.0f" % pad) if g >= 99.0 else ("%.2f" % g)
 drive_vs_frame = min(gap(d, frame_all) for n, d in drive_parts if n != "crank brackets")
 bracket_on_ring = all(gap(b_, frame_all) < 0.05 for b_ in crank_bracket.Solids) and len(crank_bracket.Solids) == 2
-gears_vs_bracket = min(gap(g, crank_bracket) for g in (crank_gear, bevel_small, bevel_big))
+gears_vs_bracket = min(gap(g, crank_bracket) for g in _gears_plain)     # the spigots pass the 608 lips by 0.2
 bevels_apart = gap(bevel_small, crank_gear)
 # The hand against the gun (not its own drive); the arm stands off the boss by design.
 _hand_gun = [("star-drive box", gearbox), ("star train", Part.makeCompound([gear_a, gear_b, gear_i, gear_s])),
@@ -2334,7 +2682,7 @@ _hand_gun = [("star-drive box", gearbox), ("star train", Part.makeCompound([gear
              ("dead-man and hose", Part.makeCompound([deadman, air_supply, supply_hose])),
              ("pack (six phases)", Part.makeCompound(stations)), ("rim", rim_gear)]
 hand_gap, hand_near = min((gap(hand_space, s_, pad=150.0), n_) for n_, s_ in _hand_gun)
-hand_own = min(gap(hand_space, s_, pad=20.0) for n_, s_ in drive_parts if n_ != "crank shaft")
+hand_own = min(gap(hand_space, s_, pad=20.0) for n_, s_ in drive_parts if n_ not in ("crank shaft", "crank spacer"))
 # Crank arm and knob: a full crank turn in CK_STEP steps against everything fixed round
 # it (the pack on its six phases; every 3 deg of pack in the sweep); the knob on its own
 # pin; the hub on the shaft end.
@@ -2404,11 +2752,20 @@ PRINTED_ONE = [("liner (two halves)", cam_r), ("liner (two halves)", cam_l), ("f
                ("ramp", ramp_body), ("ramp block", guide_block), ("muzzle plate", front_plate), ("gearbox", gearbox),
                ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("gate housing", gate_housing),
                ("star collar", star_collar), ("gears A+B", gear_ab), ("rear plate", mqr_plate), ("carry handle", carry_handle),
-               ("keel", tripod_pad), ("crank arm", crank_arm), ("soft coupling", soft_coup)] + [
+               ("keel", tripod_pad), ("crank arm", crank_arm), ("soft coupling", soft_coup),
+               ("star with its hub", star0), ("star gear", gear_s), ("idler", gear_i), ("star bearing cover", star_cover),
+               ("rear 6808 retainer", brg6808_ret_r), ("lay shaft collar", lay_collar), ("crank spacer", crank_spacer),
+               ("gear 60", crank_gear), ("lay bevel", bevel_small), ("crank bevel", bevel_big), ("lever", lever)] + [
     ("crank bracket", s_) for s_ in crank_bracket.Solids] + [
     ("valve bracket", valve_bracket), ("breech clamp, upper", clamp_upper), ("nose clamp, upper", nose_upper),
     ("nose clamp, lower", nose_lower)]
 printed_bad = sorted(set(n_ for n_, s_ in PRINTED_ONE if len(s_.Solids) != 1 or not s_.isValid()))
+cut_bad = sorted(set(w_ for w_, v0_, v1_, ok_, how_ in CUT_LOG if not ok_))
+cut_one = sorted(set("%s (%s)" % (w_, how_) for w_, v0_, v1_, ok_, how_ in CUT_LOG if ok_ and how_ != "refined"))
+# Nuts and washers of one stud must not sit in each other (two stacks in one gap).
+stud_self = max([0.0] + [a_.common(b_).Volume for f_ in FRAME_STUDS
+                         for i_, a_ in enumerate(f_.hardware.Solids) for b_ in f_.hardware.Solids[i_ + 1:]
+                         if _near(a_.BoundBox, b_.BoundBox, 0.01)])
 _tick("fasteners checked")
 
 # ============================================================ assembly / checks / report
@@ -2421,7 +2778,8 @@ assembly = Part.makeCompound([
     ramp_fire, guide_block, rear_struts, grip, pommel, lever, lever_pin, dm_pusher, gate_wire, gate_cable,
     gate_housing, gate_pin, gate_spring, crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings,
     crank_arm, crank_knob, crank_knob_pin, carry_handle, tripod_pad, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
-    mqr_plate, lines_inner, deadman, air_supply, supply_hose,
+    mqr_plate, lines_inner, deadman, air_supply, supply_hose, races_6808, brg6808_ret_r, star_bearings, star_cover,
+    star_spacer, lay_collar, crank_spacer, collector, coll_fittings, coll_hoses,
 ])
 bb = assembly.optimalBoundingBox()
 gun_L, gun_W, gun_H = bb.ZLength, bb.YLength, bb.XLength
@@ -2462,8 +2820,20 @@ checks = [
     ("rear plate on %d struts from the rear bearing disk (%.2f), grip on the plate (%.2f); struts vs lines,"
      " coupling, rotor over a turn %s" % (len(STRUT_ANGLES), strut_on, grip_on_plate, far(strut_turn)),
      strut_on < 0.05 and grip_on_plate < 0.05 and strut_turn >= 2.0),
-    ("grip one solid; cable, outlet and valve inside it (wall %.1f at the %s); cable stop inside the grip"
-     % (chan_wall, _wall_worst), grip_one and chan_wall >= 1.5 and stop_in_pommel),
+    ("grip two halves split at y 0 (the channels between them); cable, outlet and valve inside (wall %.1f at the %s);"
+     " cable stop inside the grip; %d x M3 x 20 across the halves clear of every channel by %.1f, the pivot an M3 x 50"
+     % (chan_wall, _wall_worst, len(GRIP_BOLTS), grip_bolt_clear),
+     grip_one and chan_wall >= 1.5 and stop_in_pommel and grip_bolt_clear >= GRIP_BOLT_CLEAR),
+    ("lever's wire: barrel nipple Ø%.0f across the tail's tip (boss wall %.1f); Bowden housing %.0f mm deep in its seat"
+     " under the gate, on the channel's shoulder in the grip" % (NIP_D, nip_wall, GATE_SEAT), nip_wall >= 1.5 and GATE_SEAT >= 4.0),
+    ("collector 1 -> 6 on the rear plate's tab (seated %s), %d hoses %.2f apart, %s off the stator body; clear of the struts,"
+     " cable, rotor, coupling, lines, grip, lever (%s, %s)"
+     % ("yes" if coll_seated else "NO", N, coll_hose_gap, far(coll_stator), far(coll_gap), coll_near),
+     coll_seated and coll_hose_gap >= 0.5 and coll_stator >= 0.5 and coll_gap >= 1.0),
+    ("star shaft: located in the front ring pad's 608 (star hub's spigot, spacer, collar: %.2f float); the other 608"
+     " floats in the box; star gear's hub %.2f off gear A's tips; cover on 2 x M3 x 20" % (STAR_SPIGOT_GAP, STAR_HUB_CLEAR),
+     STAR_HUB_CLEAR >= 0.5),
+    ("6808 outer races between a lip of their disks and their retainers' spigots (%.2f)" % race_capture, race_capture < 0.05),
     ("lever 0..%.0f deg in 6 steps: no overlap with the grip, pommel, pin, plate, cable, hoses, valve (%.3f mm3 %s);"
      " closed %.2f off the grip" % (LEV_ANG, _lev_hit, _lev_worst, lever_closed), _lev_hit < 0.01 and lever_closed >= 1.0),
     ("stage 1 (0..%.0f deg, free end %.1f mm): dead-man pressed %.2f of %.1f, pusher %.2f off released;"
@@ -2557,6 +2927,11 @@ checks = [
      fast_vs_stations >= CLEAR and fast_vs_hub >= CLEAR),
     ("printed parts one valid solid each (%d parts%s)" % (len(PRINTED_ONE), (": not " + ", ".join(printed_bad)) if printed_bad else ""),
      not printed_bad),
+    ("fastener cuts and fuses (%d): every part valid and lost no more than its cutters (%s); not refined: %s;"
+     " feed head %.0f cm3" % (len(CUT_LOG), ", ".join(cut_bad) or "all", ", ".join(cut_one) or "none", feed_head.Volume / 1000.0),
+     not cut_bad and feed_head.Volume > 30000.0),
+    ("M6 studs: no nut or washer in another (%.2f mm3); box on the front ring on bosses over the %.1f mm gap"
+     % (stud_self, box_tie_gap), stud_self < 0.01),
     ("front hub one solid, clear of the star-drive box and its train (%.2f) and of the bearing housing (%.2f)"
      % (hub_vs_box, hub_vs_housing), hub_one and hub_vs_box >= CLEAR and hub_vs_housing >= CLEAR),
     ("rear rail disk one solid (line R slots from r %.1f), liner halves one solid each" % REAR_SLOT_R0,
@@ -2596,8 +2971,8 @@ report = [
     "  frame envelope Ø       : %.0f (liner); was %.0f" % (case_od, CASE_OD_START),
     "  air                    : axle Al %.0f x %.1f, %s; 6 lines 1/8\" inside; MQR rotor z %.0f..%.0f"
     % (AXLE_OD, (AXLE_OD - AXLE_ID) / 2.0, BRG_NAME, z_rotor0, z_rotor1),
-    "  air supply             : no buffer; Ø%.0f hose from the receiver -> pommel -> dead-man in the grip -> stator's rear port (z %.0f)"
-    % (SUPPLY_HOSE_OD, z_supply),
+    "  air supply             : no buffer; Ø%.0f hose from the receiver -> pommel -> dead-man in the grip -> 1→6 collector"
+    " on the rear plate -> six M5 ports of the stator (row assumed on +y, z %.0f..%.0f)" % (SUPPLY_HOSE_OD, _zp[0], _zp[-1]),
     "  pack drive             : crank axis across the barrels (%s) at z %.0f (middle of the closed QEV);"
     " bevel %d:%d m%.0f -> lay shaft at r %.0f -> gear %d in rim %d; %.2f pack turn per crank turn"
     % ("+Y, right" if CRANK_SIDE > 0 else "−Y, left", Z_CRANK, CB_ZB, CB_ZS, CB_M, CP_C.Length, CP_Z, Z_RIM,
@@ -2629,7 +3004,7 @@ for n, ang, u, dz, tag in phases:
     report.append("    %d @ %3.0f°  u=%.2f  dz=%6.1f  %s" % (n, ang, u, dz, tag))
 report += [
     "  overall LxWxH         : %.0f x %.0f x %.0f mm (was %.0f long)" % (gun_L, gun_W, gun_H, L_START),
-    "  not drawn             : 1→6 manifold on the stator, wheeled carriage, freeze",
+    "  not drawn             : wheeled carriage, EVA skin (contact glue, no fixing points), freeze",
     "  fasteners             : " + ", ".join("%s %s" % (k_, ("%.0f" % v_) if isinstance(v_, float) else v_)
                                             for k_, v_ in sorted(FAST_BOM.items()))
     + "; tie studs 2 x M3 x %.0f per station; bought threads: %d x M4" % (STUD_L_PACK, len(M4_EXC)),
@@ -2736,6 +3111,16 @@ sc.add("Air", "Supply_stub", air_supply, "hose")
 sc.add("Air", "Supply_hose_end", supply_hose, "hose")
 sc.add("Air", "Axle_collars", axle_collars, "frame")
 sc.add("Air", "Front_6808_retainer", brg6808_ret, "frame")
+sc.add("Air", "Rear_6808_retainer", brg6808_ret_r, "frame")
+sc.add("Air", "Bearings_6808", races_6808, "brg")
+sc.add("Air", "Collector_1to6", collector, "mqr")
+sc.add("Air", "Collector_fittings", coll_fittings, "drive")
+sc.add("Air", "Collector_hoses", coll_hoses, "hose")
+sc.add("Star_drive", "Star_bearings_608", star_bearings, "brg")
+sc.add("Star_drive", "Star_bearing_cover", star_cover, "frame")
+sc.add("Star_drive", "Star_spacer", star_spacer, "drive")
+sc.add("Drive", "Lay_shaft_collar", lay_collar, "frame")
+sc.add("Drive", "Crank_spacer", crank_spacer, "frame")
 sc.add("Pack", "Pack_hub", pack_hub, "gear")
 sc.add("Pack", "Front_bearing_61836", front_bearing, "brg")
 sc.add("Pack", "Inner_race_retainer", brg_ret_in, "gear")

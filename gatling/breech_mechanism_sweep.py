@@ -138,7 +138,9 @@ fixed_list = ([("guard", feed_guard), ("feed head", feed_head), ("TPU lip", feed
                ("fixed M3 bolts (feed, ramp, liner, carry, keel, crank brackets)",
                 Part.makeCompound([f_.body for f_ in FEED_FAST + RAMP_FAST + LINER_FAST + CARRY_FAST + TRIPOD_FAST + CRANK_FAST])),
                ("front bearing housing and its rear retainer", Part.makeCompound([brg_housing, brg_ret_out])),
-               ("star shaft collar", star_collar)]
+               ("star shaft collar", star_collar),
+               ("front ring with its top pad (the star shaft's 608)", pack_frame),
+               ("star shaft: 608s, cover, spacer", Part.makeCompound([star_bearings, star_cover, star_spacer]))]
               + [(n, s) for n, s in train_parts if not n.startswith("gear A")]
               + [(n, s) for n, s in drive_parts if not n.startswith("crank gear")])
 fixed_path = os.path.join(WORK, "fixed.brep")
