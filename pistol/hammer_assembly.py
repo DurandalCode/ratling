@@ -1226,6 +1226,24 @@ axle_boss = (Part.makeCylinder(AXLE_BOSS["r"], AXLE_BOSS["y1"] + 45.0, HAMMER_PI
              .common(Part.makeSphere(DRUM_R - 0.3, V(DRUM_X0, 0, 0))).removeSplitter())
 side_band = side_band.fuse(axle_boss).cut(shaft_holes).removeSplitter()
 side_band = _biggest(side_band)
+# The mainsprings' arbor (2026-11-22). The bought springs are ID 11.2 (OD 14 - 2 x 1.4) on the Ø8 axle: 1.6 mm a
+# side of play, the coils wander and the fixed legs never form a stop. A printed tube on the axle centres both
+# packs: bore 8.2 (free on the axle, like the hammer), OD 10.0. Wound 106 deg at full cock the coils close to
+# ID ~10.7 (11.2 x 6 / (6 + 106/360)), 0.35 a side left; at rest 0.6. A Ø12 flange (Ø13 came 0.06 off the band's sloped shell) at its left end, against the
+# band's axle boss (y -28.5), sets the left pack's outer end at y -26.1; the tube runs to 0.3 short of the hammer's
+# hub (y -5). Spares at OD 9.6 / 10.4 are exported to try by hand.
+SPRING_ARBOR = dict(bore=8.2, od=10.0, flange=(12.0, 1.8), y=(AXLE_BOSS["y1"] + 0.3, -5.3))
+
+
+def spring_arbor_shape(od_=None):
+    a_ = SPRING_ARBOR
+    y0_, y1_ = a_["y"]
+    return (Part.makeCylinder((od_ or a_["od"]) / 2, y1_ - y0_, V(H.x, y0_, H.z), YA)
+            .fuse(Part.makeCylinder(a_["flange"][0] / 2, a_["flange"][1], V(H.x, y0_, H.z), YA))
+            .cut(Part.makeCylinder(a_["bore"] / 2, y1_ - y0_ + 2, V(H.x, y0_ - 1, H.z), YA)).removeSplitter())
+
+
+spring_arbor = spring_arbor_shape()
 # Gauge_wire is flexible: its displayed route must not be carved into this shell.
 side_plate = side_band                                      # tongues and bolt holes included
 frame = Part.makeCompound([frame_lower, frame_upper])          # for the checks; the parts print separately
@@ -1549,6 +1567,7 @@ for n, s_, c, tr in (("Valve_body_v11", valve_body, (0.8, 0.5, 0.2), 0), ("Valve
                      ("Lock_housing", lock_housing_h, (0.5, 0.7, 0.5), 0), ("Chamber_axle", axle, (0.7, 0.7, 0.7), 0),
                      ("Vent_valve", mini_valves, (0.3, 0.3, 0.8), 0), ("Mainsprings", mainsprings, (0.6, 0.6, 0.65), 0),
                      ("Spring_stop_screw", spring_stop_screw, (0.75, 0.75, 0.78), 0),
+                     ("Spring_arbor", spring_arbor, (0.25, 0.55, 0.8), 0),
                      ("Band_low_fastener", band_low_fastener, (0.75, 0.75, 0.78), 0),
                      ("Hammer_axle", shaft, (0.75, 0.75, 0.78), 0), ("Guide_rod", guide_rod, (0.75, 0.75, 0.78), 0),
                      ("Tie_rods", valve_rods, (0.72, 0.72, 0.75), 0), ("Lock_bolts", lock_bolts, (0.72, 0.72, 0.75), 0)):
@@ -1587,7 +1606,7 @@ _tick('doc built')
 MATERIAL = {
     "print": ("Valve_body_v11", "Valve_cap_v11", "Lock_housing", "Block", "Front_disc", "Front_clamp_ring", "Sector", "Pawl", "Slider", "Slider_cap", "Bolt", "Hammer",
               "Sleeve", "Pusher", "Trigger", "Trigger_pad", "Frame_lower", "Frame_upper", "Valve_clamp", "Frame_side_band", "Frame_right", "Detent_housing", "Grip_left", "Grip_right", "Trigger_guard",
-              "Top_strap", "Axle_plug",
+              "Top_strap", "Axle_plug", "Spring_arbor",
               "Nose_sleeve"),
     "eva": ("Frame_skin", "Valve_clamp_liner", "Rags", "Pommel", "Pommel_claws", "Warpstone_pommel", "Straps", "Strap_rivets", "Spikes", "Plates",
             "Plate_rivets", "Crest", "Vial_caps", "Vial_cage", "Warpstone_vial"),
@@ -1612,6 +1631,7 @@ BUY_NOTE = {"Front_disc": "Prototype PETG: six outer flexure jaws, rear 2 mm roo
             "Frame_upper": "independent guide support, main valve clamp mounts and I-section web slot, and a 0.2 mm top keeper for the button valve; retained nut for the lower/upper frame assembly screw",
             "Trigger_pad_fastener": "M3 x 12 cylindrical-head bolt along +y + standard M3 nut, no washer; seat the pad against the lever broad y=3 face, slide nut into its open side pocket from positive x, tighten from negative y",
             "Trigger_pad": "PETG carrier for smooth steel pin 3 x 24; 3.2 mm root bore, open contact channel and distal axial stop. Print on broad x=-6 side",
+            "Spring_arbor": "printed tube on the hammer axle inside both mainsprings: bore 8.2, OD 10.0 (spares 9.6 / 10.4), Ø12 x 1.8 flange against the band's axle boss; centres the coils (ID 11.2) on the Ø8 axle",
             "Hammer_pin": "smooth steel pin diameter 3 x 32 mm, cut from the Ø3 rod: the mainsprings' moving legs bear on it. Epoxied into the blind Ø3.2 socket of the hammer's Ø9 boss (9.7 mm deep), the rest stands free along the springs",
             "Trigger_pin": "smooth steel pin diameter 3 x 24 mm; captured between blind root and carrier end lip, 0.3 mm total end play. Remove the carrier to withdraw the pin",
             "Mainsprings": "2 torsion springs, wire Ø1.4, OD 14, 6 coils, 60 deg free; both legs trimmed to ~14 mm past the coil; moving legs on the hammer's steel pin, fixed legs on the stop screw",
