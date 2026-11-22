@@ -671,6 +671,9 @@ if not GATLING_LINEAR_BREECH_LIBRARY:
                        ("barrel_clamp", barrel_clamp, True),
                        ("barrel_collar", barrel_collar, True),
                        ("front_cover_feed", front_cover_feed, False),
+                       # 2026-11-22: the bench prints the cover without the gutter (the pellet tray leaves the
+                       # QEV's nose; where it goes is open). The pack's model still carries the gutter.
+                       ("front_cover_plain", front_cover, False),
                        ("airtac_cradle", cradle, True)):
         write(s, n, flip)
     with open(os.path.join(OUT_DIR, NAME + "_report.txt"), "w") as f:

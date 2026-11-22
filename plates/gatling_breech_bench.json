@@ -34,7 +34,7 @@
 
     {"file": "exports/gatling_fat_coax_qev/rear_plug.stl", "group": "airtight", "filament": "pla", "brim": 5, "allow_overhang": 480, "project": "gatling_breech_bench_airtight"},
     {"file": "exports/gatling_fat_coax_qev/seat_ring.stl", "group": "airtight", "filament": "pla", "brim": 5, "allow_overhang": 480, "project": "gatling_breech_bench_airtight"},
-    {"file": "exports/gatling_linear_breech/front_cover_feed.stl", "group": "airtight", "filament": "pla", "brim": 5, "allow_overhang": 480, "project": "gatling_breech_bench_airtight"},
+    {"file": "exports/gatling_linear_breech/front_cover_plain.stl", "group": "airtight", "filament": "pla", "brim": 5, "allow_overhang": 480, "project": "gatling_breech_bench_airtight"},
     {"file": "exports/gatling_fat_coax_qev/jig_guide.stl", "group": "airtight", "filament": "pla", "brim": 5, "allow_overhang": 480, "project": "gatling_breech_bench_airtight"}
   ]
 }
