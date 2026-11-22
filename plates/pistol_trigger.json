@@ -1,0 +1,10 @@
+{
+  "id": "pistol_trigger",
+  "title": "Pistol trigger and guard, 5 mm longer (2026-11-22), both on the 0.4 nozzle",
+  "generator": "pistol/build/export_parts.py",
+  "export": "exports/pistol_build/stl",
+  "parts": [
+    {"file": "trigger.stl", "group": "strong_supports", "nozzle": "0.4", "brim": 5, "project": "pistol_trigger"},
+    {"file": "trigger_guard.stl", "group": "strong_supports", "nozzle": "0.4", "brim": 5, "project": "pistol_trigger"}
+  ]
+}

@@ -411,8 +411,10 @@ frame = frame.cut(pilot_return_port).removeSplitter()
 
 # ---------------------------------------------------------------- trigger guard: a continuous flat ribbon
 # Offset the centreline in its own plane, then extrude across y: no Frenet-frame flips or gaps.
-GUARD = [V(-54, 0, -71), V(-51, 0, -77), V(-51, 0, -87), V(-57, 0, -97), V(-69, 0, -104),
-         V(-81, 0, -103), V(-90, 0, -96), V(-96, 0, -88), V(-97, 0, -84)]
+# The loop drops TRIGGER_DROP with the longer trigger; the front flange and the rear eye stay put.
+GUARD = [V(-54, 0, -71), V(-51, 0, -77), V(-51, 0, -87 - TRIGGER_DROP), V(-57, 0, -97 - TRIGGER_DROP),
+         V(-69, 0, -104 - TRIGGER_DROP), V(-81, 0, -103 - TRIGGER_DROP), V(-90, 0, -96 - TRIGGER_DROP),
+         V(-96, 0, -88 - 0.6 * TRIGGER_DROP), V(-97, 0, -84)]
 GUARD_SECTION = (5.0, 1.6)                      # 10 mm wide ribbon, 3.2 mm thick in the loop's plane
 _gc = Part.BSplineCurve()
 _gc.interpolate(GUARD)

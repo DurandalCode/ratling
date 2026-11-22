@@ -612,6 +612,12 @@ TRIGGER_PAD_T, TRIGGER_TARGET_PUSH = 8.0, 2.6
 TRIGGER_OUTLINE = [(0.0, 3.3), (4.0, 2.0), (8.0, 1.0), (9.5, -4.0), (8.0, -11.0), (7.0, -17.0),
                    (7.2, -22.0), (8.6, -23.5), (11.0, -25.5), (13.5, -26.5), (12.5, -28.0), (9.0, -28.0),
                    (5.5, -25.8), (2.8, -22.0), (1.0, -17.5), (0.0, -11.0), (0.0, -5.5), (-2.0, -3.5)]   # face 24 mm back, toward the middle of the guard
+# Lengthen the blade 5 mm downward (2026-11-22): stretch it below z -11 only, so the hub, pivot, pin
+# carrier and its bolt stay where they were. The guard's loop drops by the same amount.
+TRIGGER_DROP, TRIGGER_STRETCH_Z = 5.0, -11.0
+_trig_k = 1.0 + TRIGGER_DROP / (TRIGGER_STRETCH_Z + 28.0)
+_trig_z = lambda z: z if z >= TRIGGER_STRETCH_Z else TRIGGER_STRETCH_Z + (z - TRIGGER_STRETCH_Z) * _trig_k
+TRIGGER_OUTLINE = [(x, _trig_z(z)) for x, z in TRIGGER_OUTLINE]
 
 
 def _trigger_blank():
@@ -639,7 +645,7 @@ def _trigger_blank():
     w = Part.Wire([Part.Arc(p0, pm, p1).toShape(), Part.makeLine(p1, V(-2, y0, -1)), Part.makeLine(V(-2, y0, -1), p0)])
     t = t.fuse(Part.Face(w).extrude(V(0, TRIGGER_WIDTH, 0)))
     for z_ in (-15.0, -18.0, -21.0):                                                    # finger grooves in the hollow
-        g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(7.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, z_), YA)
+        g = Part.makeCylinder(0.8, TRIGGER_WIDTH + 2, V(7.0 + 0.1 * (z_ + 18) ** 2 / 3, -TRIGGER_WIDTH / 2 - 1, _trig_z(z_)), YA)
         t = t.cut(g)
     return t.cut(Part.makeCylinder(1.6, TRIGGER_WIDTH + 2, V(0, -TRIGGER_WIDTH / 2 - 1, 0), YA)).removeSplitter()
 
