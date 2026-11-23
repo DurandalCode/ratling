@@ -122,7 +122,7 @@ JOINTS = [
     ("Collector_fittings", "Collector_fittings", "side by side in the manifold's row (draft pitch 7)"),
     # --- frame
     ("Lip_TPU", "Feed_head", "TPU strip in its pocket"),
-    ("Liner_half_right", "Liner_half_left", "the split: M3 x 20 lug pairs, the carry base, the keel, the ramp block"),
+    ("Liner_half_right", "Liner_half_left", "the split: M3 x 20 lug pairs, the rear strap lug, the keel, the ramp block"),
     # --- trains: meshes, keys, pins, journals
     ("Pack_hub", "Gears_A_B", "mesh (rim 120 / gear A)"),
     ("Pack_hub", "Crank_rim_gear_60", "mesh (rim 120 / gear 60)"),
@@ -180,7 +180,7 @@ JOINTS = [
     ("Gate_cable", "Rear_plate", "Bowden through the plate (press)"),
     ("Gate_cable", "Grip", "Bowden in its channel, its end on the shoulder at the stop"),
     ("Gate_cable", "Gate_wire", "the wire inside it (press)"),
-    ("Carry_handle", "Sling_loops", "steel rings round the posts"),
+    ("Strap_lugs", "Sling_loops", "steel rings through the lugs' eyes"),
     # --- EVA skin (2026-11-22): contact glue, no fixing points (owner 2026-11-21)
     ("EVA_skin", "Liner_half_*", "contact glue on the liner's glue lands"),
     ("EVA_skin", "Front_ring", "contact glue on the front ring's glue land"),
@@ -199,7 +199,8 @@ JOINTS = [
 FREE = [
     ("Muzzle_plate", "pinched on the barrels by an M3 x 20 across each slit (bores 0.35 over)"),
     ("st.Nose_clamp", "the halves clamp the rails by their 2 x M3 x 20 (bores 0.15 over)"),
-    ("Sling_loops", "steel rings round the carry posts, 0.5 loose"),
+    ("Sling_loops", "steel rings through the strap lugs' eyes, loose"),
+    ("Carry_tube_PVC", "in its two printed sockets, 0.2 clear, an M3 x 50 across each"),
     ("Crank_knob", "turns on its pin, 0.25 a side"),
 ]
 

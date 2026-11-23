@@ -8,7 +8,7 @@ to the pack (rim on the breech clamps + fixed train) with a gate in the neck ->
 helical guard -> side crank with arm and knob -> air: hollow axle, bearings,
 MQR, hose from the receiver through a dead-man -> flintlock grip with one
 two-stage lever (air, then balls) for the left hand -> mass and centre of
-gravity -> carry handle and strap rings over it, tripod socket under it.
+gravity -> chainsaw-style wrap handle in its plane, strap lugs either side, tripod socket under it.
 
     freecadcmd -c "REPO='$PWD'; exec(open('gatling/breech_mechanism.py').read())"
 
@@ -2192,6 +2192,9 @@ FRING_LAND_OPEN = (BOX_A0 - 5.0, BOX_A1 + 5.0)         # the box and the feed he
 # in there along the split lugs, and its way grazed the hoop's bore (a cut there left the right
 # half 5.6 mm3 short of its cutters).
 LINER_LAND_OPEN = [(-30.0, 30.0), (150.0, 210.0)]
+# 2026-11-23: the wrap handle's two rails run under the lands at these world angles, both between
+# ribs: low on the left and high on the right, the handle goes round the top from one to the other.
+CARRY_W = (240.0, 60.0)
 SKIN_LANDS = [skin_land(z_lr0, z_lr1, skip=[(CABLE_W, 8.0)], open_=LINER_LAND_OPEN),
               skin_land(z_lf0, z_lf1, skip=[(CABLE_W, 8.0)]),
               skin_land(Z_FRING0, Z_FRING1, open_=[FRING_LAND_OPEN])]
@@ -2565,83 +2568,189 @@ _skin_est = [("skin", "EVA skin (est.)", MS_RHO["EVA"] * math.pi * (SKIN_R_OUT *
               V(0, 0, 0.5 * (SKIN_Z0 + SKIN_Z1)), "EVA"),
              ("skin", "EVA end cap (est.)", MS_RHO["EVA"] * math.pi * (SKIN_R_OUT ** 2 - CAP_R_IN_EST ** 2) * SKIN_T / 1000.0,
               V(0, 0, SKIN_Z0 - 0.5 * SKIN_T), "EVA")]
-MASS_GUN0, CG0 = ms_sum(mass_rows + _skin_est)   # without the carry handle and the strap loops
+# 2026-11-23: the side handle is off the axis and pulls the CG towards it, so the strap lugs and the
+# tripod socket are placed with an estimate of it (hoop and two rails; checked against the real CG).
+_carry_est = [("carry", "PVC tube (est.)", 116.0, V(89.0, -51.5, 104.0), "PVC"),
+              ("carry", "feet, rails and bolts (est.)", 365.0, V(0.5, 0.5, 0.5 * (z_cam1 - 42.0 + Z_FRING1)), "PETG")]
+MASS_GUN0, CG0 = ms_sum(mass_rows + _skin_est + _carry_est)   # with the handle estimated, without the strap lugs
 print("mass %.0f g, CG (%.1f, %.1f, %.1f) before the handle" % (MASS_GUN0, CG0.x, CG0.y, CG0.z), flush=True)
 
-# ============================================================ carry: handle over the CG, strap rings
-# The hopper's cup sits on top just ahead of the CG and nothing fixed stands on the top
-# ahead of the liner but the star-drive gearbox, so the handle is a bridge: a post on
-# the liner, a post on the gearbox (with a tab down its front face), both the same
-# distance from the CG, and a bar between them high enough that the fist round it
-# clears the cup. A steel ring round each post takes the strap: the rings sit either
-# side of the CG at the same distance, and the strap pulls them up the posts, not
-# along the gun.
-CARRY_BAR_D, CARRY_FIST_R, CARRY_GRIP_L = 24.0, 32.0, 100.0
-CARRY_POST_W, CARRY_POST_T, CARRY_TAB_H, CARRY_TAB_T = 24.0, 10.0, 20.0, 4.0
-CARRY_CLEAR = 5.0                                 # the fist over the cup
+# ============================================================ carry: wrap handle at the CG, strap lugs
+# 2026-11-23 (owner: a big handle like a chainsaw's, to the side and up, so nothing stands over the
+# hopper). A half-circle across the barrels in the CG's plane: from low on the left, up the side,
+# over the top behind the cup and under its floor, to high on the right (the crank is lower on the
+# right). Held on top the CG hangs under the hand. Between the liner and the front ring there are
+# only M6 studs, which would sag 1.7 mm at 1 g under the gun, so its feet stand on two printed rails
+# under the skin, liner to front ring (like the keel), at CARRY_W. The handle is a bought PVC tube
+# in one bend round a former (R 172, about 7 x its diameter: a heat gun, no sand), its ends in two
+# printed feet, an M3 x 50 across each. The strap keeps its two points either side of the CG on low
+# lugs where the bridge's posts stood: the rear one still closes the liner's split.
+CARRY_TUBE_OD, CARRY_TUBE_WALL = 25.0, 2.0        # PVC, to be measured when bought
+CARRY_SOCKET_CLEAR, CARRY_SOCKET_L = 0.2, 36.0    # bore over the tube; the tube's run in a foot
+CARRY_HEAD_HW, CARRY_NECK_HT, CARRY_HEAD_HT = 16.5, 12.0, 20.0  # foot: half width along z, half widths along the arc
+CARRY_PIN_HL, CARRY_PIN_R = 25.0, 6.0             # the boss for the M3 x 50 across the tube
+CARRY_FIST_R, CARRY_GRIP_L = 32.0, 100.0
+CARRY_R = 172.0                                   # the tube's centreline round the axis
+CARRY_FIST_W = (270.0, 300.0, 330.0, 0.0, 30.0)   # where a hand may hold it
+CARRY_FLANGE_T, CARRY_FLANGE_L, CARRY_BOLT_Z = 8.0, 54.0, 21.0
+CARRY_RAIL_W = 24.0
+CARRY_RAIL_R = SKIN_R_IN - LAND_T - 0.3           # the rail's outer face, under the glue lands
+CARRY_POST_W, CARRY_POST_T = 24.0, 10.0
+CARRY_CLEAR = 5.0                                 # the fist off the skin
 SLING_WIRE = 2.5
 SLING_R = math.hypot(CARRY_POST_W / 2, CARRY_POST_T / 2) + 0.5 + SLING_WIRE
+SLING_EYE_R = 4.0                                 # the ring's wire is curved through the lug's 10 mm
 R_BOX_OUT = BOX_R1 + 2.5                          # gearbox outer wall
-x_carry = feed_cup.optimalBoundingBox().XMax + CARRY_CLEAR + CARRY_FIST_R
 y_carry, z_carry = CG0.y, CG0.z
-# Front post on the front bearing housing, flush with its lip (2026-11-21: the bearing
-# moved the CG 13 mm forward, and a post on the gearbox put the rear one off the liner).
+# Strap lugs: front on the front bearing housing, flush with its lip; rear the same distance aft.
 z_post_f = z_brg1 + 3.0 - CARRY_POST_T / 2
 d_carry = z_post_f - z_carry
 z_post_r = z_carry - d_carry
-x_bar_top = x_carry + CARRY_BAR_D / 2
-
-
 CARRY_BASE_T, CARRY_BASE_W, CARRY_BASE_L, CARRY_BOLT_Y = 11.0, 42.0, 18.0, 15.5
+x_eye = HOUS_RO + CARRY_BASE_T + 8.0              # the ring lies flat just over the front base and the skin
+x_lug_top = x_eye + SLING_EYE_R + 5.0
 
 
 def carry_post(zc, r_seat):
-    """Post from a saddle base on a cylinder of radius r_seat up to the bar."""
-    p_ = Part.makeBox(x_bar_top - (r_seat - 10.0), CARRY_POST_W, CARRY_POST_T,
+    """Low strap lug from a saddle base on a cylinder of radius r_seat, an eye along the barrels."""
+    p_ = Part.makeBox(x_lug_top - (r_seat - 10.0), CARRY_POST_W, CARRY_POST_T,
                       V(r_seat - 10.0, y_carry - CARRY_POST_W / 2, zc - CARRY_POST_T / 2))
     b_ = Part.makeBox(CARRY_BASE_T + 10.0, CARRY_BASE_W, CARRY_BASE_L,
                       V(r_seat - 10.0, y_carry - CARRY_BASE_W / 2, zc - CARRY_BASE_L / 2))
-    return p_.fuse(b_).cut(Part.makeCylinder(r_seat, 400.0, V(0, 0, zc - 200.0)))
+    e_ = Part.makeCylinder(SLING_EYE_R, CARRY_POST_T + 2.0, V(x_eye, y_carry, zc - CARRY_POST_T / 2 - 1.0), ZA)
+    return p_.fuse(b_).cut(Part.makeCylinder(r_seat, 400.0, V(0, 0, zc - 200.0))).cut(e_).removeSplitter()
 
 
-carry_handle = G.fuse_all([carry_post(z_post_r, r_case_od), carry_post(z_post_f, HOUS_RO),
-                           Part.makeCylinder(CARRY_BAR_D / 2, d_carry * 2.0, V(x_carry, y_carry, z_post_r), ZA)])
-carry_handle = carry_handle.removeSplitter()
-# 2026-11-22: with the EVA skin the CG went 5.5 mm aft and the rear base reached 1 mm over the
-# liner's split lug on top (93 mm3, found by the joint audit): the base gives way round it, 0.5 off.
+lug_r, lug_f = carry_post(z_post_r, r_case_od), carry_post(z_post_f, HOUS_RO)
+# 2026-11-22: the rear base gives way round the liner's split lug on top, 0.5 off.
 _lug_clear = []
 for w, za, zb in _split_bands:
     _b = Part.makeBox(SPLIT_LUG_H + 2.0, SPLIT_LUG_W + 1.0, zb - za + 1.0, V(r_case_od - 1.5, -SPLIT_LUG_W / 2 - 0.5, za - 0.5))
     _b.rotate(O, ZA, w)
     _lug_clear.append(_b)
-carry_handle = carry_handle.cut(Part.makeCompound(_lug_clear)).removeSplitter()
-# Bolts (2026-11-21): the rear base 2 x M3 x 20 into the liner (nuts in sockets in its bore,
-# one bolt in each liner half: the base closes the liner's split at the top front); the
-# front base 2 x M3 x 20 into the bearing housing's wall, nuts slid in from its front face.
-CARRY_FAST = []
+lug_r = lug_r.cut(Part.makeCompound(_lug_clear)).removeSplitter()
+# Bolts: the rear base 2 x M3 x 20 into the liner (one in each half: it closes the split at the top
+# front); the front base 2 x M3 x 20 into the bearing housing's wall, nuts slid in from its front.
+LUG_FAST_R, LUG_FAST_F = [], []
 for _sy in (-1, 1):
     _yb = y_carry + _sy * CARRY_BOLT_Y
-    _top = r_case_od + CARRY_BASE_T
-    CARRY_FAST.append(FA.m3("carry post on the liner", V(_top, _yb, z_post_r), V(-1, 0, 0), [carry_handle, cam],
+    LUG_FAST_R.append(FA.m3("strap lug on the liner", V(r_case_od + CARRY_BASE_T, _yb, z_post_r), V(-1, 0, 0), [lug_r, cam],
                             head_on_face=True, clip=(-0.01, 60.0)))
-    _topf = HOUS_RO + CARRY_BASE_T
     _g = 20.0 - FA.NUT_T - 1.0
-    CARRY_FAST.append(FA.m3_at("carry post on the bearing housing", V(_topf, _yb, z_post_f), V(-1, 0, 0), 0.0, _g, 20.0,
+    LUG_FAST_F.append(FA.m3_at("strap lug on the bearing housing", V(HOUS_RO + CARRY_BASE_T, _yb, z_post_f), V(-1, 0, 0), 0.0, _g, 20.0,
                                nut_slot=(V(0, 0, 1), z_brg1 + 3.0 - z_post_f + 1.0)))
-carry_handle = cut_fast(carry_handle, CARRY_FAST, "carry handle")
-cam, cam_r, cam_l, cam_outside = [cut_fast(x_, CARRY_FAST, n_) for x_, n_ in
+lug_r, lug_f = cut_fast(lug_r, LUG_FAST_R, "rear strap lug"), cut_fast(lug_f, LUG_FAST_F, "front strap lug")
+strap_lugs = Part.makeCompound([lug_r, lug_f])
+
+# --- the two rails, liner to front ring, under the skin's glue lands
+z_rail0, z_rail1 = z_cam1 - 42.0, Z_FRING1
+Z_RAIL_LINER = z_cam1 - 34.0                      # aft of the lug band's glue land, clear of the groove at 240 and 285
+
+
+def carry_rail(w):
+    r_ = Part.makeBox(CARRY_RAIL_R - r_case_od + 10.0, CARRY_RAIL_W, z_rail1 - z_rail0,
+                      V(r_case_od - 10.0, -CARRY_RAIL_W / 2, z_rail0))
+    r_.rotate(O, ZA, w)
+    r_ = r_.cut(Part.makeCylinder(r_case_od, 2000.0, V(0, 0, -1000.0)))
+    return r_.cut(Part.makeCompound([tube(2.0 * SKIN_R_IN + 20.0, 2.0 * CARRY_RAIL_R, z0_ - 0.3, z1_ + 0.3)
+                                     for z0_, z1_, _ in SKIN_LANDS_Z])).removeSplitter()
+
+
+def _carry_pt(w, r, along, z):
+    """A point on the rail at world angle w: radius r, offset along the tangent, height z."""
+    a_ = math.radians(w)
+    return V(r * math.cos(a_) - along * math.sin(a_), r * math.sin(a_) + along * math.cos(a_), z)
+
+
+_rails = [carry_rail(w) for w in CARRY_W]
+RAIL_FAST = []
+for i_, w in enumerate(CARRY_W):
+    _in = wpt(-1.0, w)
+    for _sa in (-1, 1):
+        RAIL_FAST.append(FA.m3("side rail on the liner", _carry_pt(w, CARRY_RAIL_R, _sa * 6.5, Z_RAIL_LINER), _in, [_rails[i_], cam],
+                               clip=(-0.01, 60.0)))
+        RAIL_FAST.append(FA.m3("side rail on the front ring", _carry_pt(w, CARRY_RAIL_R, _sa * 6.5, 0.5 * (Z_FRING0 + Z_FRING1)), _in,
+                               [_rails[i_], pack_frame], nut_on_face=True, clip=(-0.01, 40.0)))
+
+# --- the wrap handle: one PVC tube bent round the axis, its ends in two printed feet on the rails
+_w0, _w1 = CARRY_W[0], CARRY_W[1] + 360.0
+CARRY_MID_W = 0.5 * (_w0 + _w1)                   # 330: the middle of the arc
+_end_deg = math.degrees((CARRY_SOCKET_L - CARRY_HEAD_HT) / CARRY_R)   # the tube's end past the foot's centre
+
+
+def _ring_sweep(face_, a0, a1):
+    """A section in the plane at angle 0 swept round the axis from a0 to a1 (deg)."""
+    f_ = face_.copy()
+    f_.rotate(O, ZA, a0)
+    return f_.revolve(O, ZA, a1 - a0)
+
+
+_c0 = V(CARRY_R, 0, z_carry)
+_bore_f = Part.Face(Part.Wire(Part.makeCircle(CARRY_TUBE_OD / 2 + CARRY_SOCKET_CLEAR, _c0, V(0, 1, 0))))
+_tube_f = Part.makeFace([Part.Wire(Part.makeCircle(CARRY_TUBE_OD / 2, _c0, V(0, 1, 0))),
+                         Part.Wire(Part.makeCircle(CARRY_TUBE_OD / 2 - CARRY_TUBE_WALL, _c0, V(0, 1, 0)))], "Part::FaceMakerBullseye")
+carry_tube = _ring_sweep(_tube_f, _w0 - _end_deg + 0.1, _w1 + _end_deg - 0.1)
+CARRY_TUBE_L = math.radians(_w1 - _w0 + 2.0 * _end_deg - 0.2) * CARRY_R
+
+
+def carry_foot(w, sgn):
+    """A foot at world angle w, the tube coming in from the side sgn (+1: from larger angles)."""
+    _zc = z_carry
+    p_ = [Part.makeBox(CARRY_FLANGE_T, 2 * CARRY_NECK_HT, CARRY_FLANGE_L,
+                       V(CARRY_RAIL_R, -CARRY_NECK_HT, _zc - CARRY_FLANGE_L / 2)),
+          Part.makeBox(CARRY_R - CARRY_RAIL_R, 2 * CARRY_NECK_HT, 2 * CARRY_HEAD_HW,
+                       V(CARRY_RAIL_R + 1.0, -CARRY_NECK_HT, _zc - CARRY_HEAD_HW)),
+          Part.makeBox(2 * CARRY_HEAD_HW, 2 * CARRY_HEAD_HT, 2 * CARRY_HEAD_HW,
+                       V(CARRY_R - CARRY_HEAD_HW, -CARRY_HEAD_HT, _zc - CARRY_HEAD_HW)),
+          Part.makeCylinder(CARRY_PIN_R, 2 * CARRY_PIN_HL, V(CARRY_R, 0, _zc - CARRY_PIN_HL), ZA)]
+    f_ = G.fuse_all(p_).removeSplitter()
+    a0_, a1_ = (-_end_deg, 14.0) if sgn > 0 else (-14.0, _end_deg)
+    f_ = f_.cut(_ring_sweep(_bore_f, a0_, a1_)).removeSplitter()
+    f_.rotate(O, ZA, w)
+    return f_
+
+
+foot_l, foot_r = carry_foot(CARRY_W[0], 1), carry_foot(CARRY_W[1], -1)
+_feet = [foot_l, foot_r]
+HOOP_FAST = []
+for i_, w in enumerate(CARRY_W):
+    for _sz in (-1, 1):
+        HOOP_FAST.append(FA.m3("wrap handle's foot on its rail", wpt(CARRY_RAIL_R + CARRY_FLANGE_T, w, z_carry + _sz * CARRY_BOLT_Z), wpt(-1.0, w),
+                               [_feet[i_], _rails[i_]], head_on_face=True, clip=(-0.01, CARRY_FLANGE_T + CARRY_RAIL_R - r_case_od + 0.5)))
+PIN_FAST = [FA.m3("PVC tube pinned in its foot", wpt(CARRY_R, w, z_carry + CARRY_PIN_HL), V(0, 0, -1), [_feet[i_], _feet[i_]],
+                  head_on_face=True, clip=(-0.01, 2.0 * CARRY_PIN_HL + 0.01)) for i_, w in enumerate(CARRY_W)]
+foot_l = cut_fast(foot_l, HOOP_FAST[:2] + PIN_FAST[:1], "wrap handle's left foot")
+foot_r = cut_fast(foot_r, HOOP_FAST[2:] + PIN_FAST[1:], "wrap handle's right foot")
+carry_tube = cut_fast(carry_tube, PIN_FAST, "PVC tube")
+carry_feet = Part.makeCompound([foot_l, foot_r])
+carry_handle = Part.makeCompound([foot_l, foot_r, carry_tube])
+_rails = [cut_fast(r_, RAIL_FAST[4 * i_:4 * i_ + 4] + HOOP_FAST[2 * i_:2 * i_ + 2], "side rail") for i_, r_ in enumerate(_rails)]
+carry_rails = Part.makeCompound(_rails)
+# CARRY_KEY_FAST: the bolts put in after the skin (a key through its windows); the rails' go in before it.
+CARRY_KEY_FAST = LUG_FAST_R + LUG_FAST_F + HOOP_FAST
+CARRY_FAST = CARRY_KEY_FAST + RAIL_FAST + PIN_FAST
+_liner_cut = LUG_FAST_R + RAIL_FAST
+cam, cam_r, cam_l, cam_outside = [cut_fast(x_, [f_ for f_ in _liner_cut if f_.name != "side rail on the front ring"], n_) for x_, n_ in
                                    ((cam, "liner"), (cam_r, "liner right"), (cam_l, "liner left"), (cam_outside, "liner outside"))]
-brg_housing = cut_fast(brg_housing, CARRY_FAST, "bearing housing")
+pack_frame = cut_fast(pack_frame, [f_ for f_ in RAIL_FAST if f_.name == "side rail on the front ring"], "front ring")
+brg_housing = cut_fast(brg_housing, LUG_FAST_F, "bearing housing")
 _sl = []
-# 2026-11-22: the rear ring lay on its base under the EVA skin; it lies on the skin now (0.5 off).
-for _zs, _xs in ((z_post_r, max(r_case_od + CARRY_BASE_T + 1.0, SKIN_R_IN + SKIN_T + 0.5) + SLING_WIRE),
-                 (z_post_f, max(HOUS_RO + CARRY_BASE_T + 1.0, SKIN_R_IN + SKIN_T + 0.5) + SLING_WIRE)):
+for _zs in (z_post_r, z_post_f):                  # flat over the skin, through the lug's eye
     _t = Part.makeTorus(SLING_R, SLING_WIRE)
-    _t.rotate(O, V(0, 1, 0), 90.0)                # axis along X: round the post
-    _t.translate(V(_xs, y_carry, _zs))
+    _t.rotate(O, V(0, 1, 0), 90.0)                # axis along X
+    _t.translate(V(x_eye, y_carry + SLING_R, _zs))
     _sl.append(_t)
 sling = Part.makeCompound(_sl)
-carry_hand = Part.makeCylinder(CARRY_FIST_R, CARRY_GRIP_L, V(x_carry, y_carry, z_carry - CARRY_GRIP_L / 2), ZA)
+
+
+def carry_fist(w):
+    """The fist round the handle at world angle w: a cylinder on the arc's tangent there."""
+    a_ = math.radians(w)
+    t_ = V(-math.sin(a_), math.cos(a_), 0)
+    return Part.makeCylinder(CARRY_FIST_R, CARRY_GRIP_L, wpt(CARRY_R, w, z_carry) - t_ * (CARRY_GRIP_L / 2), t_)
+
+
+carry_hand = carry_fist(CARRY_MID_W)
 
 # ============================================================ tripod pad under the CG
 # The tripod is not chosen yet: a socket for a Ø50 ball under the CG. Below the pack
@@ -2697,7 +2806,14 @@ def tripod_at(tilt_deg, axis_):
     return _rot_axis(tripod_ball, tilt_deg, P_BALL, axis_)
 
 
-ms_add("carry", "handle", carry_handle, "strong")
+MS_RHO.setdefault("PVC", 1.40)
+ms_add("carry", "PVC tube", carry_tube, "PVC")
+ms_add("carry", "wrap handle's foot", foot_l, "strong")
+ms_add("carry", "wrap handle's foot", foot_r, "strong")
+for _s in carry_rails.Solids:
+    ms_add("carry", "side rail", _s, "strong")
+for _s in strap_lugs.Solids:
+    ms_add("carry", "strap lug", _s, "strong")
 for _s in sling.Solids:
     ms_add("carry", "strap ring", _s, "steel")
 ms_add("tripod", "keel and socket", tripod_pad, "strong")
@@ -2777,9 +2893,10 @@ SKIN_OBST = [
     ("lay bevel (sweep)", swept(bevel_small, _side(APEX), "Z")), ("crank bevel (sweep)", swept(bevel_big, _side(APEX), "Y")),
     ("crank shaft and spacer", Part.makeCompound([crank_shaft, crank_spacer])), ("crank brackets", crank_bracket),
     ("crank 608s", crank_bearings), ("crank arm and knob", Part.makeCompound([crank_arm, crank_knob, crank_knob_pin])),
-    ("carry handle", carry_handle), ("keel and tripod boss", tripod_pad),
-    ("carry post bolts (key)", Part.makeCompound([f_.access for f_ in CARRY_FAST])),
-    ("frame M6 studs", frame_studs), ("fasteners", Part.makeCompound([f_.body for f_ in FASTENERS] + [b_ for _, b_ in M4_EXC])),
+    ("carry handle", carry_handle), ("strap lugs", strap_lugs), ("keel and tripod boss", tripod_pad),
+    ("carry post bolts (key)", Part.makeCompound([f_.access for f_ in CARRY_KEY_FAST])),
+    ("frame M6 studs", frame_studs),
+    ("fasteners", Part.makeCompound([f_.body for f_ in FASTENERS if not any(f_ is h_ for h_ in HOOP_FAST)] + [b_ for _, b_ in M4_EXC])),
     ("ramp and its block", Part.makeCompound([ramp_fire, guide_block])), ("pack (six phases)", Part.makeCompound(stations)),
     ("hub", pack_hub), ("front bearing and its inner retainer", Part.makeCompound([front_bearing, brg_ret_in])),
     ("axle, its collars, coupling, MQR", Part.makeCompound([pack_axle, axle_collars, soft_coup, mqr_rotor, mqr_stator,
@@ -2796,6 +2913,7 @@ SKIN_RESTS = ("crank brackets", "star-drive box")
 # No slit round these: the cable threads through its window; the carry handle comes off and goes on
 # after the skin, the key to its rear base's bolts through the post's window.
 SKIN_THREADS = {"gate cable": "threads through", "carry handle": "goes on after the skin",
+                "strap lugs": "go on after the skin",
                 "carry post bolts (key)": "goes on after the skin"}
 _skin_ann = tube(2.0 * (SKIN_R_OUT + SKIN_CLEAR), 2.0 * SKIN_R_IN + 0.02, SKIN_Z0, SKIN_Z1)
 
@@ -3133,7 +3251,7 @@ _tick("fast checks: drive…")
 drive_vs_stations = min(gap(d, st, pad=DRIVE_PAD) for d in _drv for st in stations)
 drive_vs_rim = min(gap(rim_gear, d) for n, d in drive_parts if not n.startswith("crank gear"))
 _near_fixed = [gearbox, gear_a, gear_b, gear_i, gear_s, lay_shaft, idl_shaft, star_shaft, star0,
-               feed_head, feed_cup, feed_lip, feed_guard, front_plate, carry_handle, sling]
+               feed_head, feed_cup, feed_lip, feed_guard, front_plate, carry_handle, carry_rails, strap_lugs, sling]
 drive_vs_fixed = min(gap(d, f, pad=DRIVE_PAD) for d in _drv for f in _near_fixed)
 
 
@@ -3146,7 +3264,7 @@ bevels_apart = gap(bevel_small, crank_gear)
 # The hand against the gun (not its own drive); the arm stands off the boss by design.
 _hand_gun = [("star-drive box", gearbox), ("star train", Part.makeCompound([gear_a, gear_b, gear_i, gear_s])),
              ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("carry handle", carry_handle),
-             ("strap loops", sling), ("frame", frame_all), ("liner", cam_outside), ("front plate", front_plate),
+             ("carry rails", carry_rails), ("strap lugs", strap_lugs), ("strap loops", sling), ("frame", frame_all), ("liner", cam_outside), ("front plate", front_plate),
              ("ramp", ramp_fire),
              ("bearing disks", Part.makeCompound([brg_f, brg_r])),
              ("dead-man and hose", Part.makeCompound([deadman, air_supply, supply_hose])),
@@ -3169,21 +3287,36 @@ knob_arm_gap = gap(crank_knob, crank_arm)
 knob_in_room = crank_knob.common(hand_space).Volume / crank_knob.Volume
 # Carry: the posts stand on the liner and the gearbox; handle, rings and the fist clear the rest.
 _tick("fast checks: carry, tripod…")
-carry_seat_r = gap(carry_handle, cam_outside)
-carry_in_liner = carry_handle.common(cam).Volume
-carry_seat_f = gap(carry_handle, brg_housing)
+carry_seat_r = gap(lug_r, cam_outside)
+carry_in_liner = strap_lugs.common(cam).Volume + carry_rails.common(cam).Volume
+carry_seat_f = gap(lug_f, brg_housing)
 carry_rear_on_liner = z_cam0 <= z_post_r - CARRY_POST_T / 2 and z_post_r + CARRY_POST_T / 2 <= z_cam1
+rail_on_liner = max(gap(r_, cam_outside) for r_ in carry_rails.Solids)
+rail_on_ring = max(gap(r_, pack_frame) for r_ in carry_rails.Solids)
+hoop_on_rails = max(gap(carry_feet, r_) for r_ in carry_rails.Solids)
+hoop_one = (len(foot_l.Solids) == 1 and len(foot_r.Solids) == 1 and len(carry_tube.Solids) == 1 and foot_l.isValid()
+            and foot_r.isValid() and carry_tube.isValid() and all(r_.isValid() for r_ in carry_rails.Solids))
+tube_in_feet = carry_tube.common(carry_feet).Volume
+tube_socket_gap = gap(carry_tube, carry_feet)
+rail_groove = gap(Part.makeCompound([f_.cutter for f_ in RAIL_FAST if "liner" in f_.name]), groove_solid, pad=8.0)
 _carry_near = [("cup", feed_cup), ("feed head", feed_head), ("gate", Part.makeCompound([gate_housing, gate_pin, gate_pin_open])),
                ("gate cable", gate_cable), ("star", star0), ("guard", feed_guard), ("frame", frame_all),
                ("star train", Part.makeCompound([gear_a, gear_b, gear_i, gear_s, star_shaft, lay_shaft, idl_shaft])),
-               ("rim", rim_gear), ("pack (six phases)", Part.makeCompound(stations))]
+               ("rim", rim_gear), ("pack (six phases)", Part.makeCompound(stations)),
+               ("pack drive", Part.makeCompound([s_ for _, s_ in drive_parts]))]
 carry_gap, carry_near = min((gap(carry_handle, f_, pad=DRIVE_PAD), n_) for n_, f_ in _carry_near)
+_rail_near = [(n_, f_) for n_, f_ in _carry_near if n_ != "frame"] + [("frame studs", frame_studs)]
+rail_gap, rail_near = min((gap(carry_rails, f_, pad=DRIVE_PAD), n_) for n_, f_ in _rail_near)
 ring_gap, ring_near = min((gap(sling, f_, pad=DRIVE_PAD), n_) for n_, f_ in
-                          _carry_near + [("liner", cam_outside), ("gearbox", gearbox), ("handle", carry_handle),
+                          _carry_near + [("liner", cam_outside), ("gearbox", gearbox), ("strap lugs", strap_lugs),
                                          ("EVA skin", skin)])
-fist_gap, fist_near = min((gap(carry_hand, f_, pad=DRIVE_PAD), n_) for n_, f_ in
-                          _carry_near + [("liner", cam_outside), ("gearbox", gearbox), ("strap rings", sling)])
-CG_OFF_Z, CG_OFF_Y, CG_UP = CG.z - z_carry, CG.y - y_carry, CG.x - CG0.x   # the handle lifts the CG towards itself
+fist_gap, fist_near = min((gap(carry_fist(w_), f_, pad=DRIVE_PAD), "%s, hand at %.0f deg" % (n_, w_)) for w_ in CARRY_FIST_W for n_, f_ in
+                          _carry_near + [("liner", cam_outside), ("gearbox", gearbox), ("strap rings", sling), ("strap lugs", strap_lugs),
+                                         ("EVA skin", skin), ("crank room", hand_space)])
+carry_top = max(carry_handle.optimalBoundingBox().XMax, strap_lugs.optimalBoundingBox().XMax)   # plain BoundBox overshoots on the bend
+cup_floor = feed_cup.optimalBoundingBox().XMin
+hopper_free = carry_top < cup_floor
+CG_OFF_Z, CG_OFF_Y, CG_UP = CG.z - z_carry, CG.y - y_carry, CG.x - CG0.x   # against the estimate the lugs were placed by
 # Tripod pad: the keel stands on the liner and the front ring, the socket is under the
 # CG; keel, boss and the tilted tripod clear the rest.
 tripod_seat_r = gap(tripod_pad, cam_outside)
@@ -3223,7 +3356,7 @@ PRINTED_ONE = [("liner (two halves)", cam_r), ("liner (two halves)", cam_l), ("f
                ("rear rail disk", rear_disk), ("axle collar", axle_collar_f), ("axle collar", axle_collar_r),
                ("ramp", ramp_body), ("ramp block", guide_block), ("muzzle plate", front_plate), ("gearbox", gearbox),
                ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("gate housing", gate_housing),
-               ("star collar", star_collar), ("gears A+B", gear_ab), ("rear plate", mqr_plate), ("carry handle", carry_handle),
+               ("star collar", star_collar), ("gears A+B", gear_ab), ("rear plate", mqr_plate), ("wrap handle foot", foot_l), ("wrap handle foot", foot_r),
                ("keel", tripod_pad), ("crank arm", crank_arm), ("soft coupling", soft_coup),
                ("star with its hub", star0), ("star gear", gear_s), ("idler", gear_i), ("star bearing cover", star_cover),
                ("rear 6808 retainer", brg6808_ret_r), ("lay shaft collar", lay_collar), ("crank spacer", crank_spacer),
@@ -3279,7 +3412,7 @@ assembly = Part.makeCompound([
     star_shaft, lay_shaft, idl_shaft, gearbox, star0, feed_head, feed_lip, feed_cup, feed_guard,
     ramp_fire, guide_block, rear_struts, grip, pommel, lever, lever_pin, dm_pusher, gate_wire, gate_cable,
     gate_housing, gate_pin, gate_spring, crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings,
-    crank_arm, crank_knob, crank_knob_pin, carry_handle, tripod_pad, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
+    crank_arm, crank_knob, crank_knob_pin, carry_handle, carry_rails, strap_lugs, tripod_pad, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
     mqr_plate, lines_inner, deadman, air_supply, supply_hose, races_6808, brg6808_ret_r, star_bearings, star_cover,
     star_spacer, lay_collar, crank_spacer, collector, coll_fittings, coll_hoses, skin, skin_cap,
 ])
@@ -3369,7 +3502,8 @@ checks = [
      % (AXLE_ID, 2 * BUNDLE_R, lines_fixed), bundle_fit >= 1.0 and lines_fixed >= CLEAR),
     ("air: axle Ø%.0f on two %s, MQR off the axle" % (AXLE_OD, BRG_NAME.split(" ")[0]), bearings_on_axle and mqr_free),
     ("valves' sweep ahead of the front bearing disk (%.2f)" % aft_gap, aft_gap >= CLEAR),
-    ("carry handle on top, crank on the side", carry_handle.BoundBox.Center.x > 0.0
+    ("wrap handle from the left over the top, crank on the right", math.sin(math.radians(CARRY_W[0])) * crank_shaft.BoundBox.Center.y < 0.0
+     and carry_handle.BoundBox.XMax > SKIN_R_OUT
      and abs(crank_shaft.BoundBox.Center.y) > abs(crank_shaft.BoundBox.Center.x)),
     ("pack drive %d:%d bevel (m%.0f) -> gear %d in rim %d: %.3f pack turn per crank turn, %.0f rpm -> %.1f shots/s"
      % (CB_ZB, CB_ZS, CB_M, CP_Z, Z_RIM, PACK_PER_CRANK, CRANK_RPM, SHOTS_PER_S),
@@ -3397,16 +3531,23 @@ checks = [
     ("knob turns on its own pin (bore %.2f, %.1f off the arm), inside the room for the hand (%.1f %%)"
      % (knob_pin_gap, knob_arm_gap, 100.0 * knob_in_room),
      knob_pin_gap >= 0.15 and knob_arm_gap >= 0.5 and knob_in_room > 0.999),
-    ("carry handle over the CG (z %.0f, y %.0f): posts on the liner (%.2f, %.2f mm3 in it) and the bearing housing (%.2f),"
-     " CG ± %.0f;"
-     " with the handle the CG is %.1f / %.1f off its middle and %.0f below the bar (rises %.1f)"
-     % (z_carry, y_carry, carry_seat_r, carry_in_liner, carry_seat_f, d_carry, CG_OFF_Z, CG_OFF_Y, x_carry - CG.x, CG_UP),
-     carry_seat_r < 0.05 and carry_in_liner < 0.01 and carry_seat_f < 0.05 and carry_rear_on_liner and abs(CG_OFF_Z) < 2.0
-     and abs(CG_OFF_Y) < 1.0 and CG.x < x_carry - 100.0),
-    ("handle clear of the cup, feed head, gate and cable, star train, frame, pack (%s, %s); strap rings round"
-     " the posts at z %.0f / %.0f (%s, %s)" % (far(carry_gap), carry_near, z_post_r, z_post_f, far(ring_gap), ring_near),
-     carry_gap >= 2.0 and ring_gap >= 0.3),
-    ("fist on the handle (R %.0f x %.0f round the bar) %s from the gun (%s)"
+    ("wrap handle in the CG's plane (z %.0f, CG %.1f off) on two rails at %.0f / %.0f deg: rails on the liner (%.2f) and the"
+     " front ring (%.2f), handle on the rails (%.2f), %.2f mm3 in the liner, liner bolts %.2f off the groove"
+     % (z_carry, CG_OFF_Z, CARRY_W[0], CARRY_W[1], rail_on_liner, rail_on_ring, hoop_on_rails, carry_in_liner, rail_groove),
+     rail_on_liner < 0.05 and rail_on_ring < 0.05 and hoop_on_rails < 0.05 and carry_in_liner < 0.01 and rail_groove >= 1.0
+     and abs(CG_OFF_Z) < 2.0 and hoop_one),
+    ("PVC tube Ø%.0f x %.0f, %.0f mm long, one bend R %.0f (%.1f x its Ø), in two printed feet (%.2f off the sockets, %.3f mm3"
+     " in them), an M3 x 50 across each" % (CARRY_TUBE_OD, CARRY_TUBE_WALL, CARRY_TUBE_L, CARRY_R, CARRY_R / CARRY_TUBE_OD,
+                                           tube_socket_gap, tube_in_feet),
+     tube_in_feet < 0.01 and 0.05 <= tube_socket_gap <= 0.4 and CARRY_R >= 5.0 * CARRY_TUBE_OD and all(f_.L == 50.0 for f_ in PIN_FAST)),
+    ("strap lugs either side of the CG (± %.0f, y %.1f off): on the liner (%.2f) and the bearing housing (%.2f); the handle's"
+     " top at x %.1f, under the cup's floor at %.1f" % (d_carry, CG_OFF_Y, carry_seat_r, carry_seat_f, carry_top, cup_floor),
+     carry_seat_r < 0.05 and carry_seat_f < 0.05 and carry_rear_on_liner and abs(CG_OFF_Y) < 1.0 and hopper_free),
+    ("handle clear of the cup, feed head, gate and cable, star train, frame, pack (%s, %s); rails (%s, %s); strap rings"
+     " through the lugs' eyes at z %.0f / %.0f (%s, %s)"
+     % (far(carry_gap), carry_near, far(rail_gap), rail_near, z_post_r, z_post_f, far(ring_gap), ring_near),
+     carry_gap >= 2.0 and rail_gap >= 0.5 and ring_gap >= 0.3),
+    ("fist anywhere on the handle, 270..30 deg (R %.0f x %.0f round it), %s from the gun (%s)"
      % (CARRY_FIST_R, CARRY_GRIP_L, far(fist_gap), fist_near), fist_gap >= CARRY_CLEAR - 0.05),
     ("tripod pad under the CG: socket for a Ø%.0f ball at z %.0f, y %.0f (CG %.1f / %.1f off), %.0f below it;"
      " keel on the liner (%.2f) and the front ring (%.2f)"
@@ -3515,9 +3656,10 @@ report = [
     "  centre of gravity      : x %.1f  y %.1f  z %.1f (z %.0f from the crank axis, %.0f ahead of the liner's rear face)"
     % (CG.x, CG.y, CG.z, CG.z - Z_CRANK, CG.z - z_cam0),
     "  mass by unit           : " + ", ".join("%s %.0f g (z %.0f)" % (g_, m_, c_.z) for g_, m_, c_ in mass_groups),
-    "  carry                  : bridge handle, bar Ø%.0f at x %.0f over the CG (z %.0f, y %.0f); posts at z %.0f / %.0f"
-    " (CG ± %.0f) on the liner and the front bearing housing; steel strap rings round the posts"
-    % (CARRY_BAR_D, x_carry, z_carry, y_carry, z_post_r, z_post_f, d_carry),
+    "  carry                  : wrap handle, PVC tube Ø%.0f x %.0f x %.0f, R %.0f round the axis from low left over the top to"
+    " high right, in the CG's plane (z %.0f); two printed feet on two rails at %.0f / %.0f deg (liner to front ring); strap lugs"
+    " at z %.0f / %.0f (CG ± %.0f)"
+    % (CARRY_TUBE_OD, CARRY_TUBE_WALL, CARRY_TUBE_L, CARRY_R, z_carry, CARRY_W[0], CARRY_W[1], z_post_r, z_post_f, d_carry),
     "  tripod                 : keel under the frame z %.0f..%.0f (liner to front ring), socket for a Ø%.0f ball"
     " %.0f deep under the CG, ball centre x %.0f" % (z_keel0, z_keel1, TRIPOD_BALL_D, TRIPOD_SOCKET_DEPTH, P_BALL.x),
 ]
@@ -3640,7 +3782,10 @@ sc.add("Reference", "Hand_space", hand_space, "hand")
 sc.add("Reference", "Carry_hand", carry_hand, "hand")
 sc.add("Carry", "Tripod_pad", tripod_pad, "frame")
 sc.add("Reference", "Tripod_ball_50", tripod_ball, "brg")
-sc.add("Carry", "Carry_handle", carry_handle, "carry")
+sc.add("Carry", "Carry_tube_PVC", carry_tube, "carry")
+sc.add("Carry", "Carry_feet", carry_feet, "frame")
+sc.add("Carry", "Carry_rails", carry_rails, "carry")
+sc.add("Carry", "Strap_lugs", strap_lugs, "carry")
 sc.add("Carry", "Sling_loops", sling, "carry")
 sc.add("Air", "Pack_axle", pack_axle, "drive")
 sc.add("Air", "Bearing_front", brg_f, "brg")
