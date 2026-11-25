@@ -5,8 +5,8 @@ Gatling breech mechanism (not a freeze).
 Stroke from linear_breech (65.8 mm) -> angle->stroke law -> outboard cam liner ->
 six phases -> AirTAC on each carriage, fixed firing ramp -> star feed geared
 to the pack (rim on the breech clamps + fixed train) with a gate in the neck ->
-helical guard -> side crank with arm and knob -> air: hollow axle, bearings,
-MQR, hose from the receiver through a dead-man -> flintlock grip with one
+helical guard -> side crank with arm and knob -> air: MQR in the pack's tail on a
+61812, hose from the receiver through a dead-man -> flintlock grip with one
 two-stage lever (air, then balls) for the left hand -> mass and centre of
 gravity -> chainsaw-style wrap handle in its plane, strap lugs either side, tripod socket under it.
 
@@ -141,6 +141,14 @@ the height).
   forward; the lay shaft runs forward 8.6 mm past the crank bevel and shaft,
   and plate A with its 608 sits behind the lay bevel. The mesh check catches
   a wrong sign (88.7 mm3 overlap against 0). 8.30 kg, CG (8, 7.5, 94.5).
+
+2026-11-23, shorter tail (owner: the enclosed part was longer than the barrels): the hollow
+axle, both 6808 and their disks are gone. The MQR's rotor sits in the rear rail disk on a TPU
+pad, its radial ports feed the six R lines directly; the stator stands behind it on the rear
+plate, ports as on the drawing (a helix, 60 deg apart, not a row). The pack's tail runs in a
+floating 61812 on the disk's sleeve round the MQR, in a printed cage on four legs off the
+spider. The front 61836 became a printed slide ring round the hub's journal, PTFE tape on the
+journal (owner: no big bought bearing); FRONT_BRG_NAME = "KA070XP0" or "61836" brings a bearing back.
 
 2026-11-21, fasteners (owner: every printed part held to its neighbour with M3 x 6 /
 20 / 50 and nuts, no inserts or glue; the frame on bare M6 studs). The joint audit
@@ -526,6 +534,14 @@ ST_FAST, PK_FAST = [], []
 REAR_DISK_Z0, REAR_DISK_Z1 = -137.0, -121.0     # behind the open carriage and pilot fitting
 REAR_DISK_R = 46.0
 RAIL_SOCKET = 10.0                              # rail end in the rear disk
+# 2026-11-23: the MQR's rotor sits in the rear disk (docs/gatling.md, "Короткий хвост"). Face 9 mm
+# behind the disk's front: a 6 mm web and a 3 mm TPU pad. Its radial M5 ports lie on the disk's
+# aft face; the fittings reach r 35, inside the race-side lip of the rear bearing's cage.
+Z_ROTOR1 = REAR_DISK_Z1 - 9.0
+MQR_PORT_Z = 7.0                                # rotor ports from the rotor face (drawing)
+Z_ROTOR_PORT = Z_ROTOR1 - MQR_PORT_Z
+ROTOR_FIT_D, ROTOR_FIT_L = 12.0, 12.0           # M5 push-in for the 6 mm line, est.
+R_ROTOR_FIT = 23.0 + ROTOR_FIT_L
 HUB_RAIL_SOCKET = 20.0                          # rail end in a clamp foot of the hub
 z_rail_pk0 = REAR_DISK_Z1 - RAIL_SOCKET
 z_rail_pk1 = z_clamp0 + HUB_RAIL_SOCKET
@@ -650,11 +666,8 @@ LINE_A_V = math.pi * (HOSE_ID / 2) ** 2 * LINE_A_L / 1000.0
 valve_group = Part.makeCompound([valve_body, valve_fit, valve_bracket, line_a])
 slide0 = Part.makeCompound(qev_slide + [valve_group])     # + follower, set after the cam
 
-# --- line R (supply), R port -> axle window: flexes with the stroke (route is a sketch).
+# --- line R (supply), R port -> the MQR rotor's port: flexes with the stroke (route is a sketch).
 _r_end = V(A_T / 2 + AIRTAC["straight"]["R"][1], VALVE_Y, z_valve0 + AIRTAC["ports"]["R"])
-AXLE_OD, AXLE_ID = 38.0, 34.6     # Al 38 x 1.5 from the mitrailleuse bench (measured ID ~34.6)
-Z_AXLE_WIN = -110.0               # axle windows the six lines enter, inside the pack hub
-R_BUNDLE = 6.5                    # line centres inside the axle
 
 
 def line_r_pts(dz):
@@ -664,9 +677,9 @@ def line_r_pts(dz):
             V(A_T / 2 + 2.5 + HOSE_OD / 2, VALVE_Y, z - 3.0),     # turn down beside the body
             V(A_T / 2 + 2.5 + HOSE_OD / 2, 1.5, z - 6.0),
             V(0.0, 1.5, z - 10.0),                                # under the body, onto the station's plane
-            V(0.0, -42.0, Z_AXLE_WIN + 8.0),                      # between its own rails (slot in the rear disk)
-            V(0.0, -R_PACK + AXLE_OD / 2 + 2.0, Z_AXLE_WIN - 2.0),
-            V(0.0, -R_PACK + R_BUNDLE, Z_AXLE_WIN - 10.0)]
+            V(0.0, -8.0, Z_ROTOR_PORT - 0.5),                     # r 59: outside the bearing cage's ring
+            V(0.0, -R_PACK + R_ROTOR_FIT + 3.0, Z_ROTOR_PORT),    # through its notch in the rear disk
+            V(0.0, -R_PACK + R_ROTOR_FIT - 1.0, Z_ROTOR_PORT)]
 
 
 def line_r(dz):
@@ -1100,9 +1113,23 @@ centre_err = max(abs(L_C.Length - (R_RIM + R_A)), abs((I_C - L_C).Length - (R_B 
 # inner race sits on a shoulder and under a front retainer (6 x M3 x 20 into the seat,
 # nuts slid in from inside between the barrels); the outer race in a housing with a lip,
 # its rear retainer clamped by the housing's M6 studs (frame, below).
-FRONT_BRG = dict(name="61836", d=180.0, D=225.0, B=22.0, d1=187.0, D1=218.0)   # d1 / D1: race shoulders
+# 2026-11-23: a printed slide ring by default, in the KA070XP0's envelope (16 mm shorter and ~1.7 kg
+# lighter than the 61836; the thin bearing costs $120..1800). It stands clamped in the housing, the
+# hub's journal turns in it, 0.2 radial, and the hub's shoulder and retainer locate the pack along
+# the axis, 0.1 each side. FRONT_BRG_NAME = "KA070XP0" / "61836" before exec brings a bearing back.
+# d1 / D1: shoulders (a bearing's races; here the hub's thrust shoulder and the housing's lip).
+FRONT_BEARINGS = {"slide": dict(name="slide ring", d=177.8, bore=178.2, D=190.5, B=6.35, d1=184.0, D1=187.3, ret_t=6.0,
+                                ret_ri=0.2, bolt_r=83.2, axial=0.1, mat="strong"),
+                  "KA070XP0": dict(name="KA070XP0", d=177.8, D=190.5, B=6.35, d1=181.0, D1=187.3, ret_t=6.0, ret_ri=0.2, bolt_r=83.2),
+                  "61836": dict(name="61836", d=180.0, D=225.0, B=22.0, d1=187.0, D1=218.0, ret_t=4.0, ret_ri=1.0, bolt_r=None)}
+try:
+    FRONT_BRG_NAME
+except NameError:
+    FRONT_BRG_NAME = "slide"
+FRONT_BRG = FRONT_BEARINGS[FRONT_BRG_NAME]
 HUB_TUBE_RI, HUB_TUBE_RO = 80.0, 85.5
-RET_T = 4.0
+RET_T = FRONT_BRG["ret_t"]
+FRONT_AX = FRONT_BRG.get("axial", 0.0)           # the slide ring's running play along the axis, each side
 z_brg0 = BOX_Z1 + 5.0                            # shaft ends at BOX_Z1 + 1, the rear retainer from BOX_Z1 + 2
 z_brg1 = z_brg0 + FRONT_BRG["B"]
 z_seat0 = P2_Z1 + 1.0
@@ -1118,19 +1145,19 @@ BED = 256.0                                      # Bambu P2S
 HOUS_RO = SKIN_R_IN                              # 125 until 2026-11-22: the skin is glued on the housing
 _hub = [rim_gear] + [place(clamp_lower, k * 60.0) for k in range(N)] + [
     tube(2 * HUB_TUBE_RO, 2 * HUB_TUBE_RI, P1_Z1 - 0.5, z_seat0 + 0.5),
-    tube(FRONT_BRG["d"], 2 * HUB_TUBE_RI, z_seat0, z_brg1),
-    tube(FRONT_BRG["d1"], 2 * HUB_TUBE_RI, z_brg0 - 2.0, z_brg0)]
+    tube(FRONT_BRG["d"], 2 * HUB_TUBE_RI, z_seat0, z_brg1 + FRONT_AX),
+    tube(FRONT_BRG["d1"], 2 * HUB_TUBE_RI, z_brg0 - 2.0, z_brg0 - FRONT_AX)]
 pack_hub = G.fuse_all(_hub).removeSplitter()
-front_bearing = tube(FRONT_BRG["D"], FRONT_BRG["d"], z_brg0, z_brg1)
-brg_ret_in = tube(FRONT_BRG["d1"] + 1.0, 2 * (HUB_TUBE_RI + 1.0), z_brg1, z_brg1 + RET_T)
+front_bearing = tube(FRONT_BRG["D"], FRONT_BRG.get("bore", FRONT_BRG["d"]), z_brg0, z_brg1)
+brg_ret_in = tube(FRONT_BRG["d1"] + 1.0, 2 * (HUB_TUBE_RI + FRONT_BRG["ret_ri"]), z_brg1 + FRONT_AX, z_brg1 + FRONT_AX + RET_T)
 brg_housing = tube(2 * HOUS_RO, FRONT_BRG["D"] + 0.2, z_brg0, z_brg1).fuse(
     tube(2 * HOUS_RO, FRONT_BRG["D1"], z_brg1, z_brg1 + 3.0)).removeSplitter()
 brg_ret_out = tube(2 * HOUS_RO, FRONT_BRG["D1"], z_brg0 - 3.0, z_brg0)
 HUB_FAST = []
-_r_ret = 0.5 * (HUB_TUBE_RI + 1.0 + 0.5 * FRONT_BRG["d"])
+_r_ret = FRONT_BRG["bolt_r"] or 0.5 * (HUB_TUBE_RI + 1.0 + 0.5 * FRONT_BRG["d"])
 for k in range(N):
     _a = k * 60.0 + 30.0
-    _o = polar(_r_ret, _a, z_brg1 + RET_T)
+    _o = polar(_r_ret, _a, z_brg1 + FRONT_AX + RET_T)
     HUB_FAST.append(FA.m3_at("hub: inner race retainer", _o, V(0, 0, -1), 0.0, 20.0 - FA.NUT_T - 1.0, 20.0,
                              nut_slot=(polar(-1.0, _a), _r_ret - HUB_TUBE_RI + 1.0)))
 pack_hub, brg_ret_in = cut_fast(pack_hub, HUB_FAST, "hub"), cut_fast(brg_ret_in, HUB_FAST, "inner race retainer")
@@ -1191,176 +1218,63 @@ breech_casing = pack_frame
 full_shell_vol = tube(2.0 * r_case_od, 2.0 * r_case_id, z_cam0 - RING_T, z_case1).Volume
 frame_ok = True                        # open frame: rings and studs (checked again with the studs)
 
-# ============================================================ air: hollow axle, bearings, MQR
-BRG_OD, BRG_BORE, BRG_T = 52.0, 40.0, 7.0      # 6808, on a 1 mm shim over the Ø38 tube
-BRG_NAME = "6808 (40 x 52 x 7) on a 1 mm shim"
-DISK_T = 10.0
+# ============================================================ air: MQR in the pack's tail, rear bearing
+# 2026-11-23 (docs/gatling.md, "Короткий хвост"): the hollow axle on two 6808 took 206 mm behind
+# the stations. Now the rotor sits in the rear rail disk and the stator behind it on the rear
+# plate, so the MQR overlaps the valves' stroke. The disk's sleeve round the MQR runs in a 61812;
+# its outer race is held in a cage off the rear plate, the inner race floats on the sleeve (the
+# front bearing locates the pack along the axis). The MQR carries no load: a TPU pad under the rotor.
 MQR_D, MQR_ROTOR_L, MQR_STATOR_L, MQR_SPIGOT = 46.0, 15.0, 72.0, 3.0
-MQR_PORT_Z = 7.0                # rotor ports from the rotor face
-SOFT_OD, SOFT_L, SOFT_GAP = 56.0, 24.0, 4.0
+SOFT_T = 3.0                                    # TPU pad between the rotor's face and the disk's web
 SUPPLY_HOSE_OD, SUPPLY_HOSE_L = 14.0, 60.0     # end of the thick hose from the receiver (3/8")
 DEADMAN_R, DEADMAN_L = 12.0, 28.0
+RBRG = dict(name="61812", d=60.0, D=78.0, B=10.0, D1=73.0)     # D1: the outer race's shoulder, lip and retainer bear inside it
 _rot_min = min(Part.makeCompound(list(station(p))).BoundBox.ZMin for p in (0.0, 180.0))
-z_brg_f1 = min(_rot_min, z_cam0 - RING_T) - 1.0
-z_brg_f0 = z_brg_f1 - DISK_T
-BRG_SPACING = 57.0
-z_brg_r1 = z_brg_f1 - BRG_SPACING
-z_brg_r0 = z_brg_r1 - DISK_T
-z_axle1 = Z_AXLE_WIN + 12.0
-z_axle0 = z_brg_r0 - 24.0
-z_axle_exit = z_axle0 + 15.0          # lines leave the axle between the coupling and the rear bearing
-z_soft1 = z_axle0 + 10.0
-z_soft0 = z_soft1 - SOFT_L
-z_rotor1 = z_soft0 - SOFT_GAP
+z_rotor1 = Z_ROTOR1
 z_rotor0 = z_rotor1 - MQR_ROTOR_L
 z_stator1 = z_rotor0
 z_stator0 = z_stator1 - MQR_STATOR_L
 z_mqr_plate1 = z_stator0 - MQR_SPIGOT
 z_mqr_plate0 = z_mqr_plate1 - 6.0
-
-
-BRG_LIP_ID = 47.0               # 6808: its outer race's face is r 24.2..26, the inner race's r <= 21.8
-
-
-def bearing_disk(z_a, z_b, r_frame, lip):
-    """Printed disk with a 6808 seat (the race is its own body), a lip on the face lip (+1 / -1)."""
-    hub = tube(BRG_OD + 12.0, BRG_OD - 0.2, z_a, z_b)
-    rim = tube(2.0 * r_frame, 2.0 * (r_frame - 5.0), z_a, z_b)
-    ri = (DISK_T - BRG_T) / 2.0
-    lip_ = tube(BRG_OD + 1.0, BRG_LIP_ID, z_b - ri, z_b) if lip > 0 else tube(BRG_OD + 1.0, BRG_LIP_ID, z_a, z_a + ri)
-    parts = [hub, rim, lip_]
-    for w in SPAR_ANGLES:
-        a = math.radians(w)
-        r0 = BRG_OD / 2 + 4.0
-        parts.append(Part.makeCylinder(4.0, max(8.0, r_frame - 5.0 - r0),
-                                       V(r0 * math.cos(a), r0 * math.sin(a), 0.5 * (z_a + z_b)),
-                                       V(math.cos(a), math.sin(a), 0)))
-    return G.fuse_all(parts)
-
-
-brg_f = bearing_disk(z_brg_f0, z_brg_f1, r_case_od, +1)
-brg_r = bearing_disk(z_brg_r0, z_brg_r1, r_case_od, -1)
-_ri = (DISK_T - BRG_T) / 2.0
-race_f = tube(BRG_OD, BRG_BORE, z_brg_f0 + _ri, z_brg_f1 - _ri)
-race_r = tube(BRG_OD, BRG_BORE, z_brg_r0 + _ri, z_brg_r1 - _ri)
-races_6808 = Part.makeCompound([race_f, race_r])
-pack_axle = tube(AXLE_OD, AXLE_ID, z_axle0, z_axle1)
-# Rear disk (2026-11-21): 16 thick, the rail ends in blind sockets from its front face; the
-# line R slots only where an opening station's line crosses it (r >= 34.5: they used to run
-# from the bore to the rim and cut the disk in six). A split hub on the axle: one M3 x 20
-# across the slit at 30 deg, between two stations.
-REAR_SLOT_R0 = 34.5                 # the inclined hose's section is 3.8 mm across in the disk's plane
-rear_disk = Part.makeCylinder(REAR_DISK_R, REAR_DISK_Z1 - REAR_DISK_Z0, V(0, 0, REAR_DISK_Z0))
-rear_disk = rear_disk.cut(Part.makeCylinder(AXLE_OD / 2 + 0.1, 30, V(0, 0, REAR_DISK_Z0 - 5)))
+z_web0 = z_rotor1 + SOFT_T
+z_rb1 = Z_ROTOR_PORT - ROTOR_FIT_D / 2.0 - 0.4  # the bearing's front face, just behind the rotor's fittings
+z_rb0 = z_rb1 - RBRG["B"]
+ROTOR_BORE = MQR_D + 1.2
+# Rear disk (2026-11-21): the rails end in blind sockets from its front face. 2026-11-23: it holds
+# the rotor in a bore and runs on as a sleeve to the 61812. The notches for the rotor's fittings
+# and the lines are open aft only: the web ahead of them keeps the disk one piece.
+REAR_NOTCH_W = ROTOR_FIT_D + 0.4
+z_notch0, z_notch1 = z_rb1 + 0.3, Z_ROTOR_PORT + ROTOR_FIT_D / 2.0 + 0.4
+rear_disk = Part.makeCylinder(REAR_DISK_R, REAR_DISK_Z1 - REAR_DISK_Z0, V(0, 0, REAR_DISK_Z0)).fuse(
+    Part.makeCylinder(RBRG["d"] / 2.0, REAR_DISK_Z0 - (z_rb0 - 0.2) + 0.5, V(0, 0, z_rb0 - 0.2)))
+rear_disk = rear_disk.cut(Part.makeCylinder(ROTOR_BORE / 2.0, z_web0 - (z_rb0 - 2.0), V(0, 0, z_rb0 - 2.0)))
 for k in range(N):
     for x, y in rail_centers():
         rc = place(Part.Vertex(V(x, y, 0)), k * 60.0).Point
         rear_disk = rear_disk.cut(Part.makeCylinder(RAIL_HOLE / 2, RAIL_SOCKET + 1.0, V(rc.x, rc.y, z_rail_pk0)))
-    _sl = Part.makeBox(9.0, 40.0, 30.0, V(-4.5, -R_PACK + REAR_SLOT_R0, REAR_DISK_Z0 - 5))
+    _sl = Part.makeBox(REAR_NOTCH_W, 40.0, z_notch1 - z_notch0, V(-REAR_NOTCH_W / 2, -R_PACK + 22.0, z_notch0))
     rear_disk = rear_disk.cut(place(_sl, k * 60.0))
-_slit = Part.makeBox(REAR_DISK_R + 5.0, 1.5, 40.0, V(0, -0.75, REAR_DISK_Z0 - 5))
-_slit.rotate(O, ZA, wdeg(30.0))
-rear_disk = rear_disk.cut(_slit)
 AIR_FAST = []
-_t = polar(1.0, 30.0 + 90.0)
-_f = FA.m3("rear disk on the axle", polar(27.0, 30.0, 0.5 * (REAR_DISK_Z0 + REAR_DISK_Z1)), _t * -1.0,
-           [rear_disk, rear_disk], clip=(-11.0, 11.0))
-rear_disk = rear_disk.cut(_f.cutter).removeSplitter()
-AIR_FAST.append(_f)
-rear_disk_one = len(rear_disk.Solids) == 1
-
-
-def shaft_collar(name, z0, z1, lip_z, od=56.0, lip_od=43.0, lip_l=1.5, ang=30.0):
-    """Split collar on the axle from z0 to z1 with a lip toward lip_z (+1 / -1) onto a 6808's
-    inner race; one M3 x 20 across the slit. Returns (collar, fastener)."""
-    c = tube(od, AXLE_OD + 0.1, z0, z1)
-    zl0, zl1 = (z1, z1 + lip_l) if lip_z > 0 else (z0 - lip_l, z0)
-    c = c.fuse(tube(lip_od, AXLE_OD + 0.1, zl0, zl1))
-    sl = Part.makeBox(od / 2 + 5.0, 1.2, (z1 - z0) + 2 * lip_l + 4.0, V(0, -0.6, min(z0, zl0) - 2.0))
-    sl.rotate(O, ZA, wdeg(ang))
-    c = c.cut(sl)
-    t = polar(1.0, ang + 90.0)
-    f = FA.m3(name, polar(0.5 * (AXLE_OD / 2 + od / 2), ang, 0.5 * (z0 + z1)), t * -1.0, [c, c], clip=(-12.0, 12.0))
-    return c.cut(f.cutter).removeSplitter(), f
-
-
-# The front 6808 locates the axle (both its collars bear on its inner race, 1.5 mm inside the
-# disk's faces), the rear one floats. Each outer race sits between a lip of its disk and the
-# spigot of a retainer ring on 3 x M3 x 20 (2026-11-21: the front retainer stood 5.5 mm off its
-# race and neither disk had a lip; the rear race was held by its press alone).
-_race_in = (DISK_T - BRG_T) / 2.0
-BRG_HUB_AFT, BRG_RET_T = 4.0, 6.0               # the hub ring runs 4 aft of the disk (ahead are the stations)
-axle_collar_f, _f = shaft_collar("axle collar ahead of the front 6808", z_brg_f1 + 2.0, z_brg_f1 + 12.0, -1,
-                                 lip_l=2.0 + _race_in)
-AIR_FAST.append(_f)
-_zr = z_brg_f0 - BRG_HUB_AFT - BRG_RET_T          # the retainer's rear face
-axle_collar_r, _f = shaft_collar("axle collar behind the front 6808", _zr - 11.0, _zr - 1.0, +1,
-                                 lip_l=(z_brg_f0 + _race_in) - (_zr - 1.0))
-AIR_FAST.append(_f)
-brg_f = brg_f.fuse(tube(BRG_OD + 20.0, BRG_OD - 0.2, z_brg_f0 - BRG_HUB_AFT, z_brg_f1)).removeSplitter()
-brg6808_ret = tube(BRG_OD + 20.0, BRG_OD - 6.0, _zr, _zr + BRG_RET_T).fuse(
-    tube(BRG_OD - 0.2, BRG_LIP_ID, _zr + BRG_RET_T - 0.1, z_brg_f0 + _ri)).removeSplitter()
-for _k in range(3):
-    _p = polar(0.5 * (BRG_OD / 2 + BRG_OD / 2 + 10.0), 30.0 + 120.0 * _k, _zr)
-    AIR_FAST.append(FA.m3("front 6808 retainer", _p, ZA, [brg6808_ret, brg_f], head_on_face=True, clip=(-0.01, 30.0)))
-brg_f, brg6808_ret = cut_fast(brg_f, AIR_FAST[-3:], "front 6808 disk"), cut_fast(brg6808_ret, AIR_FAST[-3:], "front 6808 retainer")
-# The rear one: the same ring on the disk's front face (behind it the lines leave the axle), its
-# hub run 4 ahead so the bolt's stack is the front one's 20 mm.
-_zrr = z_brg_r1 + BRG_HUB_AFT                    # the rear retainer's rear face
-brg_r = brg_r.fuse(tube(BRG_OD + 20.0, BRG_OD - 0.2, z_brg_r0, _zrr)).removeSplitter()
-brg6808_ret_r = tube(BRG_OD + 20.0, BRG_OD - 6.0, _zrr, _zrr + BRG_RET_T).fuse(
-    tube(BRG_OD - 0.2, BRG_LIP_ID, z_brg_r1 - _ri, _zrr + 0.1)).removeSplitter()
-for _k in range(3):
-    _p = polar(0.5 * (BRG_OD / 2 + BRG_OD / 2 + 10.0), 30.0 + 120.0 * _k, _zrr + BRG_RET_T)
-    AIR_FAST.append(FA.m3("rear 6808 retainer", _p, V(0, 0, -1), [brg6808_ret_r, brg_r], head_on_face=True, clip=(-0.01, 30.0)))
-brg_r, brg6808_ret_r = cut_fast(brg_r, AIR_FAST[-3:], "rear 6808 disk"), cut_fast(brg6808_ret_r, AIR_FAST[-3:], "rear 6808 retainer")
-# Each race between its lip and its retainer's spigot (measured: 0 means touching both).
-race_capture = max(gap(race_f, brg6808_ret), gap(race_r, brg6808_ret_r))
-axle_collars = Part.makeCompound([axle_collar_f, axle_collar_r])
-soft_coup = tube(SOFT_OD, AXLE_OD + 0.2, z_soft1 - 10.0, z_soft1).fuse(
-    tube(SOFT_OD * 0.7, 6.5, z_soft0, z_soft0 + 10.0)).fuse(
-    Part.makeCylinder(SOFT_OD * 0.35, SOFT_GAP + 0.01, V(0, 0, z_soft0 + 10.0))).removeSplitter()
-# The coupling clamps the axle's end (one M3 x 20 across a slit) and bolts to the rotor's
-# face with the rotor's own 2 x M4 DP10 on Ø38 (bought thread: M4, not M3).
-_slc = Part.makeBox(SOFT_OD / 2 + 5.0, 1.2, 12.0, V(0, -0.6, z_soft1 - 11.0))
-_slc.rotate(O, ZA, wdeg(30.0))
-soft_coup = soft_coup.cut(_slc)
-_f = FA.m3("soft coupling on the axle", polar(0.5 * (AXLE_OD / 2 + SOFT_OD / 2), 30.0, z_soft1 - 5.0),
-           polar(1.0, 120.0) * -1.0, [soft_coup, soft_coup], clip=(-14.0, 14.0))
-soft_coup = soft_coup.cut(_f.cutter).removeSplitter()
-AIR_FAST.append(_f)
 M4_EXC = []                      # bought parts' own M4 threads: (name, body)
+soft_coup = tube(MQR_D, 6.0, z_rotor1, z_web0)
 for _k in range(2):
-    _p = polar(19.0, 90.0 + 180.0 * _k, z_soft0 + 10.0)
-    _b = Part.makeCylinder(2.0, 16.0, V(_p.x, _p.y, z_rotor1 - 6.0)).fuse(Part.makeCylinder(3.5, 4.0, V(_p.x, _p.y, z_soft0 + 10.0)))
-    soft_coup = soft_coup.cut(Part.makeCylinder(2.2, 30.0, V(_p.x, _p.y, z_soft0 - 10.0))).cut(
-        Part.makeCylinder(3.8, 20.0, V(_p.x, _p.y, z_soft0 + 6.0)))
-    M4_EXC.append(("M4 x 16: soft coupling to the MQR rotor (its M4 DP10)", _b))
-soft_coup = soft_coup.removeSplitter()
+    _p = polar(19.0, 90.0 + 180.0 * _k, 0.0)
+    _h = Part.makeCylinder(2.2, 30.0, V(_p.x, _p.y, z_rotor1 - 5.0))
+    rear_disk, soft_coup = rear_disk.cut(_h), soft_coup.cut(_h)
+    M4_EXC.append(("M4 x 16: MQR rotor in the rear disk, through its TPU pad (its M4 DP10)",
+                   Part.makeCylinder(2.0, 16.0, V(_p.x, _p.y, REAR_DISK_Z1 - 16.0)).fuse(
+                       Part.makeCylinder(3.5, 4.0, V(_p.x, _p.y, REAR_DISK_Z1)))))
+rear_disk, soft_coup = rear_disk.removeSplitter(), soft_coup.removeSplitter()
+rear_disk_one = len(rear_disk.Solids) == 1
 mqr_rotor = tube(MQR_D, 6.0, z_rotor0, z_rotor1)
 mqr_stator = tube(MQR_D, 6.0, z_stator0, z_stator1).fuse(Part.makeCylinder(10.0, MQR_SPIGOT, V(0, 0, z_stator0 - MQR_SPIGOT)))
 mqr_plate = Part.makeCylinder(32.0, 6.0, V(0, 0, z_mqr_plate0))
-# Lines inside the axle and out to the rotor ports (all of it turns with the pack).
-_inner, _inner_pts = [], []
-for k in range(N):
-    p_in = polar(R_BUNDLE, k * 60.0, Z_AXLE_WIN - 10.0)
-    p_out = polar(R_BUNDLE, k * 60.0, z_axle_exit + 4.0)
-    p_ex = polar(SOFT_OD / 2 + HOSE_OD / 2 + 1.0, k * 60.0, z_axle_exit)
-    p_port = polar(MQR_D / 2 + 6.0, k * 60.0, z_rotor1 - MQR_PORT_Z)
-    _inner_pts.append([p_in, p_out, p_ex])
-    _inner += [tube_path([p_in, p_out, p_ex, V(p_ex.x, p_ex.y, p_port.z + 4.0), p_port], HOSE_OD / 2)]
-lines_inner = Part.makeCompound(_inner)
-# Windows in the axle where the lines really cross its wall (2026-11-21: they crossed it
-# beside the windows, 293 mm3): each line's own path, 0.5 mm over, inside the wall.
-_wall_band = tube(AXLE_OD + 1.0, AXLE_ID - 1.0, z_axle0 - 1.0, z_axle1 + 1.0)
-_win_paths = [[place(Part.Vertex(q_), k * 60.0).Point for q_ in line_r_pts(0.0)[-3:]] for k in range(N)] + _inner_pts
-for _pts in _win_paths:
-    pack_axle = pack_axle.cut(G.fuse_all(tube_path(_pts, HOSE_OD / 2 + 0.5).Solids).common(_wall_band))
-pack_axle = pack_axle.removeSplitter()
-_tick("air: axle, disks, MQR")
-BUNDLE_R = R_BUNDLE + HOSE_OD / 2
-# Supply: thick hose from the receiver -> pommel -> dead-man in the grip -> stator's rear port
-# (drawn in "controls" below). No buffer tank.
+rear_bearing = tube(RBRG["D"], RBRG["d"], z_rb0, z_rb1)
+rotor_fittings = Part.makeCompound([place(Part.makeCylinder(ROTOR_FIT_D / 2.0, ROTOR_FIT_L, V(0, -R_PACK + 23.0, Z_ROTOR_PORT), V(0, 1, 0)),
+                                          k * 60.0) for k in range(N)])
+_tick("air: rear disk, MQR, 61812")
+# Supply: thick hose from the receiver -> pommel -> dead-man in the grip -> the 1 -> 6 collector
+# -> the stator's six ports (drawn in "controls" below). No buffer tank.
 z_supply = z_stator0 + 20.0
 
 # ============================================================ pack drive from the crank
@@ -1712,8 +1626,8 @@ mqr_plate = Part.makeCylinder(RP_R, z_mqr_plate1 - z_mqr_plate0, V(0, 0, z_mqr_p
 _st = []
 for w in STRUT_ANGLES:                  # until the studs are placed: the bay-1 stud runs behind the disks
     a = math.radians(w)
-    p0 = V(118.5 * math.cos(a), 118.5 * math.sin(a), z_brg_r0)
-    _st.append(Part.makeCylinder(SPAR_R, z_brg_r0 - z_mqr_plate0, V(p0.x, p0.y, z_mqr_plate0)))
+    p0 = V(118.5 * math.cos(a), 118.5 * math.sin(a), z_cam0)
+    _st.append(Part.makeCylinder(SPAR_R, z_cam0 - z_mqr_plate0, V(p0.x, p0.y, z_mqr_plate0)))
 rear_struts = Part.makeCompound(_st)
 
 # --- grip: a loft through ellipses square to a curved centreline (30 sections)
@@ -2024,9 +1938,10 @@ lever = lever_at(0.0)
 # --- collector 1 -> 6 (2026-11-21, owner): the MQR6's stator has six M5 ports and no common
 # one. A bought aluminium manifold (G1/8 in from below, six M5 out on top, est. 64 x 16 x 10)
 # on a tab of the rear plate on +y, 2 x M3 x 20 through its own holes (nuts on the tab's rear
-# face). PU 4 x 2.5 hoses run up and over to M5 push-in fittings in the stator's ports. The
-# ports' row (pitch 8.2, docs/img/mqr6_dims.png) is assumed on +y, centred on the stator's
-# body, until the MQR6 is here; each hose takes a port so no hose crosses another.
+# face). PU 4 x 2.5 hoses run to M5 push-in fittings in the stator's ports. The ports, from the
+# drawing (docs/img/mqr6_dims.png): 29 + 8.2 k from the rotor's face, 60 deg apart round the body
+# (a helix, 2026-11-23; it was assumed a row on +y). Each hose runs in its own plane round r 58,
+# outside the bearing cage's legs; the ones nearest the plate take the outer outlets, so none crosses.
 COLL_X, COLL_Y0, COLL_Y1, COLL_H = 24.0, 35.0, 51.0, 10.0
 COLL_PITCH, COLL_OUT_Y, COLL_FIT_D, COLL_FIT_H = 7.0, 40.0, 7.0, 8.0
 MQR_PORT_PITCH, MQR_FIT_D, MQR_FIT_L, COLL_HOSE_OD = 8.2, 7.0, 10.0, 4.0
@@ -2035,16 +1950,33 @@ coll_tab = Part.makeBox(2 * COLL_X, COLL_Y1 + 7.0 - 40.0, z_mqr_plate1 - z_mqr_p
 mqr_plate = mqr_plate.fuse(coll_tab).cut(Part.makeCylinder(HOSE_OUT_OD / 2 + 0.3, 20.0, V(COLL_INLET.x, COLL_INLET.y,
                                                                                        z_mqr_plate0 - 5.0))).removeSplitter()
 collector = Part.makeBox(2 * COLL_X, COLL_Y1 - COLL_Y0, COLL_H, V(-COLL_X, COLL_Y0, _zc0))
-_xo = [s_ * COLL_PITCH * (i_ + 0.5) for i_ in range(3) for s_ in (-1, 1)]            # inner outlets first
-_zp = [0.5 * (z_stator0 + z_stator1) + (k_ - 2.5) * MQR_PORT_PITCH for k_ in range(N)]
+MQR_PORT_W = (90.0, 30.0, -30.0, -90.0, -150.0, 150.0)        # world angle of port 1..6
+COLL_ARC_R = 58.0
+_xo = [COLL_PITCH * 0.5, COLL_PITCH * 1.5, COLL_PITCH * 2.5, -COLL_PITCH * 0.5, -COLL_PITCH * 1.5, -COLL_PITCH * 2.5]   # by port
+_zp = [z_rotor1 - 29.0 - k_ * MQR_PORT_PITCH for k_ in range(N)]
+_zh = list(_zp)
+_zh[0] = _zp[0] - 1.5                                         # port 1's run: off the 61812's retainer
+_zh[5] = _zp[5] + 2.0                                         # port 6's run: over the outlets' tops
+
+
+def _wp(r_, w_, z_=0.0):
+    return V(r_ * math.cos(math.radians(w_)), r_ * math.sin(math.radians(w_)), z_)
+
+
 _fits = [Part.makeCylinder(COLL_FIT_D / 2, COLL_FIT_H, V(x_, COLL_OUT_Y, _zc1)) for x_ in _xo]
-_fits += [Part.makeCylinder(MQR_FIT_D / 2, MQR_FIT_L, V(0, MQR_D / 2 - 1.0, z_), YA) for z_ in _zp]
+_fits += [Part.makeCylinder(MQR_FIT_D / 2, MQR_FIT_L, _wp(MQR_D / 2 - 1.0, w_, z_), _wp(1.0, w_)) for w_, z_ in zip(MQR_PORT_W, _zp)]
 coll_fittings = Part.makeCompound(_fits)
 _hz0 = _zc1 + COLL_FIT_H - 1.0
 coll_hoses = []
-for x_, z_ in zip(_xo, _zp):
-    _pts = [V(x_, COLL_OUT_Y, _hz0), V(x_, COLL_OUT_Y, max(z_, _hz0 + 4.0)), V(0, MQR_D / 2 - 1.0 + MQR_FIT_L + 5.0, z_),
-            V(0, MQR_D / 2 - 1.0 + MQR_FIT_L - 1.0, z_)]
+for x_, w_, z_, zh_ in zip(_xo, MQR_PORT_W, _zp, _zh):
+    _y_e = math.sqrt(COLL_ARC_R ** 2 - x_ ** 2)
+    _we = math.degrees(math.atan2(_y_e, x_))
+    _w0 = w_ % 360.0 if x_ < 0 else w_                        # the left ones go round by -x
+    _pts = [_wp(MQR_D / 2 - 1.0 + MQR_FIT_L - 1.0, w_, z_), _wp(42.0, w_, zh_)]
+    if abs(_w0 - _we) > 10.0:
+        _n = int(math.ceil(abs(_we - _w0) / 15.0))
+        _pts += [_wp(COLL_ARC_R, _w0 + (_we - _w0) * i_ / float(_n), zh_) for i_ in range(_n + 1)]
+    _pts += [V(x_, 46.0, zh_), V(x_, COLL_OUT_Y, max(zh_ - 2.0, _hz0 + 1.0)), V(x_, COLL_OUT_Y, _hz0)]
     coll_hoses.append(G.fuse_all(tube_path(_pts, COLL_HOSE_OD / 2).Solids).removeSplitter())
 coll_hoses = Part.makeCompound(coll_hoses)
 COLL_FAST = [FA.m3("collector on the rear plate's tab", V(s_ * 10.5, 47.5, _zc1 + 1.0), V(0, 0, -1), [collector, mqr_plate],
@@ -2119,7 +2051,7 @@ gate_pin_open, gate_spring_open, gate_spring_opened = gate_at(True)
 CABLE_X, CABLE_Y = 116.0, -30.0
 CABLE_W = math.degrees(math.atan2(CABLE_Y, CABLE_X))
 _cab_ex = [V(x_gate, 0, z_gh0 - 1.0), V(x_gate, 0, z_gh0 - 15.0), V(CABLE_X, CABLE_Y, z_gh0 - 70.0),
-           V(CABLE_X, CABLE_Y, -120.0), V(CABLE_X, CABLE_Y, z_brg_r0 - 20.0), V(92.0, -18.0, z_mqr_plate1 + 25.0),
+           V(CABLE_X, CABLE_Y, -120.0), V(CABLE_X, CABLE_Y, z_mqr_plate1 + 55.0), V(92.0, -18.0, z_mqr_plate1 + 25.0),
            V(CABLE_HOLE[0], CABLE_HOLE[1], z_mqr_plate1 + 10.0), _cab_in[0]]
 cable_ex = tube_path(_cab_ex, CABLE_OD / 2)
 gate_cable = Part.makeCompound([cable_ex, cable_in])
@@ -2226,13 +2158,6 @@ liner_halves_ok = len(cam_r.Solids) == 1 and len(cam_l.Solids) == 1
 pack_frame = pack_frame.fuse(Part.makeCompound([stud_lug(r_case_od, w, Z_FRING0, Z_FRING1)
                                                 for w in sorted(set((90.0,) + BAY2[1:] + BAY3 + BOX_TIES))]
                                                + [SKIN_LANDS[2]])).cut(feed_head).removeSplitter()
-# 2026-11-22: the EVA skin runs on to the rear plate: the 6808 disks carry glue lands too.
-SKIN_LANDS += [skin_land(z_brg_f0, z_brg_f1, skip=[(CABLE_W, 8.0)]), skin_land(z_brg_r0, z_brg_r1, skip=[(CABLE_W, 8.0)])]
-SKIN_LANDS_Z += [(z_brg_f0, z_brg_f1, "front 6808 disk"), (z_brg_r0, z_brg_r1, "rear 6808 disk")]
-brg_f = brg_f.fuse(Part.makeCompound([stud_lug(r_case_od - 5.0, w, z_brg_f0, z_brg_f1) for w in BAY1]
-                                     + [SKIN_LANDS[3]])).removeSplitter()
-brg_r = brg_r.fuse(Part.makeCompound([stud_lug(r_case_od - 5.0, w, z_brg_r0, z_brg_r1) for w in BAY1]
-                                     + [SKIN_LANDS[4]])).removeSplitter()
 # --- the guard (2026-11-21: it stood on nothing): two webs out to the front ring's inner
 # face, an M3 x 20 each, radially from the ring's outer face, the nut slid into the web.
 # z set by hand for the front ring at 202.3; since 2026-11-22 (the breech trough) it stands TRAY_L further
@@ -2315,7 +2240,7 @@ _ab_hub_d = min(20.0, 2.0 * (R_B - 1.25 * GEAR_M) - 1.0)
 gear_ab = G.fuse_all([gear_a, gear_b, tube(_ab_hub_d, SHAFT_D + 0.2, P1_Z1 - 0.5, P2_Z0 + 0.5, L_C.x, L_C.y),
                       tube(20.0, SHAFT_D + 0.2, _cav_r + TRAIN_GAP, P1_Z0 + 0.1, L_C.x, L_C.y),
                       tube(_ab_hub_d, SHAFT_D + 0.2, P2_Z1 - 0.1, _cav_f - TRAIN_GAP, L_C.x, L_C.y)]).removeSplitter()
-_ec = {"brg_r": (z_brg_r0, z_brg_r1), "brg_f": (z_brg_f0, z_brg_f1), "liner_r": (z_lr0, z_lr1),
+_ec = {"liner_r": (z_lr0, z_lr1),
        "liner_f": (z_lf0, z_lf1), "fring": (Z_FRING0, Z_FRING1), "housing": (z_brg0 - 3.0, z_brg1 + 3.0),
        "box": (BOX_Z0, P1_Z0 - 1.0)}
 
@@ -2335,8 +2260,8 @@ FRAME_STUDS = []
 # lug): the frame is a cylinder to the MQR, and the EVA skin goes on round it to the grip. Four
 # inclined studs from the rear 6808 disk to a plate R 50 (a cone) did that until then.
 for w in BAY1:
-    _fc = [_ec[e] for e in ("brg_r", "brg_f", "liner_r")]
-    FRAME_STUDS.append(stud_through("bay 1 (rear plate, 6808 disks, liner rear) %.0f" % w, w, [],
+    _fc = [_ec["liner_r"]]
+    FRAME_STUDS.append(stud_through("bay 1 (rear plate, liner rear) %.0f" % w, w, [],
                                     nuts=[(f_[0], -1) for f_ in _fc] + [(f_[1], +1) for f_ in _fc]
                                     + [(z_mqr_plate0, -1), (z_mqr_plate0 + SPIDER_LUG_L, +1)]))
 # plate A of the crank bracket on the W90 stud: a boss behind it, the front nut sunk in plate A
@@ -2391,12 +2316,35 @@ _spider = G.fuse_all(_sp)
 _spider = _spider.cut(Part.makeCompound([x_ for f_ in CONTROL_FAST + AIR_FAST if f_.kind == "M3"
                                          for x_ in (f_.cutter, f_.body, f_.access)]))
 mqr_plate = mqr_plate.fuse(_spider).removeSplitter()
+# --- the 61812's cage (2026-11-23): a ring round the outer race with a lip ahead of it, on four legs
+# between the stator's ports to the spider's spokes, a foot and an M3 x 20 each. Printed ring-down.
+# A retainer ring behind the race, 3 x M3 x 6 into nuts slid into the ring from outside.
+RC_RO, RC_LEG_R0, RC_LEG_W, RC_FOOT_R1, RC_FOOT_T, RC_LIP = 54.0, 47.5, 14.0, 63.0, 8.0, 1.2
+RR_RO, RR_T, RR_BOLT_R = 47.2, 3.0, 44.0
+RR_BOLT_W = (0.0, 120.0, 240.0)                 # clear of the legs and the stator's port hoses
+z_leg0 = z_mqr_plate0 + SPIDER_SPOKE_H
+rear_cage = tube(2.0 * RC_RO, RBRG["D"] + 0.2, z_rb0, z_rb1).fuse(tube(2.0 * RC_RO, RBRG["D1"], z_rb1, z_rb1 + RC_LIP))
+rear_ret = tube(2.0 * RR_RO, RBRG["D1"], z_rb0 - RR_T, z_rb0)
+RCAGE_FAST = [FA.m3_at("rear bearing retainer", wpt(RR_BOLT_R, w, z_rb0 - RR_T), ZA, 0.0, RR_T + 0.4, 6.0,
+                       nut_slot=(wpt(1.0, w), RC_RO - RR_BOLT_R + 2.0)) for w in RR_BOLT_W]
+rear_cage, rear_ret = cut_fast(rear_cage, RCAGE_FAST, "rear bearing cage"), cut_fast(rear_ret, RCAGE_FAST, "rear bearing retainer")
+_legs = []
+for w in STRUT_ANGLES:
+    _b = Part.makeBox(RC_RO - RC_LEG_R0, RC_LEG_W, z_rb0 + 0.5 - z_leg0, V(RC_LEG_R0, -RC_LEG_W / 2, z_leg0))
+    _f = Part.makeBox(RC_FOOT_R1 - RC_LEG_R0, RC_LEG_W, RC_FOOT_T, V(RC_LEG_R0, -RC_LEG_W / 2, z_leg0))
+    _b.rotate(O, ZA, w)
+    _f.rotate(O, ZA, w)
+    _legs += [_b, _f]
+rear_cage = rear_cage.fuse(Part.makeCompound(_legs)).removeSplitter()
+_cf = [FA.m3("rear bearing cage on the spider", wpt(0.5 * (RC_LEG_R0 + RC_FOOT_R1) + 2.0, w, z_leg0 + RC_FOOT_T), V(0, 0, -1),
+             [rear_cage, mqr_plate], clip=(-0.01, RC_FOOT_T + SPIDER_SPOKE_H + 0.01)) for w in STRUT_ANGLES]
+rear_cage, mqr_plate = cut_fast(rear_cage, _cf, "rear bearing cage"), cut_fast(mqr_plate, _cf, "rear plate")
+RCAGE_FAST += _cf
+AIR_FAST += RCAGE_FAST
 rear_struts = Part.makeCompound([f_.body for f_ in FRAME_STUDS if f_.name.startswith("bay 1")])
 cam, cam_r, cam_l, cam_outside = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in
                                    ((cam, "liner"), (cam_r, "liner right"), (cam_l, "liner left"), (cam_outside, "liner outside"))]
-pack_frame, brg_f, brg_r, mqr_plate = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in
-                                       ((pack_frame, "front ring"), (brg_f, "front 6808 disk"), (brg_r, "rear 6808 disk"),
-                                        (mqr_plate, "rear plate"))]
+pack_frame, mqr_plate = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in ((pack_frame, "front ring"), (mqr_plate, "rear plate"))]
 brg_housing, brg_ret_out, gearbox = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in
                                      ((brg_housing, "bearing housing"), (brg_ret_out, "outer race retainer"), (gearbox, "gearbox"))]
 _pa, _prm = cut_fast(_pa, FRAME_STUDS, "crank plate A"), cut_fast(_prm, FRAME_STUDS, "gear-60 bracket")
@@ -2427,9 +2375,9 @@ MS_RHO = {"PETG": 1.27, "steel": 7.85, "Al": 2.70, "PU": 1.20, "TPU": 1.21, "woo
 PRINT_SKIN_T = 1.9
 PRINT_PROFILE = {"strong": (0.60, 1.00), "airtight": (1.00, 1.05)}
 MS_EST = {"AirTAC M3R110": 60.0, "AirTAC fittings (2 straight + silencer)": 17.0, "pilot fitting G1/8": 8.0,
-          "O-rings, M3 nuts and washers": 7.0, "6808": 26.0, "608": 12.0, "MQR6 clone (Ø46 x 90 Al)": 350.0,
+          "O-rings, M3 nuts and washers": 7.0, "61812": 109.0, "608": 12.0, "MQR6 clone (Ø46 x 90 Al)": 350.0,
           "dead-man 2/2 NC": 20.0, "brass pommel (cast shell ~1.5 mm)": 80.0,
-          "61836 (180 x 225 x 22)": 1750.0, "collector 1->6 (Al 64 x 16 x 10)": 30.0,
+          "61836": 1750.0, "KA070XP0": 141.0, "collector 1->6 (Al 64 x 16 x 10)": 30.0,
           "push-in fittings M5 x 12": 36.0}
 MS_BOWDEN_G_PER_M = 25.0                         # 5 mm bicycle brake housing, est.
 QEV_MAT = {"Rear_plug": "airtight", "Seat_ring": "airtight", "Front_cover": "airtight", "Diaphragm": "rubber",
@@ -2494,7 +2442,7 @@ for _mn, _ms, _mm in (("star", star0, "strong"), ("feed head", feed_head, "stron
                       ("gate spring", gate_spring, "steel")):
     ms_add("feed", _mn, _ms, _mm)
 for _mn, _ms, _mm in (("hub: rim 120, lower clamp halves, bearing seat", pack_hub, "strong"),
-                      ("front bearing 61836", front_bearing, "61836 (180 x 225 x 22)"),
+                      ("front support " + FRONT_BRG["name"], front_bearing, FRONT_BRG.get("mat", FRONT_BRG["name"])),
                       ("bearing housing", brg_housing, "strong"), ("bearing retainers", Part.makeCompound([brg_ret_in, brg_ret_out]), "strong"),
                       ("gear A", gear_a, "strong"), ("gear B", gear_b, "strong"),
                       ("idler", gear_i, "strong"), ("star gear", gear_s, "strong"), ("gearbox", gearbox, "strong"),
@@ -2516,21 +2464,15 @@ for _ms in star_bearings.Solids:
 for _mn, _ms, _mm in (("star bearing cover", star_cover, "strong"), ("star shaft collar", star_collar, "strong"),
                       ("star shaft spacer 10 x 1", star_spacer, "steel")):
     ms_add("star drive", _mn, _ms, _mm)
-# Bearing disks; the 6808 races are their own bodies (2026-11-21).
-for _mn, _ms, _z0 in (("front bearing disk", brg_f, z_brg_f0), ("rear bearing disk", brg_r, z_brg_r0)):
-    ms_add("air", _mn, _ms, "strong")
-for _ms in (race_f, race_r):
-    ms_add("air", "6808", _ms, "6808")
-ms_add("air", "6808 retainers", Part.makeCompound([brg6808_ret, brg6808_ret_r]), "strong")
-for _mn, _ms, _mm in (("axle Al 38 x 1.5", pack_axle, "Al"), ("soft coupling", soft_coup, "TPU"),
-                      ("axle collars", axle_collars, "strong"),
-                      ("rear plate (spider)", mqr_plate, "strong")):
+ms_add("air", "rear bearing 61812", rear_bearing, "61812")
+for _mn, _ms, _mm in (("rear bearing cage", rear_cage, "strong"), ("rear bearing retainer", rear_ret, "strong"),
+                      ("TPU pad under the rotor", soft_coup, "TPU"), ("rear plate (spider)", mqr_plate, "strong")):
     ms_add("air", _mn, _ms, _mm)
 ms_add("air", "MQR6", Part.makeCompound([mqr_rotor, mqr_stator]), "MQR6 clone (Ø46 x 90 Al)")
 ms_add("air", "collector 1->6", collector, "collector 1->6 (Al 64 x 16 x 10)")
 ms_add("air", "collector fittings", coll_fittings, "push-in fittings M5 x 12")
+ms_add("air", "rotor fittings", rotor_fittings, "push-in fittings M5 x 12")
 ms_hose("air", "collector hoses 4 x 2.5", coll_hoses, COLL_HOSE_OD, 2.5)
-ms_hose("air", "lines in the axle", lines_inner, HOSE_OD, HOSE_ID)
 for _mn, _ms, _mm in (("grip (wood)", grip, "wood"), ("lever", lever, "strong"), ("lever pivot tube 5 x 0.45", lever_pin, "brass"),
                       ("pusher", dm_pusher, "steel"), ("gate wire", gate_wire, "steel")):
     ms_add("controls", _mn, _ms, _mm)
@@ -2603,9 +2545,12 @@ SLING_EYE_R = 4.0                                 # the ring's wire is curved th
 R_BOX_OUT = BOX_R1 + 2.5                          # gearbox outer wall
 y_carry, z_carry = CG0.y, CG0.z
 # Strap lugs: front on the front bearing housing, flush with its lip; rear the same distance aft.
-z_post_f = z_brg1 + 3.0 - CARRY_POST_T / 2
+# 2026-11-23: the thin front bearing's housing ends 16 mm sooner, under the star-drive box's front:
+# the lug stays ahead of the box (its ring swings over it) on a tab of the housing, r 108..127.
+z_post_f = max(z_brg1 + 3.0 - CARRY_POST_T / 2, gearbox.BoundBox.ZMax + 16.0)
 d_carry = z_post_f - z_carry
-z_post_r = z_carry - d_carry
+# The rear lug's bolts must miss the cam groove, which runs on the LOAD dwell under the top of the liner.
+z_post_r = max(z_carry - d_carry, z_tip0 - BENCH_STROKE + 7.0)
 CARRY_BASE_T, CARRY_BASE_W, CARRY_BASE_L, CARRY_BOLT_Y = 11.0, 42.0, 18.0, 15.5
 x_eye = HOUS_RO + CARRY_BASE_T + 8.0              # the ring lies flat just over the front base and the skin
 x_lug_top = x_eye + SLING_EYE_R + 5.0
@@ -2621,6 +2566,11 @@ def carry_post(zc, r_seat):
     return p_.fuse(b_).cut(Part.makeCylinder(r_seat, 400.0, V(0, 0, zc - 200.0))).cut(e_).removeSplitter()
 
 
+z_lug_tab1 = max(z_brg1 + 3.0, z_post_f + CARRY_POST_T / 2)
+if z_lug_tab1 > z_brg1 + 3.0 + 1e-6:
+    _tab = Part.makeBox(HOUS_RO - 108.0, 46.0, z_lug_tab1 - (z_brg1 + 2.0), V(108.0, y_carry - 23.0, z_brg1 + 2.0)).common(
+        Part.makeCylinder(HOUS_RO, 200.0, V(0, 0, z_brg1)))
+    brg_housing = brg_housing.fuse(_tab).removeSplitter()
 lug_r, lug_f = carry_post(z_post_r, r_case_od), carry_post(z_post_f, HOUS_RO)
 # 2026-11-22: the rear base gives way round the liner's split lug on top, 0.5 off.
 _lug_clear = []
@@ -2638,7 +2588,7 @@ for _sy in (-1, 1):
                             head_on_face=True, clip=(-0.01, 60.0)))
     _g = 20.0 - FA.NUT_T - 1.0
     LUG_FAST_F.append(FA.m3_at("strap lug on the bearing housing", V(HOUS_RO + CARRY_BASE_T, _yb, z_post_f), V(-1, 0, 0), 0.0, _g, 20.0,
-                               nut_slot=(V(0, 0, 1), z_brg1 + 3.0 - z_post_f + 1.0)))
+                               nut_slot=(V(0, 0, 1), z_lug_tab1 - z_post_f + 1.0)))
 lug_r, lug_f = cut_fast(lug_r, LUG_FAST_R, "rear strap lug"), cut_fast(lug_f, LUG_FAST_F, "front strap lug")
 strap_lugs = Part.makeCompound([lug_r, lug_f])
 
@@ -2836,7 +2786,7 @@ SKIN_SEAM = 180.0                                 # world angle of the seam: the
 SKIN_LANDS_Z.append((z_brg0 - 3.0, SKIN_Z1, "bearing housing and its retainer"))
 # The lands must not hide a bolt: where a land lies on an M3's seat, its body or its key's way
 # in (FA access), the land gives way (the guard webs' and the keel's bolts in the front ring).
-_land_of = ["liner", "liner", "front ring", "front 6808 disk", "rear 6808 disk"]
+_land_of = ["liner", "liner", "front ring"]
 _land_cut = {k_: [] for k_ in set(_land_of)}
 SKIN_LAND_ACCESS = []
 for f_ in FASTENERS:
@@ -2857,10 +2807,6 @@ if _land_cut["liner"]:
                                                      (cam_outside, "liner outside"))]
 if _land_cut["front ring"]:
     pack_frame = cut_fast(pack_frame, _land_cut["front ring"], "front ring: glue land round bolts")
-if _land_cut["front 6808 disk"]:
-    brg_f = cut_fast(brg_f, _land_cut["front 6808 disk"], "front 6808 disk: glue land round bolts")
-if _land_cut["rear 6808 disk"]:
-    brg_r = cut_fast(brg_r, _land_cut["rear 6808 disk"], "rear 6808 disk: glue land round bolts")
 SKIN_LAND_ACCESS = sorted(set(SKIN_LAND_ACCESS))
 
 
@@ -2899,8 +2845,8 @@ SKIN_OBST = [
     ("fasteners", Part.makeCompound([f_.body for f_ in FASTENERS if not any(f_ is h_ for h_ in HOOP_FAST)] + [b_ for _, b_ in M4_EXC])),
     ("ramp and its block", Part.makeCompound([ramp_fire, guide_block])), ("pack (six phases)", Part.makeCompound(stations)),
     ("hub", pack_hub), ("front bearing and its inner retainer", Part.makeCompound([front_bearing, brg_ret_in])),
-    ("axle, its collars, coupling, MQR", Part.makeCompound([pack_axle, axle_collars, soft_coup, mqr_rotor, mqr_stator,
-                                                            races_6808, brg6808_ret, brg6808_ret_r, lines_inner])),
+    ("MQR, its pad and fittings, the 61812 and its cage", Part.makeCompound([soft_coup, mqr_rotor, mqr_stator, rotor_fittings,
+                                                                             rear_bearing, rear_cage, rear_ret])),
     ("collector and its hoses", Part.makeCompound([collector, coll_fittings, coll_hoses])), ("rear rail disk", rear_disk),
 ]
 # What stands behind the rear plate round the grip's root: the end cap's bore clears it (the lever
@@ -3191,21 +3137,22 @@ gate_lip = gap(gate_parts, feed_lip)
 # Struts against what turns behind the pack (the lines, coupling and rotor are 6-fold).
 strut_turn = 99.0
 for _a in range(0, 60, 5):
-    for _r in (lines_inner, soft_coup, mqr_rotor):
+    for _r in (rear_disk, rotor_fittings, mqr_rotor):
         strut_turn = min(strut_turn, gap(rot(_r, float(_a)), rear_struts, pad=5.0))
-strut_on = min(gap(rear_struts, brg_r), gap(rear_struts, mqr_plate))
-_cable_fixed = [("liner", cam_outside), ("frame", frame_all), ("bearing disks", Part.makeCompound([brg_f, brg_r])),
+strut_on = gap(rear_struts, mqr_plate)
+_cable_fixed = [("liner", cam_outside), ("frame", frame_all), ("rear bearing cage", rear_cage),
                 ("strap", sling), ("struts", rear_struts), ("stator", mqr_stator), ("star train box", gearbox),
                 ("feed cup", feed_cup), ("star", star0)]
 cable_gap, cable_near = min((gap(cable_ex, s_, pad=5.0), n_) for n_, s_ in _cable_fixed)
 _hand_l_gun = [("plate", mqr_plate), ("EVA end cap", skin_cap), ("struts", rear_struts), ("stator", mqr_stator), ("cable", cable_ex),
-               ("bearing disk", brg_r), ("receiver hose", supply_hose.Solids[-1]),
+               ("rear bearing cage", rear_cage), ("receiver hose", supply_hose.Solids[-1]),
                ("collector and its hoses", Part.makeCompound([collector, coll_fittings, coll_hoses]))]
 # The collector and its hoses against what stands and turns round the stator, and the lever's swing.
 _coll = Part.makeCompound([collector, coll_fittings, coll_hoses])
 coll_gap, coll_near = min((gap(_coll, s_, pad=5.0), n_) for n_, s_ in (
-    ("struts", rear_struts), ("cable", gate_cable), ("rotor", mqr_rotor), ("coupling", soft_coup), ("lines", lines_inner),
-    ("grip", grip), ("rear 6808 disk", brg_r), ("lever, squeezed", lever_at(LEV_ANG)), ("lever", lever)))
+    ("struts", rear_struts), ("cable", gate_cable), ("rotor", mqr_rotor), ("rear disk's sleeve", rear_disk),
+    ("the 61812's cage", rear_cage), ("its retainer", rear_ret),
+    ("grip", grip), ("lever, squeezed", lever_at(LEV_ANG)), ("lever", lever)))
 coll_stator = gap(Part.makeCompound([collector, coll_hoses]), mqr_stator)
 coll_seated = gap(collector, mqr_plate) < 0.05 and max(gap(f_, mqr_stator) for f_ in coll_fittings.Solids[N:]) < 0.05
 hand_l_gap, hand_l_near = min((gap(hand_left, s_, pad=5.0), n_) for n_, s_ in _hand_l_gun)
@@ -3234,13 +3181,33 @@ r_rot_max = r_max(Part.makeCompound([place(Part.makeCompound(qev_slide + [valve_
                                     + [place(line_r(cam_dz(k * 60.0)), k * 60.0) for k in range(N)]))
 liner_clear = cam_id / 2.0 - r_rot_max
 spar_clear = STUD_ENVELOPE - r_rot_max
-aft_clear = brg_f.BoundBox.ZMax - _rot_min          # >0 would be overlap; we want negative
-aft_gap = _rot_min - brg_f.BoundBox.ZMax
-lines_fixed = min(gap(lines_inner, s) for s in (brg_f, brg_r, mqr_stator, air_supply, mqr_plate, rear_struts))
-bundle_fit = (AXLE_ID / 2.0) - BUNDLE_R
-bearings_on_axle = (gap(pack_axle, race_f) < 1.5 and gap(pack_axle, race_r) < 1.5
-                    and brg_f.BoundBox.ZMin > z_axle0 and brg_r.BoundBox.ZMin > z_axle0)
-mqr_free = gap(pack_axle, mqr_rotor) > 1.0 and gap(pack_axle, mqr_stator) > 1.0
+# What turns behind the pack against what stands there (2026-11-23): the sleeve and rotor's fittings
+# against the stator, its port fittings and hoses, the cage; the six lines over the stroke.
+_tail_fixed = [("stator", mqr_stator), ("stator's fittings and hoses", Part.makeCompound([coll_fittings, coll_hoses])),
+               ("61812's cage", rear_cage), ("its retainer", rear_ret), ("rear plate", mqr_plate), ("studs", rear_struts)]
+_tail_turn = Part.makeCompound([s_ for s_ in rear_disk.Solids] + rotor_fittings.Solids)
+tail_gap, tail_near = 99.0, "-"
+for _a in range(0, 60, 10):
+    _t_ = rot(_tail_turn, float(_a))
+    for n_, f_ in _tail_fixed:
+        _g = gap(_t_, f_, pad=5.0)
+        if _g < tail_gap:
+            tail_gap, tail_near = _g, n_
+lines_fixed, lines_near = 99.0, "-"
+for _i in range(0, 72, 3):
+    _p = _i * 5.0
+    _lr = place(line_r(cam_dz(_p)), _p)
+    for n_, f_ in _tail_fixed:
+        _g = gap(_lr, f_, pad=5.0)
+        if _g < lines_fixed:
+            lines_fixed, lines_near = _g, n_
+aft_gap = gap(Part.makeCompound(stations), Part.makeCompound([rear_cage, rear_ret]), pad=5.0)
+front_held = max(gap(front_bearing, brg_housing), gap(front_bearing, brg_ret_out))
+front_run = min(gap(front_bearing, pack_hub), gap(front_bearing, brg_ret_in))
+rear_race_held = max(gap(rear_bearing, rear_cage), gap(rear_bearing, rear_ret))
+rear_race_on_sleeve = gap(rear_bearing, rear_disk)
+rotor_on_pad = max(gap(mqr_rotor, soft_coup), gap(soft_coup, rear_disk))
+stator_on_plate = gap(mqr_stator, mqr_plate)
 rim_vs_closed = min(gap(rim_gear, place(Part.makeCompound(qev_slide), k * 60.0)) for k in range(N))
 star_top = star_vs_stations = min(gap(star0, s) for s in stations)
 # Pack drive: every drive part vs the stations (six phases; full turn in the sweep),
@@ -3266,7 +3233,7 @@ _hand_gun = [("star-drive box", gearbox), ("star train", Part.makeCompound([gear
              ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("carry handle", carry_handle),
              ("carry rails", carry_rails), ("strap lugs", strap_lugs), ("strap loops", sling), ("frame", frame_all), ("liner", cam_outside), ("front plate", front_plate),
              ("ramp", ramp_fire),
-             ("bearing disks", Part.makeCompound([brg_f, brg_r])),
+             ("rear bearing cage", rear_cage),
              ("dead-man and hose", Part.makeCompound([deadman, air_supply, supply_hose])),
              ("pack (six phases)", Part.makeCompound(stations)), ("rim", rim_gear)]
 hand_gap, hand_near = min((gap(hand_space, s_, pad=150.0), n_) for n_, s_ in _hand_gun)
@@ -3324,7 +3291,7 @@ tripod_seat_f = gap(tripod_pad, pack_frame)
 tripod_on_liner = z_cam0 <= z_keel0 and z_keel1 <= Z_FRING1 + 1e-6
 _tripod_near = [("pack (six phases)", Part.makeCompound(stations)), ("ramp and block", Part.makeCompound([ramp_fire, guide_block])),
                 ("rim", rim_gear), ("pack drive", Part.makeCompound([s_ for _, s_ in drive_parts])),
-                ("front bearing disk", brg_f), ("strap rings", sling), ("hoses and grip", Part.makeCompound([supply_hose, grip, pommel]))]
+                ("rear bearing cage", rear_cage), ("strap rings", sling), ("hoses and grip", Part.makeCompound([supply_hose, grip, pommel]))]
 tripod_gap, tripod_near = min((gap(tripod_pad, f_, pad=DRIVE_PAD), n_) for n_, f_ in _tripod_near)
 _tripod_gun = _tripod_near + [("liner", cam_outside), ("frame", frame_all), ("EVA skin", skin)]
 tripod_tilt_gap, tripod_tilt_near = 99.0, "nothing nearer"
@@ -3352,14 +3319,14 @@ fast_vs_hub = min(gap(rot(Part.makeCompound([_hub_core] + [f_.body for f_ in HUB
     [f_.body for f_ in FRAME_STUDS + FEED_FAST + CRANK_FAST + TRIPOD_FAST])) for a_ in (0.0, 20.0, 40.0))
 PRINTED_ONE = [("liner (two halves)", cam_r), ("liner (two halves)", cam_l), ("front ring", pack_frame), ("hub", pack_hub),
                ("bearing housing", brg_housing), ("inner race retainer", brg_ret_in), ("outer race retainer", brg_ret_out),
-               ("front 6808 disk", brg_f), ("rear 6808 disk", brg_r), ("front 6808 retainer", brg6808_ret),
-               ("rear rail disk", rear_disk), ("axle collar", axle_collar_f), ("axle collar", axle_collar_r),
+               ("rear bearing cage", rear_cage), ("rear bearing retainer", rear_ret), ("front support", front_bearing),
+               ("rear rail disk", rear_disk),
                ("ramp", ramp_body), ("ramp block", guide_block), ("muzzle plate", front_plate), ("gearbox", gearbox),
                ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("gate housing", gate_housing),
                ("star collar", star_collar), ("gears A+B", gear_ab), ("rear plate", mqr_plate), ("wrap handle foot", foot_l), ("wrap handle foot", foot_r),
-               ("keel", tripod_pad), ("crank arm", crank_arm), ("soft coupling", soft_coup),
+               ("keel", tripod_pad), ("crank arm", crank_arm), ("TPU pad under the rotor", soft_coup),
                ("star with its hub", star0), ("star gear", gear_s), ("idler", gear_i), ("star bearing cover", star_cover),
-               ("rear 6808 retainer", brg6808_ret_r), ("lay shaft collar", lay_collar), ("crank spacer", crank_spacer),
+               ("lay shaft collar", lay_collar), ("crank spacer", crank_spacer),
                ("gear 60", crank_gear), ("lay bevel", bevel_small), ("crank bevel", bevel_big), ("lever", lever)] + [
     ("crank bracket", s_) for s_ in crank_bracket.Solids] + [
     ("valve bracket", valve_bracket), ("breech clamp, upper", clamp_upper), ("nose clamp, upper", nose_upper),
@@ -3377,7 +3344,7 @@ _tick("EVA skin checks…")
 skin_one = len(skin.Solids) == 1 and skin.isValid()
 skin_on_lugs = abs(SKIN_R_IN - (STUD_R + STUD_LUG_D / 2.0)) < 1e-6
 SKIN_CARRIERS = [("liner right", cam_r), ("liner left", cam_l), ("front ring", pack_frame), ("bearing housing", brg_housing),
-                 ("front 6808 disk", brg_f), ("rear 6808 disk", brg_r), ("rear plate", mqr_plate),
+                 ("rear plate", mqr_plate),
                  ("outer race retainer", brg_ret_out)]
 skin_glued = max(gap(skin, s_) for n_, s_ in SKIN_CARRIERS[:-1])
 cap_one = len(skin_cap.Solids) == 1 and skin_cap.isValid()
@@ -3407,13 +3374,13 @@ SKIN_BED = [(n_, max(s_.BoundBox.XLength, s_.BoundBox.YLength)) for n_, s_ in SK
 pack = Part.makeCompound(stations)
 assembly = Part.makeCompound([
     pack, cam, front_plate, pack_frame, rear_disk, pack_hub, front_bearing, brg_housing, brg_ret_in, brg_ret_out,
-    axle_collars, brg6808_ret, star_collar, Part.makeCompound([f_.body for f_ in FASTENERS] + [b_ for _, b_ in M4_EXC]),
+    rear_bearing, rear_cage, rear_ret, rotor_fittings, star_collar, Part.makeCompound([f_.body for f_ in FASTENERS] + [b_ for _, b_ in M4_EXC]),
     gear_ab, gear_i, gear_s,
     star_shaft, lay_shaft, idl_shaft, gearbox, star0, feed_head, feed_lip, feed_cup, feed_guard,
     ramp_fire, guide_block, rear_struts, grip, pommel, lever, lever_pin, dm_pusher, gate_wire, gate_cable,
     gate_housing, gate_pin, gate_spring, crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings,
-    crank_arm, crank_knob, crank_knob_pin, carry_handle, carry_rails, strap_lugs, tripod_pad, sling, pack_axle, brg_f, brg_r, soft_coup, mqr_rotor, mqr_stator,
-    mqr_plate, lines_inner, deadman, air_supply, supply_hose, races_6808, brg6808_ret_r, star_bearings, star_cover,
+    crank_arm, crank_knob, crank_knob_pin, carry_handle, carry_rails, strap_lugs, tripod_pad, sling, soft_coup, mqr_rotor, mqr_stator,
+    mqr_plate, deadman, air_supply, supply_hose, star_bearings, star_cover,
     star_spacer, lay_collar, crank_spacer, collector, coll_fittings, coll_hoses, skin, skin_cap,
 ])
 bb = assembly.optimalBoundingBox()
@@ -3452,8 +3419,8 @@ checks = [
      % _wall_left, insert_blind and liner_one),
     ("ramp mount block and insert holes clear of the groove (%s), stations six phases (%s)"
      % (far(groove_vs_mount), far(mount_vs_stations, 2.0)), groove_vs_mount >= 2.0 and mount_vs_stations >= CLEAR),
-    ("rear plate (a spider Ø%.0f) on the %d bay-1 studs straight from the liner through the 6808 disks (%.2f), grip on"
-     " the plate (%.2f); studs vs lines, coupling, rotor over a turn %s"
+    ("rear plate (a spider Ø%.0f) on the %d bay-1 studs straight from the liner (%.2f), grip on"
+     " the plate (%.2f); studs vs the rear disk, rotor and its fittings over a turn %s"
      % (2.0 * SKIN_R_IN, len(STRUT_ANGLES), strut_on, grip_on_plate, far(strut_turn)),
      strut_on < 0.05 and grip_on_plate < 0.05 and strut_turn >= 2.0),
     ("grip two halves split at y 0 (the channels between them); cable, outlet and valve inside (wall %.1f at the %s);"
@@ -3469,7 +3436,14 @@ checks = [
     ("star shaft: located in the front ring pad's 608 (star hub's spigot, spacer, collar: %.2f float); the other 608"
      " floats in the box; star gear's hub %.2f off gear A's tips; cover on 2 x M3 x 20" % (STAR_SPIGOT_GAP, STAR_HUB_CLEAR),
      STAR_HUB_CLEAR >= 0.5),
-    ("6808 outer races between a lip of their disks and their retainers' spigots (%.2f)" % race_capture, race_capture < 0.05),
+    ("front support, %s: held in the housing under its lip and retainer (%.2f); off the hub's journal, shoulder and"
+     " retainer by %.2f" % (FRONT_BRG["name"], front_held, front_run),
+     front_held < 0.05 and (0.05 <= front_run <= 0.25 if FRONT_AX else front_run < 0.05)),
+    ("61812: outer race between the cage's lip and its retainer (%.2f), inner race on the disk's sleeve (%.2f, floats)"
+     % (rear_race_held, rear_race_on_sleeve), rear_race_held < 0.05 and rear_race_on_sleeve < 0.05),
+    ("MQR: rotor on its TPU pad in the rear disk (%.2f), stator on the rear plate (%.2f)" % (rotor_on_pad, stator_on_plate),
+     rotor_on_pad < 0.05 and stator_on_plate < 0.05),
+    ("what turns in the tail (disk, sleeve, rotor's fittings) clear of what stands (%.2f, %s)" % (tail_gap, tail_near), tail_gap >= CLEAR),
     ("lever 0..%.0f deg in 6 steps: no overlap with the grip, pommel, pin, plate, cable, hoses, valve (%.3f mm3 %s);"
      " closed %.2f off the grip" % (LEV_ANG, _lev_hit, _lev_worst, lever_closed), _lev_hit < 0.01 and lever_closed >= 1.0),
     ("stage 1 (0..%.0f deg, free end %.1f mm): dead-man pressed %.2f of %.1f, pusher %.2f off released;"
@@ -3498,10 +3472,9 @@ checks = [
     ("train centres on pitch sums (%.3f) and meshes without overlap (%.2f mm3)" % (centre_err, mesh_worst),
      centre_err < 1e-6 and mesh_worst < 1.0),
     ("rim (rear barrel-plate) clear of the closed QEVs (%.2f)" % rim_vs_closed, rim_vs_closed >= CLEAR),
-    ("air: lines inside the axle, ID %.1f vs bundle Ø%.0f; no line crosses a fixed part (%.2f)"
-     % (AXLE_ID, 2 * BUNDLE_R, lines_fixed), bundle_fit >= 1.0 and lines_fixed >= CLEAR),
-    ("air: axle Ø%.0f on two %s, MQR off the axle" % (AXLE_OD, BRG_NAME.split(" ")[0]), bearings_on_axle and mqr_free),
-    ("valves' sweep ahead of the front bearing disk (%.2f)" % aft_gap, aft_gap >= CLEAR),
+    ("air: the six R lines over the stroke clear of the stator, its hoses, the 61812's cage, the plate (%.2f, %s)"
+     % (lines_fixed, lines_near), lines_fixed >= CLEAR),
+    ("stations (six phases) clear of the 61812's cage and retainer (%s)" % far(aft_gap), aft_gap >= CLEAR),
     ("wrap handle from the left over the top, crank on the right", math.sin(math.radians(CARRY_W[0])) * crank_shaft.BoundBox.Center.y < 0.0
      and carry_handle.BoundBox.XMax > SKIN_R_OUT
      and abs(crank_shaft.BoundBox.Center.y) > abs(crank_shaft.BoundBox.Center.x)),
@@ -3540,8 +3513,8 @@ checks = [
      " in them), an M3 x 50 across each" % (CARRY_TUBE_OD, CARRY_TUBE_WALL, CARRY_TUBE_L, CARRY_R, CARRY_R / CARRY_TUBE_OD,
                                            tube_socket_gap, tube_in_feet),
      tube_in_feet < 0.01 and 0.05 <= tube_socket_gap <= 0.4 and CARRY_R >= 5.0 * CARRY_TUBE_OD and all(f_.L == 50.0 for f_ in PIN_FAST)),
-    ("strap lugs either side of the CG (± %.0f, y %.1f off): on the liner (%.2f) and the bearing housing (%.2f); the handle's"
-     " top at x %.1f, under the cup's floor at %.1f" % (d_carry, CG_OFF_Y, carry_seat_r, carry_seat_f, carry_top, cup_floor),
+    ("strap lugs either side of the CG (+%.0f / -%.0f, y %.1f off): on the liner (%.2f) and the bearing housing (%.2f); the handle's"
+     " top at x %.1f, under the cup's floor at %.1f" % (z_post_f - z_carry, z_carry - z_post_r, CG_OFF_Y, carry_seat_r, carry_seat_f, carry_top, cup_floor),
      carry_seat_r < 0.05 and carry_seat_f < 0.05 and carry_rear_on_liner and abs(CG_OFF_Y) < 1.0 and hopper_free),
     ("handle clear of the cup, feed head, gate and cable, star train, frame, pack (%s, %s); rails (%s, %s); strap rings"
      " through the lugs' eyes at z %.0f / %.0f (%s, %s)"
@@ -3579,11 +3552,11 @@ checks = [
      % (stud_self, box_tie_gap), stud_self < 0.01),
     ("front hub one solid, clear of the star-drive box and its train (%.2f) and of the bearing housing (%.2f)"
      % (hub_vs_box, hub_vs_housing), hub_one and hub_vs_box >= CLEAR and hub_vs_housing >= CLEAR),
-    ("rear rail disk one solid (line R slots from r %.1f), liner halves one solid each" % REAR_SLOT_R0,
+    ("rear rail disk one solid (the rotor's notches open aft, a web of %.1f ahead), liner halves one solid each" % (REAR_DISK_Z1 - z_notch1),
      rear_disk_one and liner_halves_ok),
     ("EVA skin %.0f mm one solid on the lug tips (bore r %.1f = stud r %.1f + lug %.1f), z %.0f..%.0f, %d holes"
      % (SKIN_T, SKIN_R_IN, STUD_R, STUD_LUG_D / 2.0, SKIN_Z0, SKIN_Z1, len(SKIN_HOLES)), skin_one and skin_on_lugs),
-    ("EVA skin glued: on the liner's two lands, the 6808 disks', the front ring's, the rear plate's rim and the bearing"
+    ("EVA skin glued: on the liner's two lands, the front ring's, the rear plate's rim and the bearing"
      " housing (%.2f); %.0f cm2 of land under it" % (skin_glued, SKIN_GLUE / 100.0), skin_glued < 0.01 and SKIN_GLUE > 20000.0),
     ("EVA end cap one solid on the rear plate's aft face, edge to edge with the skin (%.2f): R %.1f..%.0f, %d nut holes;"
      " clear of the grip, the lever over its squeeze, the hoses, the cable, the studs (%.2f, %s)"
@@ -3613,8 +3586,8 @@ report = [
     " station gap with valves %.2f mm" % (R_PACK + VALVE_Y - A_W / 2, R_PACK + VALVE_Y + A_W / 2, gap_nbr),
     "  line A                 : rigid, %.0f mm of 6x4 tube (%.2f cm3; pilot pocket %.2f cm3)"
     % (LINE_A_L, LINE_A_V, pocket_v),
-    "  line R                 : flexes %.1f with the carriage, into the hollow axle at z %.0f"
-    % (BENCH_STROKE, Z_AXLE_WIN),
+    "  line R                 : flexes %.1f with the carriage, to the MQR rotor's port at z %.0f"
+    % (BENCH_STROKE, Z_ROTOR_PORT),
     "  firing ramp            : r %.1f, low z %.1f; touch %.1f..%.1f, switch %.1f..%.1f, full %.0f..%.0f deg;"
     " press %.2f" % (R_TIP, z_ramp_low, first_touch % 360, last_touch, sw_on % 360, sw_off,
                      (-(30 - RAMP_RISE)) % 360, 30 - RAMP_RISE, press_flat),
@@ -3625,16 +3598,16 @@ report = [
     " stage 2 = balls (Bowden %.0f mm, slack %.1f, gate pin %.1f); free end %.1f mm"
     % (GRIP_LEN, LEV_L, LEV_ANG, STAGE1, stage1_travel, CABLE_LEN, WIRE_SLACK, GATE_TRAVEL, finger_travel),
     "  rear frame             : plate R %.0f carries the MQR stator and the grip; a spider out to Ø%.0f on the %d bay-1"
-    " M6 studs, straight from the liner through the 6808 disks (a cylinder to the MQR)" % (RP_R, 2.0 * SKIN_R_IN, len(STRUT_ANGLES)),
+    " M6 studs, straight from the liner (a cylinder to the MQR)" % (RP_R, 2.0 * SKIN_R_IN, len(STRUT_ANGLES)),
     "  feed                   : feed_bench star (3 pockets, 2:1) at the top; handoff 180°;"
     " guard %.0f–%.0f° following the close" % (GUARD_PHI0, GUARD_END),
     "  star drive             : rim %d on the breech clamps (z %.1f..%.1f) -> %d | %d -> %d -> %d;"
     " layshaft R %.0f at %.0f°" % (Z_RIM, P1_Z0, P1_Z1, Z_A, Z_B, Z_I, Z_S, L_C.Length, L_ANG),
     "  frame envelope Ø       : %.0f (liner); was %.0f" % (case_od, CASE_OD_START),
-    "  air                    : axle Al %.0f x %.1f, %s; 6 lines 1/8\" inside; MQR rotor z %.0f..%.0f"
-    % (AXLE_OD, (AXLE_OD - AXLE_ID) / 2.0, BRG_NAME, z_rotor0, z_rotor1),
+    "  air                    : MQR rotor in the rear disk z %.0f..%.0f, stator to z %.0f; the disk's sleeve in a floating %s (%.0f x %.0f x %.0f) at z %.1f..%.1f, cage on 4 legs off the spider"
+    % (z_rotor0, z_rotor1, z_stator0, RBRG["name"], RBRG["d"], RBRG["D"], RBRG["B"], z_rb0, z_rb1),
     "  air supply             : no buffer; Ø%.0f hose from the receiver -> pommel -> dead-man in the grip -> 1→6 collector"
-    " on the rear plate -> six M5 ports of the stator (row assumed on +y, z %.0f..%.0f)" % (SUPPLY_HOSE_OD, _zp[0], _zp[-1]),
+    " on the rear plate -> six M5 ports of the stator (a helix as on the drawing, z %.0f..%.0f)" % (SUPPLY_HOSE_OD, _zp[0], _zp[-1]),
     "  pack drive             : crank axis across the barrels (%s) at z %.0f (middle of the closed QEV);"
     " bevel %d:%d m%.0f -> lay shaft at r %.0f -> gear %d in rim %d; %.2f pack turn per crank turn"
     % ("+Y, right" if CRANK_SIDE > 0 else "−Y, left", Z_CRANK, CB_ZB, CB_ZS, CB_M, CP_C.Length, CP_Z, Z_RIM,
@@ -3658,8 +3631,9 @@ report = [
     "  mass by unit           : " + ", ".join("%s %.0f g (z %.0f)" % (g_, m_, c_.z) for g_, m_, c_ in mass_groups),
     "  carry                  : wrap handle, PVC tube Ø%.0f x %.0f x %.0f, R %.0f round the axis from low left over the top to"
     " high right, in the CG's plane (z %.0f); two printed feet on two rails at %.0f / %.0f deg (liner to front ring); strap lugs"
-    " at z %.0f / %.0f (CG ± %.0f)"
-    % (CARRY_TUBE_OD, CARRY_TUBE_WALL, CARRY_TUBE_L, CARRY_R, z_carry, CARRY_W[0], CARRY_W[1], z_post_r, z_post_f, d_carry),
+    " at z %.0f / %.0f (CG +%.0f / -%.0f)"
+    % (CARRY_TUBE_OD, CARRY_TUBE_WALL, CARRY_TUBE_L, CARRY_R, z_carry, CARRY_W[0], CARRY_W[1], z_post_r, z_post_f,
+       z_post_f - z_carry, z_carry - z_post_r),
     "  tripod                 : keel under the frame z %.0f..%.0f (liner to front ring), socket for a Ø%.0f ball"
     " %.0f deep under the CG, ball centre x %.0f" % (z_keel0, z_keel1, TRIPOD_BALL_D, TRIPOD_SOCKET_DEPTH, P_BALL.x),
 ]
@@ -3675,12 +3649,12 @@ report += [
     "  M6 studs (cut to)     : " + ", ".join("%d x %.0f" % (n_, l_) for l_, n_ in sorted(
         {L_: sum(1 for f_ in FRAME_STUDS if 5.0 * math.ceil(f_.L / 5.0) == L_)
          for L_ in set(5.0 * math.ceil(f_.L / 5.0) for f_ in FRAME_STUDS)}.items())) + " mm",
-    "  front bearing         : %s (%.0f x %.0f x %.0f) at z %.1f..%.1f on the hub's seat; housing to the front ring on M6 studs"
+    "  front support         : %s (%.1f x %.1f x %.2f) at z %.1f..%.1f on the hub's seat; housing to the front ring on M6 studs"
     % (FRONT_BRG["name"], FRONT_BRG["d"], FRONT_BRG["D"], FRONT_BRG["B"], z_brg0, z_brg1),
     "  EVA skin              : %.0f mm, r %.0f..%.0f, z %.0f..%.0f (the rear plate's aft face to the bearing housing's front),"
     " %.2f m2, %.0f g; sheet %.0f x %.0f (unrolled at R %.1f, the seam under the keel); contact glue on %.0f cm2 of"
-    " lands: hoops on ribs in the liner's two lug bands (the rear one open 30 deg either side of the split), on the"
-    " 6808 disks and on the front ring (open %.0f..%.0f deg on top), the rear plate's rim, the bearing housing (Ø%.0f);"
+    " lands: hoops on ribs in the liner's two lug bands (the rear one open 30 deg either side of the split), and"
+    " on the front ring (open %.0f..%.0f deg on top), the rear plate's rim, the bearing housing (Ø%.0f);"
     " pattern eva_skin_pattern.svg"
     % (SKIN_T, SKIN_R_IN, SKIN_R_OUT, SKIN_Z0, SKIN_Z1, SKIN_AREA / 1e6, MS_RHO["EVA"] * skin.Volume / 1000.0, SKIN_L,
        SKIN_Z1 - SKIN_Z0, SKIN_R_MID, SKIN_GLUE / 100.0, FRING_LAND_OPEN[0], FRING_LAND_OPEN[1], 2.0 * HOUS_RO),
@@ -3787,21 +3761,17 @@ sc.add("Carry", "Carry_feet", carry_feet, "frame")
 sc.add("Carry", "Carry_rails", carry_rails, "carry")
 sc.add("Carry", "Strap_lugs", strap_lugs, "carry")
 sc.add("Carry", "Sling_loops", sling, "carry")
-sc.add("Air", "Pack_axle", pack_axle, "drive")
-sc.add("Air", "Bearing_front", brg_f, "brg")
-sc.add("Air", "Bearing_rear", brg_r, "brg")
-sc.add("Air", "Soft_coupling", soft_coup, "drive")
+sc.add("Air", "Rear_bearing_61812", rear_bearing, "brg")
+sc.add("Air", "Rear_bearing_cage", rear_cage, "frame")
+sc.add("Air", "Rear_bearing_retainer", rear_ret, "frame")
+sc.add("Air", "Rotor_pad_TPU", soft_coup, "drive")
+sc.add("Air", "Rotor_fittings", rotor_fittings, "drive")
 sc.add("Air", "MQR_rotor", mqr_rotor, "mqr")
 sc.add("Air", "MQR_stator", mqr_stator, "mqr")
 sc.add("Air", "Rear_plate", mqr_plate, "frame")
-sc.add("Air", "Lines_in_axle", lines_inner, "hose")
 sc.add("Air", "Deadman_valve", deadman, "deadman")
 sc.add("Air", "Supply_stub", air_supply, "hose")
 sc.add("Air", "Supply_hose_end", supply_hose, "hose")
-sc.add("Air", "Axle_collars", axle_collars, "frame")
-sc.add("Air", "Front_6808_retainer", brg6808_ret, "frame")
-sc.add("Air", "Rear_6808_retainer", brg6808_ret_r, "frame")
-sc.add("Air", "Bearings_6808", races_6808, "brg")
 sc.add("Air", "Collector_1to6", collector, "mqr")
 sc.add("Air", "Collector_fittings", coll_fittings, "drive")
 sc.add("Air", "Collector_hoses", coll_hoses, "hose")
@@ -3811,7 +3781,7 @@ sc.add("Star_drive", "Star_spacer", star_spacer, "drive")
 sc.add("Drive", "Lay_shaft_collar", lay_collar, "frame")
 sc.add("Drive", "Crank_spacer", crank_spacer, "frame")
 sc.add("Pack", "Pack_hub", pack_hub, "gear")
-sc.add("Pack", "Front_bearing_61836", front_bearing, "brg")
+sc.add("Pack", "Front_bearing", front_bearing, "brg")
 sc.add("Pack", "Inner_race_retainer", brg_ret_in, "gear")
 sc.add("Skin", "Bearing_housing", brg_housing, "frame")
 sc.add("Skin", "Outer_race_retainer", brg_ret_out, "frame")

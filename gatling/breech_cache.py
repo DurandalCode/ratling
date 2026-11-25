@@ -84,7 +84,7 @@ BC_PHASE_STEP = 5.0
 def _bc_sweep(dst):
     _bc_os.makedirs(dst)
     fixed_list = ([("guard", feed_guard), ("feed head", feed_head), ("TPU lip", feed_lip), ("cup", feed_cup),
-                   ("ramp mount block", guide_block), ("front bearing disk", brg_f),
+                   ("ramp mount block", guide_block), ("rear bearing cage and retainer", Part.makeCompound([rear_cage, rear_ret])),
                    ("rear plate and struts", Part.makeCompound([mqr_plate, rear_struts])),
                    ("feed gate and its cable", Part.makeCompound([gate_housing, gate_pin, gate_pin_open, gate_cable])),
                    ("carry handle", carry_handle), ("carry rails", carry_rails), ("strap lugs", strap_lugs), ("strap rings", sling), ("room for the hand", hand_space),
@@ -168,12 +168,12 @@ def _bc_joints(dst):
         body(s + "Breech_clamp_upper", place(clamp_upper, p), "print")
         body(s + "Barrel", place(fixed_barrel, p), "steel")
     for n, sh, m in (
-            ("Pack_hub", pack_hub, "print"), ("Front_bearing_61836", front_bearing, "bought"),
+            ("Pack_hub", pack_hub, "print"), ("Front_bearing", front_bearing, "print" if FRONT_BRG_NAME == "slide" else "bought"),
             ("Inner_race_retainer", brg_ret_in, "print"), ("Muzzle_plate", front_plate, "print"),
-            ("Rear_rail_disk", rear_disk, "print"), ("Pack_axle", pack_axle, "Al"), ("Axle_collars", axle_collars, "print"),
-            ("Lines_in_axle", lines_inner, "hose"), ("Soft_coupling", soft_coup, "TPU"), ("MQR_rotor", mqr_rotor, "bought"),
+            ("Rear_rail_disk", rear_disk, "print"), ("Rotor_fittings", rotor_fittings, "bought"),
+            ("Rotor_pad_TPU", soft_coup, "TPU"), ("MQR_rotor", mqr_rotor, "bought"),
             ("Liner_half_right", cam_r, "print"), ("Liner_half_left", cam_l, "print"), ("Front_ring", pack_frame, "print"),
-            ("Bearing_front", brg_f, "print"), ("Bearing_rear", brg_r, "print"), ("Front_6808_retainer", brg6808_ret, "print"),
+            ("Rear_bearing_61812", rear_bearing, "bought"), ("Rear_bearing_cage", rear_cage, "print"), ("Rear_bearing_retainer", rear_ret, "print"),
             ("Bearing_housing", brg_housing, "print"), ("Outer_race_retainer", brg_ret_out, "print"),
             ("Firing_ramp", ramp_body, "print"), ("Ramp_mount_block", guide_block, "print"),
             ("Rear_plate", mqr_plate, "print"), ("MQR_stator", mqr_stator, "bought"), ("Gearbox", gearbox, "print"),
@@ -192,7 +192,6 @@ def _bc_joints(dst):
             ("Crank_rim_gear_60", crank_gear, "print"), ("Lay_shaft", pin_shaft, "steel"), ("Bevel_lay", bevel_small, "print"),
             ("Bevel_crank", bevel_big, "print"), ("Crank_shaft", crank_shaft, "steel"), ("Crank_arm", crank_arm, "print"),
             ("Crank_knob", crank_knob, "print"), ("Crank_knob_pin", crank_knob_pin, "steel"),
-            ("Bearings_6808", races_6808, "bought"), ("Rear_6808_retainer", brg6808_ret_r, "print"),
             ("Star_bearings_608", star_bearings, "bought"), ("Star_bearing_cover", star_cover, "print"),
             ("Star_spacer", star_spacer, "steel"), ("Lay_shaft_collar", lay_collar, "print"),
             ("Crank_spacer", crank_spacer, "print"), ("Collector_1to6", collector, "bought"),
