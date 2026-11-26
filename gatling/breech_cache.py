@@ -87,7 +87,7 @@ def _bc_sweep(dst):
                    ("ramp mount block", guide_block), ("rear bearing cage and retainer", Part.makeCompound([rear_cage, rear_ret])),
                    ("rear plate and struts", Part.makeCompound([mqr_plate, rear_struts])),
                    ("feed gate and its cable", Part.makeCompound([gate_housing, gate_pin, gate_pin_open, gate_cable])),
-                   ("carry handle", carry_handle), ("carry rails", carry_rails), ("strap lugs", strap_lugs), ("strap rings", sling), ("room for the hand", hand_space),
+                   ("carry handle", carry_handle), ("front frame shells A, B", Part.makeCompound([shell_a, shell_b])), ("strap lugs", strap_lugs), ("strap rings", sling), ("room for the hand", hand_space),
                    ("crank arm and knob, every %.0f deg of a crank turn" % CK_STEP,
                     Part.makeCompound([s_ for pose_ in crank_poses for s_ in pose_])),
                    ("fist on the carry handle", carry_hand), ("tripod pad", tripod_pad),
@@ -180,7 +180,7 @@ def _bc_joints(dst):
             ("Feed_head", feed_head, "print"), ("Lip_TPU", feed_lip, "TPU"), ("Cup", feed_cup, "print"),
             ("Feed_guard", feed_guard, "print"), ("Gate_housing", gate_housing, "print"), ("Gate_pin", gate_pin, "steel"),
             ("Gate_spring", gate_spring, "steel"), ("Gate_cable", gate_cable, "hose"), ("Gate_wire", gate_wire, "steel"),
-            ("Carry_tube_PVC", carry_tube, "print"), ("Carry_foot_left", foot_l, "print"), ("Carry_foot_right", foot_r, "print"), ("Carry_rails", carry_rails, "print"), ("Strap_lugs", strap_lugs, "print"),
+            ("Carry_tube_PVC", carry_tube, "print"), ("Carry_foot_left", foot_l, "print"), ("Carry_foot_right", foot_r, "print"), ("Front_shell_A", shell_a, "print"), ("Front_shell_B", shell_b, "print"), ("Strap_lugs", strap_lugs, "print"),
             ("Sling_loops", sling, "steel"), ("Tripod_pad", tripod_pad, "print"),
             ("Crank_bracket", crank_bracket, "print"), ("Crank_bearings_608", crank_bearings, "bought"),
             ("Grip", grip, "wood"), ("Pommel", pommel, "brass"), ("Deadman_valve", deadman, "bought"),
@@ -196,7 +196,7 @@ def _bc_joints(dst):
             ("Star_spacer", star_spacer, "steel"), ("Lay_shaft_collar", lay_collar, "print"),
             ("Crank_spacer", crank_spacer, "print"), ("Collector_1to6", collector, "bought"),
             ("Collector_fittings", coll_fittings, "bought"), ("Collector_hoses", coll_hoses, "hose"),
-            ("EVA_skin", skin, "EVA"), ("EVA_end_cap", skin_cap, "EVA")):
+            ("EVA_skin", skin, "EVA"), ("EVA_end_cap", skin_cap, "EVA"), ("EVA_crank_pod", crank_pod, "EVA")):
         body(n, sh, m)
     fast += [(f_.name, f_.body) for f_ in FASTENERS] + [(n_, b_) for n_, b_ in M4_EXC]
     axes = {"Z": [0.0, 0.0, 1.0], "Y": [0.0, 1.0, 0.0], "DM": [_face_n0.x, _face_n0.y, _face_n0.z]}

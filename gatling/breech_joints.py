@@ -120,7 +120,11 @@ JOINTS = [
     ("Collector_fittings", "Collector_fittings", "side by side in the manifold's row (draft pitch 7)"),
     # --- frame
     ("Lip_TPU", "Feed_head", "TPU strip in its pocket"),
-    ("Liner_half_right", "Liner_half_left", "the split: M3 x 20 lug pairs, the rear strap lug, the keel, the ramp block"),
+    ("Liner_half_right", "Liner_half_left", "the split: both halves on the rear plate (M3 x 20) and clamped by the front studs; the rear strap lug, the keel, the ramp block"),
+    ("Front_shell_*", "Front_shell_*", "end to end, clamped by the front studs through their bosses"),
+    ("Tripod_pad", "Front_shell_*", "the keel lies on the shells, bolted to the liner and the front ring"),
+    ("Tripod_pad", "Outer_race_retainer", "the keel's front end against shell C, both on the front ring"),
+    ("EVA_skin", "Front_shell_*", "contact glue on the shells"),
     # --- trains: meshes, keys, pins, journals
     ("Pack_hub", "Gears_A_B", "mesh (rim 120 / gear A)"),
     ("Pack_hub", "Crank_rim_gear_60", "mesh (rim 120 / gear 60)"),
@@ -189,6 +193,8 @@ JOINTS = [
     ("EVA_skin", "Rear_plate", "contact glue on the rear plate's rim"),
     ("EVA_end_cap", "Rear_plate", "contact glue on the rear plate's aft face"),
     ("EVA_end_cap", "EVA_skin", "EVA glued edge to edge"),
+    ("EVA_crank_pod", "EVA_skin", "contact glue round the pod's rim"),
+    ("EVA_crank_pod", "Crank_bracket", "the crank boss through the pod's top (0.7 round it)"),
 ]
 
 # Bodies allowed to touch nothing (closer than CONTACT): (pattern, why).

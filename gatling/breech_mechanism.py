@@ -150,6 +150,14 @@ floating 61812 on the disk's sleeve round the MQR, in a printed cage on four leg
 spider. The front 61836 became a printed slide ring round the hub's journal, PTFE tape on the
 journal (owner: no big bought bearing); FRONT_BRG_NAME = "KA070XP0" or "61836" brings a bearing back.
 
+2026-11-24, narrower body (owner): the frame's M6 studs ran outside the liner the whole length and
+the skin lay on their lugs (Ø264), though ahead of the liner the stations reach r 95 only. The frame
+is printed shells of the liner's OD (Ø218 x 3) now and the skin is glued straight on them (Ø228):
+the rear shell is one print with the liner's halves, on the rear plate by 6 x M3 x 20; the front
+shells and the front ring stand as spacers to the bearing housing, clamped by four M6 studs inside
+them (r 102.5), their aft nuts in pockets in the liner's front band where the groove runs far aft.
+The carry rails are gone (the handle's feet stand on the front shell), crank plate A stands on it.
+
 2026-11-21, fasteners (owner: every printed part held to its neighbour with M3 x 6 /
 20 / 50 and nuts, no inserts or glue; the frame on bare M6 studs). The joint audit
 (gatling/breech_joints.py) found the parts standing on each other, and more:
@@ -1136,13 +1144,13 @@ z_seat0 = P2_Z1 + 1.0
 # EVA skin over the pack (2026-11-22, "EVA skin" below): its bore lies on the tips of the frame's
 # stud lugs (STUD_R + STUD_LUG_D / 2, checked there); printed glue lands reach it.
 SKIN_T = 5.0                                     # EVA sheet
-SKIN_R_IN = cam_od / 2.0 + 18.0                  # 127
+SKIN_R_IN = cam_od / 2.0                         # 2026-11-24: on the frame shells (127 on the stud lugs until then)
 SKIN_CLEAR = 2.0                                 # a window round whatever crosses the skin
 SKIN_WEB = 12.0                                  # narrower EVA between windows (or a window and an edge) goes
 LAND_T, LAND_RIB_T = 2.0, 3.0                    # glue land: a hoop out to SKIN_R_IN on radial ribs
 LAND_RIB_ANGLES = [15.0 + 30.0 * k_ for k_ in range(12)]
 BED = 256.0                                      # Bambu P2S
-HOUS_RO = SKIN_R_IN                              # 125 until 2026-11-22: the skin is glued on the housing
+HOUS_RO = SKIN_R_IN                              # 125 until 2026-11-22, 127 until 2026-11-24: the skin is glued on the housing
 _hub = [rim_gear] + [place(clamp_lower, k * 60.0) for k in range(N)] + [
     tube(2 * HUB_TUBE_RO, 2 * HUB_TUBE_RI, P1_Z1 - 0.5, z_seat0 + 0.5),
     tube(FRONT_BRG["d"], 2 * HUB_TUBE_RI, z_seat0, z_brg1 + FRONT_AX),
@@ -1355,7 +1363,7 @@ crank_shaft = to_drive(Part.makeCylinder(SHAFT_D / 2, y_cb1 + CRANK_STUB - CB_IN
 _tip = CB_RS + CB_M + 1.0                                 # bevel tip radius + 1
 PL_T = CBRG_W + 2.0
 z_pa0 = CB_INFO_S["mount"] + 1.0
-_pa_in = -APEX.y - (STUD_R - 8.0)                         # plate A inner edge: 8 mm past its M6 stud (90 deg)
+_pa_in = -APEX.y - cam_od / 2.0                           # plate A inner edge on the front shell (2026-11-24; on a stud until then)
 y_pb0 = CB_INFO_B["mount"] + 3.0
 _br = [Part.makeBox(2 * _tip, _pa_in + y_pb0 + PL_T, PL_T, V(-_tip, -(y_pb0 + PL_T), z_pa0)),
        Part.makeBox(2 * _tip, PL_T, z_pa0 + PL_T + _tip + 4.0, V(-_tip, -(y_pb0 + PL_T), -_tip - 4.0)),
@@ -2116,48 +2124,89 @@ def skin_land(z0, z1, skip=(), open_=()):
     return land_.removeSplitter()
 
 
-# --- the liner: lugs for bays 1 and 2, split-lug pairs, the halves
+# --- the liner (2026-11-24, owner: a narrower body). Nothing stands outside it any more: the frame
+# is printed shells of its own OD (Ø218 x 3) and the EVA skin is glued straight on them. Behind it
+# the rear shell is one print with each half, down to the rear plate's rim (6 x M3 x 20 from the
+# plate's aft face, nuts in bosses, slid in from outside). Ahead of it the front shells stand as
+# spacers to the front ring and the bearing housing, clamped by four M6 studs inside them at
+# r 102.5: their aft nuts sit in pockets in the liner's front band, open to its OD, at angles where
+# the groove (and the stations' finger bosses) run 22+ mm aft of the band (u >= 0.33).
 z_lr0, z_lr1 = z_cam0, z_cam0 + LUG_T
 z_lf0, z_lf1 = z_cam1 - LUG_T, z_cam1
 FRING_LAND_OPEN = (BOX_A0 - 5.0, BOX_A1 + 5.0)         # the box and the feed head on top of the front ring
-# Rear band: no land within 30 deg of the split (0 / 180): the key to the halves' M3 x 20 comes
-# in there along the split lugs, and its way grazed the hoop's bore (a cut there left the right
-# half 5.6 mm3 short of its cutters).
-LINER_LAND_OPEN = [(-30.0, 30.0), (150.0, 210.0)]
-# 2026-11-23: the wrap handle's two rails run under the lands at these world angles, both between
-# ribs: low on the left and high on the right, the handle goes round the top from one to the other.
-CARRY_W = (240.0, 60.0)
-SKIN_LANDS = [skin_land(z_lr0, z_lr1, skip=[(CABLE_W, 8.0)], open_=LINER_LAND_OPEN),
-              skin_land(z_lf0, z_lf1, skip=[(CABLE_W, 8.0)]),
-              skin_land(Z_FRING0, Z_FRING1, open_=[FRING_LAND_OPEN])]
-SKIN_LANDS_Z = [(z_lr0, z_lr1, "liner, rear lugs"), (z_lf0, z_lf1, "liner, front lugs"), (Z_FRING0, Z_FRING1, "front ring")]
-_ll = [stud_lug(r_case_od, w, z_lr0, z_lr1) for w in BAY1] + [stud_lug(r_case_od, w, z_lf0, z_lf1) for w in BAY2]
-_ll += SKIN_LANDS[:2]
-SPLIT_LUG_H, SPLIT_LUG_W = 13.0, 19.0
-_split_bands = [(0.0, z_lr0, z_lr1), (180.0, z_lr0, z_lr1)]     # the front: the carry base (top), the keel (bottom)
-for w, za, zb in _split_bands:
-    _b = Part.makeBox(SPLIT_LUG_H + 1.0, SPLIT_LUG_W, zb - za, V(r_case_od - 1.0, -SPLIT_LUG_W / 2, za))
+CARRY_W = (240.0, 60.0)                                # the wrap handle's feet, world angles
+SKIN_LANDS, SKIN_LANDS_Z = [], []                      # no glue lands: the skin lies on the shells
+SH_T = 3.0
+SH_RI = r_case_od - SH_T
+SH_CLEAR = 2.0                                         # windows in the shells round what crosses them
+STUD_R_IN = 102.5                                      # front studs: 0.5 inside the shells' bore
+FRONT_STUD_W = (110.0, 248.0, 275.0, 305.0)            # clear of the box, the guard, gear 60, the handle's feet
+SH_BOSS_D, SH_BOSS_L = 13.0, 6.0                       # a boss round each stud at each shell end: it locates the shell
+REAR_SH_W = tuple(30.0 + 60.0 * k_ for k_ in range(6)) # rear plate bolts, off the liner's split (0 / 180)
+REAR_BOLT_R, REAR_BOSS_R0, REAR_BOSS_L, REAR_RIM_RI = 103.0, 98.0, 12.0, 98.0
+z_rs0 = z_mqr_plate0 + SPIDER_RIM_L                    # the rear shell's aft face, on the plate's rim
+z_lnut = z_cam1 - 4.0                                  # the front studs' aft nuts: 4 mm of the liner's band ahead of them
+
+
+def ann_windows(obst, r0, r1, z0, z1, clear):
+    """Wedges round whatever crosses the annulus r0..r1, z0..z1: its footprint (angle x z) and clear."""
+    ann_ = tube(2.0 * r1 + 0.02, 2.0 * r0 - 0.02, z0, z1)
+    out_ = []
+    for sh_ in obst:
+        for sol_ in (sh_.Solids or [sh_]):
+            bb_ = sol_.BoundBox
+            if bb_.ZMax < z0 or bb_.ZMin > z1:
+                continue
+            if math.hypot(max(abs(bb_.XMin), abs(bb_.XMax)), max(abs(bb_.YMin), abs(bb_.YMax))) < r0:
+                continue
+            for c_ in sol_.common(ann_).Solids:
+                if c_.Volume < 1e-3:
+                    continue
+                pts_ = c_.tessellate(0.2)[0] + [v_.Point for v_ in c_.Vertexes]
+                ref_ = math.degrees(math.atan2(c_.CenterOfMass.y, c_.CenterOfMass.x))
+                rel_ = [((math.degrees(math.atan2(q_.y, q_.x)) - ref_ + 180.0) % 360.0) - 180.0 for q_ in pts_]
+                da_ = math.degrees(clear / r0)
+                a0_, a1_ = ref_ + min(rel_) - da_, ref_ + max(rel_) + da_
+                za_, zb_ = min(q_.z for q_ in pts_) - clear, max(q_.z for q_ in pts_) + clear
+                w_ = Part.makeCylinder(r1 + 5.0, zb_ - za_, V(0, 0, za_), ZA, a1_ - a0_)
+                w_.rotate(O, ZA, a0_)
+                out_.append(w_)
+    return out_
+
+
+_rb = []
+for w in REAR_SH_W:
+    _b = Part.makeBox(SH_RI + 0.5 - REAR_BOSS_R0, 12.0, REAR_BOSS_L, V(REAR_BOSS_R0, -6.0, z_rs0))
     _b.rotate(O, ZA, w)
-    _ll.append(_b)
-cam = cam.fuse(Part.makeCompound(_ll)).removeSplitter()
-cam_outside = cam_outside.fuse(Part.makeCompound(_ll)).removeSplitter()
+    _rb.append(_b)
+rear_shell = tube(2.0 * r_case_od, 2.0 * SH_RI, z_rs0, z_cam0 + 0.5).fuse(Part.makeCompound(_rb)).removeSplitter()
+rear_shell = cut_fast(rear_shell, ann_windows([cable_ex], SH_RI, r_case_od, z_rs0, z_cam0, 4.0), "rear shell: cable window")
+cam = cam.fuse(rear_shell).removeSplitter()
+cam_outside = cam_outside.fuse(rear_shell).removeSplitter()
+_pockets = []
+for w in FRONT_STUD_W:
+    _pk = Part.makeBox(r_case_od + 2.0 - (STUD_R_IN - 7.0), FA.M6_WASHER_D + 1.0, NUT_STACK + 0.5,
+                       V(STUD_R_IN - 7.0, -(FA.M6_WASHER_D + 1.0) / 2.0, z_lnut - NUT_STACK - 0.5))
+    _pk.rotate(O, ZA, w)
+    _pockets.append(_pk)
+POCKETS = Part.makeCompound(_pockets)
+cam, cam_outside = cut_fast(cam, _pockets, "liner: stud pockets"), cut_fast(cam_outside, _pockets, "liner outside: stud pockets")
 _half = Part.makeBox(600, 300, 1000, V(-300, 0, -500))
 cam_r = cam.common(_half)
 _halfm = _half.copy()
 _halfm.translate(V(0, -300, 0))
 cam_l = cam.common(_halfm)
 LINER_FAST = []
-for w, za, zb in _split_bands:
-    _p = wpt(r_case_od + SPLIT_LUG_H / 2, w, 0.5 * (za + zb))
-    LINER_FAST.append(FA.m3("liner halves", _p, V(0, -1, 0), [cam_r, cam_l], clip=(-SPLIT_LUG_W / 2 - 1, SPLIT_LUG_W / 2 + 1)))
-cam_r, cam_l = cut_fast(cam_r, LINER_FAST, "liner right"), cut_fast(cam_l, LINER_FAST, "liner left")
-cam = cut_fast(cam, LINER_FAST, "liner")
+_split_bands = []
 liner_halves_ok = len(cam_r.Solids) == 1 and len(cam_l.Solids) == 1
 
 # --- front ring, bearing disks, the housing, the box: lugs
-pack_frame = pack_frame.fuse(Part.makeCompound([stud_lug(r_case_od, w, Z_FRING0, Z_FRING1)
-                                                for w in sorted(set((90.0,) + BAY2[1:] + BAY3 + BOX_TIES))]
-                                               + [SKIN_LANDS[2]])).cut(feed_head).removeSplitter()
+# 2026-11-24: outside, only the gear-60 bracket's lug (90) and the box ties' lugs (in the skin's windows);
+# inside, a boss round each front stud.
+RING_LUGS = Part.makeCompound([stud_lug(r_case_od, w, Z_FRING0, Z_FRING1) for w in sorted(set((90.0,) + BOX_TIES))])
+_ring_in = [Part.makeCylinder(SH_BOSS_D / 2.0, Z_FRING1 - Z_FRING0, wpt(STUD_R_IN, w, Z_FRING0)).common(
+    Part.makeCylinder(r_case_od, 1000.0, V(0, 0, -500.0))) for w in FRONT_STUD_W]
+pack_frame = pack_frame.fuse(Part.makeCompound(list(RING_LUGS.Solids) + _ring_in)).cut(feed_head).removeSplitter()
 # --- the guard (2026-11-21: it stood on nothing): two webs out to the front ring's inner
 # face, an M3 x 20 each, radially from the ring's outer face, the nut slid into the web.
 # z set by hand for the front ring at 202.3; since 2026-11-22 (the breech trough) it stands TRAY_L further
@@ -2256,37 +2305,25 @@ def stud_through(name, w, elems, nuts=None):
 
 
 FRAME_STUDS = []
-# 2026-11-22: the bay-1 studs run on straight back to the rear plate (a nut either side of its
-# lug): the frame is a cylinder to the MQR, and the EVA skin goes on round it to the grip. Four
-# inclined studs from the rear 6808 disk to a plate R 50 (a cone) did that until then.
-for w in BAY1:
-    _fc = [_ec["liner_r"]]
-    FRAME_STUDS.append(stud_through("bay 1 (rear plate, liner rear) %.0f" % w, w, [],
-                                    nuts=[(f_[0], -1) for f_ in _fc] + [(f_[1], +1) for f_ in _fc]
-                                    + [(z_mqr_plate0, -1), (z_mqr_plate0 + SPIDER_LUG_L, +1)]))
-# plate A of the crank bracket on the W90 stud: a boss behind it, the front nut sunk in plate A
-# (the lay bevel is just ahead of it); the gear-60 bracket's foot on the front ring: 2 x M3 x 20.
+# 2026-11-24: the bay-1 studs (liner -> rear plate), the bay-2/3 ones outside the liner and the
+# W90 stud under crank plate A are gone with the shells (the rear shell is one print with the liner).
+# Four front studs inside the shells clamp liner -> shell A -> shell B -> front ring -> shell C (one
+# print with the slide ring's rear retainer) -> bearing housing: the aft nut in a pocket of the
+# liner, the front one on the housing's front face.
 _cbs = sorted(crank_bracket.Solids, key=lambda s_: s_.BoundBox.ZMin)
 _pa, _prm = _cbs[0], _cbs[1]            # plate A with the crank boss; the gear-60 bracket on the front ring
-_iv = [iv for iv in FA.intervals(_pa, wpt(STUD_R, W90), ZA) if iv[1] - iv[0] > 2.0]
-assert _iv, "crank plate A misses its stud: %s" % _iv
-_pa_z0, _pa_z1 = _iv[0][0], _iv[-1][1]
-PA_BOSS_L = 16.0
-_pa = _pa.fuse(Part.makeCylinder(STUD_LUG_D / 2, PA_BOSS_L + 0.5, wpt(STUD_R, W90, _pa_z0 - PA_BOSS_L))).removeSplitter()
-_pa_nut = _pa_z1 - NUT_STACK - 2.5
-FRAME_STUDS.append(stud_through("bay 2 %.1f (liner front, crank plate A)" % W90, W90, ["liner_f"],
-                                nuts=[(z_lf0, -1), (z_lf1, +1), (_pa_z0 - PA_BOSS_L, -1), (_pa_nut, +1)]))
-_pa = _pa.cut(Part.makeCylinder(FA.M6_WASHER_D / 2 + 0.8, NUT_STACK + 4.0, wpt(STUD_R, W90, _pa_nut))).removeSplitter()
 CRANK_FAST = []
 for _sx in (-4.5, 4.5):
     _p = V(_sx, 111.0 * CRANK_SIDE, z_cboss_r1)
     CRANK_FAST.append(FA.m3("gear-60 bracket foot on the front ring", _p, V(0, 0, -1), [_prm, pack_frame],
                             clip=(-0.01, z_cboss_r1 - Z_FRING0 + 0.01)))
 _prm, pack_frame = cut_fast(_prm, CRANK_FAST, "gear-60 bracket"), cut_fast(pack_frame, CRANK_FAST, "front ring")
-for w in (150.0, 210.0, 270.0):
-    FRAME_STUDS.append(stud_through("bay 2+3 %.0f (liner front, front ring, bearing housing)" % w, w,
-                                    ["liner_f", "fring", "housing"]))
-FRAME_STUDS.append(stud_through("bay 3 300 (front ring, bearing housing)", 300.0, ["fring", "housing"]))
+FRONT_STUDS = []
+for w in FRONT_STUD_W:
+    _z0, _z1 = z_lnut - NUT_STACK - 0.5, z_brg1 + 3.0 + NUT_STACK + 2.0      # the aft end just past its nut: the finger bosses pass behind
+    FRONT_STUDS.append(FA.m6_stud("front stud %.0f (liner pocket -> bearing housing)" % w, wpt(STUD_R_IN, w, _z0),
+                                  wpt(STUD_R_IN, w, _z1), [(z_lnut - _z0, -1), (z_brg1 + 3.0 - _z0, +1)]))
+FRAME_STUDS += FRONT_STUDS
 # The box stands on the front ring on a boss round each tie: the ring and the box are clamped
 # between the ring's rear nut and the nut sunk in the box. Until 2026-11-21 a nut and washer sat
 # on either face of the 8.4 mm gap between them: two stacks of 6.6 in one place, 4.8 mm deep in
@@ -2306,16 +2343,23 @@ box_tie_gap = BOX_Z0 - Z_FRING1
 # (the skin's aft land; Ø254 fits the P2S bed). The spokes and the rim stand forward of the
 # plate's aft face, where the EVA end cap is glued.
 _sp = []
-for w in STRUT_ANGLES:
-    _b = Part.makeBox(STUD_R - (RP_R - 3.0), SPIDER_SPOKE_W, SPIDER_SPOKE_H, V(RP_R - 3.0, -SPIDER_SPOKE_W / 2, z_mqr_plate0))
+for w in STRUT_ANGLES:                  # 2026-11-24: spokes to a rim r 98..109 the rear shell stands on
+    _b = Part.makeBox(REAR_RIM_RI + 0.5 - (RP_R - 3.0), SPIDER_SPOKE_W, SPIDER_SPOKE_H, V(RP_R - 3.0, -SPIDER_SPOKE_W / 2, z_mqr_plate0))
     _b.rotate(O, ZA, w)
-    _sp += [_b, Part.makeCylinder(STUD_LUG_D / 2, SPIDER_LUG_L, wpt(STUD_R, w, z_mqr_plate0))]
-_sp.append(tube(2.0 * SKIN_R_IN, 2.0 * (SKIN_R_IN - LAND_T), z_mqr_plate0, z_mqr_plate0 + SPIDER_RIM_L))
+    _sp.append(_b)
+_sp.append(tube(2.0 * r_case_od, 2.0 * REAR_RIM_RI, z_mqr_plate0, z_mqr_plate0 + SPIDER_RIM_L))
 _spider = G.fuse_all(_sp)
 # The spokes keep off the hub's own bolts (the grip's root, the collector): their seats, nuts and keys.
 _spider = _spider.cut(Part.makeCompound([x_ for f_ in CONTROL_FAST + AIR_FAST if f_.kind == "M3"
                                          for x_ in (f_.cutter, f_.body, f_.access)]))
 mqr_plate = mqr_plate.fuse(_spider).removeSplitter()
+# The rear shell on the plate's rim: 6 x M3 x 20 from the plate's aft face (under the EVA end cap),
+# the nuts slid into the shell's bosses from outside.
+PLATE_SH_FAST = [FA.m3_at("rear plate to the liner's rear shell", wpt(REAR_BOLT_R, w, z_mqr_plate0), ZA, 0.0, 20.0 - FA.NUT_T - 1.0,
+                          20.0, nut_slot=(wpt(1.0, w), r_case_od - REAR_BOLT_R + 2.0)) for w in REAR_SH_W]
+mqr_plate = cut_fast(mqr_plate, PLATE_SH_FAST, "rear plate")
+cam, cam_r, cam_l, cam_outside = [cut_fast(x_, PLATE_SH_FAST, n_) for x_, n_ in
+                                   ((cam, "liner"), (cam_r, "liner right"), (cam_l, "liner left"), (cam_outside, "liner outside"))]
 # --- the 61812's cage (2026-11-23): a ring round the outer race with a lip ahead of it, on four legs
 # between the stator's ports to the spider's spokes, a foot and an M3 x 20 each. Printed ring-down.
 # A retainer ring behind the race, 3 x M3 x 6 into nuts slid into the ring from outside.
@@ -2340,8 +2384,62 @@ _cf = [FA.m3("rear bearing cage on the spider", wpt(0.5 * (RC_LEG_R0 + RC_FOOT_R
              [rear_cage, mqr_plate], clip=(-0.01, RC_FOOT_T + SPIDER_SPOKE_H + 0.01)) for w in STRUT_ANGLES]
 rear_cage, mqr_plate = cut_fast(rear_cage, _cf, "rear bearing cage"), cut_fast(mqr_plate, _cf, "rear plate")
 RCAGE_FAST += _cf
-AIR_FAST += RCAGE_FAST
-rear_struts = Part.makeCompound([f_.body for f_ in FRAME_STUDS if f_.name.startswith("bay 1")])
+AIR_FAST += RCAGE_FAST + PLATE_SH_FAST
+rear_struts = Part.makeCompound([f_.body for f_ in PLATE_SH_FAST])
+# --- the front shells (2026-11-24): spacers of the liner's OD, a boss round each stud at each end;
+# windows round whatever crosses them (feed, star, box and its train, gear 60 and its bracket).
+# Shell C (front ring -> bearing housing) is one print with the slide ring's rear retainer.
+
+
+def _swz(shape_, c_):
+    pts_ = shape_.tessellate(0.2)[0] + [v_.Point for v_ in shape_.Vertexes]
+    bb_ = shape_.BoundBox
+    return Part.makeCylinder(max(math.hypot(q_.x - c_.x, q_.y - c_.y) for q_ in pts_), bb_.ZLength, V(c_.x, c_.y, bb_.ZMin))
+
+
+_cp_w = V(CP_C.x, -CP_C.y if CRANK_SIDE > 0 else CP_C.y, 0)
+SHELL_OBST = [feed_head, feed_lip, feed_cup, feed_guard, gate_housing, gate_pin, gate_pin_open, gate_spring, cable_ex,
+              _swz(star0, S_C), star_shaft, star_bearings, star_cover, star_spacer, star_collar, gearbox,
+              _swz(gear_ab, L_C), _swz(gear_i, I_C), _swz(gear_s, S_C), lay_shaft, idl_shaft,
+              _swz(crank_gear, _cp_w), pin_shaft, _prm, RING_LUGS]
+z_sab = z_cam1 + 200.0                                 # shell A -> B: A takes the handle's feet and plate A
+
+
+def frame_shell(z0, z1, name):
+    s_ = tube(2.0 * r_case_od, 2.0 * SH_RI, z0, z1)
+    _bs = [Part.makeCylinder(SH_BOSS_D / 2.0, SH_BOSS_L, wpt(STUD_R_IN, w, za_)).common(Part.makeCylinder(SH_RI + 0.5, 1000.0, V(0, 0, -500.0)))
+           for w in FRONT_STUD_W for za_ in (z0, z1 - SH_BOSS_L)]
+    s_ = s_.fuse(Part.makeCompound(_bs)).removeSplitter()
+    s_ = cut_fast(s_, ann_windows(SHELL_OBST, SH_RI, r_case_od, z0, z1, SH_CLEAR), name + ": windows")
+    if len(s_.Solids) > 1:                             # an island between two windows: it goes
+        SHELL_ISLANDS.append((name, sum(x_.Volume for x_ in s_.Solids) - max(x_.Volume for x_ in s_.Solids)))
+        s_ = max(s_.Solids, key=lambda x_: x_.Volume)
+    return cut_fast(s_, FRAME_STUDS, name)
+
+
+SHELL_ISLANDS = []
+
+
+shell_a = frame_shell(z_cam1, z_sab, "front shell A")
+shell_b = frame_shell(z_sab, Z_FRING0, "front shell B")
+brg_ret_out = fuse_sound(brg_ret_out, frame_shell(Z_FRING1, z_brg0 - 3.0, "front shell C"), "shell C + the slide ring's rear retainer")
+# The A+B pin's front end stood 0.5 under the old retainer (r 109..127 until 2026-11-24): a tab of it over the pin.
+_lw = math.degrees(math.atan2(L_C.y, L_C.x))
+_ltab = Part.makeBox(L_C.Length + 7.0 - (r_case_od - 1.0), 14.0, 3.0, V(r_case_od - 1.0, -7.0, z_brg0 - 3.0))
+_ltab.rotate(O, ZA, _lw)
+brg_ret_out = fuse_sound(brg_ret_out, _ltab, "shell C: the A+B pin's stop")
+# Crank plate A on shell A (2026-11-24; on the W90 stud until then): a foot PA_FOOT_T thick over its
+# inner end, 2 x M3 x 20 radially into the shell, the nuts on the shell's inner face.
+PA_FOOT_T = 14.0
+_pab = _pa.common(tube(2.0 * (r_case_od + 16.0), 2.0 * (r_case_od - 1.0), -1000.0, 1000.0)).BoundBox
+_pa_box = Part.makeBox(_pab.XLength, 60.0, _pab.ZLength, V(_pab.XMin, 80.0 if CRANK_SIDE > 0 else -140.0, _pab.ZMin))
+_pa = _pa.fuse(tube(2.0 * (r_case_od + PA_FOOT_T), 2.0 * r_case_od, _pab.ZMin, _pab.ZMax).common(_pa_box)).removeSplitter()
+_w_pa = 90.0 * CRANK_SIDE
+PA_FAST = [FA.m3("crank plate A on front shell A", wpt(r_case_od + PA_FOOT_T, _w_pa + _sa * 5.5, 0.5 * (_pab.ZMin + _pab.ZMax)),
+                 wpt(-1.0, _w_pa + _sa * 5.5), [_pa, shell_a], head_on_face=True, nut_on_face=True,
+                 clip=(-0.01, PA_FOOT_T + SH_T + 0.5)) for _sa in (-1, 1)]
+_pa, shell_a = cut_fast(_pa, PA_FAST, "crank plate A"), cut_fast(shell_a, PA_FAST, "front shell A")
+CRANK_FAST += PA_FAST
 cam, cam_r, cam_l, cam_outside = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in
                                    ((cam, "liner"), (cam_r, "liner right"), (cam_l, "liner left"), (cam_outside, "liner outside"))]
 pack_frame, mqr_plate = [cut_fast(x_, FRAME_STUDS, n_) for x_, n_ in ((pack_frame, "front ring"), (mqr_plate, "rear plate"))]
@@ -2352,6 +2450,7 @@ crank_bracket = Part.makeCompound([_pa, _prm])
 drive_parts = [(n_, crank_bracket if n_ == "crank brackets" else s_) for n_, s_ in drive_parts]
 frame_studs = Part.makeCompound([f_.body for f_ in FRAME_STUDS])
 frame_all = Part.makeCompound([pack_frame, frame_studs])
+frame_shells = Part.makeCompound([shell_a, shell_b])
 # EVA skin's extent (2026-11-22; built in "EVA skin" below): the rear plate's aft face to the
 # bearing housing's front face; an EVA end cap on the plate's aft face, round the grip's root.
 SKIN_Z0, SKIN_Z1 = z_mqr_plate0, z_brg1 + 3.0
@@ -2361,7 +2460,7 @@ SKIN_L = 2.0 * math.pi * SKIN_R_MID
 SKIN_LANDS_Z.append((z_mqr_plate0, z_mqr_plate0 + SPIDER_RIM_L, "rear plate's rim"))
 CAP_R_IN_EST = RP_R + 4.0
 STUD_ENVELOPE = STUD_R - FA.M6_NUT_AF / math.sqrt(3.0)        # nut corners toward the axis
-_tick("frame on M6 studs")
+_tick("frame: shells and M6 studs")
 
 # ============================================================ mass and centre of gravity (stage 7)
 # Printed PETG (1.27 g/cm3): a solid skin, the rest at the profile's infill. The
@@ -2432,7 +2531,8 @@ for _mk in range(N):
     ms_add("stations", "rails Al 8 x 1", place(rails_pack, _mp), "Al")
     ms_add("stations", "breech clamp, upper half", place(clamp_upper, _mp), "strong")
     ms_add("stations", "barrel", place(fixed_barrel, _mp), "steel")
-for _mn, _ms, _mm in (("liner", cam, "strong"), ("frame (rings, spars)", pack_frame, "strong"),
+for _mn, _ms, _mm in (("liner with the rear shell", cam, "strong"), ("frame (rings, spars)", pack_frame, "strong"),
+                      ("front shell A", shell_a, "strong"), ("front shell B", shell_b, "strong"),
                       ("front barrel plate", front_plate, "strong"), ("rear rail disk", rear_disk, "strong"),
                       ("firing ramp", ramp_fire, "strong"), ("ramp block", guide_block, "strong")):
     ms_add("frame", _mn, _ms, _mm)
@@ -2534,9 +2634,9 @@ CARRY_PIN_HL, CARRY_PIN_R = 25.0, 6.0             # the boss for the M3 x 50 acr
 CARRY_FIST_R, CARRY_GRIP_L = 32.0, 100.0
 CARRY_R = 172.0                                   # the tube's centreline round the axis
 CARRY_FIST_W = (270.0, 300.0, 330.0, 0.0, 30.0)   # where a hand may hold it
-CARRY_FLANGE_T, CARRY_FLANGE_L, CARRY_BOLT_Z = 8.0, 54.0, 21.0
+CARRY_FLANGE_T, CARRY_FLANGE_L, CARRY_BOLT_Z = 14.0, 54.0, 21.0     # 14: M3 x 20 through it and the 3 mm shell
 CARRY_RAIL_W = 24.0
-CARRY_RAIL_R = SKIN_R_IN - LAND_T - 0.3           # the rail's outer face, under the glue lands
+CARRY_RAIL_R = r_case_od                          # 2026-11-24: the feet stand on front shell A (on rails until then)
 CARRY_POST_W, CARRY_POST_T = 24.0, 10.0
 CARRY_CLEAR = 5.0                                 # the fist off the skin
 SLING_WIRE = 2.5
@@ -2568,7 +2668,7 @@ def carry_post(zc, r_seat):
 
 z_lug_tab1 = max(z_brg1 + 3.0, z_post_f + CARRY_POST_T / 2)
 if z_lug_tab1 > z_brg1 + 3.0 + 1e-6:
-    _tab = Part.makeBox(HOUS_RO - 108.0, 46.0, z_lug_tab1 - (z_brg1 + 2.0), V(108.0, y_carry - 23.0, z_brg1 + 2.0)).common(
+    _tab = Part.makeBox(HOUS_RO - 97.0, 46.0, z_lug_tab1 - (z_brg1 + 2.0), V(97.0, y_carry - 23.0, z_brg1 + 2.0)).common(
         Part.makeCylinder(HOUS_RO, 200.0, V(0, 0, z_brg1)))
     brg_housing = brg_housing.fuse(_tab).removeSplitter()
 lug_r, lug_f = carry_post(z_post_r, r_case_od), carry_post(z_post_f, HOUS_RO)
@@ -2578,7 +2678,8 @@ for w, za, zb in _split_bands:
     _b = Part.makeBox(SPLIT_LUG_H + 2.0, SPLIT_LUG_W + 1.0, zb - za + 1.0, V(r_case_od - 1.5, -SPLIT_LUG_W / 2 - 0.5, za - 0.5))
     _b.rotate(O, ZA, w)
     _lug_clear.append(_b)
-lug_r = lug_r.cut(Part.makeCompound(_lug_clear)).removeSplitter()
+if _lug_clear:
+    lug_r = lug_r.cut(Part.makeCompound(_lug_clear)).removeSplitter()
 # Bolts: the rear base 2 x M3 x 20 into the liner (one in each half: it closes the split at the top
 # front); the front base 2 x M3 x 20 into the bearing housing's wall, nuts slid in from its front.
 LUG_FAST_R, LUG_FAST_F = [], []
@@ -2612,15 +2713,7 @@ def _carry_pt(w, r, along, z):
     return V(r * math.cos(a_) - along * math.sin(a_), r * math.sin(a_) + along * math.cos(a_), z)
 
 
-_rails = [carry_rail(w) for w in CARRY_W]
-RAIL_FAST = []
-for i_, w in enumerate(CARRY_W):
-    _in = wpt(-1.0, w)
-    for _sa in (-1, 1):
-        RAIL_FAST.append(FA.m3("side rail on the liner", _carry_pt(w, CARRY_RAIL_R, _sa * 6.5, Z_RAIL_LINER), _in, [_rails[i_], cam],
-                               clip=(-0.01, 60.0)))
-        RAIL_FAST.append(FA.m3("side rail on the front ring", _carry_pt(w, CARRY_RAIL_R, _sa * 6.5, 0.5 * (Z_FRING0 + Z_FRING1)), _in,
-                               [_rails[i_], pack_frame], nut_on_face=True, clip=(-0.01, 40.0)))
+RAIL_FAST = []                                    # 2026-11-24: no rails, the feet stand on front shell A
 
 # --- the wrap handle: one PVC tube bent round the axis, its ends in two printed feet on the rails
 _w0, _w1 = CARRY_W[0], CARRY_W[1] + 360.0
@@ -2665,8 +2758,9 @@ _feet = [foot_l, foot_r]
 HOOP_FAST = []
 for i_, w in enumerate(CARRY_W):
     for _sz in (-1, 1):
-        HOOP_FAST.append(FA.m3("wrap handle's foot on its rail", wpt(CARRY_RAIL_R + CARRY_FLANGE_T, w, z_carry + _sz * CARRY_BOLT_Z), wpt(-1.0, w),
-                               [_feet[i_], _rails[i_]], head_on_face=True, clip=(-0.01, CARRY_FLANGE_T + CARRY_RAIL_R - r_case_od + 0.5)))
+        HOOP_FAST.append(FA.m3("wrap handle's foot on front shell A", wpt(CARRY_RAIL_R + CARRY_FLANGE_T, w, z_carry + _sz * CARRY_BOLT_Z),
+                               wpt(-1.0, w), [_feet[i_], shell_a], head_on_face=True, nut_on_face=True,
+                               clip=(-0.01, CARRY_FLANGE_T + SH_T + 0.5)))
 PIN_FAST = [FA.m3("PVC tube pinned in its foot", wpt(CARRY_R, w, z_carry + CARRY_PIN_HL), V(0, 0, -1), [_feet[i_], _feet[i_]],
                   head_on_face=True, clip=(-0.01, 2.0 * CARRY_PIN_HL + 0.01)) for i_, w in enumerate(CARRY_W)]
 foot_l = cut_fast(foot_l, HOOP_FAST[:2] + PIN_FAST[:1], "wrap handle's left foot")
@@ -2674,8 +2768,8 @@ foot_r = cut_fast(foot_r, HOOP_FAST[2:] + PIN_FAST[1:], "wrap handle's right foo
 carry_tube = cut_fast(carry_tube, PIN_FAST, "PVC tube")
 carry_feet = Part.makeCompound([foot_l, foot_r])
 carry_handle = Part.makeCompound([foot_l, foot_r, carry_tube])
-_rails = [cut_fast(r_, RAIL_FAST[4 * i_:4 * i_ + 4] + HOOP_FAST[2 * i_:2 * i_ + 2], "side rail") for i_, r_ in enumerate(_rails)]
-carry_rails = Part.makeCompound(_rails)
+shell_a = cut_fast(shell_a, HOOP_FAST, "front shell A")
+frame_shells = Part.makeCompound([shell_a, shell_b])
 # CARRY_KEY_FAST: the bolts put in after the skin (a key through its windows); the rails' go in before it.
 CARRY_KEY_FAST = LUG_FAST_R + LUG_FAST_F + HOOP_FAST
 CARRY_FAST = CARRY_KEY_FAST + RAIL_FAST + PIN_FAST
@@ -2723,8 +2817,7 @@ _keel = Part.makeBox(TRIPOD_KEEL_T + 10.0, TRIPOD_KEEL_W, z_keel1 - z_keel0,
 _keel = _keel.cut(Part.makeCylinder(r_case_od, 2000.0, V(0, 0, -1000.0)))
 # 2026-11-22: the glue lands of the liner's front lugs and of the front ring pass over the keel's
 # corners (r 124.9..125.6 against the hoop's bore 125): the corners give way, 0.3 off.
-_keel = _keel.cut(Part.makeCompound([tube(2.0 * SKIN_R_IN + 20.0, 2.0 * (SKIN_R_IN - LAND_T - 0.3), z0_ - 0.3, z1_ + 0.3)
-                                     for z0_, z1_, _ in SKIN_LANDS_Z]))
+
 x_socket_face = x_keel_out - TRIPOD_BOSS_H
 _boss = Part.makeCylinder(TRIPOD_BOSS_D / 2, TRIPOD_BOSS_H + 1.0, V(x_socket_face, y_tripod, z_tripod), V(1, 0, 0))
 TRIPOD_SOCKET_R = TRIPOD_BALL_D / 2 + TRIPOD_SOCKET_CLEAR
@@ -2760,8 +2853,6 @@ MS_RHO.setdefault("PVC", 1.40)
 ms_add("carry", "PVC tube", carry_tube, "PVC")
 ms_add("carry", "wrap handle's foot", foot_l, "strong")
 ms_add("carry", "wrap handle's foot", foot_r, "strong")
-for _s in carry_rails.Solids:
-    ms_add("carry", "side rail", _s, "strong")
 for _s in strap_lugs.Solids:
     ms_add("carry", "strap lug", _s, "strong")
 for _s in sling.Solids:
@@ -2841,7 +2932,7 @@ SKIN_OBST = [
     ("crank 608s", crank_bearings), ("crank arm and knob", Part.makeCompound([crank_arm, crank_knob, crank_knob_pin])),
     ("carry handle", carry_handle), ("strap lugs", strap_lugs), ("keel and tripod boss", tripod_pad),
     ("carry post bolts (key)", Part.makeCompound([f_.access for f_ in CARRY_KEY_FAST])),
-    ("frame M6 studs", frame_studs),
+    ("frame M6 studs", frame_studs), ("front ring's outer lugs", RING_LUGS), ("A+B pin's stop on shell C", _ltab),
     ("fasteners", Part.makeCompound([f_.body for f_ in FASTENERS if not any(f_ is h_ for h_ in HOOP_FAST)] + [b_ for _, b_ in M4_EXC])),
     ("ramp and its block", Part.makeCompound([ramp_fire, guide_block])), ("pack (six phases)", Part.makeCompound(stations)),
     ("hub", pack_hub), ("front bearing and its inner retainer", Part.makeCompound([front_bearing, brg_ret_in])),
@@ -2855,7 +2946,7 @@ CAP_NEAR = [("grip", grip), ("pommel", pommel), ("lever pin", lever_pin), ("dead
             ("hoses", Part.makeCompound([air_supply, supply_hose])), ("cable and wire", Part.makeCompound([cable_in, gate_wire]))] + [
     ("lever at %.1f deg" % (LEV_ANG * i_ / 6.0), lever_at(LEV_ANG * i_ / 6.0)) for i_ in range(7)]
 # The skin rests on these without a window: the tips of their stud bosses lie at r SKIN_R_IN.
-SKIN_RESTS = ("crank brackets", "star-drive box")
+SKIN_RESTS = ()                                   # 2026-11-24: nothing rests on the skin's bore any more
 # No slit round these: the cable threads through its window; the carry handle comes off and goes on
 # after the skin, the key to its rear base's bolts through the post's window.
 SKIN_THREADS = {"gate cable": "threads through", "carry handle": "goes on after the skin",
@@ -2996,6 +3087,11 @@ def _skin_cutter(r_):
 
 skin_tube = tube(2.0 * SKIN_R_OUT, 2.0 * SKIN_R_IN, SKIN_Z0, SKIN_Z1)
 skin = cut_fast(skin_tube, [_skin_cutter(r_) for r_ in SKIN_RECTS], "EVA skin")
+# 2026-11-24: a scrap of EVA left between windows (the A+B pin's stop by the box) goes with them.
+SKIN_SCRAP = 0.0
+if len(skin.Solids) > 1:
+    SKIN_SCRAP = (sum(x_.Volume for x_ in skin.Solids) - max(x_.Volume for x_ in skin.Solids)) / SKIN_T
+    skin = max(skin.Solids, key=lambda x_: x_.Volume)
 SKIN_AREA = skin.Volume / SKIN_T                      # one face, mm2
 ms_add("skin", "EVA skin %.0f mm" % SKIN_T, skin, "EVA")
 # End cap: an EVA ring on the rear plate's aft face, from round the grip's root out over the
@@ -3003,7 +3099,7 @@ ms_add("skin", "EVA skin %.0f mm" % SKIN_T, skin, "EVA")
 # hole round each nut of the bay-1 studs (they stand proud of the plate's aft face).
 _cap_slab = Part.makeCylinder(SKIN_R_OUT + 5.0, SKIN_T + SKIN_CLEAR, V(0, 0, SKIN_Z0 - SKIN_T - SKIN_CLEAR))
 CAP_R_IN = RP_R
-for n_, sh_ in CAP_NEAR + [("M3 bolts", Part.makeCompound([f_.body for f_ in FASTENERS if f_.kind == "M3"]))]:
+for n_, sh_ in CAP_NEAR + [("M3 bolts", Part.makeCompound([f_.body for f_ in FASTENERS if f_.kind == "M3" and f_ not in PLATE_SH_FAST]))]:
     for sol_ in (sh_.Solids or [sh_]):
         if not _near(sol_.BoundBox, _cap_slab.BoundBox, 0.0):
             continue
@@ -3013,7 +3109,7 @@ for n_, sh_ in CAP_NEAR + [("M3 bolts", Part.makeCompound([f_.body for f_ in FAS
 CAP_R_IN += SKIN_CLEAR
 skin_cap = tube(2.0 * SKIN_R_OUT, 2.0 * CAP_R_IN, SKIN_Z0 - SKIN_T, SKIN_Z0)
 CAP_HOLES = []
-for f_ in FRAME_STUDS:
+for f_ in FRAME_STUDS + PLATE_SH_FAST:            # 2026-11-24: the rear plate's bolt heads
     for sol_ in f_.body.Solids:
         if _near(sol_.BoundBox, skin_cap.BoundBox, 0.0) and sol_.common(skin_cap).Volume > 1e-3:
             bb_ = sol_.BoundBox
@@ -3029,6 +3125,50 @@ SKIN_COVERS = sorted(set(f_.name.split(",")[0] for f_ in FASTENERS if f_.kind ==
                          and _near(f_.access.BoundBox, skin.BoundBox, 0.0) and f_.access.common(skin).Volume > 1e-3))
 print("EVA skin: %d windows in %d holes, %.2f m2, %.0f g" % (len(SKIN_RECTS), len(SKIN_HOLES), SKIN_AREA / 1e6,
                                                              MS_RHO["EVA"] * skin.Volume / 1000.0), flush=True)
+
+# ============================================================ EVA pod over the crank drive (2026-11-26)
+# Owner: hide the crank drive (gear 60, the lay shaft, the bevel pair and its bracket) under a small
+# EVA casing. Three boxes of POD_T EVA on the skin, contact glue round their rims: one over the bevel
+# pair and crank plates A and B, a narrow tunnel over the lay shaft, one over gear 60 and its bracket.
+# The crank boss comes out through a hole in the top; the arm, the knob and the hand stay outside.
+POD_T, POD_CLEAR, POD_TUNNEL_HW = 5.0, 2.0, 11.0     # the tunnel clears the front ring's lug under the gear-60 bracket (8.5)
+_pod_s = 1.0 if CRANK_SIDE > 0 else -1.0
+_pod_ap = _side(APEX)
+_pod_g60 = swept(crank_gear, _side(CP_C), "Z")
+_pod_bev = [swept(bevel_small, _pod_ap, "Z"), swept(bevel_big, _pod_ap, "Y")]
+_pod_pa = max(crank_bracket.Solids, key=lambda s_: s_.BoundBox.YLength)      # plates A and B with the crank boss
+_pod_prm = min(crank_bracket.Solids, key=lambda s_: s_.BoundBox.YLength)     # the gear-60 bracket
+
+
+def _pod_bb(shapes):
+    return Part.makeCompound(shapes).BoundBox
+
+
+_b1 = _pod_bb([_pod_pa, lay_collar] + _pod_bev)
+_b3 = _pod_bb([_pod_g60, _pod_prm])
+_x1 = max(abs(_b1.XMin - _pod_ap.x), abs(_b1.XMax - _pod_ap.x)) + POD_CLEAR
+_y1 = (R_RIM + R_CP) + y_pb0 + PL_T + POD_CLEAR            # over plate B's outer face; the crank boss goes through
+_z10, _z11 = _b1.ZMin - POD_CLEAR, max(s_.BoundBox.ZMax for s_ in [_pod_pa] + _pod_bev) + POD_CLEAR
+_x3 = max(abs(_b3.XMin - _pod_ap.x), abs(_b3.XMax - _pod_ap.x)) + POD_CLEAR
+_y3 = abs(_pod_g60.BoundBox.YMax if _pod_s > 0 else _pod_g60.BoundBox.YMin) + POD_CLEAR
+_z30, _z31 = _b3.ZMin - POD_CLEAR, _b3.ZMax + POD_CLEAR
+_y2 = (R_RIM + R_CP) + SHAFT_D / 2.0 + POD_CLEAR + 2.0
+POD_SEGS = [(_x1, _y1, _z10, _z11), (POD_TUNNEL_HW, _y2, _z11 - 1.0, _z30 + 1.0), (_x3, _y3, _z30, _z31)]
+
+
+def _pod_box(xh, yt, z0, z1, t):
+    return Part.makeBox(2.0 * (xh + t), yt + t, (z1 - z0) + 2.0 * t, V(_pod_ap.x - xh - t, 0.0, z0 - t))
+
+
+_pod_out = G.fuse_all([_pod_box(xh_, yt_, z0_, z1_, POD_T) for xh_, yt_, z0_, z1_ in POD_SEGS])
+_pod_in = G.fuse_all([_pod_box(xh_, yt_, z0_, z1_, 0.0) for xh_, yt_, z0_, z1_ in POD_SEGS])
+crank_pod = _pod_out.cut(_pod_in).cut(Part.makeCylinder(SKIN_R_OUT, 2000.0, V(0, 0, -1000.0))).removeSplitter()
+if _pod_s < 0:
+    crank_pod = crank_pod.mirror(O, V(0, 1, 0))
+crank_pod = crank_pod.cut(Part.makeCylinder(CBOSS_OD / 2.0 + 0.7, 400.0, V(_pod_ap.x, 0.0, Z_CRANK), V(0, _pod_s, 0))).removeSplitter()
+ms_add("skin", "EVA crank pod %.0f mm" % POD_T, crank_pod, "EVA")
+print("EVA crank pod: z %.0f..%.0f, out to y %.0f, %.0f g" % (_z10 - POD_T, _z31 + POD_T, max(_y1, _y3) + POD_T,
+                                                            MS_RHO["EVA"] * crank_pod.Volume / 1000.0), flush=True)
 
 
 def skin_pattern_svg(path):
@@ -3139,7 +3279,7 @@ strut_turn = 99.0
 for _a in range(0, 60, 5):
     for _r in (rear_disk, rotor_fittings, mqr_rotor):
         strut_turn = min(strut_turn, gap(rot(_r, float(_a)), rear_struts, pad=5.0))
-strut_on = gap(rear_struts, mqr_plate)
+strut_on = max(gap(rear_struts, mqr_plate), gap(cam_outside, mqr_plate))
 _cable_fixed = [("liner", cam_outside), ("frame", frame_all), ("rear bearing cage", rear_cage),
                 ("strap", sling), ("struts", rear_struts), ("stator", mqr_stator), ("star train box", gearbox),
                 ("feed cup", feed_cup), ("star", star0)]
@@ -3162,7 +3302,16 @@ hand_l_gap, hand_l_near = min((gap(hand_left, s_, pad=5.0), n_) for n_, s_ in _h
 # and it stays behind the liner's front face, where the spars start.
 _fp = follower.tessellate(0.3)[0]
 _fol_r = [(math.hypot(q.x, R_PACK + q.y), q.z) for q in _fp]
-fingers_vs_spars = STUD_ENVELOPE - max(r for r, z in _fol_r)     # radial: the studs stand outside the liner
+fingers_vs_spars = STUD_ENVELOPE - max(r for r, z in _fol_r)     # the box ties' studs stand outside the liner
+# 2026-11-24: the front studs and the frame shells against the stations (six phases; every 3 deg in the sweep)
+_st_all = Part.makeCompound(stations)
+stud_st_gap = gap(Part.makeCompound([f_.body for f_ in FRONT_STUDS]), _st_all, pad=5.0)
+shell_st_gap = min(gap(s_, _st_all, pad=5.0) for s_ in (shell_a, shell_b, brg_ret_out, rear_shell))
+shell_obst_gap = min(gap(Part.makeCompound([shell_a, shell_b, brg_ret_out]), o_, pad=5.0) for o_ in SHELL_OBST if o_ is not RING_LUGS)
+pocket_groove = gap(POCKETS, groove_solid, pad=8.0)
+shell_one = all(len(s_.Solids) == 1 and s_.isValid() for s_ in (shell_a, shell_b, brg_ret_out))
+shells_stacked = max(gap(shell_a, cam_outside), gap(shell_a, shell_b), gap(shell_b, pack_frame), gap(brg_ret_out, pack_frame),
+                     gap(cam_outside, mqr_plate))
 # Rear disk vs the parts that slide past it, every 5 deg of phase. The disk turns
 # with the pack, so a station keeps its angle to it (station 0 at 0) and only
 # its stroke changes with the phase.
@@ -3218,20 +3367,20 @@ _tick("fast checks: drive…")
 drive_vs_stations = min(gap(d, st, pad=DRIVE_PAD) for d in _drv for st in stations)
 drive_vs_rim = min(gap(rim_gear, d) for n, d in drive_parts if not n.startswith("crank gear"))
 _near_fixed = [gearbox, gear_a, gear_b, gear_i, gear_s, lay_shaft, idl_shaft, star_shaft, star0,
-               feed_head, feed_cup, feed_lip, feed_guard, front_plate, carry_handle, carry_rails, strap_lugs, sling]
+               feed_head, feed_cup, feed_lip, feed_guard, front_plate, carry_handle, strap_lugs, sling]
 drive_vs_fixed = min(gap(d, f, pad=DRIVE_PAD) for d in _drv for f in _near_fixed)
 
 
 def far(g, pad=DRIVE_PAD):
     return ("> %.0f" % pad) if g >= 99.0 else ("%.2f" % g)
 drive_vs_frame = min(gap(d, frame_all) for n, d in drive_parts if n != "crank brackets")
-bracket_on_ring = all(gap(b_, frame_all) < 0.05 for b_ in crank_bracket.Solids) and len(crank_bracket.Solids) == 2
+bracket_on_ring = all(gap(b_, Part.makeCompound([frame_all, shell_a])) < 0.05 for b_ in crank_bracket.Solids) and len(crank_bracket.Solids) == 2
 gears_vs_bracket = min(gap(g, crank_bracket) for g in _gears_plain)     # the spigots pass the 608 lips by 0.2
 bevels_apart = gap(bevel_small, crank_gear)
 # The hand against the gun (not its own drive); the arm stands off the boss by design.
 _hand_gun = [("star-drive box", gearbox), ("star train", Part.makeCompound([gear_a, gear_b, gear_i, gear_s])),
              ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("carry handle", carry_handle),
-             ("carry rails", carry_rails), ("strap lugs", strap_lugs), ("strap loops", sling), ("frame", frame_all), ("liner", cam_outside), ("front plate", front_plate),
+             ("strap lugs", strap_lugs), ("strap loops", sling), ("frame", frame_all), ("liner", cam_outside), ("front plate", front_plate),
              ("ramp", ramp_fire),
              ("rear bearing cage", rear_cage),
              ("dead-man and hose", Part.makeCompound([deadman, air_supply, supply_hose])),
@@ -3255,25 +3404,20 @@ knob_in_room = crank_knob.common(hand_space).Volume / crank_knob.Volume
 # Carry: the posts stand on the liner and the gearbox; handle, rings and the fist clear the rest.
 _tick("fast checks: carry, tripod…")
 carry_seat_r = gap(lug_r, cam_outside)
-carry_in_liner = strap_lugs.common(cam).Volume + carry_rails.common(cam).Volume
+carry_in_liner = strap_lugs.common(cam).Volume
 carry_seat_f = gap(lug_f, brg_housing)
 carry_rear_on_liner = z_cam0 <= z_post_r - CARRY_POST_T / 2 and z_post_r + CARRY_POST_T / 2 <= z_cam1
-rail_on_liner = max(gap(r_, cam_outside) for r_ in carry_rails.Solids)
-rail_on_ring = max(gap(r_, pack_frame) for r_ in carry_rails.Solids)
-hoop_on_rails = max(gap(carry_feet, r_) for r_ in carry_rails.Solids)
+hoop_on_shell = max(gap(foot_l, shell_a), gap(foot_r, shell_a))
 hoop_one = (len(foot_l.Solids) == 1 and len(foot_r.Solids) == 1 and len(carry_tube.Solids) == 1 and foot_l.isValid()
-            and foot_r.isValid() and carry_tube.isValid() and all(r_.isValid() for r_ in carry_rails.Solids))
+            and foot_r.isValid() and carry_tube.isValid())
 tube_in_feet = carry_tube.common(carry_feet).Volume
 tube_socket_gap = gap(carry_tube, carry_feet)
-rail_groove = gap(Part.makeCompound([f_.cutter for f_ in RAIL_FAST if "liner" in f_.name]), groove_solid, pad=8.0)
 _carry_near = [("cup", feed_cup), ("feed head", feed_head), ("gate", Part.makeCompound([gate_housing, gate_pin, gate_pin_open])),
                ("gate cable", gate_cable), ("star", star0), ("guard", feed_guard), ("frame", frame_all),
                ("star train", Part.makeCompound([gear_a, gear_b, gear_i, gear_s, star_shaft, lay_shaft, idl_shaft])),
                ("rim", rim_gear), ("pack (six phases)", Part.makeCompound(stations)),
                ("pack drive", Part.makeCompound([s_ for _, s_ in drive_parts]))]
 carry_gap, carry_near = min((gap(carry_handle, f_, pad=DRIVE_PAD), n_) for n_, f_ in _carry_near)
-_rail_near = [(n_, f_) for n_, f_ in _carry_near if n_ != "frame"] + [("frame studs", frame_studs)]
-rail_gap, rail_near = min((gap(carry_rails, f_, pad=DRIVE_PAD), n_) for n_, f_ in _rail_near)
 ring_gap, ring_near = min((gap(sling, f_, pad=DRIVE_PAD), n_) for n_, f_ in
                           _carry_near + [("liner", cam_outside), ("gearbox", gearbox), ("strap lugs", strap_lugs),
                                          ("EVA skin", skin)])
@@ -3320,6 +3464,7 @@ fast_vs_hub = min(gap(rot(Part.makeCompound([_hub_core] + [f_.body for f_ in HUB
 PRINTED_ONE = [("liner (two halves)", cam_r), ("liner (two halves)", cam_l), ("front ring", pack_frame), ("hub", pack_hub),
                ("bearing housing", brg_housing), ("inner race retainer", brg_ret_in), ("outer race retainer", brg_ret_out),
                ("rear bearing cage", rear_cage), ("rear bearing retainer", rear_ret), ("front support", front_bearing),
+               ("front shell A", shell_a), ("front shell B", shell_b), ("shell C with the slide ring's retainer", brg_ret_out),
                ("rear rail disk", rear_disk),
                ("ramp", ramp_body), ("ramp block", guide_block), ("muzzle plate", front_plate), ("gearbox", gearbox),
                ("feed head", feed_head), ("cup", feed_cup), ("guard", feed_guard), ("gate housing", gate_housing),
@@ -3342,9 +3487,9 @@ _tick("fasteners checked")
 # EVA skin: on the lug tips, glued on the lands, clear of whatever crosses it or lies under it.
 _tick("EVA skin checks…")
 skin_one = len(skin.Solids) == 1 and skin.isValid()
-skin_on_lugs = abs(SKIN_R_IN - (STUD_R + STUD_LUG_D / 2.0)) < 1e-6
+skin_on_lugs = abs(SKIN_R_IN - r_case_od) < 1e-6        # 2026-11-24: on the shells
 SKIN_CARRIERS = [("liner right", cam_r), ("liner left", cam_l), ("front ring", pack_frame), ("bearing housing", brg_housing),
-                 ("rear plate", mqr_plate),
+                 ("rear plate", mqr_plate), ("front shell A", shell_a), ("front shell B", shell_b),
                  ("outer race retainer", brg_ret_out)]
 skin_glued = max(gap(skin, s_) for n_, s_ in SKIN_CARRIERS[:-1])
 cap_one = len(skin_cap.Solids) == 1 and skin_cap.isValid()
@@ -3368,18 +3513,29 @@ skin_near = [(g_, n_) for g_, n_ in skin_gaps if n_ not in SKIN_RESTS]
 skin_rest = [(g_, n_) for g_, n_ in skin_gaps if n_ in SKIN_RESTS]
 SKIN_PACK_R = max(r_max(st_) for st_ in stations)
 skin_crank = min(gap(skin, Part.makeCompound(list(pose_)), pad=DRIVE_PAD) for pose_ in crank_poses)
+# The crank pod (2026-11-26): on the skin, clear of the drive it covers, of the crank over a turn, the handle and the hand.
+pod_one = len(crank_pod.Solids) == 1 and crank_pod.isValid()
+pod_on_skin = gap(crank_pod, skin)
+pod_drive, pod_drive_near = min((gap(crank_pod, s_, pad=DRIVE_PAD), n_) for n_, s_ in (
+    ("gear 60 (sweep)", _pod_g60), ("lay bevel (sweep)", _pod_bev[0]), ("crank bevel (sweep)", _pod_bev[1]), ("lay shaft", pin_shaft),
+    ("lay shaft collar", lay_collar), ("crank 608s", crank_bearings), ("crank brackets", crank_bracket),
+    ("their bolts", Part.makeCompound([f_.body for f_ in CRANK_FAST])), ("front ring's lugs", RING_LUGS), ("feed head", feed_head)))
+pod_turn = min(gap(crank_pod, Part.makeCompound(list(pose_)), pad=DRIVE_PAD) for pose_ in crank_poses)
+pod_other, pod_other_near = min((gap(crank_pod, s_, pad=DRIVE_PAD), n_) for n_, s_ in (
+    ("carry handle", carry_handle), ("strap lugs", strap_lugs), ("strap rings", sling), ("room for the hand", hand_space),
+    ("fist on the handle", carry_hand), ("gearbox", gearbox), ("gate cable", gate_cable)))
 SKIN_BED = [(n_, max(s_.BoundBox.XLength, s_.BoundBox.YLength)) for n_, s_ in SKIN_CARRIERS]
 
 # ============================================================ assembly / checks / report
 pack = Part.makeCompound(stations)
 assembly = Part.makeCompound([
     pack, cam, front_plate, pack_frame, rear_disk, pack_hub, front_bearing, brg_housing, brg_ret_in, brg_ret_out,
-    rear_bearing, rear_cage, rear_ret, rotor_fittings, star_collar, Part.makeCompound([f_.body for f_ in FASTENERS] + [b_ for _, b_ in M4_EXC]),
+    rear_bearing, rear_cage, rear_ret, rotor_fittings, shell_a, shell_b, crank_pod, star_collar, Part.makeCompound([f_.body for f_ in FASTENERS] + [b_ for _, b_ in M4_EXC]),
     gear_ab, gear_i, gear_s,
     star_shaft, lay_shaft, idl_shaft, gearbox, star0, feed_head, feed_lip, feed_cup, feed_guard,
     ramp_fire, guide_block, rear_struts, grip, pommel, lever, lever_pin, dm_pusher, gate_wire, gate_cable,
     gate_housing, gate_pin, gate_spring, crank_gear, pin_shaft, bevel_small, bevel_big, crank_shaft, crank_bracket, crank_bearings,
-    crank_arm, crank_knob, crank_knob_pin, carry_handle, carry_rails, strap_lugs, tripod_pad, sling, soft_coup, mqr_rotor, mqr_stator,
+    crank_arm, crank_knob, crank_knob_pin, carry_handle, strap_lugs, tripod_pad, sling, soft_coup, mqr_rotor, mqr_stator,
     mqr_plate, deadman, air_supply, supply_hose, star_bearings, star_cover,
     star_spacer, lay_collar, crank_spacer, collector, coll_fittings, coll_hoses, skin, skin_cap,
 ])
@@ -3395,9 +3551,12 @@ checks = [
     ("liner groove blind: %.1f mm behind its bottom, liner Ø%.0f" % (GROOVE_FLOOR, cam_od),
      cam_od / 2.0 - (CAM_R + groove_r) >= GROOVE_FLOOR - 1e-6),
     ("rotating parts inside the liner (all but fingers) %.2f >= %.2f" % (liner_clear, CLEAR), liner_clear >= CLEAR),
-    ("frame M6 studs at r %.1f (nut corners r %.1f) clear of the fingers (%.2f) and the stations (%.2f)"
-     % (STUD_R, STUD_ENVELOPE, fingers_vs_spars, spar_clear),
-     fingers_vs_spars >= CLEAR and spar_clear >= CLEAR),
+    ("frame (2026-11-24): shells Ø%.0f x %.0f, liner -> A -> B -> front ring -> C (with the slide ring's retainer) touching"
+     " (%.2f), the rear shell on the plate; one solid each; clear of the stations (%.2f) and of what crosses their windows (%.2f)"
+     % (2.0 * r_case_od, SH_T, shells_stacked, shell_st_gap, shell_obst_gap),
+     shells_stacked < 0.05 and shell_one and shell_st_gap >= CLEAR and shell_obst_gap >= CLEAR),
+    ("front M6 studs (%d) at r %.1f inside the shells, clear of the stations (%.2f); aft nuts in the liner's pockets, %.2f off"
+     " the groove" % (len(FRONT_STUDS), STUD_R_IN, stud_st_gap, pocket_groove), stud_st_gap >= CLEAR and pocket_groove >= 1.0),
     ("moving-part neighbour gap %.2f >= %.2f (QEV + guides, six phases)" % (gap_core, CLEAR), gap_core >= CLEAR - 1e-6),
     ("hub: whole stations incl. AirTAC and lines, six phases %.2f >= %.2f" % (gap_nbr, CLEAR), gap_nbr >= CLEAR - 1e-6),
     ("AirTAC group and line R clear of own station (%.2f)" % gap_own, gap_own >= CLEAR - 1e-6),
@@ -3419,9 +3578,9 @@ checks = [
      % _wall_left, insert_blind and liner_one),
     ("ramp mount block and insert holes clear of the groove (%s), stations six phases (%s)"
      % (far(groove_vs_mount), far(mount_vs_stations, 2.0)), groove_vs_mount >= 2.0 and mount_vs_stations >= CLEAR),
-    ("rear plate (a spider Ø%.0f) on the %d bay-1 studs straight from the liner (%.2f), grip on"
-     " the plate (%.2f); studs vs the rear disk, rotor and its fittings over a turn %s"
-     % (2.0 * SKIN_R_IN, len(STRUT_ANGLES), strut_on, grip_on_plate, far(strut_turn)),
+    ("rear plate (a spider Ø%.0f) under the liner's rear shell on %d x M3 x 20 (%.2f), grip on"
+     " the plate (%.2f); its bolts vs the rear disk, rotor and its fittings over a turn %s"
+     % (2.0 * r_case_od, len(PLATE_SH_FAST), strut_on, grip_on_plate, far(strut_turn)),
      strut_on < 0.05 and grip_on_plate < 0.05 and strut_turn >= 2.0),
     ("grip two halves split at y 0 (the channels between them); cable, outlet and valve inside (wall %.1f at the %s);"
      " cable stop inside the grip; %d x M3 x 20 across the halves clear of every channel by %.1f, the pivot an M3 x 50"
@@ -3504,11 +3663,9 @@ checks = [
     ("knob turns on its own pin (bore %.2f, %.1f off the arm), inside the room for the hand (%.1f %%)"
      % (knob_pin_gap, knob_arm_gap, 100.0 * knob_in_room),
      knob_pin_gap >= 0.15 and knob_arm_gap >= 0.5 and knob_in_room > 0.999),
-    ("wrap handle in the CG's plane (z %.0f, CG %.1f off) on two rails at %.0f / %.0f deg: rails on the liner (%.2f) and the"
-     " front ring (%.2f), handle on the rails (%.2f), %.2f mm3 in the liner, liner bolts %.2f off the groove"
-     % (z_carry, CG_OFF_Z, CARRY_W[0], CARRY_W[1], rail_on_liner, rail_on_ring, hoop_on_rails, carry_in_liner, rail_groove),
-     rail_on_liner < 0.05 and rail_on_ring < 0.05 and hoop_on_rails < 0.05 and carry_in_liner < 0.01 and rail_groove >= 1.0
-     and abs(CG_OFF_Z) < 2.0 and hoop_one),
+    ("wrap handle in the CG's plane (z %.0f, CG %.1f off), its feet at %.0f / %.0f deg on front shell A (%.2f), 2 x M3 x 20"
+     " each; %.2f mm3 of strap lug in the liner" % (z_carry, CG_OFF_Z, CARRY_W[0], CARRY_W[1], hoop_on_shell, carry_in_liner),
+     hoop_on_shell < 0.05 and carry_in_liner < 0.01 and abs(CG_OFF_Z) < 2.0 and hoop_one),
     ("PVC tube Ø%.0f x %.0f, %.0f mm long, one bend R %.0f (%.1f x its Ø), in two printed feet (%.2f off the sockets, %.3f mm3"
      " in them), an M3 x 50 across each" % (CARRY_TUBE_OD, CARRY_TUBE_WALL, CARRY_TUBE_L, CARRY_R, CARRY_R / CARRY_TUBE_OD,
                                            tube_socket_gap, tube_in_feet),
@@ -3516,10 +3673,10 @@ checks = [
     ("strap lugs either side of the CG (+%.0f / -%.0f, y %.1f off): on the liner (%.2f) and the bearing housing (%.2f); the handle's"
      " top at x %.1f, under the cup's floor at %.1f" % (z_post_f - z_carry, z_carry - z_post_r, CG_OFF_Y, carry_seat_r, carry_seat_f, carry_top, cup_floor),
      carry_seat_r < 0.05 and carry_seat_f < 0.05 and carry_rear_on_liner and abs(CG_OFF_Y) < 1.0 and hopper_free),
-    ("handle clear of the cup, feed head, gate and cable, star train, frame, pack (%s, %s); rails (%s, %s); strap rings"
+    ("handle clear of the cup, feed head, gate and cable, star train, frame, pack (%s, %s); strap rings"
      " through the lugs' eyes at z %.0f / %.0f (%s, %s)"
-     % (far(carry_gap), carry_near, far(rail_gap), rail_near, z_post_r, z_post_f, far(ring_gap), ring_near),
-     carry_gap >= 2.0 and rail_gap >= 0.5 and ring_gap >= 0.3),
+     % (far(carry_gap), carry_near, z_post_r, z_post_f, far(ring_gap), ring_near),
+     carry_gap >= 2.0 and ring_gap >= 0.3),
     ("fist anywhere on the handle, 270..30 deg (R %.0f x %.0f round it), %s from the gun (%s)"
      % (CARRY_FIST_R, CARRY_GRIP_L, far(fist_gap), fist_near), fist_gap >= CARRY_CLEAR - 0.05),
     ("tripod pad under the CG: socket for a Ø%.0f ball at z %.0f, y %.0f (CG %.1f / %.1f off), %.0f below it;"
@@ -3554,19 +3711,23 @@ checks = [
      % (hub_vs_box, hub_vs_housing), hub_one and hub_vs_box >= CLEAR and hub_vs_housing >= CLEAR),
     ("rear rail disk one solid (the rotor's notches open aft, a web of %.1f ahead), liner halves one solid each" % (REAR_DISK_Z1 - z_notch1),
      rear_disk_one and liner_halves_ok),
-    ("EVA skin %.0f mm one solid on the lug tips (bore r %.1f = stud r %.1f + lug %.1f), z %.0f..%.0f, %d holes"
-     % (SKIN_T, SKIN_R_IN, STUD_R, STUD_LUG_D / 2.0, SKIN_Z0, SKIN_Z1, len(SKIN_HOLES)), skin_one and skin_on_lugs),
-    ("EVA skin glued: on the liner's two lands, the front ring's, the rear plate's rim and the bearing"
+    ("EVA skin %.0f mm one solid on the frame shells (bore r %.1f = the liner's OD), z %.0f..%.0f, %d holes; %.0f mm2 of"
+     " scrap between windows dropped" % (SKIN_T, SKIN_R_IN, SKIN_Z0, SKIN_Z1, len(SKIN_HOLES), SKIN_SCRAP), skin_one and skin_on_lugs),
+    ("EVA skin glued: on the liner with its rear shell, front shells A, B, the front ring, the rear plate's rim and the bearing"
      " housing (%.2f); %.0f cm2 of land under it" % (skin_glued, SKIN_GLUE / 100.0), skin_glued < 0.01 and SKIN_GLUE > 20000.0),
     ("EVA end cap one solid on the rear plate's aft face, edge to edge with the skin (%.2f): R %.1f..%.0f, %d nut holes;"
      " clear of the grip, the lever over its squeeze, the hoses, the cable, the studs (%.2f, %s)"
      % (cap_glued, CAP_R_IN, SKIN_R_OUT, len(CAP_HOLES), cap_gap, cap_near),
      cap_one and cap_glued < 0.01 and cap_gap >= 1.0 and SKIN_R_OUT - CAP_R_IN >= 40.0),
+    ("EVA crank pod %.0f mm one solid, glued on the skin (%.2f): over gear 60, the lay shaft, the bevel pair and its"
+     " brackets (%.2f, %s); the crank over a turn %s; handle, strap, hand %s (%s)"
+     % (POD_T, pod_on_skin, pod_drive, pod_drive_near, far(pod_turn), far(pod_other), pod_other_near),
+     pod_one and pod_on_skin < 0.05 and pod_drive >= 0.5 and pod_turn >= 2.0 and pod_other >= 2.0),
     ("EVA skin clear of what crosses it or lies under it (%.2f, %s; rests on %s), of the pack (r %.1f to its bore %.1f)"
      " and the crank over a turn (%s)"
      % (skin_near[0][0], skin_near[0][1], ", ".join("%s %.2f" % (n_, g_) for g_, n_ in skin_rest) or "nothing",
         SKIN_PACK_R, SKIN_R_IN, far(skin_crank)),
-     skin_near[0][0] >= 0.5 and all(g_ > -1e-6 for g_, _ in skin_rest) and SKIN_R_IN - SKIN_PACK_R >= 5.0
+     skin_near[0][0] >= 0.4 and all(g_ > -1e-6 for g_, _ in skin_rest) and SKIN_R_IN - SKIN_PACK_R >= 2.0
      and skin_crank >= DRIVE_PAD),
     ("glue lands on the P2S bed (%.0f): %s; cut round %d bolts (%s)"
      % (BED, ", ".join("%s %.1f" % (n_, w_) for n_, w_ in SKIN_BED), len(SKIN_LAND_ACCESS),
@@ -3598,7 +3759,7 @@ report = [
     " stage 2 = balls (Bowden %.0f mm, slack %.1f, gate pin %.1f); free end %.1f mm"
     % (GRIP_LEN, LEV_L, LEV_ANG, STAGE1, stage1_travel, CABLE_LEN, WIRE_SLACK, GATE_TRAVEL, finger_travel),
     "  rear frame             : plate R %.0f carries the MQR stator and the grip; a spider out to Ø%.0f on the %d bay-1"
-    " M6 studs, straight from the liner (a cylinder to the MQR)" % (RP_R, 2.0 * SKIN_R_IN, len(STRUT_ANGLES)),
+    " M3 x 20 under the liner's rear shell" % (RP_R, 2.0 * r_case_od, len(PLATE_SH_FAST)),
     "  feed                   : feed_bench star (3 pockets, 2:1) at the top; handoff 180°;"
     " guard %.0f–%.0f° following the close" % (GUARD_PHI0, GUARD_END),
     "  star drive             : rim %d on the breech clamps (z %.1f..%.1f) -> %d | %d -> %d -> %d;"
@@ -3653,13 +3814,15 @@ report += [
     % (FRONT_BRG["name"], FRONT_BRG["d"], FRONT_BRG["D"], FRONT_BRG["B"], z_brg0, z_brg1),
     "  EVA skin              : %.0f mm, r %.0f..%.0f, z %.0f..%.0f (the rear plate's aft face to the bearing housing's front),"
     " %.2f m2, %.0f g; sheet %.0f x %.0f (unrolled at R %.1f, the seam under the keel); contact glue on %.0f cm2 of"
-    " lands: hoops on ribs in the liner's two lug bands (the rear one open 30 deg either side of the split), and"
-    " on the front ring (open %.0f..%.0f deg on top), the rear plate's rim, the bearing housing (Ø%.0f);"
-    " pattern eva_skin_pattern.svg"
+    " the frame under it: the liner with its rear shell, front shells A and B, the front ring, the housing (Ø%.0f)"
+    " and the rear plate's rim; pattern eva_skin_pattern.svg"
     % (SKIN_T, SKIN_R_IN, SKIN_R_OUT, SKIN_Z0, SKIN_Z1, SKIN_AREA / 1e6, MS_RHO["EVA"] * skin.Volume / 1000.0, SKIN_L,
-       SKIN_Z1 - SKIN_Z0, SKIN_R_MID, SKIN_GLUE / 100.0, FRING_LAND_OPEN[0], FRING_LAND_OPEN[1], 2.0 * HOUS_RO),
+       SKIN_Z1 - SKIN_Z0, SKIN_R_MID, SKIN_GLUE / 100.0, 2.0 * HOUS_RO),
     "  EVA end cap           : %.0f mm on the rear plate's aft face, R %.1f..%.0f, %d holes round the studs' nuts, %.0f g"
     % (SKIN_T, CAP_R_IN, SKIN_R_OUT, len(CAP_HOLES), MS_RHO["EVA"] * skin_cap.Volume / 1000.0),
+    "  EVA crank pod         : %.0f mm over the crank drive, z %.0f..%.0f, out to %.0f from the axis (crank side), %.0f g;"
+    " the crank boss through its top" % (POD_T, _z10 - POD_T, _z31 + POD_T, max(_y1, _y3) + POD_T,
+                                         MS_RHO["EVA"] * crank_pod.Volume / 1000.0),
     "  EVA skin holes        : " + "; ".join(
         "%s (%s)" % (n_, "open to an edge" if open_ else ("slit %.0f mm" % math.hypot(sl_[2] - sl_[0], sl_[3] - sl_[1])
                                                           if sl_ else SKIN_THREADS.get(n_, "no slit")))
@@ -3758,7 +3921,8 @@ sc.add("Carry", "Tripod_pad", tripod_pad, "frame")
 sc.add("Reference", "Tripod_ball_50", tripod_ball, "brg")
 sc.add("Carry", "Carry_tube_PVC", carry_tube, "carry")
 sc.add("Carry", "Carry_feet", carry_feet, "frame")
-sc.add("Carry", "Carry_rails", carry_rails, "carry")
+sc.add("Skin", "Front_shell_A", shell_a, "frame")
+sc.add("Skin", "Front_shell_B", shell_b, "frame")
 sc.add("Carry", "Strap_lugs", strap_lugs, "carry")
 sc.add("Carry", "Sling_loops", sling, "carry")
 sc.add("Air", "Rear_bearing_61812", rear_bearing, "brg")
@@ -3789,6 +3953,7 @@ sc.add("Skin", "Liner_half_right", cam_r, "cam")
 sc.add("Skin", "Liner_half_left", cam_l, "cam")
 sc.add("EVA", "EVA_skin", skin, "eva")
 sc.add("EVA", "EVA_end_cap", skin_cap, "eva")
+sc.add("EVA", "EVA_crank_pod", crank_pod, "eva")
 sc.add("Feed", "Star_collar", star_collar, "frame")
 sc.add("Star_drive", "Gears_A_B", gear_ab, "gear")
 sc.add("Fasteners", "Frame_studs_M6", Part.makeCompound([f_.body for f_ in FRAME_STUDS]), "drive")
